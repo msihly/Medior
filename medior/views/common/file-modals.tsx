@@ -6,6 +6,7 @@ import {
   FileExportModal,
   FileRefreshModal,
   InfoModal,
+  JobProgress,
   LoadingOverlay,
   LowerResolutionModal,
   Modal,
@@ -19,6 +20,14 @@ import { useStores } from "medior/store";
 export const FileModals = Comp(() => {
   const stores = useStores();
   const store = stores.file;
+
+  /** Preparation is cancelled; a running job keeps going in the background. */
+  const handleActionClose = () => {
+    if (store.isActionPreparing) store.cancelActionPreparation();
+    else handleActionMinimize();
+  };
+
+  const handleActionMinimize = () => store.setIsActionMinimized(true);
 
   return (
     <>
@@ -61,21 +70,27 @@ export const FileModals = Comp(() => {
 
       {store.exporter.isOpen && <FileExportModal />}
 
-      {store.isActionRunning && (
-        <Modal.Container onClose={store.cancelFileAction} width="30rem" height="16rem">
+      {store.isActionRunning && !store.isConfirmDeleteOpen && (
+        <Modal.Container
+          visible={!store.isActionMinimized}
+          onClose={handleActionClose}
+          width="30rem"
+          height="20rem"
+        >
           <LoadingOverlay
             isLoading
             sub={
-              <View column align="center" spacing="1rem">
-                <Text>{store.actionMessage}</Text>
+              store.isActionPreparing ? (
+                <View column align="center" spacing="1rem">
+                  <Text>{"Preparing files…"}</Text>
 
-                <Button
-                  text={store.isActionCancelling ? "Stopping after current operation…" : "Cancel"}
-                  icon="Close"
-                  onClick={store.cancelFileAction}
-                  disabled={store.isActionCancelling}
-                />
-              </View>
+                  <Button text="Cancel" icon="Close" onClick={store.cancelActionPreparation} />
+                </View>
+              ) : (
+                store.actionJob && (
+                  <JobProgress job={store.actionJob} onMinimize={handleActionMinimize} />
+                )
+              )
             }
           />
         </Modal.Container>

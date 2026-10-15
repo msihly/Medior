@@ -3,13 +3,7 @@ import path from "path";
 import chalk from "chalk";
 import { formatFile, makeIndexDef, makeSectionComment } from "trabecula/utils/generator";
 
-export {
-  formatFile,
-  makeIndexDef,
-  makeSectionComment,
-  parseExports,
-  parseExportsFromIndex,
-} from "trabecula/utils/generator";
+export { makeSectionComment, parseExportsFromIndex } from "trabecula/utils/generator";
 
 export const ROOT_PATH = path.resolve("./medior");
 

@@ -4,6 +4,7 @@ import { colors, toast } from "medior/utils/client";
 import { dayjs, Fmt } from "medior/utils/common";
 
 const SIZE_HISTORY_RANGES: { label: string; value: SizeHistoryRange }[] = [
+  { label: "24h", value: "24h" },
   { label: "7d", value: "7d" },
   { label: "30d", value: "30d" },
   { label: "All", value: "all" },

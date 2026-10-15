@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Card,
   CardGrid,
@@ -23,7 +23,14 @@ export const TransformSearch = Comp(() => {
   const [isConfirmDeleteOpen, setIsConfirmDeleteOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
+  const transformsRef = useRef<HTMLDivElement>(null);
+
   const hasSelected = store.search.selectedIds.length > 0;
+
+  // Only page changes scroll back up; background queue refreshes keep the reader's position.
+  useEffect(() => {
+    transformsRef.current?.scrollTo({ behavior: "instant", top: 0 });
+  }, [store.search.page]);
 
   const openDeleteConfirmation = () => {
     setIdsForDelete([...store.search.selectedIds]);
@@ -96,6 +103,7 @@ export const TransformSearch = Comp(() => {
           maxCards={3}
           noResultsText="No files found"
           padding={{ all: "0.3rem" }}
+          ref={transformsRef}
         />
 
         <Pagination

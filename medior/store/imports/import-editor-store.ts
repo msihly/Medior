@@ -14,6 +14,8 @@ import {
   FileSidecar,
   FileSidecarCollection,
   Fmt,
+  makeSeasonTitle,
+  MediaProgramPlan,
   mergeTagDefinitions,
   PromiseQueue,
   sleep,
@@ -58,13 +60,13 @@ const getValidIds = (ids: unknown): string[] => (Array.isArray(ids) ? ids.filter
 @model("medior/ImportEditorStore")
 export class ImportEditorStore extends Model({
   flatTagsToUpsert: prop<TagToUpsert[]>(() => []).withSetter(),
-  folderPage: prop<number>(0).withSetter(),
-  folderPageSize: prop<number>(IMPORT_FOLDER_PAGE_SIZE).withSetter(),
-  folderTotalCount: prop<number>(0).withSetter(),
+  folderPage: prop<number>(0),
+  folderPageSize: prop<number>(IMPORT_FOLDER_PAGE_SIZE),
+  folderTotalCount: prop<number>(0),
   hasChangesSinceLastScan: prop<boolean>(false).withSetter(),
   importCount: prop<number>(0),
   importSize: prop<number>(0),
-  ingestCancelToken: prop<number>(0).withSetter(),
+  ingestCancelToken: prop<number>(0),
   initProgressCompleted: prop<number>(0).withSetter(),
   initProgressStatus: prop<string>("").withSetter(),
   initProgressTotal: prop<number>(0).withSetter(),
@@ -73,6 +75,7 @@ export class ImportEditorStore extends Model({
   isLoading: prop<boolean>(true).withSetter(),
   isOpen: prop<boolean>(false).withSetter(),
   isSaving: prop<boolean>(false).withSetter(),
+  mediaPrograms: prop<MediaProgramPlan[]>(() => []).withSetter(),
   options: prop<ImportEditorOptions>(() => new ImportEditorOptions({})),
   rootFolderIndex: prop<number>(0).withSetter(),
   rootFolderPath: prop<string>("").withSetter(),
@@ -105,7 +108,9 @@ export class ImportEditorStore extends Model({
         this.options.withFileNameToTags,
         this.options.withFlattenTo,
         this.options.withFolderNameRegEx,
+        this.options.withMediaPrograms,
         this.options.withSidecar,
+        this.options.subtitleMode,
         this.rootFolderIndex,
       ],
       () => {
@@ -185,6 +190,7 @@ export class ImportEditorStore extends Model({
     this.isConfirmDiscardOpen = false;
     this.isLoading = false;
     this.isSaving = false;
+    this.mediaPrograms = [];
     this.options = new ImportEditorOptions({});
     this.rootFolderIndex = 0;
     this.rootFolderPath = "";
@@ -227,6 +233,17 @@ export class ImportEditorStore extends Model({
     this.importSize = imports.reduce((total, imp) => total + imp.size, 0);
   }
 
+  /** Default program fields chosen in the options apply to every detected program. */
+  @modelAction
+  setMediaProgramDefaults(
+    updates: Partial<Pick<MediaProgramPlan, "language" | "medium" | "type">>,
+  ) {
+    // Programs that already exist keep their saved classification unless edited individually.
+    this.mediaPrograms.forEach((plan) => {
+      if (!plan.existingId) Object.assign(plan, updates);
+    });
+  }
+
   @modelAction
   setTagsToUpsert(folderName: string, tagsToUpsert: TagToUpsert[]) {
     const folder = this.flatFolderHierarchy.get(folderName);
@@ -256,6 +273,13 @@ export class ImportEditorStore extends Model({
 
     this.folderPage = page;
     this.visibleFolderNames = visibleFolderNames;
+  }
+
+  @modelAction
+  updateMediaProgram(folderPath: string, updates: Partial<MediaProgramPlan>) {
+    const plan = this.getMediaProgram(folderPath);
+
+    if (plan) Object.assign(plan, updates);
   }
 
   /* ------------------------------ ASYNC ACTIONS ----------------------------- */
@@ -455,5 +479,19 @@ export class ImportEditorStore extends Model({
   @computed
   get rootFolder() {
     return this.rootFolderPath.length && this.rootFolderPath.split(path.sep)[this.rootFolderIndex];
+  }
+
+  /* ----------------------------- DYNAMIC GETTERS ---------------------------- */
+  /** Season collections are titled after their program, so renaming the program renames them. */
+  getFolderCollectionTitle(folder: FlatFolder) {
+    const plan = folder.mediaProgram && this.getMediaProgram(folder.mediaProgram.folderPath);
+
+    return plan
+      ? makeSeasonTitle(plan.name, folder.mediaProgram.seasonLabel)
+      : folder.collectionTitle;
+  }
+
+  getMediaProgram(folderPath: string) {
+    return this.mediaPrograms.find((program) => program.folderPath === folderPath);
   }
 }

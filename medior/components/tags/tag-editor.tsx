@@ -58,11 +58,7 @@ export const TagEditor = Comp(({ isSubEditor = false }: TagEditorProps) => {
   };
 
   const handleClose = () => {
-    if (isSaving) return;
-
-    store.setIsOpen(false);
-
-    if (!isSubEditor) stores.file.search.reloadIfQueued();
+    if (!isSaving) store.setIsOpen(false);
   };
 
   const handleConfirmDelete = async () => {
@@ -155,7 +151,7 @@ export const TagEditor = Comp(({ isSubEditor = false }: TagEditorProps) => {
         leftNode={
           store.tag && (
             <View row align="center" spacing="0.5rem">
-              <IdButton value={store.tag?.id} />
+              <IdButton value={store.tag.id} />
 
               <IconButton
                 name="Search"
@@ -180,8 +176,8 @@ export const TagEditor = Comp(({ isSubEditor = false }: TagEditorProps) => {
             <View row align="center" spacing="0.5rem">
               <RatingButton rating={store.tag.rating} setRating={handleRating} />
 
-              <Text tooltip={store.tag?.count} tooltipProps={{ flexShrink: 1 }} preset="sub-text">
-                {`${Fmt.commas(store.tag?.count ?? 0)} files / ${Fmt.bytes(store.tag?.size ?? 0)}`}
+              <Text tooltip={store.tag.count} tooltipProps={{ flexShrink: 1 }} preset="sub-text">
+                {`${Fmt.commas(store.tag.count ?? 0)} files / ${Fmt.bytes(store.tag.size ?? 0)}`}
               </Text>
 
               <IconButton
@@ -204,7 +200,7 @@ export const TagEditor = Comp(({ isSubEditor = false }: TagEditorProps) => {
         <Text preset="title">{!store.tag ? "Create Tag" : "Edit Tag"}</Text>
       </Modal.Header>
 
-      <Modal.Content spacing="0.5rem">
+      <Modal.Content>
         <View row spacing="0.5rem">
           <Card row spacing="0.5rem">
             <NumInput

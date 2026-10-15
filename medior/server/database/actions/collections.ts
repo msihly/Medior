@@ -20,7 +20,7 @@ import { makeRepairReporter } from "medior/server/database/repair-progress";
 import { SortMenuProps } from "medior/components";
 import { chunkArray, dayjs } from "medior/utils/common";
 import { leanModelToJson, makeAction, objectId, objectIds, socket } from "medior/utils/server";
-import { getCommonSourceFolder } from "medior/utils/server/source-folders";
+import { getCommonSourceFolder, mergeSourceFolders } from "medior/utils/server/source-folders";
 
 /* -------------------------------------------------------------------------- */
 /*                              HELPER FUNCTIONS                              */
@@ -69,12 +69,15 @@ export const syncCollectionFileIds = async (collectionId: string, fileIds: strin
   );
 };
 
+/** Removes deleted collections from their files and from the media programs using them as seasons. */
 // @generator-ignore-export
 export const removeFileCollectionIds = async (collectionIds: string[]) => {
   await updateFileCollectionIds(
     { collectionIds: { $in: objectIds(collectionIds) } },
     { $pull: { collectionIds: { $in: objectIds(collectionIds) } } },
   );
+
+  await actions.removeMediaProgramCollectionIds(collectionIds);
 };
 
 const dedupeFileIdIndexes = (fileIdIndexes: { fileId: string; index: number }[]) => {
@@ -116,7 +119,8 @@ const getMergeRatingSource = <T extends { rating: number; ratingIsManual?: boole
   collections.find(({ ratingIsManual }) => ratingIsManual) ??
   collections.find(({ rating }) => rating > 0);
 
-const normalizeSourceFolderPath = (sourceFolderPath: string) =>
+// @generator-ignore-export
+export const normalizeSourceFolderPath = (sourceFolderPath: string) =>
   path.win32
     .normalize(sourceFolderPath)
     .replace(/[\\/]+$/, "")
@@ -251,6 +255,8 @@ const writeCollectionMetadata = async (
 
   for (const update of updates) socket.emit("onFileCollectionUpdated", update);
 
+  await actions.regenMediaProgramsByCollectionIds(updates.map(({ id }) => id));
+
   return true;
 };
 
@@ -268,39 +274,36 @@ const processCollectionMetadataRegenQueue = async () => {
           .lean(),
       );
 
-      if (operation?.status === "PENDING")
-        await actions.setBackgroundOperationStatus(operation.id, "RUNNING");
-
       if (!operation) return;
+
+      if (operation.status === "PENDING")
+        await actions.setBackgroundOperationStatus(operation.id, "RUNNING");
 
       const collectionIds = operation.targetIds.slice(0, 100);
       const snapshots = await readCollectionMetadata(collectionIds);
+      const current = await models.BackgroundOperationModel.findById(operation.id).lean();
 
-      await (async () => {
-        const current = await models.BackgroundOperationModel.findById(operation.id).lean();
+      if (
+        !current ||
+        !["PENDING", "RUNNING"].includes(current.status) ||
+        current.targetIds.slice(0, collectionIds.length).join() !== collectionIds.join()
+      )
+        continue;
 
-        if (
-          !current ||
-          !["PENDING", "RUNNING"].includes(current.status) ||
-          current.targetIds.slice(0, collectionIds.length).join() !== collectionIds.join()
-        )
-          return;
-
-        if (!collectionIds.length) {
-          if (!current.targetIds.length)
-            await actions.completeEmptyBackgroundOperation(
-              operation.id,
-              "Collection metadata regeneration completed.",
-            );
-        } else if (await writeCollectionMetadata(snapshots)) {
-          await actions.completeBackgroundOperationTargets(
+      if (!collectionIds.length) {
+        if (!current.targetIds.length)
+          await actions.completeEmptyBackgroundOperation(
             operation.id,
-            collectionIds,
-            `Collection metadata: processed ${current.processedCount + collectionIds.length} of ${current.totalCount}.`,
-            operation.targetVersions ?? {},
+            "Collection metadata regeneration completed.",
           );
-        }
-      })();
+      } else if (await writeCollectionMetadata(snapshots)) {
+        await actions.completeBackgroundOperationTargets(
+          operation.id,
+          collectionIds,
+          `Collection metadata: processed ${current.processedCount + collectionIds.length} of ${current.totalCount}.`,
+          operation.targetVersions ?? {},
+        );
+      }
     } catch (error) {
       if (!canRunBackgroundQueues()) return;
 
@@ -347,6 +350,7 @@ export const addFilesToCollection = makeAction(
 
       return updateRes.data;
     },
+    { getFileIds: ({ fileIds }) => fileIds },
   ),
 );
 
@@ -383,6 +387,7 @@ export const insertFilesIntoCollection = makeAction(
 
       return updateRes.data;
     },
+    { getFileIds: ({ fileIdIndexes }) => fileIdIndexes.map(({ fileId }) => fileId) },
   ),
 );
 
@@ -432,6 +437,7 @@ export const createCollection = makeAction(
 
       return { ...collection, id: res._id.toString() };
     },
+    { getFileIds: ({ fileIdIndexes }) => fileIdIndexes.map(({ fileId }) => fileId) },
   ),
 );
 
@@ -500,11 +506,7 @@ export const upsertImportedCollection = makeAction(
 
         return { fileIdIndexes, id: collection.id };
       } else {
-        const createRes = await createCollection({
-          ...args,
-          sourceFolderPath: args.sourceFolderPath,
-          withSub: true,
-        });
+        const createRes = await createCollection({ ...args, withSub: true });
 
         if (!createRes.success) throw new Error(createRes.error);
 
@@ -617,6 +619,9 @@ export const mergeCollections = makeAction(
         { $set: { collectionId: target.id } },
       );
 
+      // Programs keep their season in the merged collection rather than losing it with the rest.
+      await actions.replaceMediaProgramCollectionIds(sourceIds, target.id);
+
       const deleteRes = await deleteCollections({ ids: sourceIds });
 
       if (!deleteRes.success) throw new Error(deleteRes.error);
@@ -627,7 +632,10 @@ export const mergeCollections = makeAction(
         uniqueFileCount: fileIdIndexes.length,
       };
     },
-    true,
+    {
+      getFileIds: ({ fileIdIndexes }) => fileIdIndexes.map(({ fileId }) => fileId),
+      persistInBackground: true,
+    },
   ),
 );
 
@@ -719,14 +727,10 @@ export const findRelatedCollectionGroups = makeAction(
           for (const collectionIndex of collectionIndexesByFileId.get(file._id.toString()) ?? []) {
             if (sourcePathsByCollection[collectionIndex].length) continue;
 
-            const currentPath = derivedSourceFolderPaths[collectionIndex];
-
-            derivedSourceFolderPaths[collectionIndex] =
-              currentPath === undefined
-                ? folderPath
-                : currentPath === null
-                  ? null
-                  : getCommonSourceFolder([currentPath, folderPath], true);
+            derivedSourceFolderPaths[collectionIndex] = mergeSourceFolders(
+              derivedSourceFolderPaths[collectionIndex],
+              folderPath,
+            );
           }
         }
       }
@@ -858,13 +862,7 @@ export const findRelatedCollectionGroups = makeAction(
       for (const indexes of titleIndexes.values()) {
         for (let left = 0; left < indexes.length; left++) {
           for (let right = left + 1; right < indexes.length; right++) {
-            const leftIndex = indexes[left];
-            const rightIndex = indexes[right];
-            const pairKey = `${Math.min(leftIndex, rightIndex)}:${Math.max(leftIndex, rightIndex)}`;
-
-            if (relatedPairKeys.has(pairKey)) continue;
-
-            addRelatedPair(leftIndex, rightIndex);
+            addRelatedPair(indexes[left], indexes[right]);
           }
         }
       }
@@ -1238,7 +1236,28 @@ export const updateCollection = makeAction(
 
       socket.emit("onFileCollectionUpdated", { id: updates.id, updates });
 
+      // Queued collection regens update their programs; manual ratings skip that queue.
+      if (updates.rating !== undefined)
+        await actions.regenMediaProgramsByCollectionIds([updates.id]);
+
       return res;
+    },
+    {
+      // Reordering or renaming leaves its files alone; only added and removed files change.
+      getFileIds: async ({ fileIdIndexes, id }) => {
+        if (!fileIdIndexes) return [];
+
+        const coll = await models.FileCollectionModel.findById(id)
+          .select({ fileIdIndexes: 1 })
+          .lean();
+        const currentIds = new Set(coll?.fileIdIndexes.map(({ fileId }) => String(fileId)));
+        const nextIds = new Set(fileIdIndexes.map(({ fileId }) => String(fileId)));
+
+        return [
+          ...[...nextIds].filter((fileId) => !currentIds.has(fileId)),
+          ...[...currentIds].filter((fileId) => !nextIds.has(fileId)),
+        ];
+      },
     },
   ),
 );

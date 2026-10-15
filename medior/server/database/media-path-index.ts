@@ -26,13 +26,12 @@ import { objectId } from "medior/utils/server";
 const INDEX_SCAN_SIZE = 10000;
 const INDEX_WRITE_SIZE = 1000;
 
+const getProgressId = (name: string) =>
+  `media-path-progress:${name}:${JSON.stringify(MEDIA_PATH_FIELDS[name] ?? {})}`;
+
 const publishIndexProgress = async (id: string) => {
   const checkpoints = await MediaOwnershipModel.find({
-    _id: {
-      $in: Object.keys(models).map(
-        (name) => `media-path-progress:${name}:${JSON.stringify(MEDIA_PATH_FIELDS[name] ?? {})}`,
-      ),
-    },
+    _id: { $in: Object.keys(models).map(getProgressId) },
   })
     .select({ processedCount: 1 })
     .lean();
@@ -102,7 +101,7 @@ export const runMediaPathIndexQueue = async () => {
       checkBackgroundExecution();
 
       const fields: Record<string, string> = MEDIA_PATH_FIELDS[name] ?? {};
-      const progressId = `media-path-progress:${name}:${JSON.stringify(fields)}`;
+      const progressId = getProgressId(name);
       const indexVersion = JSON.stringify(models[name].schema.indexes());
       const progress = await MediaOwnershipModel.findById(progressId).lean();
 

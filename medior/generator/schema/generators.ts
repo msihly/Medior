@@ -1,14 +1,12 @@
 import { makeSectionComment } from "medior/generator/utils";
 
 export class ModelDb {
-  private defaultPageSize: ModelDef["defaultPageSize"];
   private defaultSort: ModelDef["defaultSort"];
   private indexes: ModelDef["indexes"] = [];
   private name: ModelDef["name"];
   private persistence: ModelDef["persistence"];
   private properties: ModelDef["properties"] = [];
   private withActions: ModelDef["withActions"];
-  private withStore: ModelDef["withStore"];
 
   constructor(
     name: string,
@@ -19,10 +17,8 @@ export class ModelDb {
   ) {
     this.name = name;
     this.persistence = options?.persistence;
-    this.defaultPageSize = options?.defaultPageSize;
     this.defaultSort = options?.defaultSort ?? { isDesc: true, key: "dateCreated" };
     this.withActions = options?.withActions ?? true;
-    this.withStore = options?.withStore;
 
     this.addProp("id", "string", { defaultValue: options?.idDefault, required: true });
 
@@ -49,14 +45,12 @@ export class ModelDb {
 
   public getModel() {
     return {
-      defaultPageSize: this.defaultPageSize,
       defaultSort: this.defaultSort,
       indexes: this.indexes,
       name: this.name,
       persistence: this.persistence,
       properties: this.properties,
       withActions: this.withActions,
-      withStore: this.withStore,
     };
   }
 
@@ -144,9 +138,11 @@ const makeSchemaDef = (schemaName: string, schemaProps: string[]) =>
   ${
     ["FileSchema", "FileCollectionSchema", "FileImportBatchSchema"].includes(schemaName)
       ? `${schemaName}.plugin(mediaAncestryPlugin);`
-      : schemaName === "TagSchema"
-        ? `${schemaName}.plugin(tagAncestryPlugin);`
-        : ""
+      : schemaName === "MediaProgramSchema"
+        ? `${schemaName}.plugin(mediaAncestryPlugin, { aliases: [{ field: "genreIdsWithAncestors", targetField: "genreIds" }] });`
+        : schemaName === "TagSchema"
+          ? `${schemaName}.plugin(tagAncestryPlugin);`
+          : ""
   }`;
 
 const makeSchemaIndexes = (modelDef: ModelDef, schemaName: string) =>

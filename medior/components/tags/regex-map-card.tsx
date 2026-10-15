@@ -33,7 +33,7 @@ export const RegExMapCard = Comp(({ disabled = false, onTagClick, store }: RegEx
   }, [store.regExValue, store.regExTestString]);
 
   return (
-    <Card column header="Regular Expression" spacing="0.5rem">
+    <Card header="Regular Expression" spacing="0.5rem">
       <View row spacing="0.5rem">
         <View column flex={1} spacing="0.3rem" maxHeight="12rem" overflow="hidden auto">
           <Dropdown

@@ -28,7 +28,7 @@ const VIDEO_POSITIONS = {
 
 type ImageProps = Omit<
   DetailedHTMLProps<ImgHTMLAttributes<HTMLImageElement>, HTMLImageElement>,
-  "alt" | "height" | "medior" | "title" | "width"
+  "alt" | "height" | "title" | "width"
 > & {
   autoAnimate?: boolean;
   blur?: number;
@@ -65,10 +65,11 @@ export const Image = ({
 }: ImageProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const isRepairingThumbnail = useRef(false);
+  /** The server asked to retry later, such as while the file is locked or indexes are building. */
+  const isRepairWaiting = useRef(false);
   const repairAttempted = useRef(false);
   const repairReadinessRevision = useRef(0);
   const repairRevision = useRef(0);
-  const waitingForIndex = useRef(false);
 
   const [hasError, setHasError] = useState(false);
   const [imagePos, setImagePos] = useState<string>("center");
@@ -91,7 +92,7 @@ export const Image = ({
   useEffect(() => {
     isRepairingThumbnail.current = false;
     repairAttempted.current = false;
-    waitingForIndex.current = false;
+    isRepairWaiting.current = false;
     setRepairedThumb(undefined);
     setHasError(false);
 
@@ -101,8 +102,8 @@ export const Image = ({
   }, [fileId, sourceThumb?.path]);
 
   const resumeThumbnailRepair = () => {
-    if (waitingForIndex.current) {
-      waitingForIndex.current = false;
+    if (isRepairWaiting.current) {
+      isRepairWaiting.current = false;
       repairAttempted.current = false;
       setHasError(false);
     }
@@ -114,6 +115,11 @@ export const Image = ({
       resumeThumbnailRepair();
     };
 
+    // Repairs wait for files another operation locks, retrying once it releases them.
+    const handleLocks = ({ fileIds, label }: Parameters<SocketEvents["onFileLocksUpdated"]>[0]) => {
+      if (isRepairWaiting.current && !label && fileIds.includes(fileId)) handleReady();
+    };
+
     const handleOperation = ({
       updates,
     }: Parameters<SocketEvents["onBackgroundOperationUpdated"]>[0]) => {
@@ -121,10 +127,12 @@ export const Image = ({
     };
 
     socket.on("onBackgroundOperationUpdated", handleOperation);
+    socket.on("onFileLocksUpdated", handleLocks);
     socket.on("connected", handleReady);
 
     return () => {
       socket.off("onBackgroundOperationUpdated", handleOperation);
+      socket.off("onFileLocksUpdated", handleLocks);
       socket.off("connected", handleReady);
     };
   }, [fileId]);
@@ -197,7 +205,7 @@ export const Image = ({
 
     repairAttempted.current = true;
     isRepairingThumbnail.current = true;
-    waitingForIndex.current = false;
+    isRepairWaiting.current = false;
 
     try {
       const res = await trpc.repairFileThumbnail.mutate({ fileId });
@@ -208,7 +216,7 @@ export const Image = ({
         setRepairedThumb(res.data.thumb);
         setHasError(false);
       } else if (res.success && res.data.status === "waiting") {
-        waitingForIndex.current = true;
+        isRepairWaiting.current = true;
       }
     } catch (error) {
       if (revision === repairRevision.current)

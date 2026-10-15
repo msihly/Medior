@@ -10,6 +10,7 @@ import {
   runBackgroundExecution,
 } from "medior/server/database/background-execution";
 import { dayjs } from "medior/utils/common";
+import { assertFilesUnlocked, assertRequestFilesUnlocked } from "./file-locks";
 import { metadataWork } from "./metadata-context";
 import { withMetadataMutation } from "./metadata-mutations";
 import { MetadataPayload, readMetadataPayload, writeMetadataPayload } from "./metadata-payloads";
@@ -25,6 +26,8 @@ export interface MetadataWork {
 }
 
 const activeWork = new Map<string, Promise<unknown>>();
+/** Each handler's changed files, checked against locks whenever a saved request runs. */
+const fileIdGetters = new Map<string, (input: any) => Promise<string[]> | string[]>();
 const handlers = new Map<string, (input: any) => Promise<unknown>>();
 
 export const metadataWriteOptions = () => ({ j: true, w: "majority" as const });
@@ -146,6 +149,11 @@ export const runMetadataWork = async (operation: BackgroundOperationSchema) => {
       }
 
       const input = await readMetadataPayload(operation.work.inputPayload);
+      const getFileIds = fileIdGetters.get(operation.work.name);
+
+      // Checked again as the request runs, since a job may have locked its files after it was saved.
+      if (getFileIds) assertRequestFilesUnlocked(await getFileIds(input));
+
       const result = await metadataWork.run(
         {
           id: operation.id,
@@ -219,17 +227,28 @@ export const runMetadataWork = async (operation: BackgroundOperationSchema) => {
 export const registerMetadataWork = <Input, Output>(
   name: string,
   run: (input: Input) => Promise<Output>,
-  persistInBackground = false,
+  {
+    getFileIds,
+    persistInBackground = false,
+  }: {
+    /** Files the request changes, which it may not change while another operation locks them. */
+    getFileIds?: (input: Input) => Promise<string[]> | string[];
+    persistInBackground?: boolean;
+  } = {},
 ) => {
   if (handlers.has(name)) throw new Error(`Duplicate metadata handler: ${name}`);
 
   handlers.set(name, run);
+
+  if (getFileIds) fileIdGetters.set(name, getFileIds);
 
   return async (input: Input): Promise<Output> => {
     // Linked calls belong to the same saved request and propagate failures to its owner.
     if (metadataWork.getStore() || (backgroundExecution.getStore() && !persistInBackground))
       return withMetadataMutation(() => run(input));
     else {
+      if (getFileIds) assertFilesUnlocked(await getFileIds(input));
+
       const id = new Types.ObjectId();
       const inputPayload = await writeMetadataPayload(String(id), "input", input);
 

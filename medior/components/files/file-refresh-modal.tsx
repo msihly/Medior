@@ -1,95 +1,66 @@
-import { Button, Card, Comp, Icon, Modal, ProgressBar, Text, View } from "medior/components";
+import { Button, Comp, Icon, Modal, ProgressBar, Text } from "medior/components";
 import { useStores } from "medior/store";
-import { colors, makeClasses } from "medior/utils/client";
+import { colors, toast } from "medior/utils/client";
 
 export const FileRefreshModal = Comp(() => {
   const stores = useStores();
   const store = stores.file;
 
-  const { css } = useClasses(null);
+  const job = store.refreshJob;
+  const currentFileNumber = job ? Math.min(job.processed + 1, job.total) : 0;
 
-  const currentFileNumber = Math.min(store.refreshProcessedCount + 1, store.refreshTotalCount);
-  const progressBar =
-    store.refreshStepProgress !== null ? (
-      <ProgressBar
-        numerator={store.refreshStepProgress}
-        denominator={100}
-        viewProps={{ width: "100%" }}
-        withText
-      />
-    ) : null;
+  const handleCancel = async () => {
+    if (!job) store.setIsRefreshOpen(false);
+    else {
+      const res = await stores.home.stopJob(job.id);
+      if (!res.success) toast.error(res.error);
+    }
+  };
 
-  const handleClose = () =>
-    store.isRefreshing ? store.cancelFileRefresh() : store.setIsRefreshOpen(false);
+  const handleMinimize = () => store.setIsRefreshMinimized(true);
 
   return (
-    <>
-      <Modal.Container
-        height="30rem"
-        width="35rem"
-        visible={!store.isRefreshMinimized}
-        onClose={handleClose}
-      >
-        <Modal.Header>
-          <Text preset="title">{"Refresh Files"}</Text>
-        </Modal.Header>
+    <Modal.Container
+      height="30rem"
+      width="35rem"
+      visible={!store.isRefreshMinimized}
+      onClose={handleMinimize}
+    >
+      <Modal.Header>
+        <Text preset="title">{"Refresh Files"}</Text>
+      </Modal.Header>
 
-        <Modal.Content align="center" justify="center" spacing="1rem">
-          <Icon name="Refresh" color={colors.custom.lightBlue} size="5rem" />
+      <Modal.Content align="center" justify="center" spacing="1rem">
+        <Icon name="Refresh" color={colors.custom.lightBlue} size="5rem" />
 
-          <Text preset="title">{`File ${currentFileNumber} of ${store.refreshTotalCount}`}</Text>
+        <Text preset="title">{`File ${currentFileNumber} of ${job?.total ?? 0}`}</Text>
 
-          <Text textAlign="center" whiteSpace="normal">
-            {store.refreshCurrentFileName}
-          </Text>
+        <Text textAlign="center" whiteSpace="normal">
+          {job?.item}
+        </Text>
 
-          <Text color={colors.custom.lightGrey}>{store.refreshMessage}</Text>
+        <Text color={colors.custom.lightGrey}>{job?.message}</Text>
 
-          {progressBar}
-        </Modal.Content>
-
-        <Modal.Footer>
-          <Button text="Cancel" icon="Close" onClick={handleClose} />
-
-          <Button
-            text="Minimize"
-            icon="IndeterminateCheckBox"
-            onClick={() => store.setIsRefreshMinimized(true)}
+        {job && job.stepProgress !== null && (
+          <ProgressBar
+            numerator={job.stepProgress}
+            denominator={100}
+            viewProps={{ width: "100%" }}
+            withText
           />
-        </Modal.Footer>
-      </Modal.Container>
+        )}
+      </Modal.Content>
 
-      {store.isRefreshMinimized && (
-        <View position="fixed" className={css.minimized} width="24rem">
-          <Card spacing="0.5rem" padding={{ all: "0.5rem" }} width="100%">
-            <Text preset="title">{`Refreshing file ${currentFileNumber} of ${store.refreshTotalCount}`}</Text>
+      <Modal.Footer>
+        <Button
+          text={job?.isStopping ? "Stopping…" : "Cancel"}
+          icon="Close"
+          onClick={handleCancel}
+          disabled={job?.isStopping}
+        />
 
-            <Text whiteSpace="normal">{store.refreshCurrentFileName}</Text>
-
-            <Text color={colors.custom.lightGrey}>{store.refreshMessage}</Text>
-
-            {progressBar}
-
-            <View row spacing="0.5rem">
-              <Button text="Cancel" icon="Close" onClick={handleClose} />
-
-              <Button
-                text="Restore"
-                icon="OpenInFull"
-                onClick={() => store.setIsRefreshMinimized(false)}
-              />
-            </View>
-          </Card>
-        </View>
-      )}
-    </>
+        <Button text="Minimize" icon="IndeterminateCheckBox" onClick={handleMinimize} />
+      </Modal.Footer>
+    </Modal.Container>
   );
-});
-
-const useClasses = makeClasses({
-  minimized: {
-    bottom: "1rem",
-    right: "1rem",
-    zIndex: 1400,
-  },
 });

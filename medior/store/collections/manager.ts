@@ -10,12 +10,13 @@ export class CollectionManager extends Model({
   currentCollections: prop<FileCollection[]>(() => []).withSetter(),
   currentCollectionsPage: prop<number>(1).withSetter(),
   currentCollectionsPageCount: prop<number>(0).withSetter(),
-  isConfirmDeleteOpen: prop<boolean>(false).withSetter(),
   isLoading: prop<boolean>(false).withSetter(),
   isOpen: prop<boolean>(false),
   isRelatedQueueOpen: prop<boolean>(false).withSetter(),
   isTriagerOpen: prop<boolean>(false).withSetter(),
-  search: prop<FileCollectionSearch>(() => new FileCollectionSearch({})).withSetter(),
+  search: prop<FileCollectionSearch>(() => new FileCollectionSearch({})),
+  /** Media program that selected collections are added to as seasons. */
+  seasonsProgramId: prop<string>(null).withSetter(),
   selectedFileIds: prop<string[]>(() => []).withSetter(),
   selectedFiles: prop<File[]>(() => []).withSetter(),
   selectedFilesPage: prop<number>(1).withSetter(),
@@ -43,6 +44,7 @@ export class CollectionManager extends Model({
     this.selectedFilesPage = 1;
 
     if (!isOpen) {
+      this.seasonsProgramId = null;
       this.selectedFileIds = [];
       this.selectedFiles = [];
     }

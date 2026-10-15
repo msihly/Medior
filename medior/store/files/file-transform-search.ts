@@ -58,10 +58,8 @@ export class FileTransformSearch extends ExtendedModel(_FileTransformSearch, {
       const fileIds = [...new Set(this.results.map((f) => f.fileId))];
 
       if (!fileIds.length) {
-        if (loadId === this.loadId) {
-          this.setFiles(new Map());
-          this.setIsLoading(false);
-        }
+        this.setFiles(new Map());
+        this.setIsLoading(false);
       } else {
         const files = await loadFilesWithTags(fileIds);
 

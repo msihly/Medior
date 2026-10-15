@@ -32,19 +32,8 @@ export const assertImportEntriesReady = async () => {
 
 /** Legacy arrays and partially copied entries must never escape through normal model access. */
 export const importEntriesPlugin = (schema: Schema) => {
-  schema.pre(/^(find|count|distinct|update|delete|replace)/, async function () {
-    await assertImportEntriesReady();
-  });
-
-  schema.pre("aggregate", async function () {
-    await assertImportEntriesReady();
-  });
-
-  schema.pre("insertMany", async function () {
-    await assertImportEntriesReady();
-  });
-
-  schema.pre("save", async function () {
-    await assertImportEntriesReady();
-  });
+  schema.pre(/^(find|count|distinct|update|delete|replace)/, assertImportEntriesReady);
+  schema.pre("aggregate", assertImportEntriesReady);
+  schema.pre("insertMany", assertImportEntriesReady);
+  schema.pre("save", assertImportEntriesReady);
 };

@@ -1,6 +1,17 @@
-import { Button, Checkbox, CheckboxProps, Comp, Divider, NumInput, View } from "medior/components";
+import {
+  Button,
+  Checkbox,
+  CheckboxProps,
+  Comp,
+  Divider,
+  Dropdown,
+  MediaProgramDropdown,
+  NumInput,
+  View,
+} from "medior/components";
 import { Ingester, Reingester } from "medior/store";
 import { colors } from "medior/utils/client";
+import { SUBTITLE_MODES } from "medior/utils/common";
 
 export interface ImportOptionsProps {
   scan: () => Promise<void>;
@@ -12,6 +23,21 @@ export const ImportOptions = Comp(({ scan, store }: ImportOptionsProps) => {
     disabled: store.isDisabled,
     flex: "initial",
     padding: { all: "0.5rem" },
+  };
+
+  const handleMediaProgramLanguage = (language: string) => {
+    store.options.setMediaProgramLanguage(language);
+    store.setMediaProgramDefaults({ language });
+  };
+
+  const handleMediaProgramMedium = (medium: string) => {
+    store.options.setMediaProgramMedium(medium);
+    store.setMediaProgramDefaults({ medium });
+  };
+
+  const handleMediaProgramType = (type: string) => {
+    store.options.setMediaProgramType(type);
+    store.setMediaProgramDefaults({ type });
   };
 
   return (
@@ -147,6 +173,55 @@ export const ImportOptions = Comp(({ scan, store }: ImportOptionsProps) => {
           />
         </View>
       </View>
+
+      <Divider flexItem={false} />
+
+      <Checkbox
+        {...checkboxProps}
+        label="Media Programs"
+        checked={store.options.withMediaPrograms}
+        setChecked={store.options.setWithMediaPrograms}
+      />
+
+      <View column spacing="0.5rem" margins={{ left: "1rem" }}>
+        <MediaProgramDropdown
+          field="types"
+          header="Type"
+          value={store.options.mediaProgramType}
+          setValue={handleMediaProgramType}
+          disabled={store.isDisabled || !store.options.withMediaPrograms}
+          dense
+        />
+
+        <MediaProgramDropdown
+          field="mediums"
+          header="Medium"
+          value={store.options.mediaProgramMedium}
+          setValue={handleMediaProgramMedium}
+          disabled={store.isDisabled || !store.options.withMediaPrograms}
+          dense
+        />
+
+        <MediaProgramDropdown
+          field="languages"
+          header="Language"
+          value={store.options.mediaProgramLanguage}
+          setValue={handleMediaProgramLanguage}
+          disabled={store.isDisabled || !store.options.withMediaPrograms}
+          dense
+        />
+      </View>
+
+      <Divider flexItem={false} />
+
+      <Dropdown
+        header="Subtitles"
+        options={[...SUBTITLE_MODES]}
+        value={store.options.subtitleMode}
+        setValue={store.options.setSubtitleMode}
+        disabled={store.isDisabled}
+        dense
+      />
 
       <Divider flexItem={false} />
 

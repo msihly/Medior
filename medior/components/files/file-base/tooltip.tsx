@@ -11,7 +11,7 @@ import {
   UniformList,
   View,
 } from "medior/components";
-import { File } from "medior/store";
+import { File, useStores } from "medior/store";
 import { colors } from "medior/utils/client";
 import { CONSTANTS, Fmt } from "medior/utils/common";
 
@@ -22,9 +22,13 @@ interface TooltipProps {
 }
 
 export const Tooltip = Comp(({ children, disabled, file }: TooltipProps) => {
+  const stores = useStores();
+
   const [open, setOpen] = useState(false);
 
   const anchorRef = useRef<HTMLElement>(null);
+
+  const lockLabel = stores.file.getFileLock(file.id);
 
   const handleClose = () => setOpen(false);
 
@@ -77,6 +81,16 @@ export const Tooltip = Comp(({ children, disabled, file }: TooltipProps) => {
 
               <Text preset="title" color={colors.custom.orange}>
                 {"Corrupted"}
+              </Text>
+            </View>
+          )}
+
+          {!!lockLabel && (
+            <View row align="center" justify="center" spacing="0.5rem">
+              <Icon name="Lock" color={colors.custom.orange} />
+
+              <Text preset="title" color={colors.custom.orange}>
+                {`Locked by ${lockLabel}`}
               </Text>
             </View>
           )}

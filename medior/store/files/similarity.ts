@@ -1,10 +1,10 @@
 import autoBind from "auto-bind";
 import { computed } from "mobx";
 import { Model, model, modelAction, modelFlow, prop } from "mobx-keystone";
-import { asyncAction, toast } from "medior/utils/client";
+import { asyncAction, derefMobx, toast } from "medior/utils/client";
 import { CONSTANTS } from "medior/utils/common";
 import { getConfig, trpc } from "medior/utils/server";
-import { FileSearch } from "./search";
+import { DuplicateFileSearch } from "./search";
 
 interface LoadSimilarArgs {
   append?: boolean;
@@ -12,7 +12,11 @@ interface LoadSimilarArgs {
 }
 
 interface SimilarityCandidateMeta {
+  /** Percentage of the file that differs from the looked-up file, where their pixels compared. */
+  difference: number | null;
   fileId: string;
+  /** Looks alike but was edited, recoloured, or reframed rather than copied. */
+  isVariation: boolean;
   rank: number;
   score: number;
 }
@@ -22,18 +26,27 @@ export class FileSimilarityStore extends Model({
   activeFileId: prop<string | null>(null).withSetter(),
   candidates: prop<SimilarityCandidateMeta[]>(() => []).withSetter(),
   error: prop<string>("").withSetter(),
+  /** JSON of the filter last searched in the filter menu, which every match must pass. */
+  filter: prop<string | null>(null).withSetter(),
   hasMore: prop<boolean>(false).withSetter(),
   isLoading: prop<boolean>(false).withSetter(),
   isOpen: prop<boolean>(false).withSetter(),
   loadId: prop<number>(0).withSetter(),
   nextOffset: prop<number>(0).withSetter(),
-  search: prop<FileSearch>(() => new FileSearch({})),
+  /** Its filter menu only chooses matches; the lookup's ranked files fill its results. */
+  search: prop<DuplicateFileSearch>(() => new DuplicateFileSearch({})),
 }) {
   onInit() {
     autoBind(this);
   }
 
   /* ---------------------------- STANDARD ACTIONS ---------------------------- */
+  @modelAction
+  applyFilter() {
+    // The lookup's own candidate IDs aren't part of the filter the matches must pass.
+    this.setFilter(JSON.stringify({ ...derefMobx(this.search.getFilterProps()), ids: undefined }));
+  }
+
   @modelAction
   cancelLoad() {
     this.setLoadId(this.loadId + 1);
@@ -51,6 +64,7 @@ export class FileSimilarityStore extends Model({
     this.setActiveFileId(null);
     this.setCandidates([]);
     this.setError("");
+    this.setFilter(null);
     this.setHasMore(false);
     this.setNextOffset(0);
     this.search.reset();
@@ -81,7 +95,9 @@ export class FileSimilarityStore extends Model({
     this.search.setPageCount(Math.ceil(this.search.ids.length / this.search.pageSize));
     this.search.setPage(Math.min(this.search.page, Math.max(1, this.search.pageCount)));
 
-    if (this.isOpen && this.search.ids.length) this.search.loadFiltered();
+    // A page left empty shows the candidates now on it rather than an empty grid.
+    if (!this.search.results.length && this.search.ids.length)
+      this.search.loadFiltered({ page: this.search.page });
   }
 
   @modelAction
@@ -90,6 +106,7 @@ export class FileSimilarityStore extends Model({
     this.setActiveFileId(fileId);
     this.setCandidates([]);
     this.setError("");
+    this.setFilter(null);
     this.setHasMore(false);
     this.setNextOffset(0);
     this.search.reset();
@@ -117,6 +134,7 @@ export class FileSimilarityStore extends Model({
     try {
       const res = await trpc.findSimilarFiles.mutate({
         fileId: this.activeFileId,
+        filter: this.filter,
         limit:
           limit ??
           Math.min(CONSTANTS.VECTOR.MAX_SIMILAR_RESULTS, Math.max(100, this.search.pageSize)),

@@ -1,6 +1,7 @@
 import fs from "fs/promises";
 import path from "path";
 import * as models from "medior/_generated/server/models";
+import { extendFileName } from "trabecula/utils/server";
 import { deleteFiles, relinkFiles } from "medior/server/database/actions/files";
 import {
   assertMediaPathIndexesReady,
@@ -12,8 +13,8 @@ import {
 import { mediaPathKey } from "medior/server/database/media-paths";
 import { withMetadataMutation } from "medior/server/database/metadata-mutations";
 import { makeRepairReporter } from "medior/server/database/repair-progress";
-import { CONSTANTS } from "medior/utils/common";
-import { getConfig, makeAction } from "medior/utils/server";
+import { chunkArray, CONSTANTS, Fmt, getSubtitleFilePaths } from "medior/utils/common";
+import { getConfig, getIsActiveScratchPath, makeAction } from "medior/utils/server";
 import { hashMediaFile } from "medior/utils/server/media-output";
 import { runConcurrent } from "medior/utils/server/work-signal";
 
@@ -34,17 +35,65 @@ let isScanningStorage = false;
 
 const getOwnedStoragePaths = async (paths: string[]) => {
   const keys = paths.map(mediaPathKey);
-  const owners = await models.FileModel.find({
-    $or: [
-      { pathKey: { $in: keys, $type: "string" } },
-      { thumbPathKey: { $in: keys, $type: "string" } },
-    ],
-  })
-    .select({ path: 1, "thumb.path": 1 })
-    .lean();
+  const subtitleKeys = paths
+    .filter((filePath) => path.extname(filePath).toLowerCase() === ".sub")
+    .map((filePath) => mediaPathKey(extendFileName(filePath, "idx")));
+
+  // Transforms, unfinished imports, and pending cleanups own their outputs as the library does.
+  const [files, transforms, operations] = await Promise.all([
+    models.FileModel.find({
+      $or: [
+        { pathKey: { $in: keys, $type: "string" } },
+        { "subtitles.pathKey": { $in: [...keys, ...subtitleKeys], $type: "string" } },
+        { thumbPathKey: { $in: keys, $type: "string" } },
+      ],
+    })
+      .select({ path: 1, "subtitles.ext": 1, "subtitles.path": 1, "thumb.path": 1 })
+      .lean(),
+    models.FileTransformModel.find({
+      $or: [
+        { afterPathKey: { $in: keys, $type: "string" } },
+        { beforePathKey: { $in: keys, $type: "string" }, cleanupPending: true },
+        { outputTempPathKey: { $in: keys, $type: "string" } },
+      ],
+    })
+      .select({ afterPath: 1, beforePath: 1, cleanupPending: 1, outputTempPath: 1 })
+      .lean(),
+    FileOperationModel.find({
+      $or: [
+        { "cleanup.pathKey": { $in: keys }, state: "COMMITTED" },
+        { contentPathKey: { $in: keys, $type: "string" }, state: "PREPARED" },
+        { outputPathKey: { $in: keys, $type: "string" }, state: "PREPARED" },
+        { tempPathKey: { $in: keys, $type: "string" } },
+        { thumbPathKey: { $in: keys, $type: "string" }, state: "PREPARED" },
+      ],
+    })
+      .select({ cleanup: 1, contentPath: 1, outputPath: 1, state: 1, tempPath: 1, thumbPath: 1 })
+      .lean(),
+  ]);
 
   return new Set(
-    owners.flatMap((file) => [mediaPathKey(file.path), mediaPathKey(file.thumb?.path)]),
+    [
+      ...files.flatMap((file) => [
+        file.path,
+        file.thumb?.path,
+        ...getSubtitleFilePaths(file.subtitles),
+      ]),
+      ...transforms.flatMap((transform) => [
+        transform.afterPath,
+        transform.cleanupPending ? transform.beforePath : null,
+        transform.outputTempPath,
+      ]),
+      ...operations.flatMap((operation) => [
+        ...(operation.state === "COMMITTED" ? operation.cleanup.map((file) => file.path) : []),
+        ...(operation.state === "PREPARED"
+          ? [operation.contentPath, operation.outputPath, operation.thumbPath]
+          : []),
+        operation.tempPath,
+      ]),
+    ]
+      .filter(Boolean)
+      .map(mediaPathKey),
   );
 };
 
@@ -82,118 +131,146 @@ const readStorageDirectory = async (directory: string, signal: AbortSignal) => {
   return { files, links };
 };
 
+/** Deletes storage files no record owns, in batches of 200 that each keep their own progress. */
 export const deleteUntrackedStorageFiles = makeAction(
   async ({ paths, repairId }: { paths: string[]; repairId: string }) => {
-    if (!paths.length || paths.length > 200)
-      throw new Error("Storage cleanup accepts between 1 and 200 paths per request.");
-
-    const { checkCancelled, run, signal } = makeRepairReporter(
+    const { checkCancelled, report, run, signal } = makeRepairReporter(
       repairId,
       "deleteUntrackedStorageFiles",
     );
 
-    return run(() =>
-      withMetadataMutation(async () => {
-        const ownedPaths = await getOwnedStoragePaths(paths);
-        const removedPaths: string[] = [];
-        const untrackedPaths: string[] = [];
+    return run(async () => {
+      const removedPaths: string[] = [];
 
-        await runConcurrent(
-          paths,
-          CONSTANTS.FILE.IO_CONCURRENCY,
-          async (filePath) => {
-            checkCancelled();
+      for (const batch of chunkArray(paths, 200)) {
+        checkCancelled();
 
-            if (!(await isStoredFile(filePath))) removedPaths.push(filePath);
-            else if (!ownedPaths.has(mediaPathKey(filePath))) untrackedPaths.push(filePath);
-          },
-          signal,
-        );
-
-        if (untrackedPaths.length) {
-          checkCancelled();
-
-          const cleanup: FileCleanup[] = [];
-
-          for (const filePath of untrackedPaths) {
-            const entry = await describeFileCleanup(filePath);
-
-            if (entry) cleanup.push(entry);
-          }
-
-          if (cleanup.length) {
-            checkCancelled();
-
-            const operation = await FileOperationModel.create({ cleanup, state: "COMMITTED" });
-
-            await finishFileOperation(operation._id);
-          }
-
-          checkCancelled();
+        await withMetadataMutation(async () => {
+          const ownedPaths = await getOwnedStoragePaths(batch);
+          const untrackedPaths: string[] = [];
 
           await runConcurrent(
-            untrackedPaths,
+            batch,
             CONSTANTS.FILE.IO_CONCURRENCY,
             async (filePath) => {
+              checkCancelled();
+
               if (!(await isStoredFile(filePath))) removedPaths.push(filePath);
+              else if (!ownedPaths.has(mediaPathKey(filePath))) untrackedPaths.push(filePath);
             },
             signal,
           );
-        }
 
-        return { removedPaths, retainedCount: paths.length - removedPaths.length };
-      }),
-    );
+          if (untrackedPaths.length) {
+            checkCancelled();
+
+            const cleanup: FileCleanup[] = [];
+
+            for (const filePath of untrackedPaths) {
+              const entry = await describeFileCleanup(filePath);
+
+              if (entry) cleanup.push(entry);
+            }
+
+            if (cleanup.length) {
+              checkCancelled();
+
+              const operation = await FileOperationModel.create({ cleanup, state: "COMMITTED" });
+
+              await finishFileOperation(operation._id);
+            }
+
+            checkCancelled();
+
+            await runConcurrent(
+              untrackedPaths,
+              CONSTANTS.FILE.IO_CONCURRENCY,
+              async (filePath) => {
+                if (!(await isStoredFile(filePath))) removedPaths.push(filePath);
+              },
+              signal,
+            );
+          }
+        });
+
+        report(
+          `Removed ${Fmt.commas(removedPaths.length)} untracked files of ${Fmt.commas(paths.length)}.`,
+          "progress",
+        );
+      }
+
+      return { removedPaths, retainedCount: paths.length - removedPaths.length };
+    });
   },
 );
 
+/**
+ * Deletes records whose media is missing, in batches of 200. Each record stays locked until its
+ * batch is checked.
+ */
 export const removeMissingStorageRecords = makeAction(
   async ({ fileIds, repairId }: { fileIds: string[]; repairId: string }) => {
-    if (!fileIds.length || fileIds.length > 200)
-      throw new Error("Storage cleanup accepts between 1 and 200 file IDs per request.");
-
-    const { checkCancelled, run, signal } = makeRepairReporter(
+    const { checkCancelled, lock, report, run, signal, unlock } = makeRepairReporter(
       repairId,
       "removeMissingStorageRecords",
     );
 
-    return run(() =>
-      withMetadataMutation(async () => {
-        const files = await models.FileModel.find({ _id: { $in: fileIds } })
-          .select({ path: 1 })
-          .lean();
+    return run(async () => {
+      let removedCount = 0;
+      let retainedCount = 0;
 
-        const missingIds: string[] = [];
+      lock(fileIds);
 
-        await runConcurrent(
-          files,
-          CONSTANTS.FILE.IO_CONCURRENCY,
-          async (file) => {
+      for (const batch of chunkArray(fileIds, 200)) {
+        checkCancelled();
+
+        await withMetadataMutation(async () => {
+          const files = await models.FileModel.find({ _id: { $in: batch } })
+            .select({ path: 1 })
+            .lean();
+
+          const missingIds: string[] = [];
+
+          await runConcurrent(
+            files,
+            CONSTANTS.FILE.IO_CONCURRENCY,
+            async (file) => {
+              checkCancelled();
+
+              if (!(await isStoredFile(file.path))) missingIds.push(String(file._id));
+            },
+            signal,
+          );
+
+          if (missingIds.length) {
             checkCancelled();
 
-            if (!(await isStoredFile(file.path))) missingIds.push(String(file._id));
-          },
-          signal,
+            // Missing media was lost, not rejected, so its content is not marked deleted.
+            const result = await deleteFiles({ fileIds: missingIds, withDeletedHashes: false });
+
+            if (!result.success) throw new Error(result.error);
+          }
+
+          removedCount += missingIds.length;
+          retainedCount += files.length - missingIds.length;
+        });
+
+        unlock(batch);
+        report(
+          `Removed ${Fmt.commas(removedCount)} missing records; retained ${Fmt.commas(retainedCount)} records whose files are now present.`,
+          "progress",
         );
+      }
 
-        if (missingIds.length) {
-          checkCancelled();
-
-          const result = await deleteFiles({ fileIds: missingIds });
-
-          if (!result.success) throw new Error(result.error);
-        }
-
-        return { removedCount: missingIds.length, retainedCount: files.length - missingIds.length };
-      }),
-    );
+      return { removedCount, retainedCount };
+    });
   },
 );
 
 export const scanFileStorage = makeAction(async ({ repairId }: { repairId: string }) => {
   if (isScanningStorage) throw new Error("A file storage scan is already running.");
 
-  const { checkCancelled, progress, report, run, signal } = makeRepairReporter(
+  const { checkCancelled, lock, progress, report, run, signal, unlock } = makeRepairReporter(
     repairId,
     "scanFileStorage",
   );
@@ -220,6 +297,10 @@ export const scanFileStorage = makeAction(async ({ repairId }: { repairId: strin
       }
 
       if (!locations.length) throw new Error("No file storage locations are configured.");
+
+      lock(
+        (await models.FileModel.find().select({ _id: 1 }).lean()).map((file) => String(file._id)),
+      );
 
       const candidates: StorageRecovery[] = [];
       const directories = new Map<string, Awaited<ReturnType<typeof readStorageDirectory>>>();
@@ -297,13 +378,16 @@ export const scanFileStorage = makeAction(async ({ repairId }: { repairId: strin
 
         for (const [key, entries] of retainedDirectories) directories.set(key, entries);
 
+        const foundIds: string[] = [];
+
         for (const file of files) {
           checkCancelled();
 
           const missingFile = !storedPaths.has(mediaPathKey(file.path));
           const missingThumb = !storedPaths.has(mediaPathKey(file.thumb?.path));
 
-          if (missingFile || missingThumb) {
+          if (!missingFile && !missingThumb) foundIds.push(String(file._id));
+          else {
             candidates.push({
               hash: file.hash,
               id: String(file._id),
@@ -325,6 +409,8 @@ export const scanFileStorage = makeAction(async ({ repairId }: { repairId: strin
           }
         }
 
+        // Records found in place need nothing more; the rest stay locked until resolved.
+        unlock(foundIds);
         inspected += files.length;
         reportInspected();
       };
@@ -405,8 +491,9 @@ export const scanFileStorage = makeAction(async ({ repairId }: { repairId: strin
 
           const filePath = path.join(directory, entry.name);
 
-          if (entry.isDirectory()) pendingDirectories.push(filePath);
-          else if (entry.isFile()) {
+          if (entry.isDirectory()) {
+            if (!getIsActiveScratchPath(filePath)) pendingDirectories.push(filePath);
+          } else if (entry.isFile()) {
             const name = entry.name.toLowerCase();
 
             if (matches.has(name)) {
@@ -417,7 +504,7 @@ export const scanFileStorage = makeAction(async ({ repairId }: { repairId: strin
                 matches.set(name, null);
             }
 
-            if (!/-thumb(-\d+)?\.\w+$/i.test(entry.name)) {
+            if (!/-thumb(-\d+)?\.\w+$/i.test(entry.name) && !getIsActiveScratchPath(filePath)) {
               pendingPaths.push(filePath);
 
               if (pendingPaths.length >= 1000) await findStorageOnly();

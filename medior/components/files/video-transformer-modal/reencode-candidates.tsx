@@ -88,7 +88,7 @@ export const ReencodeCandidates = Comp(() => {
             <Text preset="title">{"Add Re-encodes"}</Text>
           </Modal.Header>
 
-          <Modal.Content dividers={false} spacing="0.5rem">
+          <Modal.Content dividers={false}>
             <RepairCheckbox
               label="Images"
               description={`Long edge over ${config.imageMaxLongEdge.toLocaleString()}px or short edge over ${config.imageMaxShortEdge.toLocaleString()}px.`}

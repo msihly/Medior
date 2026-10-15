@@ -94,7 +94,6 @@ export const MultiTagEditor = Comp(({ initialTags, onClose }: MultiTagEditorProp
       toast.success("Tags updated");
 
       closeEditor();
-      store.search.loadFiltered();
     }
   };
 
@@ -150,7 +149,7 @@ export const MultiTagEditor = Comp(({ initialTags, onClose }: MultiTagEditorProp
   };
 
   return (
-    <Modal.Container {...{ isLoading }} onClose={handleClose} width="50rem" draggable>
+    <Modal.Container isLoading={isLoading} onClose={handleClose} width="50rem" draggable>
       <LoadingOverlay
         isLoading={load.isLoading}
         sub={<Button text="Cancel" icon="Close" onClick={handleClose} />}
@@ -160,7 +159,7 @@ export const MultiTagEditor = Comp(({ initialTags, onClose }: MultiTagEditorProp
         <Text preset="title">{"Multi Tags Editor"}</Text>
       </Modal.Header>
 
-      <Modal.Content spacing="0.5rem">
+      <Modal.Content>
         <UniformList row uniformWidth="20rem" height="30rem" spacing="0.5rem">
           <View column spacing="0.5rem">
             <TagInput

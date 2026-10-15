@@ -1,6 +1,7 @@
 import * as models from "medior/_generated/server/models";
 import { fileLog } from "trabecula/utils/server";
 import { runBackgroundExecution } from "medior/server/database/background-execution";
+import { lockFiles, runAsLockOwner, unlockFiles } from "medior/server/database/file-locks";
 import { isServerStopping } from "medior/server/process-lifecycle";
 import { dayjs } from "medior/utils/common";
 import { leanModelToJson, socket } from "medior/utils/server";
@@ -209,6 +210,12 @@ export const makeRepairReporter = (repairId: string, repairName: string) => {
   const abortController =
     repairAbortControllers.get(repairId) ??
     repairAbortControllers.set(repairId, new AbortController()).get(repairId);
+  const lockOwner = { id: `repair:${repairId}:${repairName}`, label: "Database Repair" };
+
+  /** Locks the files a repair will examine; each is released once processed, the rest at its end. */
+  const lock = (fileIds: string[]) => lockFiles(lockOwner, fileIds);
+
+  const unlock = (fileIds: string[]) => unlockFiles(lockOwner.id, fileIds);
 
   const report = (message: string, status: RepairProgressStatus = "info", isTransient = false) => {
     if (!isTransient)
@@ -230,7 +237,12 @@ export const makeRepairReporter = (repairId: string, repairName: string) => {
       checkCancelled();
       await updateRepairOperation(repairId, { message: `${repairName} started.` });
 
-      const result = await runBackgroundExecution(action, abortController.signal, false);
+      // The repair's own changes to the files it locked are never refused.
+      const result = await runBackgroundExecution(
+        () => runAsLockOwner(lockOwner.id, action),
+        abortController.signal,
+        false,
+      );
 
       checkCancelled();
       await updateRepairOperation(repairId, { message: `${repairName} completed.` });
@@ -254,6 +266,7 @@ export const makeRepairReporter = (repairId: string, repairName: string) => {
       throw error;
     } finally {
       clearInterval(progressTimer);
+      unlockFiles(lockOwner.id);
     }
   };
 
@@ -261,5 +274,5 @@ export const makeRepairReporter = (repairId: string, repairName: string) => {
     progressMessage = message;
   };
 
-  return { checkCancelled, progress, report, run, signal: abortController.signal };
+  return { checkCancelled, lock, progress, report, run, signal: abortController.signal, unlock };
 };

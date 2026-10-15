@@ -5,6 +5,7 @@ import { Fmt } from "medior/utils/common";
 export class ModelStore {
   private name: ModelSearchStore["name"];
   private props: ModelSearchStore["props"] = [];
+  private tagFields: ModelSearchStore["tagFields"] = [];
   private transformResultsFn: string = null;
   private withCarouselIds: boolean = false;
   private withTags: boolean = false;
@@ -14,12 +15,15 @@ export class ModelStore {
     options: {
       defaultPageSize: string;
       defaultSort: string;
+      /** Other tag id fields loaded alongside `tagIds` when `withTags` is set. */
+      tagFields?: ModelSearchStore["tagFields"];
       transformResultsFn?: string;
       withCarouselIds?: boolean;
       withTags?: boolean;
     },
   ) {
     this.name = name;
+    this.tagFields = options.tagFields ?? [];
     this.transformResultsFn = options.transformResultsFn;
     this.withCarouselIds = options.withCarouselIds;
     this.withTags = options.withTags;
@@ -108,47 +112,51 @@ export class ModelStore {
     );
   }
 
-  public addTagOptsProp(idName: string, ancestorsName: string) {
-    return this.addProp("tags", "Stores.TagOption[]", "() => []", {
+  /** `label` names the filter ids, such as `requiredGenreIds`, for tag fields other than `tagIds`. */
+  public addTagOptsProp(
+    idName: string,
+    ancestorsName: string,
+    { label = "Tag", name = "tags" }: { label?: string; name?: string } = {},
+  ) {
+    this.addProp(name, "Stores.TagOption[]", "() => []", {
       customActionProps: [
         this.makeCustomActionProp({
-          condition: "args.excludedDescTagIds?.length",
-          name: "excludedDescTagIds",
+          condition: `args.excludedDesc${label}Ids?.length`,
+          name: `excludedDesc${label}Ids`,
           objPath: [ancestorsName, "$nin"],
-          objValue: "objectIds(args.excludedDescTagIds)",
+          objValue: `objectIds(args.excludedDesc${label}Ids)`,
           type: "string[]",
         }),
         this.makeCustomActionProp({
-          condition: "args.excludedTagIds?.length",
-          name: "excludedTagIds",
+          condition: `args.excluded${label}Ids?.length`,
+          name: `excluded${label}Ids`,
           objPath: [idName, "$nin"],
-          objValue: "objectIds(args.excludedTagIds)",
+          objValue: `objectIds(args.excluded${label}Ids)`,
           type: "string[]",
         }),
         this.makeCustomActionProp({
-          condition: "args.optionalTagIds?.length",
-          name: "optionalTagIds",
+          condition: `args.optional${label}Ids?.length`,
+          name: `optional${label}Ids`,
           objPath: [idName, "$in"],
-          objValue: "objectIds(args.optionalTagIds)",
+          objValue: `objectIds(args.optional${label}Ids)`,
           type: "string[]",
         }),
         this.makeCustomActionProp({
-          condition: "args.requiredDescTagIds?.length",
-          name: "requiredDescTagIds",
+          condition: `args.requiredDesc${label}Ids?.length`,
+          name: `requiredDesc${label}Ids`,
           objPath: [ancestorsName, "$all"],
-          objValue: "objectIds(args.requiredDescTagIds)",
+          objValue: `objectIds(args.requiredDesc${label}Ids)`,
           type: "string[]",
         }),
         this.makeCustomActionProp({
-          condition: "args.requiredTagIds?.length",
-          name: "requiredTagIds",
+          condition: `args.required${label}Ids?.length`,
+          name: `required${label}Ids`,
           objPath: [idName, "$all"],
-          objValue: "objectIds(args.requiredTagIds)",
+          objValue: `objectIds(args.required${label}Ids)`,
           type: "string[]",
         }),
       ],
-      filterTransform:
-        "...getRootStore<Stores.RootStore>(this)?.tag?.tagSearchOptsToIds(this.tags)",
+      filterTransform: `...getRootStore<Stores.RootStore>(this)?.tag?.tagSearchOptsToIds(this.${name}${label === "Tag" ? "" : `, false, "${label}"`})`,
       noInterface: true,
     });
   }
@@ -157,6 +165,7 @@ export class ModelStore {
     return {
       name: this.name,
       props: this.props,
+      tagFields: this.tagFields,
       transformResultsFn: this.transformResultsFn,
       withCarouselIds: this.withCarouselIds,
       withTags: this.withTags,
@@ -565,7 +574,11 @@ export const createSearchStore = (def: ModelSearchStore) => {
         ${
           !def.withTags
             ? ""
-            : `const tagIds = [...new Set(items.flatMap((item) => item.tagIds))];
+            : `const tagIds = [...new Set(items.flatMap((item) => ${
+                def.tagFields?.length
+                  ? `[item.tagIds, ${def.tagFields.map((field) => `item.${field.idsName}`).join(", ")}].flat()`
+                  : "item.tagIds"
+              }))];
               const tagRes = await trpc.listTag.mutate({ filter: { id: tagIds } });
 
               if (loadId !== this.loadId) return;
@@ -574,7 +587,9 @@ export const createSearchStore = (def: ModelSearchStore) => {
 
               const selectTags = makeTagSelector(tagRes.data);
 
-              items = items.map((item) => ({ ...item, tags: selectTags(item.tagIds) }));`
+              items = items.map((item) => ({ ...item, ${(def.tagFields ?? [])
+                .map((field) => `${field.name}: selectTags(item.${field.idsName}), `)
+                .join("")}tags: selectTags(item.tagIds) }));`
         }
 
         const results = ${def.transformResultsFn || "items"}
@@ -815,7 +830,6 @@ const makeSchemaStoreMap = async (upperName: string) => {
   return {
     create: makeFnAndTypeNames(actions.model, `create${upperName}`),
     delete: makeFnAndTypeNames(actions.model, `delete${upperName}`),
-    list: makeFnAndTypeNames(actions.model, `list${upperName}`),
     update: makeFnAndTypeNames(actions.model, `update${upperName}`),
   };
 };

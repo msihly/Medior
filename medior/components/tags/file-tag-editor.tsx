@@ -71,16 +71,12 @@ export const FileTagEditor = Comp(({ batchId, fileIds }: FileTagEditorProps) => 
     load.cancel();
 
     if (hasUnsavedChanges) setIsConfirmDiscardOpen(true);
-    else {
-      store.tagsEditor.setIsOpen(false);
-      store.search.reloadIfQueued();
-    }
+    else store.tagsEditor.setIsOpen(false);
   };
 
   const handleCloseForced = async () => {
     setHasUnsavedChanges(false);
     store.tagsEditor.setIsOpen(false);
-    store.search.reloadIfQueued();
 
     return true;
   };
@@ -235,11 +231,11 @@ export const FileTagEditor = Comp(({ batchId, fileIds }: FileTagEditorProps) => 
           <HeaderWrapper
             header={
               <Checkbox
+                label="Current Tags"
                 checked={currentTags.length > 0 && selectedTags.length === currentTags.length}
-                disabled={!currentTags.length}
                 indeterminate={selectedTags.length > 0 && selectedTags.length < currentTags.length}
-                label={`Current Tags (${selectedTags.length} selected)`}
                 setChecked={handleSelectAllTags}
+                disabled={!currentTags.length}
               />
             }
             height="100%"

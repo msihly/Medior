@@ -14,6 +14,8 @@ import {
   md5File,
   removeEmptyFolders,
 } from "trabecula/utils/server";
+import { promisify } from "util";
+import { gzip } from "zlib";
 import { SortValue } from "medior/store/_generated";
 import * as actions from "medior/server/database/actions";
 import {
@@ -23,18 +25,26 @@ import {
 } from "medior/server/database/actions/background-operations";
 import { runBackgroundExecution } from "medior/server/database/background-execution";
 import { getBackgroundSession } from "medior/server/database/database-context";
+import { getForeignFileLock } from "medior/server/database/file-locks";
 import {
   areMediaPathIndexesReady,
   assertMediaPathIndexesReady,
   assertMediaPathsAvailable,
-  describeFileCleanup,
+  describeFileCleanupBySize,
   FileCleanup,
   FileOperationModel,
   finishFileOperation,
   makeFileCleanup,
 } from "medior/server/database/file-operations";
 import { assertImportEntriesReady } from "medior/server/database/import-entry-state";
-import { normalizeMediaPathWrites } from "medior/server/database/media-paths";
+import {
+  addToJob,
+  findJob,
+  isJobStopping,
+  startJob,
+  waitForJob,
+} from "medior/server/database/jobs";
+import { mediaPathKey, normalizeMediaPathWrites } from "medior/server/database/media-paths";
 import {
   getMetadataCreateId,
   metadataWriteOptions,
@@ -55,6 +65,7 @@ import {
   FileSidecarCollection,
   FileSidecarField,
   Fmt,
+  getSubtitleFilePaths,
   hasTranscription,
 } from "medior/utils/common";
 import {
@@ -68,8 +79,12 @@ import {
   releaseTranscriptionModel,
   retainTranscriptionModel,
   socket,
+  sortByStoredNtfsIdentity,
 } from "medior/utils/server";
 import { getMediaInfo, getVideoInfo } from "medior/utils/server/videos";
+import { workSignal } from "medior/utils/server/work-signal";
+
+const gzipAsync = promisify(gzip);
 
 // const FACE_MIN_CONFIDENCE = 0.4;
 // const FACE_MODELS_PATH = process.env.IS_PACKAGED
@@ -160,6 +175,7 @@ export const createFileExportSidecars = makeAction(
           .select({
             ...Object.fromEntries(fileFields.map((field) => [field, 1])),
             path: 1,
+            subtitles: 1,
             thumb: 1,
           })
           .lean()
@@ -189,6 +205,7 @@ export const createFileExportSidecars = makeAction(
 
     const filePaths: string[] = [];
     const sidecarPaths: string[] = [];
+    const subtitlePaths: string[] = [];
     let thumbPath: string = null;
 
     for (const fileId of fileIds) {
@@ -211,19 +228,31 @@ export const createFileExportSidecars = makeAction(
       filePaths.push(file.path);
       sidecarPaths.push(sidecarPath);
       thumbPath ??= file.thumb.path;
+
+      // Subtitles removed from disk are left out rather than failing the drag.
+      for (const subtitlePath of getSubtitleFilePaths(file.subtitles))
+        if (await checkFileExists(subtitlePath)) subtitlePaths.push(subtitlePath);
     }
 
-    return { filePaths, sidecarPaths, thumbPath };
+    // Subtitles are named after their media, so re-importing the export matches them again.
+    return { filePaths, sidecarPaths, subtitlePaths, thumbPath };
   },
 );
 
 export const deleteFiles = makeAction(
   registerMetadataWork(
     "deleteFiles",
-    async (args: { fileIds: string[]; withTagRegen?: boolean }) => {
+    async (args: {
+      fileIds: string[];
+      withCleanupQueue?: boolean;
+      withDeletedHashes?: boolean;
+      withTagRegen?: boolean;
+    }) => {
+      const cleanupIds: string[] = [];
       const cleanupKey = `deleteFilesCleanup:${args.fileIds.join()}`;
       const snapshotKey = `deleteFiles:${args.fileIds.join()}`;
       const tagIds = new Set<string>();
+      const keepMetadata = args.withDeletedHashes !== false && getConfig().file.keepDeletedMetadata;
 
       // Older requests saved one snapshot for the entire selection before deleting any records.
       const previousFiles =
@@ -245,23 +274,53 @@ export const deleteFiles = makeAction(
           previousFiles
             ? fileIds.map((id) => previousById.get(id)).filter(Boolean)
             : models.FileModel.find({ _id: { $in: objectIds(fileIds) } })
-                .select({ hash: 1, path: 1, tagIdsWithAncestors: 1, thumb: 1 })
+                .select(
+                  keepMetadata
+                    ? {}
+                    : {
+                        hash: 1,
+                        originalHash: 1,
+                        path: 1,
+                        previousHashes: 1,
+                        size: 1,
+                        sourceHash: 1,
+                        subtitles: 1,
+                        tagIdsWithAncestors: 1,
+                        thumb: 1,
+                      },
+                )
                 .lean(),
         );
 
         const cleanup = await readMetadataSnapshot(
           `deleteFilesCleanup:${fileIds.join()}`,
           async () => {
-            const paths = new Set(files.flatMap((file) => [file.path, file.thumb?.path]));
+            const paths = new Set(
+              files.flatMap((file) => [
+                file.path,
+                file.thumb?.path,
+                ...getSubtitleFilePaths(file.subtitles),
+              ]),
+            );
             const cleanup = previousCleanup?.filter((entry) => paths.has(entry.path)) ?? [];
 
-            // Media already stores its content MD5, which cleanup verifies before deleting.
+            // Cleanup confirms files by size rather than reading them: media by the size it
+            // records, and thumbnails and subtitles by the size on disk now. Their metadata is read
+            // in disk order, which the thumbnail beside each file's media records.
             if (!previousCleanup) {
-              for (const file of files) {
-                cleanup.push(makeFileCleanup(file.hash, file.path));
+              for (const file of sortByStoredNtfsIdentity(files, (file) => ({
+                fileId: file.thumb?.ntfsFileId,
+                volumeId: file.thumb?.ntfsVolumeId,
+              }))) {
+                cleanup.push(makeFileCleanup(file.hash, file.path, file.size));
 
-                const thumb = await describeFileCleanup(file.thumb?.path);
-                if (thumb) cleanup.push(thumb);
+                for (const companionPath of [
+                  file.thumb?.path,
+                  ...getSubtitleFilePaths(file.subtitles),
+                ]) {
+                  const companion = await describeFileCleanupBySize(companionPath);
+                  if (companion) cleanup.push(companion);
+                }
               }
             }
 
@@ -272,7 +331,7 @@ export const deleteFiles = makeAction(
         const currentFiles = await models.FileModel.find({
           _id: { $in: files.map((file) => file._id) },
         })
-          .select({ hash: 1, path: 1, thumb: 1 })
+          .select({ hash: 1, path: 1, subtitles: 1, thumb: 1 })
           .lean();
 
         const currentById = new Map(currentFiles.map((file) => [String(file._id), file]));
@@ -284,6 +343,8 @@ export const deleteFiles = makeAction(
             current &&
             (current.hash !== file.hash ||
               current.path !== file.path ||
+              getSubtitleFilePaths(current.subtitles).join() !==
+                getSubtitleFilePaths(file.subtitles).join() ||
               current.thumb?.path !== file.thumb?.path)
           )
             throw new Error("File changed while preparing deletion; retry deletion");
@@ -333,33 +394,89 @@ export const deleteFiles = makeAction(
             "A file changed during deletion. Its current media and record were retained.",
           );
 
-        if (fileHashes.length)
-          await models.DeletedFileModel.bulkWrite(
-            fileHashes.map((hash) => ({
-              updateOne: { filter: { hash }, update: { $setOnInsert: { hash } }, upsert: true },
-            })),
-            { session: getBackgroundSession() },
+        if (files.length && args.withDeletedHashes !== false) {
+          const deletedWrites: AnyBulkWriteOperation<models.DeletedFileSchema>[] = [];
+
+          // Sources changed on import and every earlier version of re-encoded, spliced, or edited files count too.
+          const getLineageHashes = (
+            file: Pick<
+              models.FileSchema,
+              "hash" | "originalHash" | "previousHashes" | "sourceHash"
+            >,
+          ) =>
+            [file.hash, file.originalHash, file.sourceHash, ...(file.previousHashes ?? [])].filter(
+              Boolean,
+            );
+
+          const lineageHashes = [...new Set(files.flatMap(getLineageHashes))];
+
+          // Checksums a remaining file still holds, such as an edited copy's original, stay importable.
+          // The string type lets each branch use its partial checksum index instead of a full scan.
+          const liveHashes = new Set(
+            (
+              await models.FileModel.find({
+                $or: ["hash", "originalHash", "previousHashes", "sourceHash"].map((field) => ({
+                  [field]: { $in: lineageHashes, $type: "string" },
+                })),
+              })
+                .select({ hash: 1, originalHash: 1, previousHashes: 1, sourceHash: 1 })
+                .lean()
+            ).flatMap(getLineageHashes),
           );
 
-        await actions.queueTagMetadataRegen([...tagIds]);
+          for (const file of files) {
+            const metadata = keepMetadata
+              ? await gzipAsync(
+                  JSON.stringify(file, (key, value) =>
+                    key === "tagIdsWithAncestors" ? undefined : value,
+                  ),
+                )
+              : null;
+
+            for (const hash of new Set(getLineageHashes(file))) {
+              if (liveHashes.has(hash)) continue;
+
+              deletedWrites.push({
+                updateOne: {
+                  filter: { hash },
+                  update: { $setOnInsert: { hash }, ...(metadata ? { $set: { metadata } } : {}) },
+                  upsert: true,
+                },
+              });
+            }
+          }
+
+          if (deletedWrites.length)
+            await models.DeletedFileModel.bulkWrite(deletedWrites, {
+              session: getBackgroundSession(),
+            });
+        }
+
+        // Callers deleting in several batches regenerate the tags they return once at the end.
+        if (args.withTagRegen !== false) await actions.queueTagMetadataRegen([...tagIds]);
 
         // The cleanup queue outlives this request, whose signal aborts work started inside it.
+        // Callers that clean up their own operations as they go start the queue once at the end.
         if (cleanup.length) {
+          const cleanupId = String(getMetadataCreateId(`deleteFilesCleanup:${fileIds.join()}`));
+
           await FileOperationModel.updateOne(
-            { _id: String(getMetadataCreateId(`deleteFilesCleanup:${fileIds.join()}`)) },
+            { _id: cleanupId },
             { $setOnInsert: { cleanup, state: "COMMITTED" } },
             { ...metadataWriteOptions(), upsert: true },
           );
 
-          runFileCleanupQueue();
+          cleanupIds.push(cleanupId);
+
+          if (args.withCleanupQueue !== false) runFileCleanupQueue();
         }
 
         socket.emit("onFilesDeleted", { fileHashes, fileIds });
       }
 
-      return { tagIds: [...tagIds] };
+      return { cleanupIds, tagIds: [...tagIds] };
     },
-    true,
+    { getFileIds: ({ fileIds }) => fileIds, persistInBackground: true },
   ),
 );
 
@@ -388,6 +505,8 @@ export const deleteFilesExternal = makeAction(
       fileLog(`[DFE] Total files to delete: ${filePaths.length}`);
 
       const chunks = chunkArray(filePaths, 200);
+      const previousCount = args.progress?.processedCount ?? 0;
+      const totalCount = args.progress?.totalCount ?? filePaths.length;
       let deletedCount = 0;
 
       for (const chunk of chunks) {
@@ -414,16 +533,14 @@ export const deleteFilesExternal = makeAction(
         await finishFileOperation(operation._id);
         deletedCount += chunk.length;
 
-        const processedCount = (args.progress?.processedCount ?? 0) + deletedCount;
-        const totalCount = args.progress?.totalCount ?? filePaths.length;
-
-        fileLog(`[DFE] Deleted ${processedCount} / ${totalCount} files.`);
+        fileLog(`[DFE] Deleted ${previousCount + deletedCount} / ${totalCount} files.`);
       }
 
+      const processedCount = previousCount + filePaths.length;
       const progress = {
-        message: `Deleted ${(args.progress?.processedCount ?? 0) + filePaths.length} / ${args.progress?.totalCount ?? filePaths.length} files.`,
-        processedCount: (args.progress?.processedCount ?? 0) + filePaths.length,
-        totalCount: args.progress?.totalCount ?? filePaths.length,
+        message: `Deleted ${processedCount} / ${totalCount} files.`,
+        processedCount,
+        totalCount,
       };
 
       fileLog(`[DFE] ${progress.message}`);
@@ -563,6 +680,7 @@ export const editFileTags = makeAction(
         if (!collectionRes.success) throw new Error(collectionRes.error);
       }
     },
+    { getFileIds: ({ fileIds }) => fileIds },
   ),
   ({ addedTagIds = [], batchId, fileIds, removedTagIds = [], withSub = true }) => {
     if (withSub) socket.emit("onFileTagsUpdated", { addedTagIds, batchId, fileIds, removedTagIds });
@@ -687,17 +805,6 @@ export const listFileReingestMetadata = makeAction(async ({ fileIds }: { fileIds
   }));
 });
 
-export const listFileSelectionState = makeAction(async ({ fileIds }: { fileIds: string[] }) => {
-  if (fileIds.length > 1000)
-    throw new Error("File selection state accepts at most 1000 IDs per request.");
-
-  const files = await models.FileModel.find({ _id: { $in: objectIds(fileIds) } })
-    .select({ isArchived: 1 })
-    .lean();
-
-  return files.map((file) => ({ id: String(file._id), isArchived: file.isArchived }));
-});
-
 export const listFileTagIds = makeAction(async ({ fileIds }: { fileIds: string[] }) => {
   if (fileIds.length > CONSTANTS.FILE.TAG_QUERY_BATCH_SIZE)
     throw new Error(`Query at most ${CONSTANTS.FILE.TAG_QUERY_BATCH_SIZE} files at a time`);
@@ -754,82 +861,88 @@ export const listVideosWithMissingInfo = makeAction(async () => {
 });
 
 export const repairVideoCodecs = makeAction(async ({ repairId }: { repairId: string }) => {
-  const { checkCancelled, report, run, signal } = makeRepairReporter(repairId, "repairVideoCodecs");
+  const { checkCancelled, lock, progress, report, run, signal, unlock } = makeRepairReporter(
+    repairId,
+    "repairVideoCodecs",
+  );
 
   return run(async () => {
+    const filter = {
+      ...missingVideoInfoFilter,
+      isArchived: { $ne: true },
+      isCorrupted: { $ne: true },
+    };
+    const candidates = await models.FileModel.find(filter)
+      .allowDiskUse(true)
+      .select({ _id: 1, "thumb.ntfsFileId": 1, "thumb.ntfsVolumeId": 1 })
+      .sort({ _id: 1 })
+      .lean();
     let corruptedCount = 0;
     let processedCount = 0;
 
-    while (true) {
+    lock(candidates.map((file) => String(file._id)));
+
+    // Videos are read one at a time in disk order, since reading several at once or out of order
+    // makes a hard drive seek. A video's thumbnail is written beside it right after it, so the
+    // thumbnail's stored NTFS identity orders the videos without reading the disk.
+    const orderedIds = sortByStoredNtfsIdentity(candidates, (file) => ({
+      fileId: file.thumb?.ntfsFileId,
+      volumeId: file.thumb?.ntfsVolumeId,
+    })).map((file) => file._id);
+
+    for (const ids of chunkArray(orderedIds, 100)) {
       checkCancelled();
 
       // Missing metadata is the durable pending-work predicate; committed repairs leave this set.
-      const files = await models.FileModel.find({
-        ...missingVideoInfoFilter,
-        isCorrupted: { $ne: true },
-      })
-        .select({ hash: 1, path: 1 })
-        .sort({ _id: 1 })
-        .limit(100)
-        .lean();
-
-      if (!files.length) break;
-
-      await Promise.all(
-        Array.from({ length: Math.min(10, files.length) }, (_, worker) =>
-          runBackgroundExecution(
-            async () => {
-              for (let index = worker; index < files.length; index += 10) {
-                checkCancelled();
-
-                const file = files[index];
-                let updates: Partial<models.FileSchema>;
-
-                try {
-                  updates = await getVideoInfo(file.path, signal);
-                } catch (error) {
-                  signal.throwIfAborted();
-                  checkCancelled();
-                  updates = { isCorrupted: true };
-
-                  report(
-                    `Failed to read codec information for ${file.path}: ${error.message}.`,
-                    "error",
-                  );
-                }
-
-                await (async () => {
-                  checkCancelled();
-
-                  const current = await models.FileModel.findById(file._id)
-                    .select({ hash: 1, path: 1 })
-                    .lean();
-
-                  if (!current || current.hash !== file.hash || current.path !== file.path) return;
-
-                  const result = await actions.updateFile({
-                    args: { id: String(file._id), updates },
-                  });
-
-                  if (!result.success) throw new Error(result.error);
-                })();
-
-                if (updates.isCorrupted) corruptedCount++;
-
-                processedCount++;
-
-                if (processedCount % 25 === 0)
-                  report(
-                    `Inspected ${processedCount} videos; ${corruptedCount} were marked corrupted.`,
-                    "progress",
-                  );
-              }
-            },
-            signal,
-            false,
-          ),
-        ),
+      const filesById = new Map(
+        (
+          await models.FileModel.find({ ...filter, _id: { $in: ids } })
+            .select({ hash: 1, path: 1 })
+            .lean()
+        ).map((file) => [String(file._id), file]),
       );
+
+      for (const id of ids) {
+        checkCancelled();
+
+        const file = filesById.get(String(id));
+
+        if (!file) {
+          unlock([String(id)]);
+          continue;
+        }
+
+        let updates: Partial<models.FileSchema>;
+
+        try {
+          updates = await getVideoInfo(file.path, signal);
+        } catch (error) {
+          signal.throwIfAborted();
+          checkCancelled();
+          updates = { isCorrupted: true };
+
+          report(`Failed to read codec information for ${file.path}: ${error.message}.`, "error");
+        }
+
+        checkCancelled();
+
+        const current = await models.FileModel.findById(file._id)
+          .select({ hash: 1, path: 1 })
+          .lean();
+
+        if (current && current.hash === file.hash && current.path === file.path) {
+          const result = await actions.updateFile({ args: { id: String(file._id), updates } });
+          if (!result.success) throw new Error(result.error);
+        }
+
+        if (updates.isCorrupted) corruptedCount++;
+
+        processedCount++;
+        unlock([String(file._id)]);
+        progress(
+          `Codec inspection: ${Fmt.commas(processedCount)} / ${Fmt.commas(candidates.length)} videos; ${Fmt.commas(corruptedCount)} marked corrupted.`,
+        );
+      }
     }
 
     report(
@@ -882,9 +995,13 @@ export const relinkFiles = makeAction(
       if (oldFiles.length !== filesToRelinkMap.size)
         throw new Error("Some files to relink were not found");
 
-      const newFilesMap = new Map<string, { path: string; thumb: models.FileSchema["thumb"] }>();
+      const movedSubtitlePaths: string[] = [];
+      const newFilesMap = new Map<
+        string,
+        Partial<Pick<models.FileSchema, "subtitles">> & Pick<models.FileSchema, "path" | "thumb">
+      >();
 
-      oldFiles.forEach((f) => {
+      for (const f of oldFiles) {
         const request = filesToRelinkMap.get(f.id);
         const newPath = request.path;
 
@@ -909,12 +1026,46 @@ export const relinkFiles = makeAction(
             ? f.thumb
             : { ...f.thumb, ntfsFileId: undefined, ntfsVolumeId: undefined, path: thumbPath };
 
-        newFilesMap.set(f.id, { path: newPath, thumb: newThumb });
-      });
+        // Subtitle copies are named after their media, so they move with it when found beside it.
+        const subtitles: models.FileSchema["subtitles"] = [];
 
-      await assertMediaPathsAvailable(
-        [...newFilesMap.values()].flatMap(({ path, thumb }) => [path, thumb?.path]),
-      );
+        for (const subtitle of f.subtitles ?? []) {
+          const movedPath = path.join(path.dirname(newPath), path.basename(subtitle.path));
+          const movedFilePaths = getSubtitleFilePaths([{ path: movedPath }]);
+
+          // A subtitle another file records, or this relink already moved, stays with that file.
+          const isMoved =
+            movedPath !== subtitle.path &&
+            !movedSubtitlePaths.some(
+              (filePath) => mediaPathKey(filePath) === mediaPathKey(movedPath),
+            ) &&
+            !(await checkFileExists(subtitle.path)) &&
+            (await Promise.all(movedFilePaths.map((filePath) => checkFileExists(filePath)))).every(
+              Boolean,
+            ) &&
+            !(await models.FileModel.exists({
+              _id: { $ne: objectId(f.id) },
+              "subtitles.pathKey": { $eq: mediaPathKey(movedPath), $type: "string" },
+            }));
+
+          if (isMoved) movedSubtitlePaths.push(...movedFilePaths);
+
+          subtitles.push(
+            isMoved ? { ...subtitle, path: movedPath, pathKey: mediaPathKey(movedPath) } : subtitle,
+          );
+        }
+
+        newFilesMap.set(f.id, {
+          path: newPath,
+          ...(subtitles.length ? { subtitles } : {}),
+          thumb: newThumb,
+        });
+      }
+
+      await assertMediaPathsAvailable([
+        ...[...newFilesMap.values()].flatMap(({ path, thumb }) => [path, thumb?.path]),
+        ...movedSubtitlePaths,
+      ]);
 
       const fileRes = await models.FileModel.bulkWrite(
         normalizeMediaPathWrites(
@@ -962,18 +1113,23 @@ export const relinkFiles = makeAction(
 
       for (const [id, updates] of newFilesMap) socket.emit("onFileUpdated", { id, updates });
     },
-    true,
+    {
+      getFileIds: ({ filesToRelink }) => filesToRelink.map(({ id }) => id),
+      persistInBackground: true,
+    },
   ),
 );
 
 export const repairFilesWithBrokenExt = makeAction(async ({ repairId }: { repairId: string }) => {
-  const { checkCancelled, report, run } = makeRepairReporter(repairId, "repairFiles");
+  const { checkCancelled, lock, report, run, unlock } = makeRepairReporter(repairId, "repairFiles");
 
   return run(async () => {
     let filesWithDotPrefixCount = 0;
     let filesWithIncorrectExtCount = 0;
 
     report("Detecting file formats from their contents in bounded batches.");
+
+    lock((await models.FileModel.find().select({ _id: 1 }).lean()).map((file) => String(file._id)));
 
     await repairMetadata(
       models.FileModel.find().select({ _id: 1 }).sort({ _id: 1 }).lean().cursor({ batchSize: 100 }),
@@ -999,8 +1155,9 @@ export const repairFilesWithBrokenExt = makeAction(async ({ repairId }: { repair
 
         return result;
       },
-      async ({ result }) => {
+      async ({ candidate, result }) => {
         checkCancelled();
+        unlock([String(candidate._id)]);
 
         if (result) {
           if (result.dotPrefix) filesWithDotPrefixCount++;
@@ -1019,27 +1176,98 @@ export const repairFilesWithBrokenExt = makeAction(async ({ repairId }: { repair
   });
 });
 
-export const repairFilesWithMissingInfo = makeAction(async ({ repairId }: { repairId: string }) => {
-  const { checkCancelled, report, run } = makeRepairReporter(repairId, "repairFiles");
+/** Records the checksums replaced transforms superseded, so imports recognize those versions. */
+export const repairPreviousHashes = makeAction(async ({ repairId }: { repairId: string }) => {
+  const { checkCancelled, lock, progress, report, run, unlock } = makeRepairReporter(
+    repairId,
+    "repairPreviousHashes",
+  );
 
   return run(async () => {
+    const filter: mongoose.FilterQuery<models.FileTransformSchema> = {
+      beforeHash: { $type: "string" },
+      status: "REPLACED",
+    };
+    const writes: AnyBulkWriteOperation<models.FileSchema>[] = [];
+    const writtenIds: string[] = [];
+    let checkedCount = 0;
+    let updatedCount = 0;
+
+    const flush = async () => {
+      if (writes.length) {
+        const result = await models.FileModel.bulkWrite(writes.splice(0), {
+          session: getBackgroundSession(),
+        });
+
+        unlock(writtenIds.splice(0));
+        updatedCount += result.modifiedCount;
+        progress(
+          `Previous checksums: checked ${Fmt.commas(checkedCount)} replaced transforms; updated ${Fmt.commas(updatedCount)} files.`,
+        );
+      }
+    };
+
+    report(
+      "Recording the checksums of transformed files' earlier versions from transform history.",
+    );
+
+    lock((await models.FileTransformModel.distinct("fileId", filter)).map(String));
+
+    for await (const transform of models.FileTransformModel.find(filter)
+      .select({ beforeHash: 1, fileId: 1 })
+      .lean()
+      .cursor({ batchSize: 1000 })) {
+      checkCancelled();
+
+      writtenIds.push(String(transform.fileId));
+      writes.push({
+        updateOne: {
+          filter: { _id: objectId(transform.fileId), hash: { $ne: transform.beforeHash } },
+          update: { $addToSet: { previousHashes: transform.beforeHash } },
+        },
+      });
+
+      checkedCount++;
+
+      if (writes.length >= 1000) await flush();
+    }
+
+    await flush();
+    report(
+      `Previous checksum repair completed successfully: checked ${Fmt.commas(checkedCount)} replaced transforms and updated ${Fmt.commas(updatedCount)} files.`,
+      "success",
+    );
+
+    return { checkedCount, updatedCount };
+  });
+});
+
+export const repairFilesWithMissingInfo = makeAction(async ({ repairId }: { repairId: string }) => {
+  const { checkCancelled, lock, report, run, unlock } = makeRepairReporter(repairId, "repairFiles");
+
+  return run(async () => {
+    const filter: mongoose.FilterQuery<models.FileSchema> = {
+      ext: { $in: CONSTANTS.VIDEO.EXTS },
+      isArchived: { $ne: true },
+      $or: ["bitrate", "size", "videoCodec"].map((name) => ({
+        [name]: { $exists: true, $ne: null },
+        $or: [
+          { [`original${Fmt.capitalize(name)}`]: null },
+          { [`original${Fmt.capitalize(name)}`]: "" },
+        ],
+      })),
+    };
+
     report("Checking original video information in bounded metadata batches.");
 
+    lock(
+      (await models.FileModel.find(filter).select({ _id: 1 }).lean()).map((file) =>
+        String(file._id),
+      ),
+    );
+
     await repairMetadata(
-      models.FileModel.find({
-        ext: { $in: CONSTANTS.VIDEO.EXTS },
-        $or: ["bitrate", "size", "videoCodec"].map((name) => ({
-          [name]: { $exists: true, $ne: null },
-          $or: [
-            { [`original${Fmt.capitalize(name)}`]: null },
-            { [`original${Fmt.capitalize(name)}`]: "" },
-          ],
-        })),
-      })
-        .select({ _id: 1 })
-        .sort({ _id: 1 })
-        .lean()
-        .cursor(),
+      models.FileModel.find(filter).select({ _id: 1 }).sort({ _id: 1 }).lean().cursor(),
       async (candidate) => {
         checkCancelled();
 
@@ -1072,6 +1300,7 @@ export const repairFilesWithMissingInfo = makeAction(async ({ repairId }: { repa
         socket.emit("onFileUpdated", { id: String(file._id), updates });
         checkCancelled();
       },
+      async ({ candidate }) => unlock([String(candidate._id)]),
     );
 
     report("Missing original video information repair completed successfully.", "success");
@@ -1092,7 +1321,7 @@ export const repairMissingAudioAnalysis = makeAction(
     repairTranscriptions: boolean;
     repairWaveforms: boolean;
   }) => {
-    const { checkCancelled, report, run, signal } = makeRepairReporter(
+    const { checkCancelled, lock, progress, report, run, signal, unlock } = makeRepairReporter(
       repairId,
       "repairAudioAnalysis",
     );
@@ -1128,127 +1357,155 @@ export const repairMissingAudioAnalysis = makeAction(
         $or: missingFilters,
         audioCodec: { $exists: true, $nin: ["", "None", null] },
         ext: { $in: CONSTANTS.VIDEO.EXTS },
+        // Archived files are never analyzed, so they also stay free to delete during the repair.
+        isArchived: { $ne: true },
       };
 
-      const fileCount = await models.FileModel.countDocuments(fileFilter).allowDiskUse(true);
+      const candidates = await models.FileModel.find(fileFilter)
+        .allowDiskUse(true)
+        .select({ _id: 1, "thumb.ntfsFileId": 1, "thumb.ntfsVolumeId": 1 })
+        .sort({ _id: 1 })
+        .lean();
+      const fileCount = candidates.length;
+      const unorderedCount = candidates.filter(
+        (file) => !file.thumb?.ntfsFileId || !file.thumb?.ntfsVolumeId,
+      ).length;
 
       report(`Found ${fileCount} videos requiring audio analysis.`, "progress");
 
-      const cursor = models.FileModel.find(fileFilter)
-        .allowDiskUse(true)
-        .select({
-          _id: 1,
-          dateModified: 1,
-          duration: 1,
-          hash: 1,
-          path: 1,
-          transcription: 1,
-          waveformPeaks: 1,
-        })
-        .lean()
-        .cursor({ batchSize: 100 });
+      if (unorderedCount)
+        report(
+          `${Fmt.commas(unorderedCount)} videos have no stored disk position and are analyzed last, in import order. The Store NTFS Ordering Metadata repair records it.`,
+        );
+
+      lock(candidates.map((file) => String(file._id)));
+
+      // Videos are read one at a time in disk order, since reading several at once or out of order
+      // makes a hard drive seek. A video's thumbnail is written beside it right after it, so the
+      // thumbnail's stored NTFS identity orders the videos without reading the disk.
+      const orderedIds = sortByStoredNtfsIdentity(candidates, (file) => ({
+        fileId: file.thumb?.ntfsFileId,
+        volumeId: file.thumb?.ntfsVolumeId,
+      })).map((file) => file._id);
 
       const modelOwnerId = `repair:${repairId}`;
+      const startedAt = Date.now();
       let completedCount = 0;
       let processedCount = 0;
       let repairedTranscriptions = 0;
       let repairedWaveforms = 0;
-      let reportedModelDownloadProgress = -1;
-      let totalProcessingTime = 0;
 
-      const reportAnalysisProgress = (message: string, progress?: number) => {
-        if (message.startsWith("Downloading transcription model:")) {
-          const roundedProgress = Math.floor(progress / 10) * 10;
+      /**
+       * Each video's steps update one progress line, sent once a second; separate lines for every
+       * step of every video arrive faster than the log can show them.
+       */
+      const showProgress = (step: string) => {
+        const average = completedCount
+          ? `, averaging ${((Date.now() - startedAt) / completedCount / 1000).toFixed(2)}s each`
+          : "";
 
-          if (roundedProgress <= reportedModelDownloadProgress) return;
+        progress(
+          `Audio analysis: video ${Fmt.commas(processedCount)} / ${Fmt.commas(fileCount)}; ${Fmt.commas(completedCount)} completed${average}. ${step}`,
+        );
+      };
 
-          reportedModelDownloadProgress = roundedProgress;
-          report(`${message.replace(/\.$/, "")} (${roundedProgress}%).`, "progress", true);
-        } else if (message.startsWith("Transcribing audio:")) {
-          report(message, "progress", true);
-        } else if (
-          message.startsWith("Audio duration:") ||
-          message === "Extracting audio." ||
-          message === "Generating waveform." ||
+      const reportAnalysisProgress = (message: string, percent?: number) => {
+        if (message.startsWith("Downloading transcription model:"))
+          showProgress(`${message.replace(/\.$/, "")} (${Math.floor(percent)}%).`);
+        else if (
           message === "Loading transcription model." ||
-          message === "Measuring peak volume." ||
           message === "Preparing transcription model." ||
-          message === "Transcribing audio." ||
           message.startsWith("GPU transcription unavailable.") ||
           message.startsWith("Transcription model loaded on")
         )
           report(message, "progress");
+        else showProgress(message);
+      };
+
+      const loadFiles = (ids: mongoose.Types.ObjectId[]) =>
+        models.FileModel.find({ _id: { $in: ids } })
+          .select({
+            _id: 1,
+            dateModified: 1,
+            duration: 1,
+            hash: 1,
+            path: 1,
+            transcription: 1,
+            waveformPeaks: 1,
+          })
+          .lean();
+
+      const analyzeFile = async (file: Awaited<ReturnType<typeof loadFiles>>[number]) => {
+        checkCancelled();
+        processedCount++;
+
+        const withTranscription =
+          repairTranscriptions &&
+          file.duration <= maxTranscriptionDuration &&
+          !hasTranscription(file.transcription);
+
+        const withWaveform = repairWaveforms && !file.waveformPeaks?.length;
+
+        if (!withTranscription && !withWaveform) {
+          unlock([String(file._id)]);
+          return;
+        }
+
+        const analysis = await analyzeAudio(file.path, reportAnalysisProgress, signal, {
+          withTranscription,
+          withWaveform,
+        });
+
+        checkCancelled();
+
+        const updates: Partial<models.FileSchema> = {};
+
+        if (withTranscription) {
+          updates.hasTranscript = hasTranscription(analysis.transcription);
+          updates.transcription = analysis.transcription;
+          repairedTranscriptions++;
+        }
+
+        if (withWaveform) {
+          updates.waveformPeaks = analysis.waveformPeaks;
+          repairedWaveforms++;
+        }
+
+        updates.dateModified = dayjs().toISOString();
+
+        const updateRes = await models.FileModel.updateOne(
+          {
+            _id: file._id,
+            dateModified: file.dateModified,
+            hash: file.hash,
+            path: file.path,
+          },
+          { $set: updates },
+          metadataWriteOptions(),
+        );
+
+        if (!updateRes.matchedCount)
+          throw new Error("File changed during audio analysis; retry repair");
+
+        socket.emit("onFileUpdated", { id: file._id.toString(), updates });
+        unlock([file._id.toString()]);
+
+        completedCount++;
       };
 
       if (repairTranscriptions) retainTranscriptionModel(modelOwnerId, signal);
 
       try {
-        for await (const file of cursor) {
-          checkCancelled();
-          processedCount++;
+        for (const ids of chunkArray(orderedIds, 100)) {
+          const filesById = new Map((await loadFiles(ids)).map((file) => [String(file._id), file]));
 
-          const withTranscription =
-            repairTranscriptions &&
-            file.duration <= maxTranscriptionDuration &&
-            !hasTranscription(file.transcription);
-
-          const withWaveform = repairWaveforms && !file.waveformPeaks?.length;
-
-          if (!withTranscription && !withWaveform) continue;
-
-          const startedAt = Date.now();
-
-          report(`Analyzing video ${processedCount} / ${fileCount}.`, "progress");
-
-          const analysis = await analyzeAudio(file.path, reportAnalysisProgress, signal, {
-            withTranscription,
-            withWaveform,
-          });
-
-          checkCancelled();
-
-          const updates: Partial<models.FileSchema> = {};
-
-          if (withTranscription) {
-            updates.hasTranscript = hasTranscription(analysis.transcription);
-            updates.transcription = analysis.transcription;
-            repairedTranscriptions++;
+          // Records load in any order, so each batch follows the disk order of its IDs.
+          for (const id of ids) {
+            const file = filesById.get(String(id));
+            if (file) await analyzeFile(file);
           }
-
-          if (withWaveform) {
-            updates.waveformPeaks = analysis.waveformPeaks;
-            repairedWaveforms++;
-          }
-
-          updates.dateModified = dayjs().toISOString();
-
-          const updateRes = await models.FileModel.updateOne(
-            {
-              _id: file._id,
-              dateModified: file.dateModified,
-              hash: file.hash,
-              path: file.path,
-            },
-            { $set: updates },
-            metadataWriteOptions(),
-          );
-
-          if (!updateRes.matchedCount)
-            throw new Error("File changed during audio analysis; retry repair");
-
-          socket.emit("onFileUpdated", { id: file._id.toString(), updates });
-
-          completedCount++;
-          totalProcessingTime += Date.now() - startedAt;
-
-          report(
-            `Completed video ${processedCount} / ${fileCount} in ${dayjs.duration(Date.now() - startedAt).format("HH:mm:ss")}; average ${dayjs.duration(totalProcessingTime / completedCount).format("HH:mm:ss")} per completed video.`,
-            "progress",
-          );
         }
       } finally {
-        await cursor.close();
-
         if (repairTranscriptions) await releaseTranscriptionModel(modelOwnerId);
       }
 
@@ -1294,6 +1551,7 @@ export const setFileIsArchived = makeAction(
         if (!res.success) throw new Error(res.error);
       }
     },
+    { getFileIds: ({ fileIds }) => fileIds },
   ),
   ({ fileIds, isArchived }) => {
     if (isArchived) socket.emit("onFilesArchived", { fileIds });
@@ -1303,28 +1561,32 @@ export const setFileIsArchived = makeAction(
 );
 
 export const setFileRating = makeAction(
-  registerMetadataWork("setFileRating", async (args: { fileIds: string[]; rating: number }) => {
-    const tagIds = [
-      ...new Set(
-        (
-          await models.FileModel.find({ _id: { $in: args.fileIds } })
-            .select({ tagIdsWithAncestors: 1 })
-            .lean()
-        ).flatMap((file) => file.tagIdsWithAncestors.map(String)),
-      ),
-    ];
+  registerMetadataWork(
+    "setFileRating",
+    async (args: { fileIds: string[]; rating: number }) => {
+      const tagIds = [
+        ...new Set(
+          (
+            await models.FileModel.find({ _id: { $in: args.fileIds } })
+              .select({ tagIdsWithAncestors: 1 })
+              .lean()
+          ).flatMap((file) => file.tagIdsWithAncestors.map(String)),
+        ),
+      ];
 
-    const updates = { dateModified: dayjs().toISOString(), rating: args.rating };
+      const updates = { dateModified: dayjs().toISOString(), rating: args.rating };
 
-    await models.FileModel.updateMany({ _id: { $in: args.fileIds } }, updates);
-    socket.emit("onFilesUpdated", { fileIds: args.fileIds, updates });
+      await models.FileModel.updateMany({ _id: { $in: args.fileIds } }, updates);
+      socket.emit("onFilesUpdated", { fileIds: args.fileIds, updates });
 
-    const collections = await actions.regenCollAttrs({ fileIds: args.fileIds });
+      const collections = await actions.regenCollAttrs({ fileIds: args.fileIds });
 
-    if (!collections.success) throw new Error(collections.error);
+      if (!collections.success) throw new Error(collections.error);
 
-    if (tagIds.length) await actions.queueTagMetadataRegen(tagIds);
-  }),
+      if (tagIds.length) await actions.queueTagMetadataRegen(tagIds);
+    },
+    { getFileIds: ({ fileIds }) => fileIds },
+  ),
 );
 
 /* ----------------------------------------------------------------------- */
@@ -1333,7 +1595,8 @@ const fileThumbnailRepairPromises = new Map<
   Promise<{ status: "repaired" | "skipped"; thumb?: models.FileSchema["thumb"] }>
 >();
 
-const fileRefreshAbortControllers = new Map<string, AbortController>();
+/** Each running refresh's files, which later refreshes add to. */
+const fileRefreshQueues = new Map<string, string[]>();
 
 const repairFileThumbnailMetadata = registerMetadataWork(
   "repairFileThumbnail",
@@ -1358,7 +1621,7 @@ const repairFileThumbnailMetadata = registerMetadataWork(
       return { status: "repaired" as const, thumb: info.thumb };
     }
   },
-  true,
+  { persistInBackground: true },
 );
 
 export const repairFileThumbnail = makeAction(
@@ -1370,6 +1633,9 @@ export const repairFileThumbnail = makeAction(
     thumb?: models.FileSchema["thumb"];
   }> => {
     if (!(await areMediaPathIndexesReady())) return { status: "waiting" };
+
+    // A file another operation is changing is repaired once it is released.
+    if (getForeignFileLock(args.fileId)) return { status: "waiting" };
 
     const pendingRepair = fileThumbnailRepairPromises.get(args.fileId);
 
@@ -1410,7 +1676,7 @@ makeBackgroundOperationRunner("thumbnail recovery", async () => {
 
 export const repairThumbnailNtfsMetadata = makeAction(
   async ({ repairId }: { repairId: string }) => {
-    const { checkCancelled, report, run } = makeRepairReporter(
+    const { checkCancelled, lock, report, run, unlock } = makeRepairReporter(
       repairId,
       "repairThumbnailNtfsMetadata",
     );
@@ -1425,6 +1691,7 @@ export const repairThumbnailNtfsMetadata = makeAction(
           { "thumb.ntfsVolumeId": { $exists: false } },
           { "thumb.ntfsVolumeId": null },
         ],
+        isArchived: { $ne: true },
         "thumb.path": { $exists: true, $nin: [null, ""] },
       };
 
@@ -1435,6 +1702,12 @@ export const repairThumbnailNtfsMetadata = makeAction(
       let storedCount = 0;
 
       report(`Found ${totalCount} thumbnails missing NTFS ordering metadata.`, "progress");
+
+      lock(
+        (await models.FileModel.find(filter).select({ _id: 1 }).lean()).map((file) =>
+          String(file._id),
+        ),
+      );
 
       while (!isServerStopping()) {
         checkCancelled();
@@ -1503,6 +1776,7 @@ export const repairThumbnailNtfsMetadata = makeAction(
 
         cursor = files[files.length - 1]._id;
         inspectedCount += files.length;
+        unlock(files.map((file) => String(file._id)));
 
         report(
           `Inspected ${inspectedCount} / ${totalCount} thumbnails; stored ${storedCount} NTFS identities and could not inspect ${failedCount}.`,
@@ -1552,75 +1826,276 @@ export const storeThumbnailNtfsMetadata = async (metadataItems: ThumbnailNtfsMet
   return result.matchedCount;
 };
 
-export const cancelFileRefresh = makeAction(async ({ refreshId }: { refreshId: string }) => {
-  const abortController = fileRefreshAbortControllers.get(refreshId);
+/** Small batches keep progress moving and Stop responsive while each one reads its files. */
+const DELETION_BATCH_SIZE = 50;
 
-  abortController?.abort();
-  await releaseTranscriptionModel(`file-refresh:${refreshId}`);
+/**
+ * Archives the given files still in the library and deletes those already archived, in batches on
+ * the server.
+ */
+export const startFileDeletion = makeAction(async ({ fileIds }: { fileIds: string[] }) => {
+  const uniqueIds = [...new Set(fileIds)];
 
-  return Boolean(abortController);
-});
+  return startJob({
+    fileIds: uniqueIds,
+    label: "File Deletion",
+    run: async (job) => {
+      const activeIds: string[] = [];
+      const archivedFiles: { _id: mongoose.Types.ObjectId; thumb?: models.FileSchema["thumb"] }[] =
+        [];
+      let archivedCount = 0;
+      let deletedCount = 0;
 
-export const finishFileRefresh = makeAction(async ({ refreshId }: { refreshId: string }) => {
-  fileRefreshAbortControllers.get(refreshId)?.abort();
-  fileRefreshAbortControllers.delete(refreshId);
-  await releaseTranscriptionModel(`file-refresh:${refreshId}`);
-});
+      for (const chunk of chunkArray(uniqueIds, 1000)) {
+        job.signal.throwIfAborted();
 
-export const refreshFileInfo = makeAction(
-  async ({
-    fileId,
-    refreshId,
-    withTranscription,
-    withWaveform,
-  }: {
-    fileId: string;
-    refreshId?: string;
-    withTranscription?: boolean;
-    withWaveform?: boolean;
-  }) => {
-    const abortController = fileRefreshAbortControllers.get(refreshId) ?? new AbortController();
+        const files = await models.FileModel.find({ _id: { $in: objectIds(chunk) } })
+          .select({ isArchived: 1, "thumb.ntfsFileId": 1, "thumb.ntfsVolumeId": 1 })
+          .lean();
 
-    if (refreshId) {
-      fileRefreshAbortControllers.set(refreshId, abortController);
+        for (const file of files) {
+          if (file.isArchived) archivedFiles.push(file);
+          else activeIds.push(String(file._id));
+        }
+      }
 
-      if (withTranscription ?? getConfig().file.transcription.enabled)
-        retainTranscriptionModel(`file-refresh:${refreshId}`, abortController.signal);
-    }
+      // Deleting reads each file to verify it, so files go in disk order to keep a hard drive from
+      // seeking. A file's thumbnail is written beside it right after it, so its stored NTFS
+      // identity gives that order without reading the disk.
+      const archivedIds = sortByStoredNtfsIdentity(archivedFiles, (file) => ({
+        fileId: file.thumb?.ntfsFileId,
+        volumeId: file.thumb?.ntfsVolumeId,
+      })).map((file) => String(file._id));
 
-    try {
-      const fileModel = await models.FileModel.findById(fileId).lean();
+      // Files already gone from the library need nothing more.
+      const foundIds = new Set([...activeIds, ...archivedIds]);
 
-      if (!fileModel) throw new Error(`File ${fileId} was not found.`);
+      job.complete(uniqueIds.filter((fileId) => !foundIds.has(fileId)));
 
-      const file = leanModelToJson<models.FileSchema>(fileModel);
+      /**
+       * Progress already counts every file, so the message names the step with its speed and the
+       * time left at that speed, then how long the last batch spent on each part.
+       */
+      const reportStep = (
+        step: string,
+        startedAt: number,
+        doneCount: number,
+        totalCount: number,
+        lastBatch = "",
+      ) => {
+        const rate = doneCount / Math.max(1, (Date.now() - startedAt) / 1000);
 
-      const report = (message: string, progress?: number) =>
-        refreshId &&
-        socket.emitReliable("onFileRefreshProgress", {
-          fileId,
-          fileName: file.originalName,
-          message,
-          progress,
-          refreshId,
+        job.report({
+          message: [
+            step,
+            doneCount && `${rate.toFixed(1)} files/s`,
+            doneCount && `about ${Fmt.duration((totalCount - doneCount) / rate)} left`,
+            lastBatch,
+          ]
+            .filter(Boolean)
+            .join(" · "),
+        });
+      };
+
+      /**
+       * Removes a batch's files only, so older cleanups aren't revisited every batch. Stopping
+       * pauses the removal, and anything left or failed is finished by the queue afterwards.
+       */
+      const removeFiles = async (cleanupIds: string[]) => {
+        for (const cleanupId of cleanupIds) {
+          try {
+            await workSignal.run(job.signal, () => finishFileOperation(cleanupId));
+          } catch (error) {
+            job.addFailure(`Media kept for a later cleanup: ${error.message}`);
+          }
+        }
+      };
+
+      const tagIds = new Set<string>();
+      let removing = Promise.resolve();
+
+      try {
+        const archiveStartedAt = Date.now();
+
+        if (activeIds.length) reportStep("Archiving files", archiveStartedAt, 0, activeIds.length);
+
+        for (const chunk of chunkArray(activeIds, DELETION_BATCH_SIZE)) {
+          job.signal.throwIfAborted();
+
+          const res = await setFileIsArchived({ fileIds: chunk, isArchived: true });
+          if (!res.success) throw new Error(`Error archiving files: ${res.error}`);
+
+          archivedCount += chunk.length;
+          job.complete(chunk);
+          reportStep("Archiving files", archiveStartedAt, archivedCount, activeIds.length);
+        }
+
+        const deleteStartedAt = Date.now();
+
+        if (archivedIds.length)
+          reportStep("Deleting archived files", deleteStartedAt, 0, archivedIds.length);
+
+        for (const chunk of chunkArray(archivedIds, DELETION_BATCH_SIZE)) {
+          job.signal.throwIfAborted();
+
+          // A batch's records are deleted while the previous batch's files are removed, which is
+          // mostly database work; only one batch removes files at a time.
+          const recordsStartedAt = Date.now();
+          const res = await deleteFiles({
+            fileIds: chunk,
+            withCleanupQueue: false,
+            withTagRegen: false,
+          });
+          if (!res.success) throw new Error(res.error);
+
+          const recordsTime = Date.now() - recordsStartedAt;
+
+          for (const tagId of res.data.tagIds) tagIds.add(tagId);
+
+          deletedCount += chunk.length;
+          job.complete(chunk);
+
+          await removing;
+
+          removing = (async () => {
+            const removalStartedAt = Date.now();
+
+            await removeFiles(res.data.cleanupIds);
+
+            reportStep(
+              "Deleting archived files",
+              deleteStartedAt,
+              deletedCount,
+              archivedIds.length,
+              `last ${chunk.length}: records ${(recordsTime / 1000).toFixed(1)}s, files ${((Date.now() - removalStartedAt) / 1000).toFixed(1)}s`,
+            );
+          })();
+        }
+      } finally {
+        await removing;
+
+        job.report({
+          message: `${Fmt.commas(archivedCount)} files archived; ${Fmt.commas(deletedCount)} files deleted`,
         });
 
-      return await runBackgroundExecution(
-        () =>
-          repairThumbnail(file, false, [], {
-            onProgress: report,
-            signal: abortController.signal,
-            withTranscription,
-            withWaveform,
-          }),
-        abortController.signal,
-        false,
-      );
-    } finally {
-      if (!refreshId) abortController.abort();
-    }
-  },
-);
+        // Tag counts are rescanned once for the whole deletion rather than after every batch, and
+        // the queue picks up any cleanup left by a stop or failure.
+        if (tagIds.size) await actions.queueTagMetadataRegen([...tagIds]);
+
+        runFileCleanupQueue();
+      }
+    },
+    type: "deleteFiles",
+  });
+});
+
+/**
+ * Regenerates files' media info and thumbnails on the server, one file at a time. Files sent while
+ * a refresh runs join it.
+ */
+export const startFileRefresh = makeAction(async ({ fileIds }: { fileIds: string[] }) => {
+  const uniqueIds = [...new Set(fileIds)];
+  let runningId = findJob("refreshFiles");
+
+  // A stopping refresh still holds its files, so a new one starts once it has ended.
+  if (runningId && isJobStopping(runningId)) {
+    await waitForJob(runningId);
+    runningId = findJob("refreshFiles");
+  }
+
+  const runningQueue = fileRefreshQueues.get(runningId);
+
+  if (runningQueue) {
+    // Only files still waiting are skipped; ones refreshed already, or refreshing now, run again.
+    const queuedIds = new Set(runningQueue);
+    const addedIds = uniqueIds.filter((fileId) => !queuedIds.has(fileId));
+
+    addToJob(runningId, addedIds);
+    runningQueue.push(...addedIds);
+
+    return runningId;
+  } else
+    return startJob({
+      fileIds: uniqueIds,
+      label: "File Refresh",
+      run: async (job) => {
+        const modelOwnerId = `file-refresh:${job.id}`;
+        const queue = [...uniqueIds];
+
+        fileRefreshQueues.set(job.id, queue);
+
+        if (getConfig().file.transcription.enabled)
+          retainTranscriptionModel(modelOwnerId, job.signal);
+
+        try {
+          // The queue holds only waiting files, which later refreshes add to.
+          while (queue.length) {
+            const fileId = queue.shift();
+
+            job.signal.throwIfAborted();
+
+            try {
+              const fileModel = await models.FileModel.findById(fileId).lean();
+
+              if (!fileModel) throw new Error("The file was not found.");
+
+              const file = leanModelToJson<models.FileSchema>(fileModel);
+
+              job.report({
+                item: file.originalName,
+                message: "Starting refresh.",
+                stepProgress: null,
+              });
+
+              await runBackgroundExecution(
+                () =>
+                  repairThumbnail(file, false, [], {
+                    onProgress: (message, progress) =>
+                      job.report({ message, stepProgress: progress ?? null }),
+                    signal: job.signal,
+                    // Refreshes follow the settings; thumbnail repairs otherwise skip both.
+                    withTranscription: getConfig().file.transcription.enabled,
+                    withWaveform: getConfig().file.waveform.enabled,
+                  }),
+                job.signal,
+                false,
+              );
+            } catch (error) {
+              job.signal.throwIfAborted();
+              job.addFailure(error.message);
+            }
+
+            // A file queued again during its refresh stays locked for the next one.
+            job.complete(queue.includes(fileId) ? [] : [fileId], 1);
+          }
+        } finally {
+          fileRefreshQueues.delete(job.id);
+          await releaseTranscriptionModel(modelOwnerId);
+        }
+      },
+      type: "refreshFiles",
+    });
+});
+
+export const startFileUnarchive = makeAction(async ({ fileIds }: { fileIds: string[] }) => {
+  const uniqueIds = [...new Set(fileIds)];
+
+  return startJob({
+    fileIds: uniqueIds,
+    label: "File Unarchiving",
+    run: async (job) => {
+      for (const chunk of chunkArray(uniqueIds, 200)) {
+        job.signal.throwIfAborted();
+
+        const res = await setFileIsArchived({ fileIds: chunk, isArchived: false });
+        if (!res.success) throw new Error(res.error);
+
+        job.complete(chunk);
+      }
+    },
+    type: "unarchiveFiles",
+  });
+});
 
 /* ----------------------------------------------------------------------- */
 class ThumbRepairer {
@@ -1631,6 +2106,7 @@ class ThumbRepairer {
   private hasFilesWithOldThumbPaths = false;
   private hasInvalidThumbnails = false;
   private hasMorePages = true;
+  private lock: ReturnType<typeof makeRepairReporter>["lock"];
   private logTag = "[repairThumbs]";
   private perfLog: (str: string) => void;
   private perfLogTotal: (str: string) => void;
@@ -1638,6 +2114,7 @@ class ThumbRepairer {
   private tagCount = 0;
   private thumbMap = new Map<string, models.FileSchema["thumb"]>();
   private totalCount = 0;
+  private unlock: ReturnType<typeof makeRepairReporter>["unlock"];
 
   constructor(repairId: string) {
     const { perfLog, perfLogTotal } = makePerfLog(this.logTag, true);
@@ -1648,7 +2125,9 @@ class ThumbRepairer {
     const reporter = makeRepairReporter(repairId, "repairThumbs");
 
     this.checkCancelled = reporter.checkCancelled;
+    this.lock = reporter.lock;
     this.report = reporter.report;
+    this.unlock = reporter.unlock;
   }
 
   private progressLog = (message: string) => {
@@ -1656,11 +2135,8 @@ class ThumbRepairer {
     this.report(message, "progress");
   };
 
-  private errorLog = async (...args: any[]) => {
+  private errorLog = (message: string) => {
     this.errorCount++;
-
-    const message = args.map(String).join(" ");
-
     this.report(message, "error");
   };
 
@@ -1727,7 +2203,7 @@ class ThumbRepairer {
           else regeneratedThumbnailCount++;
         } catch (error) {
           this.checkCancelled();
-          await this.errorLog(
+          this.errorLog(
             `Failed to repair thumbnail for file ${file.id} (${file.path}): ${error?.message ?? String(error)}`,
           );
         }
@@ -1739,6 +2215,7 @@ class ThumbRepairer {
       }
 
       scannedCount += files.length;
+      this.unlock(files.map((file) => file.id));
       files = [];
       this.progressLog(
         `Scanned ${scannedCount} / ${totalFileCount} files. Found ${invalidThumbnailCount} missing thumbnail files; regenerated ${regeneratedThumbnailCount} and restored ${restoredThumbnailRecordCount} database records.`,
@@ -1782,12 +2259,10 @@ class ThumbRepairer {
     );
 
   private getTotalFilesWithThumbPaths = async () => {
-    const res: { total: number } = (
-      await models.FileModel.aggregate([
-        { $match: { thumbPaths: { $exists: true } } },
-        { $count: "total" },
-      ]).allowDiskUse(true)
-    ).flatMap((r) => r)[0];
+    const [res] = await models.FileModel.aggregate<{ total: number }>([
+      { $match: { thumbPaths: { $exists: true } } },
+      { $count: "total" },
+    ]).allowDiskUse(true);
 
     return res?.total ?? 0;
   };
@@ -1912,6 +2387,23 @@ class ThumbRepairer {
     repairPaths: boolean;
   }) => {
     this.checkCancelled();
+
+    const lockFilters: mongoose.FilterQuery<models.FileSchema>[] = [
+      ...(repairPaths
+        ? [{ "thumb.path": { $regex: "\\\\.jpg$" } }, { thumbPaths: { $exists: true } }]
+        : []),
+      ...(repairMissingThumbnails ? [{ isCorrupted: { $ne: true } }] : []),
+    ];
+
+    if (lockFilters.length)
+      this.lock(
+        (
+          await models.FileModel.find({ $or: lockFilters }, null, { strict: false })
+            .allowDiskUse(true)
+            .select({ _id: 1 })
+            .lean()
+        ).map((file) => String(file._id)),
+      );
 
     if (repairPaths) {
       this.report("Searching for malformed thumbnail paths.");

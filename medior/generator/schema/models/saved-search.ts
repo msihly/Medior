@@ -1,6 +1,6 @@
 import { ModelDb } from "medior/generator/schema/generators";
 
-const model = new ModelDb("SavedSearch", { withStore: true });
+const model = new ModelDb("SavedSearch");
 
 model.addIndex({ searchType: 1, label: 1 }, { unique: true });
 

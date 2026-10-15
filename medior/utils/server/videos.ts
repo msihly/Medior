@@ -9,7 +9,6 @@ import {
   CONSTANTS,
   fractionStringToNumber,
   getVideoResizeFilters,
-  ImageExt,
   round,
   validateTimestampPairs,
 } from "medior/utils/common";
@@ -165,9 +164,7 @@ export const extractVideoFrame = async (
 
     signal?.throwIfAborted();
 
-    const fileExists = await checkFileExists(outputPath);
-
-    if (!fileExists) throw new Error("Extracted frame not found.");
+    if (!(await checkFileExists(outputPath))) throw new Error("Extracted frame not found.");
 
     return outputPath;
   } catch (error) {
@@ -442,13 +439,11 @@ export const getMediaInfo = async (
   return info;
 };
 
-const normalizeImageExt = (ext: ImageExt) => (ext === "jpeg" ? "jpg" : ext);
-
 const compressImage = async (inputPath: string, outputDir: string, options?: FfmpegOptions) => {
   const { imageExt, imageJpgQuality, imageMaxLongEdge, imageMaxShortEdge } =
     getConfig().file.reencode;
 
-  const outputExt = normalizeImageExt(imageExt);
+  const outputExt = imageExt === "jpeg" ? "jpg" : imageExt;
   const tempDir = getScratchFolder(outputDir);
   const tempPath = path.resolve(tempDir, `temp-${randomUUID()}.${outputExt}`);
 
@@ -536,8 +531,9 @@ const gifToLoopableVideo = async (
 };
 
 export const reencode = async (inputPath: string, outputDir: string, options?: FfmpegOptions) => {
-  const config = getConfig();
-  const { codec, maxBitrate, maxFps, maxLongEdge, maxShortEdge, override } = config.file.reencode;
+  const { codec, maxBitrate, maxFps, maxLongEdge, maxShortEdge, override } =
+    getConfig().file.reencode;
+
   const videoInfo = await getMediaInfo(inputPath, options?.signal);
 
   if (!videoInfo.isAnimated) {
@@ -699,10 +695,9 @@ export const vidToThumbGrid = async (
 
     if (DEBUG) perfLog(`Video duration: ${duration}`);
 
-    const numOfFrames = CONSTANTS.FILE.THUMB.GRID_COLUMNS * CONSTANTS.FILE.THUMB.GRID_ROWS;
     const scaled = getScaledThumbSize(width, height);
     const skipDuration = duration * CONSTANTS.FILE.THUMB.FRAME_SKIP_PERCENT;
-    const frameInterval = (duration - skipDuration) / numOfFrames;
+    const frameInterval = (duration - skipDuration) / tempPaths.length;
     let frameEnd = frameDelays?.[0] ?? 0;
     let page = 0;
 

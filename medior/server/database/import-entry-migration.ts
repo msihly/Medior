@@ -20,7 +20,7 @@ import {
 import { PersistenceModel } from "medior/server/database/persistence";
 import { dayjs } from "medior/utils/common";
 import { socket } from "medior/utils/server";
-import { getCommonSourceFolder } from "medior/utils/server/source-folders";
+import { getCommonSourceFolder, mergeSourceFolders } from "medior/utils/server/source-folders";
 
 interface ImportEntryCheckpoint {
   offset: number;
@@ -212,11 +212,10 @@ export const runImportEntryMigrationQueue = async () => {
           processedSize:
             checkpoint.processedSize + processed.reduce((total, entry) => total + entry.size, 0),
           size: checkpoint.size + page.entries.reduce((total, entry) => total + entry.size, 0),
-          sourceFolderPath: !checkpoint.offset
-            ? folder
-            : checkpoint.sourceFolderPath && folder
-              ? getCommonSourceFolder([checkpoint.sourceFolderPath, folder], true)
-              : null,
+          sourceFolderPath: mergeSourceFolders(
+            checkpoint.offset ? (checkpoint.sourceFolderPath ?? null) : undefined,
+            folder,
+          ),
         };
 
         copiedEntries += page.entries.length;

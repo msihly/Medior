@@ -5,6 +5,7 @@ import { MODEL_FILE_COLLECTION } from "./file-collection";
 import { MODEL_FILE_IMPORT } from "./file-import";
 import { MODEL_FILE_IMPORT_BATCH } from "./file-import-batch";
 import { MODEL_FILE_TRANSFORM } from "./file-transform";
+import { MODEL_MEDIA_PROGRAM } from "./media-program";
 import { MODEL_NOTIFICATION } from "./notification";
 import { MODEL_SAVED_IMPORT_CONFIG } from "./saved-import-config";
 import { MODEL_SAVED_SEARCH } from "./saved-search";
@@ -18,6 +19,7 @@ export const MODEL_DEFS = [
   MODEL_FILE_IMPORT_BATCH,
   MODEL_FILE_TRANSFORM,
   MODEL_FILE,
+  MODEL_MEDIA_PROGRAM,
   MODEL_NOTIFICATION,
   MODEL_SAVED_IMPORT_CONFIG,
   MODEL_SAVED_SEARCH,

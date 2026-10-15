@@ -15,14 +15,20 @@ import {
 } from "medior/components";
 import { FileSearch, useStores } from "medior/store";
 import { colors, CssColor } from "medior/utils/client";
-import { AudioCodec, ImageExt, VideoCodec, VideoExt } from "medior/utils/common";
+import { AudioCodec, cycleTriState, ImageExt, VideoCodec, VideoExt } from "medior/utils/common";
 
 export interface FileFilterMenuProps {
   color?: CssColor;
+  /** Hides filters for files the menu's results can never include. */
+  hideArchivedAndCorrupted?: boolean;
+  /** Applies the filter elsewhere instead of loading the store's results. */
+  onSearch?: () => void;
   store: FileSearch;
 }
 
-export const FileFilterMenu = Comp(({ color = colors.foreground, store }: FileFilterMenuProps) => {
+export const FileFilterMenu = Comp((props: FileFilterMenuProps) => {
+  const { color = colors.foreground, hideArchivedAndCorrupted = false, onSearch, store } = props;
+
   const stores = useStores();
 
   const toggleArchiveOpen = () => store.setIsArchived(!store.isArchived);
@@ -31,24 +37,21 @@ export const FileFilterMenu = Comp(({ color = colors.foreground, store }: FileFi
 
   const toggleHasTimeline = () => store.setHasTimeline(!store.hasTimeline);
 
-  const toggleIsCorrupted = () =>
-    store.setIsCorrupted(
-      store.isCorrupted === true ? false : store.isCorrupted === false ? null : true,
-    );
+  const toggleIsCorrupted = () => store.setIsCorrupted(cycleTriState(store.isCorrupted));
 
-  const toggleIsModified = () =>
-    store.setIsModified(
-      store.isModified === true ? false : store.isModified === false ? null : true,
-    );
+  const toggleIsModified = () => store.setIsModified(cycleTriState(store.isModified));
 
-  const toggleIsTranscribed = () =>
-    store.setIsTranscribed(
-      store.isTranscribed === true ? false : store.isTranscribed === false ? null : true,
-    );
+  const toggleIsTranscribed = () => store.setIsTranscribed(cycleTriState(store.isTranscribed));
 
   return (
-    <FilterMenu store={store} resetFn={store._reset} color={color} sortOptions={SORT_OPTIONS.File}>
-      <View row height="22rem" spacing="0.5rem">
+    <FilterMenu
+      store={store}
+      resetFn={store._reset}
+      searchFn={onSearch}
+      color={color}
+      sortOptions={SORT_OPTIONS.File}
+    >
+      <View row spacing="0.5rem">
         <Card flex={1}>
           <TagInput
             header="Tags"
@@ -62,22 +65,7 @@ export const FileFilterMenu = Comp(({ color = colors.foreground, store }: FileFi
           />
         </Card>
 
-        <Card height="100%" width="9rem" spacing="0.5rem">
-          <LogOpsInput
-            header={
-              <FilterHeader
-                label="# of Tags"
-                mode={store.numOfTagsMode}
-                setMode={store.setNumOfTagsMode}
-              />
-            }
-            logOpValue={store.numOfTags.logOp}
-            numValue={store.numOfTags.value}
-            setLogOpValue={store.setNumOfTagsOp}
-            setNumValue={store.setNumOfTagsValue}
-            numInputProps={{ maxValue: 50, minValue: 0 }}
-          />
-
+        <Card width="9rem" spacing="0.5rem">
           <LogOpsInput
             header={
               <FilterHeader label="Rating" mode={store.ratingMode} setMode={store.setRatingMode} />
@@ -90,22 +78,26 @@ export const FileFilterMenu = Comp(({ color = colors.foreground, store }: FileFi
           />
 
           <View column>
-            <Checkbox
-              label="Archived"
-              checked={store.isArchived}
-              setChecked={toggleArchiveOpen}
-              color={colors.custom.red}
-              flex="none"
-            />
+            {!hideArchivedAndCorrupted && (
+              <>
+                <Checkbox
+                  label="Archived"
+                  checked={store.isArchived}
+                  setChecked={toggleArchiveOpen}
+                  color={colors.custom.red}
+                  flex="none"
+                />
 
-            <Checkbox
-              label="Corrupted"
-              checked={store.isCorrupted}
-              indeterminate={store.isCorrupted === false}
-              setChecked={toggleIsCorrupted}
-              color={colors.custom.orange}
-              flex="none"
-            />
+                <Checkbox
+                  label="Corrupted"
+                  checked={store.isCorrupted}
+                  indeterminate={store.isCorrupted === false}
+                  setChecked={toggleIsCorrupted}
+                  color={colors.custom.orange}
+                  flex="none"
+                />
+              </>
+            )}
 
             <Checkbox
               label="Diffusion"
@@ -371,6 +363,21 @@ export const FileFilterMenu = Comp(({ color = colors.foreground, store }: FileFi
             setLogOpValue={store.setNumOfCollectionsOp}
             setNumValue={store.setNumOfCollectionsValue}
             numInputProps={{ minValue: 0 }}
+          />
+
+          <LogOpsInput
+            header={
+              <FilterHeader
+                label="# of Tags"
+                mode={store.numOfTagsMode}
+                setMode={store.setNumOfTagsMode}
+              />
+            }
+            logOpValue={store.numOfTags.logOp}
+            numValue={store.numOfTags.value}
+            setLogOpValue={store.setNumOfTagsOp}
+            setNumValue={store.setNumOfTagsValue}
+            numInputProps={{ maxValue: 50, minValue: 0 }}
           />
         </Card>
       </View>

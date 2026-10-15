@@ -33,7 +33,7 @@ export const FileCollectionFile = Comp(
       if (!res?.success) toast.error(res.error);
     };
 
-    const handleDoubleClick = async () => {
+    const handleDoubleClick = () => {
       if (!disabled) {
         openCarouselWindow({
           file,

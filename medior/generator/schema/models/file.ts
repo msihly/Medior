@@ -1,7 +1,7 @@
 import { ModelDb } from "medior/generator/schema/generators";
 import { FILE_PATH_SEARCH_INDEX } from "medior/utils/common/constants";
 
-const model = new ModelDb("File", { withStore: true });
+const model = new ModelDb("File");
 
 model.addProp("audioBitrate", "number");
 
@@ -71,6 +71,11 @@ model.addProp("originalAudioCodec", "string");
 
 model.addProp("originalBitrate", "number");
 
+/** Checksum of the media as first imported, kept through re-encodes, splices, and edits. */
+model.addIndex(
+  { originalHash: 1 },
+  { partialFilterExpression: { originalHash: { $type: "string" } }, unique: false },
+);
 model.addProp("originalHash", "string");
 
 model.addIndex({ originalName: 1, _id: 1 });
@@ -90,11 +95,33 @@ model.addProp("peakDecibels", "number", {
   sort: { icon: "GraphicEq", label: "Peak Decibels" },
 });
 
+/** Checksums the media had before each re-encode, splice, or edit, which imports treat as duplicates. */
+model.addIndex(
+  { previousHashes: 1 },
+  { partialFilterExpression: { previousHashes: { $type: "string" } }, unique: false },
+);
+model.addProp("previousHashes", "string[]");
+
 model.addIndex({ rating: 1, _id: 1 });
 model.addProp("rating", "number", { required: true, sort: { icon: "Star", label: "Rating" } });
 
 model.addIndex({ size: 1, _id: 1 });
 model.addProp("size", "number", { required: true, sort: { icon: "FormatSize", label: "Size" } });
+
+/** Checksum of the imported source when importing changed it, such as by embedding subtitles. */
+model.addIndex(
+  { sourceHash: 1 },
+  { partialFilterExpression: { sourceHash: { $type: "string" } }, unique: false },
+);
+model.addProp("sourceHash", "string");
+
+model.addIndex(
+  { "subtitles.pathKey": 1 },
+  { partialFilterExpression: { "subtitles.pathKey": { $type: "string" } }, unique: false },
+);
+model.addProp("subtitles", "Array<{ ext: string; path: string; pathKey: string }>", {
+  schemaType: "[{ ext: String, path: String, pathKey: String }]",
+});
 
 model.addIndex({ tagIds: 1 }, { unique: false });
 model.addProp("tagIds", "Tag.id[]", { required: true });

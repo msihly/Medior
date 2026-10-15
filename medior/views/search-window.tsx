@@ -1,6 +1,6 @@
 import { ipcRenderer } from "electron";
 import { useEffect } from "react";
-import { Comp, View, WindowTitleBar } from "medior/components";
+import { Comp, MinimizedJobs, View, WindowTitleBar } from "medior/components";
 import { tagToOption, useStores } from "medior/store";
 import { makeClasses } from "medior/utils/client";
 import { trpc } from "medior/utils/server";
@@ -38,7 +38,11 @@ export const SearchWindow = Comp(() => {
 
         <Views.FileModals />
 
+        <Views.MediaProgramModals />
+
         <Views.TagModals view="search" />
+
+        <MinimizedJobs />
       </View>
     </View>
   );

@@ -7,6 +7,7 @@ export const PERSISTENCE_MIGRATION_ID = "persistence:consolidation:v1";
 export type PersistenceRecordType =
   | "BackgroundOperation"
   | "FileOperation"
+  | "ImageCopyMatch"
   | "ImageCopyPair"
   | "ImageCopyScan"
   | "MediaOwnership"
@@ -86,10 +87,6 @@ export const ensurePersistenceIndexes = async () => {
         );
 
       const indexOptions: IndexOptions & { _autoIndex?: boolean } = { ...options };
-      const partialFilterExpression = {
-        ...options.partialFilterExpression,
-        recordType: name,
-      };
 
       delete indexOptions._autoIndex;
       delete indexOptions.sparse;
@@ -99,7 +96,7 @@ export const ensurePersistenceIndexes = async () => {
         {
           ...indexOptions,
           name: `${name}_${options.name ?? Object.entries(keys).flat().join("_")}`,
-          partialFilterExpression,
+          partialFilterExpression: { ...options.partialFilterExpression, recordType: name },
           session: getBackgroundSession(),
         },
       );

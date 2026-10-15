@@ -281,7 +281,7 @@ export class TagEditorStore extends Model({
       new RegExp(this.regExValue, "im");
 
       return true;
-    } catch (error) {
+    } catch {
       return false;
     }
   }

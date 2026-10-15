@@ -22,6 +22,10 @@ export const addRegexSearchFilter = (
   }
 };
 
+/** Steps a three-way filter from either (null) to yes, no, and back to either. */
+export const cycleTriState = (value: boolean | null) =>
+  value === true ? false : value === false ? null : true;
+
 const splitRegexSearchTerms = (input: string) => {
   const terms: string[] = [];
   let depth = 0;

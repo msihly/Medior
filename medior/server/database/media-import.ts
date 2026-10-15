@@ -2,7 +2,7 @@ import fs from "fs/promises";
 import path from "path";
 import { createHash, randomUUID } from "crypto";
 import * as models from "medior/_generated/server/models";
-import { extendFileName, fileLog } from "trabecula/utils/server";
+import { checkFileExists, extendFileName, fileLog } from "trabecula/utils/server";
 import * as actions from "medior/server/database/actions";
 import { checkBackgroundExecution } from "medior/server/database/background-execution";
 import {
@@ -25,13 +25,20 @@ import { genFileInfo, isGeneratedMediaUnreadable } from "medior/utils/client/fil
 import {
   dayjs,
   FileImportSidecar,
+  getSubtitleFilePaths,
   hasTranscription,
   normalizeTimestampPairs,
+  SubtitleMode,
+  SubtitleSource,
 } from "medior/utils/common";
 import {
   getAvailableFileStorage,
   getConfig,
+  getIsActiveScratchPath,
+  getIsStoragePath,
+  getIsStorageScratchPath,
   getIsVideo,
+  getScratchFolder,
   leanModelToJson,
   socket,
 } from "medior/utils/server";
@@ -42,6 +49,7 @@ import {
   recoverMediaOutput,
   syncMediaFile,
 } from "medior/utils/server/media-output";
+import { canEmbedSubtitle, getPartialMuxPath, muxSubtitles } from "medior/utils/server/subtitles";
 import { waitForWork, workSignal } from "medior/utils/server/work-signal";
 
 export interface MediaImportInput {
@@ -57,6 +65,8 @@ export interface MediaImportInput {
   rootFolderPath?: string;
   sidecar?: FileImportSidecar;
   size: number;
+  subtitleMode?: SubtitleMode;
+  subtitles?: SubtitleSource[];
   tagIds: string[];
 }
 
@@ -64,6 +74,28 @@ const activeImportHashes = new Map<string, Promise<void>>();
 const activeImports = new Set<string>();
 let importStorage: { bytesLeft: number; location: string };
 let importStorageCheck: Promise<{ bytesLeft: number; location: string }>;
+
+/** Commits an unfinished import's outputs to cleanup, retaining its source. */
+export const abandonPreparedImport = async (operation: FileOperation) => {
+  const cleanup = [...operation.cleanup];
+
+  for (const outputPath of [
+    operation.outputPath,
+    operation.thumbPath,
+    ...getImportScratchPaths(operation),
+  ]) {
+    if (!outputPath || mediaPathKey(outputPath) === mediaPathKey(operation.sourcePath)) continue;
+
+    const file = await describeFileCleanup(outputPath);
+
+    if (file) cleanup.push(file);
+  }
+
+  await FileOperationModel.updateOne(
+    { _id: operation._id, state: "PREPARED" },
+    { cleanup, state: "COMMITTED" },
+  );
+};
 
 const acquireImportHash = async (hash: string) => {
   checkBackgroundExecution();
@@ -94,10 +126,122 @@ const acquireImportHash = async (hash: string) => {
   }
 };
 
-const getImportOperationId = (args: MediaImportInput) =>
+/** Copies are verified against their source and flushed before they replace a partial copy. */
+const copySubtitleFile = async (sourcePath: string, outputPath: string) => {
+  const hash = await hashMediaFile(sourcePath);
+  const tempPath = `${outputPath}.tmp`;
+
+  await copyMediaFile(sourcePath, tempPath);
+  await syncMediaFile(tempPath, hash);
+  await fs.rename(tempPath, outputPath);
+};
+
+/**
+ * Subtitles are named after the stored media, so re-copying them for a retried import overwrites.
+ * Copies align with their sources, and ones removed since scanning are left out as null.
+ */
+const copySubtitles = async (mediaPath: string, subtitles: SubtitleSource[]) => {
+  const copies: (models.FileSchema["subtitles"][number] | null)[] = [];
+
+  for (const [index, subtitle] of subtitles.entries()) {
+    if (!(await getIsSubtitleAvailable(subtitle))) copies.push(null);
+    else {
+      const ext = path.extname(subtitle.path).slice(1).toLowerCase();
+      const subtitlePath = getSubtitleCopyPath(mediaPath, subtitle.path, index);
+
+      await copySubtitleFile(subtitle.path, subtitlePath);
+
+      if (ext === "idx")
+        await copySubtitleFile(
+          extendFileName(subtitle.path, "sub"),
+          extendFileName(subtitlePath, "sub"),
+        );
+
+      copies.push({ ext, path: subtitlePath, pathKey: mediaPathKey(subtitlePath) });
+    }
+  }
+
+  return copies;
+};
+
+/**
+ * Files whose import changed their bytes, such as by embedding subtitles, keep the source checksum,
+ * and re-encoded, spliced, or edited files keep the checksums they were imported and edited with.
+ * A file currently holding the content comes first, so a retried import finds its own record.
+ */
+const findImportDuplicate = async (hash: string, sourceHash: string) => {
+  const hashes = [...new Set([hash, sourceHash])];
+
+  return (
+    (await models.FileModel.findOne({ hash: { $in: hashes } })
+      .select("-tagIdsWithAncestors")
+      .lean()) ??
+    (await models.FileModel.findOne({
+      $or: [
+        { originalHash: { $in: hashes, $type: "string" } },
+        { previousHashes: { $in: hashes, $type: "string" } },
+        { sourceHash: { $in: hashes, $type: "string" } },
+      ],
+    })
+      .select("-tagIdsWithAncestors")
+      .lean())
+  );
+};
+
+export const getImportOperationId = (args: Pick<MediaImportInput, "batchId" | "originalPath">) =>
   args.batchId
     ? createHash("sha256").update(`${args.batchId}\0${args.originalPath}`).digest("hex")
     : randomUUID();
+
+/** Outputs an unfinished import may have written besides its media and thumbnail. */
+const getImportScratchPaths = (operation: FileOperation) => [
+  ...(operation.contentPath
+    ? [operation.contentPath, getPartialMuxPath(operation.contentPath)]
+    : []),
+  ...(operation.outputPath && operation.importInput
+    ? getSubtitleFilePaths(
+        getImportSubtitles(operation.importInput).kept.map((subtitle, index) => ({
+          path: getSubtitleCopyPath(operation.outputPath, subtitle.path, index),
+        })),
+      ).flatMap((subtitlePath) => [subtitlePath, `${subtitlePath}.tmp`])
+    : []),
+];
+
+/** Subtitles the container cannot hold are kept beside the video instead of being embedded. */
+const getImportSubtitles = (args: MediaImportInput) => {
+  const subtitles =
+    args.subtitleMode && args.subtitleMode !== "none" && getIsVideo(args.ext)
+      ? (args.subtitles ?? [])
+      : [];
+
+  const embedded =
+    args.subtitleMode === "embed"
+      ? subtitles.filter((subtitle) => canEmbedSubtitle(args.ext, subtitle.path))
+      : [];
+
+  return { embedded, kept: subtitles.filter((subtitle) => !embedded.includes(subtitle)) };
+};
+
+/** Only subtitles that no longer exist are unavailable; other read failures fail the import. */
+const getIsSubtitleAvailable = async (subtitle: SubtitleSource) => {
+  for (const filePath of getSubtitleFilePaths([subtitle])) {
+    try {
+      await fs.stat(filePath);
+    } catch (error) {
+      if (error.code === "ENOENT") return false;
+
+      throw error;
+    }
+  }
+
+  return true;
+};
+
+const getSubtitleCopyPath = (mediaPath: string, subtitlePath: string, index: number) => {
+  const { dir, name } = path.parse(mediaPath);
+
+  return path.join(dir, `${name}-sub-${index}${path.extname(subtitlePath).toLowerCase()}`);
+};
 
 const prepareMediaImport = async (operation: FileOperation) => {
   // New imports own fresh paths. Reserving them changes one document, not shared media ownership.
@@ -198,8 +342,9 @@ export const importMedia = async (args: MediaImportInput, operationId?: string) 
 
     recordTiming("recovery lookup");
 
+    // Imports of the same source share one lock whether or not embedding changed their output.
     if (operation?.outputHash) {
-      releaseHash = await acquireImportHash(operation.outputHash);
+      releaseHash = await acquireImportHash(operation.sourceHash ?? operation.outputHash);
       checkBackgroundExecution();
     }
 
@@ -243,9 +388,25 @@ export const importMedia = async (args: MediaImportInput, operationId?: string) 
         "An earlier import is still deleting this source. Wait for Import source cleanup in Activity to finish.",
       );
 
+    // Stored media is registered in place; redundant copies and leftover scratch are deleted.
+    const isStored = getIsStoragePath(args.originalPath);
+    const isScratch = isStored && getIsStorageScratchPath(args.originalPath);
+
+    if (isStored && getIsActiveScratchPath(args.originalPath))
+      throw new Error("Scratch output may still be in use, so it was not imported.");
+
+    if (isStored && !operation) {
+      await assertMediaPathsAvailable([args.originalPath]);
+
+      if (await isMediaPathReferenced(args.originalPath))
+        throw new Error(
+          "The library, a transform, or another import already uses this stored file.",
+        );
+    }
+
     reportProgress("Calculating checksum.", 0);
 
-    const hash = await hashMediaFile(args.originalPath, workSignal.getStore(), (bytes) =>
+    const sourceHash = await hashMediaFile(args.originalPath, workSignal.getStore(), (bytes) =>
       reportProgress(
         "Calculating checksum.",
         args.size > 0 ? Math.min(100, (bytes / args.size) * 100) : undefined,
@@ -255,49 +416,110 @@ export const importMedia = async (args: MediaImportInput, operationId?: string) 
     reportProgress("Checking for duplicates.");
     recordTiming("source checksum");
 
-    if (!releaseHash) releaseHash = await acquireImportHash(hash);
+    if (!releaseHash) releaseHash = await acquireImportHash(sourceHash);
 
     checkBackgroundExecution();
 
-    const duplicate = await models.FileModel.findOne({ hash })
-      .select("-tagIdsWithAncestors")
-      .lean();
+    const subtitles = getImportSubtitles(args);
 
-    const ignored =
-      !duplicate && args.ignorePrevDeleted && !!(await models.DeletedFileModel.exists({ hash }));
+    // Stored media is registered as it is, beside companions its subtitle copies could overwrite.
+    if (isStored && !operation?.outputHash && (subtitles.embedded.length || subtitles.kept.length))
+      throw new Error("Subtitles cannot be imported with media already in file storage.");
+
+    const embedSubtitles = async (contentPath: string) => {
+      const isAvailable = await Promise.all(subtitles.embedded.map(getIsSubtitleAvailable));
+
+      reportProgress("Embedding subtitles.");
+      await fs.mkdir(path.dirname(contentPath), { recursive: true });
+      await muxSubtitles({
+        inputPath: args.originalPath,
+        outputPath: contentPath,
+        signal: workSignal.getStore(),
+        subtitles: subtitles.embedded.filter((_, index) => isAvailable[index]),
+      });
+    };
+
+    const duplicate = await findImportDuplicate(sourceHash, sourceHash);
+
+    // Stored media follows the import's own setting for previously deleted files like any other.
+    let ignored =
+      !duplicate &&
+      (isScratch ||
+        (args.ignorePrevDeleted && !!(await models.DeletedFileModel.exists({ hash: sourceHash }))));
 
     recordTiming("duplicate lookup");
 
-    if (operation?.outputHash && operation.outputHash !== hash)
+    const preparedSourceHash = operation?.sourceHash ?? operation?.outputHash;
+
+    if (preparedSourceHash && preparedSourceHash !== sourceHash)
       throw new Error("Import source changed; the prepared output has been retained");
 
     if (!operation?.outputHash) {
-      const storage = duplicate || ignored ? null : await reserveImportStorage(args.size);
+      const storage =
+        duplicate || ignored || isStored ? null : await reserveImportStorage(args.size);
 
-      const outputPath =
-        duplicate || ignored
-          ? null
-          : path.join(
-              storage,
-              hash.slice(0, 2),
-              hash.slice(2, 4),
-              `${hash}-${randomUUID()}.${args.ext}`,
-            );
+      const contentPath =
+        operation?.contentPath ??
+        (storage && subtitles.embedded.length
+          ? path.join(
+              getScratchFolder(path.join(storage, "_tmp")),
+              `subtitle-mux-${id}.${args.ext}`,
+            )
+          : null);
 
-      const tempPath = outputPath ? `${outputPath}.${id}.tmp` : null;
+      const isEmbedding = Boolean(storage && contentPath);
 
-      const thumbPath =
-        outputPath && !duplicate
-          ? path.join(path.dirname(outputPath), `${path.parse(outputPath).name}-thumb.jpg`)
+      if (isEmbedding) {
+        // Record the scratch output first so an abandoned import still cleans it up.
+        await prepareMediaImport({
+          _id: id,
+          batchId: args.batchId,
+          cleanup: [],
+          contentPath,
+          importInput: args,
+          kind: "import",
+          sourceHash,
+          sourcePath: args.originalPath,
+          state: "PREPARED",
+        });
+
+        // Remuxes only take their final name once finished, so an existing one is complete.
+        if (!(await checkFileExists(contentPath))) await embedSubtitles(contentPath);
+      }
+
+      const outputHash = isEmbedding
+        ? await hashMediaFile(contentPath, workSignal.getStore())
+        : sourceHash;
+
+      const outputPath = storage
+        ? path.join(
+            storage,
+            outputHash.slice(0, 2),
+            outputHash.slice(2, 4),
+            `${outputHash}-${randomUUID()}.${args.ext}`,
+          )
+        : isStored && !duplicate && !ignored
+          ? args.originalPath
           : null;
+
+      const tempPath = storage ? `${outputPath}.${id}.tmp` : null;
+
+      // Stored media keeps its own name, which another file's thumbnail could share without the ID.
+      const thumbPath = outputPath
+        ? path.join(
+            path.dirname(outputPath),
+            `${path.parse(outputPath).name}${storage ? "" : `-${id}`}-thumb.jpg`,
+          )
+        : null;
 
       operation = {
         _id: id,
         batchId: args.batchId,
         cleanup: [],
+        ...(contentPath ? { contentPath, sourceHash } : {}),
         importInput: args,
         kind: "import",
-        outputHash: hash,
+        outputHash,
         outputPath,
         sourcePath: args.originalPath,
         state: "PREPARED",
@@ -308,9 +530,19 @@ export const importMedia = async (args: MediaImportInput, operationId?: string) 
       await prepareMediaImport(operation);
     }
 
+    const hash = operation.outputHash;
+
+    // Deleted files record the checksum of their stored media, which embedding changes.
+    if (!duplicate && !ignored && args.ignorePrevDeleted && hash !== sourceHash)
+      ignored = !!(await models.DeletedFileModel.exists({ hash }));
+
     recordTiming("durable intent");
 
-    if (!ignored && !duplicate) {
+    if (
+      !ignored &&
+      !duplicate &&
+      mediaPathKey(operation.outputPath) !== mediaPathKey(args.originalPath)
+    ) {
       if (!operation.outputPath)
         throw new Error("Import eligibility changed; cancel and requeue this import");
 
@@ -356,13 +588,26 @@ export const importMedia = async (args: MediaImportInput, operationId?: string) 
       }
 
       if (!recovered) {
+        if (operation.contentPath && !(await checkFileExists(operation.contentPath))) {
+          await embedSubtitles(operation.contentPath);
+
+          if ((await hashMediaFile(operation.contentPath, workSignal.getStore())) !== hash)
+            throw new Error(
+              "Embedding subtitles produced a different file; cancel and requeue this import",
+            );
+        }
+
         await fs.mkdir(path.dirname(operation.outputPath), { recursive: true });
         reportProgress("Copying media.", 0);
-        await copyMediaFile(args.originalPath, operation.tempPath, true, (bytes) =>
-          reportProgress(
-            "Copying media.",
-            args.size > 0 ? Math.min(100, (bytes / args.size) * 100) : undefined,
-          ),
+        await copyMediaFile(
+          operation.contentPath ?? args.originalPath,
+          operation.tempPath,
+          true,
+          (bytes) =>
+            reportProgress(
+              "Copying media.",
+              args.size > 0 ? Math.min(100, (bytes / args.size) * 100) : undefined,
+            ),
         );
 
         reportProgress("Verifying and saving media.");
@@ -422,29 +667,59 @@ export const importMedia = async (args: MediaImportInput, operationId?: string) 
 
     recordTiming("metadata and thumbnail");
 
+    let keptCopies: Awaited<ReturnType<typeof copySubtitles>> = [];
+
+    if (subtitles.kept.length && !duplicate && !ignored) {
+      reportProgress("Copying subtitles.");
+      keptCopies = await copySubtitles(operation.outputPath, subtitles.kept);
+    }
+
+    const storedSubtitles = keptCopies.filter(Boolean);
+
     reportProgress("Preparing source cleanup.");
 
     const cleanup = [];
+    const copiedKept = subtitles.kept.filter((_, index) => keptCopies[index]);
+    const keptCopyPaths = getSubtitleFilePaths(storedSubtitles);
+    const keptSourcePaths = getSubtitleFilePaths(copiedKept);
 
     if (args.deleteOnImport) {
       for (const sourcePath of [
         args.originalPath,
         extendFileName(args.originalPath, "json"),
         ...(args.diffusionParams ? [extendFileName(args.originalPath, "txt")] : []),
+        // Subtitles leave once stored, embedded, attached to a duplicate, or discarded with their video.
+        ...(duplicate?.subtitles?.length
+          ? []
+          : getSubtitleFilePaths(
+              duplicate?.sourceHash
+                ? subtitles.kept
+                : [...subtitles.embedded, ...(duplicate || ignored ? subtitles.kept : copiedKept)],
+            )),
       ]) {
         // Persist the expected source checksum; cleanup verifies it and that the retained copy exists.
         const file =
           sourcePath === args.originalPath
-            ? makeFileCleanup(hash, sourcePath)
-            : await describeFileCleanup(sourcePath);
+            ? makeFileCleanup(sourceHash, sourcePath)
+            : await describeFileCleanup(
+                sourcePath,
+                keptCopyPaths[keptSourcePaths.indexOf(sourcePath)],
+              );
 
         if (file) cleanup.push(file);
       }
+    } else if (isStored && (duplicate || isScratch)) {
+      // Without source deletion, only redundant stored copies and leftover scratch are removed.
+      cleanup.push(makeFileCleanup(sourceHash, args.originalPath));
     }
 
     const unusedOutput = [];
 
-    for (const outputPath of new Set([...outputPaths, info?.thumb?.path])) {
+    for (const outputPath of new Set([
+      ...outputPaths,
+      info?.thumb?.path,
+      ...getImportScratchPaths(operation),
+    ])) {
       if (!outputPath || mediaPathKey(outputPath) === mediaPathKey(args.originalPath)) continue;
 
       const entry =
@@ -457,7 +732,7 @@ export const importMedia = async (args: MediaImportInput, operationId?: string) 
 
     recordTiming("prepare cleanup");
 
-    const importResult = { cleanup, ignored, info, unusedOutput };
+    const importResult = { cleanup, ignored, info, subtitles: storedSubtitles, unusedOutput };
 
     reportProgress("Saving file and tag metadata.");
 
@@ -473,6 +748,41 @@ export const importMedia = async (args: MediaImportInput, operationId?: string) 
         `[Import ${id}] ${Math.round(performance.now() - startedAt)}ms; ${timings.join("; ")}`,
       );
   }
+};
+
+/**
+ * Duplicates without subtitles take the imported ones beside their existing, unchanged media.
+ * Files imported with embedded subtitles already hold the ones that would have been embedded.
+ */
+const attachDuplicateSubtitles = async (file: models.FileSchema, args: MediaImportInput) => {
+  const { embedded, kept } = getImportSubtitles(args);
+  const sources = file.sourceHash ? kept : [...embedded, ...kept];
+
+  // Copies would overwrite the identically named subtitles a file already has.
+  if (!sources.length || file.subtitles?.length) return file;
+
+  const copyPaths = getSubtitleFilePaths(
+    sources.map((subtitle, index) => ({
+      path: getSubtitleCopyPath(file.path, subtitle.path, index),
+    })),
+  );
+
+  // Another import may have attached its subtitles since the file was read.
+  for (const copyPath of copyPaths) if (await isMediaPathReferenced(copyPath)) return file;
+
+  const subtitles = (await copySubtitles(file.path, sources)).filter(Boolean);
+  if (!subtitles.length) return file;
+
+  const updated = await models.FileModel.updateOne(
+    { _id: file.id, "subtitles.0": { $exists: false } },
+    { $set: { subtitles } },
+    metadataWriteOptions(),
+  );
+  if (!updated.modifiedCount) return file;
+
+  socket.emit("onFilesUpdated", { fileIds: [file.id], updates: { subtitles } });
+
+  return { ...file, subtitles };
 };
 
 /** Fills metadata an existing file lacks from an imported sidecar without replacing existing values. */
@@ -509,18 +819,18 @@ const commitMediaImport = async (
 ) => {
   if (operation.state !== "PREPARED") throw new Error("Import is no longer prepared");
 
-  if (!(prepared ?? operation.importResult))
-    throw new Error("Import output is not ready to commit");
-
   const hash = operation.outputHash;
-  const { audio, cleanup, ignored, info, unusedOutput } = prepared ?? operation.importResult;
+  const { audio, cleanup, ignored, info, subtitles, unusedOutput } = prepared;
 
-  let file = leanModelToJson<models.FileSchema>(await models.FileModel.findOne({ hash }).lean());
+  let file = leanModelToJson<models.FileSchema>(
+    await findImportDuplicate(hash, operation.sourceHash ?? hash),
+  );
 
   recordTiming("file lookup");
 
   const status: "COMPLETE" | "DELETED" | "DUPLICATE" =
     file && file.path !== operation.outputPath ? "DUPLICATE" : ignored ? "DELETED" : "COMPLETE";
+  let isSubtitleAttached = false;
 
   if (!file && !ignored) {
     if (!info) throw new Error("Duplicate changed during import; source retained for retry");
@@ -537,6 +847,8 @@ const commitMediaImport = async (
       originalPath: args.originalPath,
       path: operation.outputPath,
       rating: args.sidecar?.rating,
+      sourceHash: hash === operation.sourceHash ? undefined : operation.sourceHash,
+      subtitles: subtitles?.length ? subtitles : undefined,
       tagIds: args.tagIds,
       timestamps: args.sidecar?.timestamps?.map((timestamp) => ({
         ...timestamp,
@@ -570,6 +882,13 @@ const commitMediaImport = async (
     }
 
     if (args.sidecar) await mergeImportSidecar(file, args.sidecar);
+
+    if (status === "DUPLICATE" && !file.subtitles?.length) {
+      const attached = await attachDuplicateSubtitles(file, args);
+
+      isSubtitleAttached = attached !== file;
+      file = attached;
+    }
   }
 
   if (file && audio) {
@@ -602,13 +921,33 @@ const commitMediaImport = async (
   await updateBatchImport(args, { file, hash, status });
   recordTiming("import progress");
 
-  const retainedPaths = [file?.path, file?.thumb?.path].filter(Boolean).map(mediaPathKey);
+  const retainedPaths = [file?.path, file?.thumb?.path, ...getSubtitleFilePaths(file?.subtitles)]
+    .filter(Boolean)
+    .map(mediaPathKey);
 
-  const committedCleanup = [...cleanup, ...operation.cleanup, ...unusedOutput]
-    .filter((entry) => !retainedPaths.includes(entry.pathKey))
+  // A duplicate's subtitle sources only leave once they were attached to it.
+  const keptSubtitleKeys = new Set(
+    status === "DUPLICATE" && !isSubtitleAttached
+      ? getSubtitleFilePaths(args.subtitles).map(mediaPathKey)
+      : [],
+  );
+
+  const removedEntries = [...cleanup, ...operation.cleanup, ...unusedOutput].filter(
+    (entry) => !retainedPaths.includes(entry.pathKey) && !keptSubtitleKeys.has(entry.pathKey),
+  );
+  const removedKeys = new Set(removedEntries.map((entry) => entry.pathKey));
+
+  // Sources stay when the copy retaining them is unused too, such as a late duplicate's subtitles.
+  // A duplicate's library copy was never verified by this import, so cleanup verifies its checksum.
+  const committedCleanup = removedEntries
+    .filter((entry) => !entry.retainedPath || !removedKeys.has(mediaPathKey(entry.retainedPath)))
     .map((entry) =>
       file && (entry.path === args.originalPath || entry.path === operation.outputPath)
-        ? { ...entry, retainedPath: file.path }
+        ? {
+            ...entry,
+            ...(status === "DUPLICATE" ? { retainedHash: file.hash } : {}),
+            retainedPath: file.path,
+          }
         : entry,
     );
 
@@ -694,22 +1033,7 @@ export const recoverDirectImports = async (canContinue: () => boolean) => {
     try {
       if (operation.importInput) await importMedia(operation.importInput, operation._id);
       else {
-        const cleanup = [...operation.cleanup];
-
-        for (const outputPath of [operation.outputPath, operation.thumbPath]) {
-          if (!outputPath || mediaPathKey(outputPath) === mediaPathKey(operation.sourcePath))
-            continue;
-
-          const file = await describeFileCleanup(outputPath);
-
-          if (file) cleanup.push(file);
-        }
-
-        await FileOperationModel.updateOne(
-          { _id: operation._id, state: "PREPARED" },
-          { cleanup, state: "COMMITTED" },
-        );
-
+        await abandonPreparedImport(operation);
         await finishFileOperation(operation._id);
       }
     } catch (error) {

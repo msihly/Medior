@@ -7,6 +7,8 @@ export * from "./face-recognition";
 export * from "./file-collections";
 export * from "./files";
 export * from "./imports";
+export * from "./jobs";
+export * from "./media-programs";
 export * from "./multi-action-bar";
 export * from "./search-loading-overlay";
 export * from "./settings";

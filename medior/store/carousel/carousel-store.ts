@@ -7,15 +7,29 @@ import type { ImageEditInput } from "medior/server/database/actions/image-edits"
 import { SliderMark } from "medior/components";
 import { RootStore, Splicer } from "medior/store";
 import { asyncAction, derefMobx, openCarouselWindow, toast } from "medior/utils/client";
-import { Fmt } from "medior/utils/common";
+import { Fmt, SubtitleSegment, TEXT_SUBTITLE_CODECS } from "medior/utils/common";
 import { trpc } from "medior/utils/server";
+import { probeSubtitleStreams, readSubtitleSegments } from "medior/utils/server/subtitles";
 import { extractVideoFrame, videoTranscoder } from "medior/utils/server/videos";
 
 const CAPTIONS_VISIBLE_KEY = "medior.carousel.captionsVisible";
 const IS_PINNED_KEY = "medior.carousel.isPinned";
 const LAST_VOLUME_KEY = "medior.carousel.lastVolume";
+const SUBTITLE_LANGUAGE_KEY = "medior.carousel.subtitleLanguage";
 const VOLUME_KEY = "medior.carousel.volume";
 const WAVEFORM_VISIBLE_KEY = "medior.carousel.waveformVisible";
+
+/** Media programs mark a video watched once this much of it has played. */
+const WATCHED_PROGRESS = 0.9;
+const WATCHED_RETRY_MS = 30_000;
+
+export interface SubtitleTrack {
+  id: string;
+  label: string;
+  lang?: string;
+  path: string;
+  streamIndex?: number;
+}
 
 @model("medior/CarouselStore")
 export class CarouselStore extends Model({
@@ -38,13 +52,26 @@ export class CarouselStore extends Model({
   playbackRate: prop<number>(1).withSetter(),
   seekOffset: prop<number>(0).withSetter(),
   selectedFileIds: prop<string[]>(() => []).withSetter(),
-  splicer: prop<Splicer>(() => new Splicer({})).withSetter(),
+  splicer: prop<Splicer>(() => new Splicer({})),
+  subtitleSegments: prop<SubtitleSegment[]>(() => []).withSetter(),
+  subtitleTrackId: prop<string>("").withSetter(),
+  subtitleTracks: prop<SubtitleTrack[]>(() => []).withSetter(),
   transcodeBitrate: prop<number>(6).withSetter(),
   transcodingFileId: prop<string>("").withSetter(),
   visibleFileIds: prop<string[]>(() => []).withSetter(),
   volume: prop<number>(0.3).withSetter(),
 }) {
   private frameAbortController: AbortController = null;
+  private subtitleAbortController: AbortController = null;
+  private watchedFileIds = new Set<string>();
+
+  /** Stops the ffmpeg reads of an earlier subtitle load, which can span the whole video. */
+  private restartSubtitleLoad() {
+    this.subtitleAbortController?.abort();
+    this.subtitleAbortController = new AbortController();
+
+    return this.subtitleAbortController.signal;
+  }
 
   onInit() {
     autoBind(this);
@@ -283,6 +310,114 @@ export class CarouselStore extends Model({
     if (!result.success) throw new Error(result.error);
   });
 
+  /** Lists companion subtitles and text subtitle streams, selecting one in the remembered language. */
+  @modelFlow
+  loadSubtitleTracks = asyncAction(async () => {
+    const activeFile = this.getActiveFile();
+    const signal = this.restartSubtitleLoad();
+
+    this.setSubtitleSegments([]);
+    this.setSubtitleTrackId("");
+    this.setSubtitleTracks([]);
+
+    if (!activeFile?.isVideo) return;
+
+    let streams: Awaited<ReturnType<typeof probeSubtitleStreams>>;
+
+    try {
+      streams = await probeSubtitleStreams(activeFile.path, signal);
+    } catch (error) {
+      if (!signal.aborted) throw error;
+    }
+
+    // A later video or track selection replaced this load.
+    if (signal.aborted) return;
+
+    const tracks: SubtitleTrack[] = [
+      ...(activeFile.subtitles ?? [])
+        .filter((subtitle) => subtitle.ext !== "idx")
+        .map((subtitle, index) => ({
+          id: subtitle.path,
+          label: `Subtitle ${index + 1} (${subtitle.ext.toUpperCase()})`,
+          path: subtitle.path,
+        })),
+      ...streams
+        .filter((stream) => TEXT_SUBTITLE_CODECS.includes(stream.codec))
+        .map((stream) => ({
+          id: `${activeFile.path}:${stream.index}`,
+          label: stream.label || stream.lang || `Track ${stream.index + 1}`,
+          lang: stream.lang,
+          path: activeFile.path,
+          streamIndex: stream.index,
+        })),
+    ];
+
+    this.setSubtitleTracks(tracks);
+
+    const language = localStorage.getItem(SUBTITLE_LANGUAGE_KEY);
+    const track =
+      tracks.find((candidate) => language && candidate.lang === language) ??
+      (activeFile.transcription?.segments?.length ? null : tracks[0]);
+
+    if (track) {
+      const res = await this.selectSubtitleTrack({ id: track.id });
+      if (!res.success) throw new Error(res.error);
+    }
+  });
+
+  /** Marks the active video watched in its media programs once most of it has played. */
+  async recordWatchProgress() {
+    const activeFile = this.getActiveFile();
+
+    if (
+      !activeFile?.duration ||
+      this.watchedFileIds.has(activeFile.id) ||
+      this.curTime < activeFile.duration * WATCHED_PROGRESS
+    )
+      return;
+
+    this.watchedFileIds.add(activeFile.id);
+
+    try {
+      const res = await trpc.markFileWatched.mutate({ fileId: activeFile.id });
+
+      if (!res.success) throw new Error(res.error);
+    } catch (error) {
+      console.error("Failed to mark file watched:", error);
+
+      // Playback progress ticks constantly, so a failed mark is retried only after a pause.
+      setTimeout(() => this.watchedFileIds.delete(activeFile.id), WATCHED_RETRY_MS);
+    }
+  }
+
+  /** An empty id shows the transcript instead; `remember` keeps the language for later videos. */
+  @modelFlow
+  selectSubtitleTrack = asyncAction(
+    async ({ id, remember }: { id: string; remember?: boolean }) => {
+      const signal = this.restartSubtitleLoad();
+      const track = this.subtitleTracks.find((candidate) => candidate.id === id);
+
+      this.setSubtitleSegments([]);
+      this.setSubtitleTrackId(track?.id ?? "");
+
+      if (remember) localStorage.setItem(SUBTITLE_LANGUAGE_KEY, track?.lang ?? "");
+
+      if (track) {
+        try {
+          const segments = await readSubtitleSegments({
+            filePath: track.path,
+            signal,
+            streamIndex: track.streamIndex,
+          });
+
+          if (!signal.aborted) this.setSubtitleSegments(segments);
+        } catch (error) {
+          if (!signal.aborted) throw error;
+        }
+      }
+    },
+  );
+
   @modelFlow
   transcodeVideo = asyncAction(
     async (args?: { force?: boolean; onFirstFrames?: () => void; seekTime?: number }) => {
@@ -319,6 +454,20 @@ export class CarouselStore extends Model({
   );
 
   /* --------------------------------- GETTERS -------------------------------- */
+  /** Every cue showing at the current time, from the selected subtitles or else the transcript. */
+  @computed
+  get activeCaption() {
+    const activeFile = this.getActiveFile();
+    const segments = this.subtitleTrackId
+      ? this.subtitleSegments
+      : (activeFile?.transcription?.segments ?? []);
+
+    return segments
+      .filter(({ end, start }) => this.curTime >= start && this.curTime <= end)
+      .map(({ text }) => text)
+      .join("\n");
+  }
+
   @computed
   get activeFileIndex() {
     return this.getFileIndex(this.activeFileId);

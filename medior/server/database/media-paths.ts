@@ -22,6 +22,7 @@ export const getMediaIndexVersion = () => {
 export const MEDIA_PATH_FIELDS = {
   File: { path: "pathKey", "thumb.path": "thumbPathKey" },
   FileOperation: {
+    contentPath: "contentPathKey",
     outputPath: "outputPathKey",
     tempPath: "tempPathKey",
     thumbPath: "thumbPathKey",
@@ -80,8 +81,6 @@ const normalizeMediaPathUpdate = (update: Record<string, any>, fields: Record<st
       }
     }
   }
-
-  return update;
 };
 
 /** Mongoose bulk writes skip save and query middleware. Keep their derived keys in the same write. */

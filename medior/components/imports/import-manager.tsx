@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Button,
   Card,
@@ -26,16 +26,15 @@ export const ImportManager = Comp(() => {
 
   const [isConfigsModalOpen, setIsConfigsModalOpen] = useState(false);
 
+  const batchesRef = useRef<HTMLDivElement>(null);
+
   const statusColor = store.isPaused
     ? colors.custom.orange
     : store.isImporting
       ? colors.custom.blue
       : colors.custom.grey;
 
-  const handleClose = () => {
-    store.setIsOpen(false);
-    stores.file.search.reloadIfQueued();
-  };
+  const handleClose = () => store.setIsOpen(false);
 
   const handleFullPageLoad = () => store.search.loadFiltered({ toLastPage: true });
 
@@ -55,6 +54,11 @@ export const ImportManager = Comp(() => {
     if (store.isOpen) stores.import.loadSavedConfigs();
   }, [store.isOpen]);
 
+  // Batches updating during an import keep the reader's position; only page changes scroll up.
+  useEffect(() => {
+    batchesRef.current?.scrollTo({ behavior: "instant", top: 0 });
+  }, [store.search.page]);
+
   return (
     <>
       <Modal.Container visible={store.isOpen} onClose={handleClose} width="100%" height="100%">
@@ -66,11 +70,12 @@ export const ImportManager = Comp(() => {
                   <Text preset="title">{"Active Batch"}</Text>
                 </Modal.Header>
 
-                <View column flex={1} minHeight={0} spacing="0.5rem" overflow="hidden auto">
+                <View column flex={1} minHeight={0} overflow="hidden auto">
                   <Card
                     flex="none"
                     width="100%"
                     padding={{ all: "0.8rem" }}
+                    spacing="1rem"
                     header={
                       <View row align="center" spacing="0.5rem">
                         <IconButton
@@ -86,61 +91,47 @@ export const ImportManager = Comp(() => {
                     }
                     headerProps={{ justify: "flex-start" }}
                   >
-                    <View column spacing="1rem">
-                      <ProgressBar
-                        numerator={store.activeBatch?.processedCount}
-                        denominator={store.activeBatch?.fileCount}
-                        withText
-                        minWidth="5rem"
-                      />
+                    <ProgressBar
+                      numerator={store.activeBatch?.processedCount}
+                      denominator={store.activeBatch?.fileCount}
+                      withText
+                      minWidth="5rem"
+                    />
 
-                      <ProgressBar
-                        numerator={store.bytesCompleted || null}
-                        denominator={store.bytesTotal || null}
-                        numeratorFormatter={Fmt.bytes}
-                        denominatorFormatter={Fmt.bytes}
-                        withText
-                        minWidth="5rem"
-                      />
+                    <ProgressBar
+                      numerator={store.bytesCompleted || null}
+                      denominator={store.bytesTotal || null}
+                      numeratorFormatter={Fmt.bytes}
+                      denominatorFormatter={Fmt.bytes}
+                      withText
+                      minWidth="5rem"
+                    />
 
-                      <Text
-                        dir="rtl"
-                        whiteSpace="nowrap"
-                        textOverflow="ellipsis"
-                        textAlign="center"
-                        color={colors.custom.lightGrey}
-                      >
-                        {store.activeFilePath || "No active import"}
+                    <Text dir="rtl" textAlign="center" color={colors.custom.lightGrey}>
+                      {store.activeFilePath || "No active import"}
+                    </Text>
+
+                    <View column spacing="0.5rem">
+                      <Text lineHeight="1.5em" minHeight="1.5em" textAlign="center">
+                        {store.activeFileProgress
+                          ? `${store.activeFileProgress.message} (${store.activeFileProgress.elapsed}s elapsed)`
+                          : null}
                       </Text>
 
-                      <View column spacing="0.5rem">
-                        <Text
-                          lineHeight="1.5em"
-                          minHeight="1.5em"
-                          textAlign="center"
-                          textOverflow="ellipsis"
-                          whiteSpace="nowrap"
-                        >
-                          {store.activeFileProgress
-                            ? `${store.activeFileProgress.message} (${store.activeFileProgress.elapsed}s elapsed)`
-                            : null}
-                        </Text>
-
-                        <ProgressBar
-                          numerator={round(store.activeFileProgress?.progress ?? 0)}
-                          denominator={100}
-                          viewProps={{
-                            opacity: store.activeFileProgress?.progress != null ? 1 : 0,
-                          }}
-                          withText
-                        />
-                      </View>
-
-                      <ImportEditor.ImportFolderList
-                        folder={store.activeBatch}
-                        maxVisibleFiles={15}
+                      <ProgressBar
+                        numerator={round(store.activeFileProgress?.progress ?? 0)}
+                        denominator={100}
+                        viewProps={{
+                          opacity: store.activeFileProgress?.progress != null ? 1 : 0,
+                        }}
+                        withText
                       />
                     </View>
+
+                    <ImportEditor.ImportFolderList
+                      folder={store.activeBatch}
+                      maxVisibleFiles={15}
+                    />
                   </Card>
                 </View>
               </View>
@@ -154,7 +145,6 @@ export const ImportManager = Comp(() => {
                   flex={1}
                   minHeight={0}
                   overflow="hidden"
-                  position="relative"
                   padding={{ all: 0 }}
                   header={<ImportsFilterMenu store={store.search} />}
                   headerProps={{ justify: "flex-start", padding: { all: "0.3rem" } }}
@@ -168,6 +158,7 @@ export const ImportManager = Comp(() => {
                     minHeight={0}
                     overflow="hidden auto"
                     padding={{ all: "0.5rem" }}
+                    ref={batchesRef}
                   >
                     {store.search.results?.length ? (
                       store.search.results.map((batch) => (

@@ -37,7 +37,7 @@ export const ImportsFilterMenu = Comp(
           </Card>
 
           <View column>
-            <Card column width="20rem" spacing="0.5rem">
+            <Card width="20rem" spacing="0.5rem">
               <Checkbox
                 label="Completed"
                 checked={store.isCompleted}

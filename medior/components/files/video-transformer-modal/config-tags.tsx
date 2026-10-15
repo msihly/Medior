@@ -43,5 +43,14 @@ export const ConfigTags = Comp(({ configKey, label }: { configKey: string; label
     store.update({ [configKey]: tags.map((tag) => tag.id) });
   };
 
-  return <TagInput header={label} value={value} onChange={handleChange} width="100%" hasCreate />;
+  return (
+    <TagInput
+      header={label}
+      value={value}
+      onChange={handleChange}
+      inputProps={{ dense: true }}
+      width="100%"
+      hasCreate
+    />
+  );
 });

@@ -29,7 +29,7 @@ export const WindowTitleBar = Comp(({ isDark = false, title }: WindowTitleBarPro
   const [isHotkeysOpen, setIsHotkeysOpen] = useState(false);
   const [isMaximized, setIsMaximized] = useState(() => getCurrentWindow().isMaximized());
 
-  const { css } = useClasses({ isDark, isDragEnabled: !(isDevToolsOpen && isMaximized) });
+  const { css, cx } = useClasses({ isDark, isDragEnabled: !(isDevToolsOpen && isMaximized) });
 
   const handleClose = () => getCurrentWindow().close();
 
@@ -159,7 +159,7 @@ export const WindowTitleBar = Comp(({ isDark = false, title }: WindowTitleBarPro
 
         <IconButton
           aria-label="Close"
-          className={`${css.control} ${css.close}`}
+          className={cx(css.control, css.close)}
           disableRipple
           iconProps={{ size: "1rem" }}
           name="Close"

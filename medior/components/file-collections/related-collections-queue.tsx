@@ -55,6 +55,7 @@ export const RelatedCollectionsQueue = Comp(({ onClose }: RelatedCollectionsQueu
   const collectionLoadId = useRef(0);
   const managerFiles = useRef(new Map(store.search.files));
   const managerSelectedIds = useRef([...store.search.selectedIds]);
+  const matchesRef = useRef<HTMLDivElement>(null);
   const queueLoadId = useRef(0);
 
   const [baseId, setBaseId] = useState("");
@@ -108,6 +109,10 @@ export const RelatedCollectionsQueue = Comp(({ onClose }: RelatedCollectionsQueu
     store.search.setSelectedIds(getSelectableIds(group, defaultBaseEntry?.id));
     setResultPage(1);
   }, [groupIndex, groups]);
+
+  useEffect(() => {
+    matchesRef.current?.scrollTo({ behavior: "instant", top: 0 });
+  }, [groupIndex, resultPage]);
 
   useEffect(() => {
     setLoadedCollections([]);
@@ -302,7 +307,7 @@ export const RelatedCollectionsQueue = Comp(({ onClose }: RelatedCollectionsQueu
     </View>
   ) : (
     <View column flex={1} overflow="hidden" spacing="0.5rem">
-      <View column flex="none" spacing="0.3rem">
+      <View column flex="none">
         {loadedCollectionById.get(baseEntry.id) && (
           <FileCollection collection={loadedCollectionById.get(baseEntry.id)} disableSelection />
         )}
@@ -313,7 +318,7 @@ export const RelatedCollectionsQueue = Comp(({ onClose }: RelatedCollectionsQueu
           {`Matches - ${foundEntries.length}`}
         </Text>
 
-        <View column flex={1} spacing="0.5rem" overflow="hidden auto">
+        <View column flex={1} spacing="0.5rem" overflow="hidden auto" ref={matchesRef}>
           {pagedEntries.map((entry) => {
             const foundCollection = loadedCollectionById.get(entry.id);
 
@@ -361,13 +366,7 @@ export const RelatedCollectionsQueue = Comp(({ onClose }: RelatedCollectionsQueu
         <Text preset="title">{"Related Collections"}</Text>
       </Modal.Header>
 
-      <Modal.Content
-        dividers={false}
-        flex={1}
-        height="100%"
-        padding={{ all: "0.5rem" }}
-        position="relative"
-      >
+      <Modal.Content dividers={false} padding={{ all: "0.5rem" }}>
         <SearchLoadingOverlay
           isLoading={(isLoading || merge.isLoading) && !merge.isMergeEditorOpen}
           onCancel={cancelLoad}

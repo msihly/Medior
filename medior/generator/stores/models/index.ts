@@ -2,6 +2,7 @@ import { MODEL_SEARCH_STORE_FILE } from "./file";
 import { MODEL_SEARCH_STORE_FILE_COLLECTION } from "./file-collection";
 import { MODEL_SEARCH_STORE_FILE_IMPORT_BATCH } from "./file-import-batch";
 import { MODEL_SEARCH_STORE_FILE_TRANSFORM } from "./file-transform";
+import { MODEL_SEARCH_STORE_MEDIA_PROGRAM } from "./media-program";
 import { MODEL_SEARCH_STORE_SAVED_IMPORT_CONFIG } from "./saved-import-config";
 import { MODEL_SEARCH_STORE_TAG } from "./tag";
 
@@ -10,6 +11,7 @@ export const MODEL_SEARCH_STORE_DEFS = [
   MODEL_SEARCH_STORE_FILE_IMPORT_BATCH,
   MODEL_SEARCH_STORE_FILE_TRANSFORM,
   MODEL_SEARCH_STORE_FILE,
+  MODEL_SEARCH_STORE_MEDIA_PROGRAM,
   MODEL_SEARCH_STORE_SAVED_IMPORT_CONFIG,
   MODEL_SEARCH_STORE_TAG,
 ];

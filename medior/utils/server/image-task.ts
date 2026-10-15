@@ -17,6 +17,8 @@ export interface ImageTask {
   concurrency?: number;
   edit?: { crop?: Region; rotation?: number };
   format?: keyof FormatEnum;
+  /** Decodes the upright image to one luminance channel at exactly this size. */
+  grayscale?: { height: number; width: number };
   input: string | Buffer;
   maxLongEdge?: number;
   maxShortEdge?: number;
@@ -25,6 +27,8 @@ export interface ImageTask {
   preview?: boolean;
   quality?: number;
   resize?: ResizeOptions;
+  /** Decodes the upright image to sRGB colour at exactly this size. */
+  rgb?: { height: number; width: number };
   visualSize?: number;
 }
 

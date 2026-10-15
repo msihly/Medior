@@ -40,7 +40,7 @@ export const BackgroundActivityModal = Comp(() => {
         <Text preset="title">{"Activity"}</Text>
       </Modal.Header>
 
-      <Modal.Content row flex={1} minHeight={0} minWidth={0} overflow="hidden" spacing="1rem">
+      <Modal.Content row minHeight={0} minWidth={0} overflow="hidden" spacing="1rem">
         <Card
           flex={1}
           header="Operations"
@@ -98,12 +98,7 @@ export const BackgroundActivityModal = Comp(() => {
                     </Text>
                   </View>
 
-                  <Text
-                    color={colors.custom.lightGrey}
-                    flex="none"
-                    fontSize="0.8em"
-                    whiteSpace="nowrap"
-                  >
+                  <Text color={colors.custom.lightGrey} flex="none" fontSize="0.8em">
                     {formatDate(notification.dateCreated)}
                   </Text>
                 </Card>

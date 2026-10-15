@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Card, Comp, RepairModal, View } from "medior/components";
+import { Card, Comp, MinimizedJobs, RepairModal, View } from "medior/components";
 import { useStores } from "medior/store";
 import { makeClasses } from "medior/utils/client";
 import { useSockets, Views } from "./common";
@@ -29,9 +29,13 @@ export const HMR = Comp(() => {
 
         <Views.ImportModals />
 
+        <Views.MediaProgramModals />
+
         <Views.TagModals view="home" />
 
         <RepairModal />
+
+        <MinimizedJobs />
       </View>
     </Views.ImportDnD>
   );

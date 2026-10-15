@@ -1,9 +1,8 @@
 import autoBind from "auto-bind";
 import { reaction } from "mobx";
-import { ExtendedModel, getRootStore, model, modelAction, modelFlow, prop } from "mobx-keystone";
+import { ExtendedModel, model, modelAction, modelFlow, prop } from "mobx-keystone";
 import { _FileSearch } from "medior/store/_generated";
-import { RootStore } from "medior/store";
-import { asyncAction, reloadItemTags } from "medior/utils/client";
+import { asyncAction, derefMobx, reloadItemTags } from "medior/utils/client";
 import { durationToSeconds, secondsToDuration } from "medior/utils/common";
 import { trpc } from "medior/utils/server";
 
@@ -13,7 +12,6 @@ export class FileSearch extends ExtendedModel(_FileSearch, {
   _duration: prop<string>(""),
   _maxSize: prop<number>(null),
   _minSize: prop<number>(null),
-  hasQueuedReload: prop<boolean>(false).withSetter(),
   isArchiveOpen: prop<boolean>(false).withSetter(),
 }) {
   onInit() {
@@ -38,16 +36,6 @@ export class FileSearch extends ExtendedModel(_FileSearch, {
   }
 
   /* ---------------------------- STANDARD ACTIONS ---------------------------- */
-  @modelAction
-  reloadIfQueued() {
-    const stores = getRootStore<RootStore>(this);
-
-    if (this.hasQueuedReload && !stores._getIsBlockingModalOpen()) {
-      this.setHasQueuedReload(false);
-      this.loadFiltered();
-    }
-  }
-
   @modelAction
   removeFiles(fileIds: string[]) {
     const removedIds = new Set(fileIds);
@@ -91,9 +79,7 @@ export class FileSearch extends ExtendedModel(_FileSearch, {
 
   @modelAction
   _setDuration(val: string) {
-    const parsedSeconds = val.length > 0 ? durationToSeconds(val) : null;
-
-    this.setDurationValue(parsedSeconds);
+    this.setDurationValue(val.length > 0 ? durationToSeconds(val) : null);
     this._duration = val;
   }
 
@@ -160,8 +146,8 @@ export class FileSearch extends ExtendedModel(_FileSearch, {
   selectFirstInQuery = asyncAction(async (limit: number) => {
     if (!Number.isSafeInteger(limit) || limit < 1) throw new Error("Enter a positive whole number");
 
-    const filterProps = this.cachedFilterProps as ReturnType<typeof this.getFilterProps> | null;
-    const filters = filterProps ?? this.getFilterProps();
+    const filters =
+      (this.cachedFilterProps as ReturnType<typeof this.getFilterProps>) ?? this.getFilterProps();
     const loadId = this.loadId + 1;
 
     this.setLoadId(loadId);
@@ -189,5 +175,29 @@ export class FileSearch extends ExtendedModel(_FileSearch, {
     } finally {
       if (loadId === this.loadId) this.setIsLoading(false);
     }
+  });
+}
+
+/**
+ * Chooses which files duplicate groups or similarity matches come from, without searching the
+ * library itself. The duplicate review marks its menu as changed only while the menu differs from
+ * the filter last searched, so restoring a search's filter or unrelated store updates never mark it.
+ */
+@model("medior/DuplicateFileSearch")
+export class DuplicateFileSearch extends ExtendedModel(FileSearch, {}) {
+  onInit() {
+    autoBind(this);
+  }
+
+  /** Restores a saved search's filters without searching the library; the review applies them. */
+  @modelFlow
+  applySavedSearch = asyncAction(async (id: string) => {
+    if (!this.savedSearches.some((s) => s.id === id)) await this.loadSavedSearches();
+
+    const savedSearch = this.savedSearches.find((s) => s.id === id);
+    if (!savedSearch) return;
+
+    this.applySearchProps(derefMobx(savedSearch.filterProps));
+    this.setSelectedSavedSearchId(id);
   });
 }

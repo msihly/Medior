@@ -230,11 +230,12 @@ const resolveAncestorPipeline = async (
   pipeline: PipelineStage[],
   projections: WeakMap<object, Record<string, unknown>>,
   session?: ClientSession,
+  resolveFilter = resolveAncestorFilter,
 ) => {
   for (let index = 0; index < pipeline.length; index++) {
     const stage = pipeline[index];
 
-    if ("$match" in stage) stage.$match = await resolveAncestorFilter(stage.$match, session);
+    if ("$match" in stage) stage.$match = await resolveFilter(stage.$match, session);
 
     if ("$project" in stage) {
       projections.set(pipeline, { ...stage.$project });
@@ -245,7 +246,7 @@ const resolveAncestorPipeline = async (
 
     if ("$facet" in stage) {
       for (const nested of Object.values(stage.$facet))
-        await resolveAncestorPipeline(nested, projections, session);
+        await resolveAncestorPipeline(nested, projections, session, resolveFilter);
     }
   }
 };
@@ -270,14 +271,29 @@ const derivePipelineAncestors = async (
   }
 };
 
-/** Stored ancestor arrays are not authoritative: hierarchy changes never rewrite media records. */
-export const mediaAncestryPlugin = (schema: Schema) => {
+/**
+ * Stored ancestor arrays are not authoritative: hierarchy changes never rewrite media records.
+ * Aliases resolve other inherited tag filters, such as genres, against their direct tag ids.
+ */
+export const mediaAncestryPlugin = (
+  schema: Schema,
+  { aliases = [] }: { aliases?: Array<{ field: string; targetField: string }> } = {},
+) => {
   const projections = new WeakMap<object, Record<string, unknown>>();
+
+  const resolveFilter = async (filter: Record<string, any>, session?: ClientSession) => {
+    let resolved = await resolveAncestorFilter(filter, session);
+
+    for (const { field, targetField } of aliases)
+      resolved = await resolveAncestorFilter(resolved, session, field, targetField);
+
+    return resolved;
+  };
 
   schema.pre(
     /^(find|count|distinct|update|delete)/,
     async function (this: Query<unknown, unknown>) {
-      this.setQuery(await resolveAncestorFilter(this.getFilter(), this.getOptions().session));
+      this.setQuery(await resolveFilter(this.getFilter(), this.getOptions().session));
 
       const projection = this.projection();
 
@@ -295,7 +311,12 @@ export const mediaAncestryPlugin = (schema: Schema) => {
   });
 
   schema.pre("aggregate", async function () {
-    await resolveAncestorPipeline(this.pipeline(), projections, this.options.session);
+    await resolveAncestorPipeline(
+      this.pipeline(),
+      projections,
+      this.options.session,
+      resolveFilter,
+    );
   });
 
   schema.post("aggregate", async function (documents) {

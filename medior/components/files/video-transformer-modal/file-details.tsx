@@ -36,7 +36,7 @@ export const FileDetails = Comp(({ transform }: FileDetailsProps) => {
   };
 
   return !file ? null : (
-    <FileBase.ContextMenu key="context-menu" file={file} store={store.search} disabled>
+    <FileBase.ContextMenu file={file} store={store.search} disabled>
       <FileBase.Tooltip file={file}>
         <FileBase.Container
           height="13.5rem"

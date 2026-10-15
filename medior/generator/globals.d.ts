@@ -18,18 +18,15 @@ declare global {
     storeType?: string;
     type: string;
     typeName?: string;
-    withStore?: boolean;
   }
 
   interface ModelDef {
-    defaultPageSize?: number;
     defaultSort: { isDesc: boolean; key: string };
     indexes?: Array<{ fields: IndexDefinition; options?: IndexOptions }>;
     name: string;
     persistence?: boolean;
     properties: Array<ModelDefProperty>;
     withActions?: boolean;
-    withStore?: boolean;
   }
 
   interface ModelSearchProp {
@@ -57,6 +54,7 @@ declare global {
   interface ModelSearchStore {
     name: string;
     props: ModelSearchProp[];
+    tagFields?: Array<{ idsName: string; name: string }>;
     transformResultsFn?: string;
     withCarouselIds?: boolean;
     withTags?: boolean;

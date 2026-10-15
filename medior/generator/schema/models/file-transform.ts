@@ -1,6 +1,6 @@
 import { ModelDb } from "medior/generator/schema/generators";
 
-const model = new ModelDb("FileTransform", { defaultPageSize: 20, withStore: true });
+const model = new ModelDb("FileTransform");
 
 model.addIndex({ isCompleted: 1, status: 1, dateCreated: 1, queueIndex: 1, _id: 1 });
 

@@ -36,3 +36,20 @@ export const getCommonSourceFolder = (filePaths: readonly string[], areFolders =
 
   return common?.length ? path.win32.join(root, ...common) : null;
 };
+
+/**
+ * Extends a running common folder with another folder. Undefined starts the run; once either has
+ * no folder, null means the paths share none.
+ */
+export const mergeSourceFolders = (current: string | null | undefined, next: string | null) =>
+  current === undefined
+    ? next
+    : current && next
+      ? getCommonSourceFolder([current, next], true)
+      : null;
+
+export const isWithinFolder = (parent: string, child: string) => {
+  const relative = path.relative(parent, child);
+
+  return !path.isAbsolute(relative) && relative !== ".." && !relative.startsWith(`..${path.sep}`);
+};

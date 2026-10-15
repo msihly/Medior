@@ -7,7 +7,6 @@ import {
   Card,
   Comp,
   ConfirmModal,
-  Divider,
   LoadingOverlay,
   Modal,
   Text,
@@ -16,14 +15,14 @@ import {
 } from "medior/components";
 import { useStores } from "medior/store";
 import { colors, toast, useCancellableLoad } from "medior/utils/client";
-import { CONSTANTS } from "medior/utils/common";
+import { CONSTANTS, SUBTITLE_MODES } from "medior/utils/common";
 import {
   loadConfig,
   TRANSCRIPTION_MODELS,
   TRANSCRIPTION_QUANTIZATION_OPTIONS,
   TranscriptionModel,
 } from "medior/utils/server";
-import { RepairModal, Settings } from ".";
+import { Settings } from ".";
 
 export const SettingsModal = Comp(() => {
   const stores = useStores();
@@ -74,28 +73,12 @@ export const SettingsModal = Comp(() => {
   const handleFoldersToTags = (checked: boolean) =>
     store.setFolderToTagsMode(checked ? "hierarchical" : "none");
 
-  const handleMongoDbPathClick = async (event: React.MouseEvent) => {
+  const handlePathClick = (setPath: (path: string) => void) => async (event: React.MouseEvent) => {
     event.preventDefault();
 
     const location = await selectStorageLocation();
 
-    if (location) store.setDbPath(location);
-  };
-
-  const handleSimilarityModelCachePathClick = async (event: React.MouseEvent) => {
-    event.preventDefault();
-
-    const location = await selectStorageLocation();
-
-    if (location) store.setSimilarityModelCachePath(location);
-  };
-
-  const handleVectorDbPathClick = async (event: React.MouseEvent) => {
-    event.preventDefault();
-
-    const location = await selectStorageLocation();
-
-    if (location) store.setVectorDbPath(location);
+    if (location) setPath(location);
   };
 
   const handleRepair = () => store.repair.setIsOpen(true);
@@ -127,7 +110,7 @@ export const SettingsModal = Comp(() => {
 
       stores.import.manager.pauseImporter();
       stores.faceRecog.clearQueue();
-      stores.file.cancelFileRefresh();
+      stores.file.stopFileRefresh();
 
       const result = await store.save();
 
@@ -175,7 +158,7 @@ export const SettingsModal = Comp(() => {
             <Settings.Input
               header="Database Path"
               configKey="db.path"
-              onClick={handleMongoDbPathClick}
+              onClick={handlePathClick(store.setDbPath)}
               flex={1}
             />
 
@@ -200,8 +183,6 @@ export const SettingsModal = Comp(() => {
                 colorOnHover={colors.custom.blue}
               />
             </View>
-
-            {store.repair.isOpen && <RepairModal />}
           </View>
 
           <Settings.StorageInputs selectLocation={selectStorageLocation} />
@@ -214,14 +195,14 @@ export const SettingsModal = Comp(() => {
             <Settings.Input
               header="Vector DB Path"
               configKey="db.vector.path"
-              onClick={handleVectorDbPathClick}
+              onClick={handlePathClick(store.setVectorDbPath)}
               flex={1}
             />
 
             <Settings.Input
               header="Model Cache Path"
               configKey="file.similarity.modelCachePath"
-              onClick={handleSimilarityModelCachePathClick}
+              onClick={handlePathClick(store.setSimilarityModelCachePath)}
               flex={1}
             />
           </View>
@@ -285,7 +266,7 @@ export const SettingsModal = Comp(() => {
               configKey="file.search.pageSize"
               minValue={25}
               maxValue={250}
-              width="10rem"
+              width="6rem"
             />
 
             <Settings.SortMenu
@@ -334,24 +315,30 @@ export const SettingsModal = Comp(() => {
             </Card>
           </View>
 
-          <Card
-            header="Audio Metadata"
-            row
-            align="center"
-            bgColor={colors.foregroundCard}
-            padding={{ all: "0.1rem" }}
-            spacing="0.5rem"
-            width="fit-content"
-          >
-            <Settings.Checkbox label="Waveforms" configKey="file.waveform.enabled" />
+          <View row spacing="0.5rem" overflow="auto">
+            <Card
+              header="Deleted Files"
+              row
+              bgColor={colors.foregroundCard}
+              padding={{ all: "0.1rem" }}
+            >
+              <Settings.Checkbox label="Keep Metadata" configKey="file.keepDeletedMetadata" />
+            </Card>
 
-            <Settings.Checkbox label="Transcriptions" configKey="file.transcription.enabled" />
+            <Card
+              header="Audio Metadata"
+              row
+              bgColor={colors.foregroundCard}
+              padding={{ all: "0.1rem" }}
+            >
+              <Settings.Checkbox label="Waveforms" configKey="file.waveform.enabled" />
 
-            <Divider orientation="vertical" />
+              <Settings.Checkbox label="Transcriptions" configKey="file.transcription.enabled" />
+            </Card>
 
             <Settings.Dropdown
               configKey="file.transcription.model"
-              header="Model"
+              header="Transcription Model"
               options={TRANSCRIPTION_MODELS}
               setValue={handleTranscriptionModelChange}
               value={store.file.transcription.model}
@@ -369,7 +356,7 @@ export const SettingsModal = Comp(() => {
               value={store.file.transcription.quantization}
               width="8rem"
             />
-          </Card>
+          </View>
 
           <UniformList row spacing="0.5rem" height="15rem">
             <Settings.ExtColumn
@@ -420,6 +407,13 @@ export const SettingsModal = Comp(() => {
                 configKey="imports.folderDelimiter"
                 width="10rem"
                 textAlign="center"
+              />
+
+              <Settings.Dropdown
+                configKey="imports.subtitleMode"
+                header="Subtitles"
+                options={[...SUBTITLE_MODES]}
+                width="10rem"
               />
             </View>
 
@@ -501,6 +495,32 @@ export const SettingsModal = Comp(() => {
               />
             </View>
           </View>
+        </Settings.Section>
+
+        <Settings.Section title="Media Programs">
+          <View row spacing="0.5rem" overflow="auto">
+            <Settings.NumInput
+              header="Manager - Page Size"
+              configKey="mediaPrograms.manager.search.pageSize"
+              minValue={10}
+              maxValue={250}
+              width="10rem"
+            />
+
+            <Settings.SortMenu
+              header="Manager - Default Sort"
+              configKey="mediaPrograms.manager.search.sort"
+              rows={SORT_OPTIONS.MediaProgram}
+            />
+          </View>
+
+          <UniformList row spacing="0.5rem" height="15rem">
+            <Settings.ListInput header="Types" configKey="mediaPrograms.types" />
+
+            <Settings.ListInput header="Mediums" configKey="mediaPrograms.mediums" />
+
+            <Settings.ListInput header="Languages" configKey="mediaPrograms.languages" />
+          </UniformList>
         </Settings.Section>
 
         <Settings.Section title="Tags">

@@ -13,6 +13,7 @@ export class FileExporterStore extends Model({
   isOpen: prop<boolean>(false).withSetter(),
   isPreparing: prop<boolean>(false).withSetter(),
   sidecarPaths: prop<string[]>(() => []),
+  subtitlePaths: prop<string[]>(() => []),
   thumbPath: prop<string>(null),
 }) {
   private exportId = 0;
@@ -33,6 +34,7 @@ export class FileExporterStore extends Model({
     this.filePaths = [];
     this.isPreparing = false;
     this.sidecarPaths = [];
+    this.subtitlePaths = [];
     this.thumbPath = null;
   }
 
@@ -60,14 +62,17 @@ export class FileExporterStore extends Model({
   setSidecars({
     filePaths,
     sidecarPaths,
+    subtitlePaths,
     thumbPath,
   }: {
     filePaths: string[];
     sidecarPaths: string[];
+    subtitlePaths: string[];
     thumbPath: string;
   }) {
     this.filePaths = filePaths;
     this.sidecarPaths = sidecarPaths;
+    this.subtitlePaths = subtitlePaths;
     this.thumbPath = thumbPath;
   }
 

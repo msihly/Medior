@@ -17,9 +17,14 @@ export interface FileTransformSizeBucket {
   originalSize: number;
 }
 
-export type SizeHistoryRange = "30d" | "7d" | "all";
+export type SizeHistoryRange = "24h" | "30d" | "7d" | "all";
 
-const SIZE_HISTORY_RANGE_DAYS: Record<SizeHistoryRange, number> = { "30d": 30, "7d": 7, all: null };
+const SIZE_HISTORY_RANGE_DAYS: Record<SizeHistoryRange, number> = {
+  "24h": 1,
+  "30d": 30,
+  "7d": 7,
+  all: null,
+};
 
 @model("medior/VideoTransformerStore")
 export class VideoTransformerStore extends Model({
@@ -108,14 +113,10 @@ export class VideoTransformerStore extends Model({
   }) {
     if (transform.type !== this.queueType) return;
 
-    this.activeTransformLoadId++;
-    this.activeTransformUpdates.clear();
-    this.isActiveTransformLoading = false;
-
+    this.cancelLoad();
     this.setFocusedTransformId(transform.id);
     this.setActiveFile(new File(file));
     this.setActiveTransform(new FileTransform(transform));
-    this.setIsLoading(false);
   }
 
   @modelAction
@@ -168,20 +169,17 @@ export class VideoTransformerStore extends Model({
 
   @modelAction
   reset() {
-    this.activeTransformLoadId++;
-    this.activeTransformUpdates.clear();
+    this.cancelLoad();
     this.queueCountLoadId++;
     this.sizeHistoryLoadId++;
     this.transformerStatusLoadId++;
     clearTimeout(this.sizeHistoryTimer);
     this.sizeHistoryTimer = null;
-    this.isActiveTransformLoading = false;
     this.setActiveTransform(null);
     this.setActiveFile(null);
     this.setFileIds([]);
     this.setFocusedTransformId(null);
     this.setFnType(null);
-    this.setIsLoading(false);
     this.setIsMinimized(false);
     this.setIsQueueRefreshing(false);
     this.setIsSizeHistoryLoading(false);
@@ -525,8 +523,8 @@ export class VideoTransformerStore extends Model({
     return this.activeTransform.isSpliceCopy ? this.saveCopy() : this.replaceOutput();
   }
 
-  @modelFlow
   /** Splices pass `withAuto` false: auto-replace never applies to them, so the global flag is left alone. */
+  @modelFlow
   runTransform = asyncAction(async ({ id, withAuto }: { id: string; withAuto: boolean }) => {
     if (this.isUpdating) return;
 

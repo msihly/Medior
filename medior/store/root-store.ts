@@ -9,6 +9,7 @@ import { FaceRecognitionStore } from "./face-recognition";
 import { FileStore } from "./files";
 import { HomeStore } from "./home";
 import { ImportStore } from "./imports";
+import { MediaProgramStore } from "./media-programs";
 import { TagStore } from "./tags";
 
 initMobx(mobx);
@@ -21,6 +22,7 @@ export class RootStore extends Model({
   file: prop<FileStore>(() => new FileStore({})),
   home: prop<HomeStore>(() => new HomeStore({})),
   import: prop<ImportStore>(() => new ImportStore({})),
+  mediaProgram: prop<MediaProgramStore>(() => new MediaProgramStore({})),
   tag: prop<TagStore>(() => new TagStore({})),
 }) {
   @modelAction
@@ -40,6 +42,8 @@ export class RootStore extends Model({
     this.home.settings.setHasUnsavedChanges(false);
     this.import.manager.search.setPageSize(config.imports.manager.search.pageSize);
     this.import.manager.search.setSortValue(config.imports.manager.search.sort);
+    this.mediaProgram.manager.search.setPageSize(config.mediaPrograms.manager.search.pageSize);
+    this.mediaProgram.manager.search.setSortValue(config.mediaPrograms.manager.search.sort);
     this.tag.manager.search.setPageSize(config.tags.manager.search.pageSize);
     this.tag.manager.search.setSortValue(config.tags.manager.search.sort);
   }
@@ -53,14 +57,16 @@ export class RootStore extends Model({
       this.import?.ingester?.isOpen ||
       this.import?.manager?.isOpen ||
       this.import?.reingester?.isOpen ||
-      this.file?.lowerResolution?.isOpen ||
+      (this.file?.lowerResolution?.isOpen && !this.file?.lowerResolution?.isMinimized) ||
       this.file?.similarity?.isOpen ||
       this.file?.tagsEditor?.isOpen ||
       (this.file?.isRefreshOpen && !this.file?.isRefreshMinimized) ||
       (this.file?.videoTransformer?.isOpen && !this.file?.videoTransformer?.isMinimized) ||
+      this.mediaProgram?.editor?.isOpen ||
+      this.mediaProgram?.manager?.isOpen ||
       this.tag?.editor?.isOpen ||
       this.tag?.merger?.isOpen ||
-      this.tag?.manager?.isOpen
+      (this.tag?.manager?.isOpen && !this.tag?.manager?.isMinimized)
     );
   }
 }

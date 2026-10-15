@@ -2681,6 +2681,645 @@ export class _FileSearch extends Model({
   }
 }
 
+@model("medior/_MediaProgramSearch")
+export class _MediaProgramSearch extends Model({
+  cachedFilterProps: prop<object | null>(null).withSetter(),
+  dateCreatedEnd: prop<string>("").withSetter(),
+  dateCreatedMode: prop<"optional" | "required">("required").withSetter(),
+  dateCreatedStart: prop<string>("").withSetter(),
+  dateLastWatchedEnd: prop<string>("").withSetter(),
+  dateLastWatchedMode: prop<"optional" | "required">("required").withSetter(),
+  dateLastWatchedStart: prop<string>("").withSetter(),
+  dateModifiedEnd: prop<string>("").withSetter(),
+  dateModifiedMode: prop<"optional" | "required">("required").withSetter(),
+  dateModifiedStart: prop<string>("").withSetter(),
+  fileCount: prop<{ logOp: LogicalOp | ""; value: number }>(() => ({ logOp: "", value: 0 })),
+  fileCountMode: prop<"optional" | "required">("required").withSetter(),
+  forcePages: prop<boolean>(false).withSetter(),
+  genres: prop<Stores.TagOption[]>(() => []).withSetter(),
+  hasChanges: prop<boolean>(false).withSetter(),
+  ids: prop<string[]>(() => []).withSetter(),
+  isDeleteModalOpen: prop<boolean>(false).withSetter(),
+  isLoading: prop<boolean>(false).withSetter(),
+  isPageCountLoading: prop<boolean>(false).withSetter(),
+  isRewatching: prop<boolean>(null).withSetter(),
+  isSaveModalOpen: prop<boolean>(false).withSetter(),
+  languages: prop<string[]>(() => []).withSetter(),
+  loadId: prop<number>(0).withSetter(),
+  maxYear: prop<number>(null).withSetter(),
+  mediums: prop<string[]>(() => []).withSetter(),
+  minYear: prop<number>(null).withSetter(),
+  name: prop<string>("").withSetter(),
+  nameMode: prop<"optional" | "required">("required").withSetter(),
+  page: prop<number>(1).withSetter(),
+  pageCount: prop<number>(1).withSetter(),
+  pageSize: prop<number>(() => getConfig().mediaPrograms.manager.search.pageSize).withSetter(),
+  rating: prop<{ logOp: LogicalOp | ""; value: number }>(() => ({ logOp: "", value: 0 })),
+  ratingMode: prop<"optional" | "required">("required").withSetter(),
+  results: prop<Stores.MediaProgram[]>(() => []).withSetter(),
+  savedSearches: prop<Stores.SavedSearch[]>(() => []).withSetter(),
+  selectedIds: prop<string[]>(() => []).withSetter(),
+  selectedSavedSearchId: prop<string>("").withSetter(),
+  sortValue: prop<SortMenuProps["value"]>(
+    () => getConfig().mediaPrograms.manager.search.sort,
+  ).withSetter(),
+  tags: prop<Stores.TagOption[]>(() => []).withSetter(),
+  types: prop<string[]>(() => []).withSetter(),
+  watchStatuses: prop<string[]>(() => []).withSetter(),
+  yearMode: prop<"optional" | "required">("required").withSetter(),
+}) {
+  onInit() {
+    autoBind(this);
+  }
+
+  /* STANDARD ACTIONS */
+  @modelAction
+  _addResult(result: ModelCreationData<Stores.MediaProgram>) {
+    this.results.push(new Stores.MediaProgram(result));
+  }
+
+  @modelAction
+  applySearchProps(searchProps: Record<string, any>) {
+    this.reset();
+
+    Object.entries(searchProps).forEach(([key, value]) => {
+      if (key in this) this[key] = value;
+    });
+
+    this.cachedFilterProps = null;
+    this.hasChanges = true;
+    this.page = 1;
+    (this as any).afterApplySearchProps?.(searchProps);
+  }
+
+  @modelAction
+  cancelLoad() {
+    this.loadId += 1;
+    this.isLoading = false;
+    this.isPageCountLoading = false;
+  }
+
+  @modelAction
+  setFileCountOp(val: LogicalOp | "") {
+    this.fileCount.logOp = val;
+
+    if (val === "") this.fileCount.value = 0;
+  }
+
+  @modelAction
+  setFileCountValue(val: number) {
+    this.fileCount.value = val;
+  }
+
+  @modelAction
+  setRatingOp(val: LogicalOp | "") {
+    this.rating.logOp = val;
+
+    if (val === "") this.rating.value = 0;
+  }
+
+  @modelAction
+  setRatingValue(val: number) {
+    this.rating.value = val;
+  }
+
+  @modelAction
+  _deleteResults(ids: string[]) {
+    const removedIds = new Set(ids);
+
+    this.results = this.results.filter((d) => !removedIds.has(d.id));
+  }
+
+  @modelAction
+  reset() {
+    this.cachedFilterProps = null;
+    this.dateCreatedEnd = "";
+    this.dateCreatedMode = "required";
+    this.dateCreatedStart = "";
+    this.dateLastWatchedEnd = "";
+    this.dateLastWatchedMode = "required";
+    this.dateLastWatchedStart = "";
+    this.dateModifiedEnd = "";
+    this.dateModifiedMode = "required";
+    this.dateModifiedStart = "";
+    this.fileCount = { logOp: "", value: 0 };
+    this.fileCountMode = "required";
+    this.forcePages = false;
+    this.genres = [];
+    this.hasChanges = false;
+    this.ids = [];
+    this.isLoading = false;
+    this.isPageCountLoading = false;
+    this.isRewatching = null;
+    this.languages = [];
+    this.loadId += 1;
+    this.maxYear = null;
+    this.mediums = [];
+    this.minYear = null;
+    this.name = "";
+    this.nameMode = "required";
+    this.page = 1;
+    this.pageCount = 1;
+    this.pageSize = getConfig().mediaPrograms.manager.search.pageSize;
+    this.rating = { logOp: "", value: 0 };
+    this.ratingMode = "required";
+    this.results = [];
+    this.selectedIds = [];
+    this.sortValue = getConfig().mediaPrograms.manager.search.sort;
+    this.tags = [];
+    this.types = [];
+    this.watchStatuses = [];
+    this.yearMode = "required";
+  }
+
+  @modelAction
+  toggleSelected(selected: { id: string; isSelected?: boolean }[], withToast = false) {
+    if (!selected?.length) return;
+
+    const previous = this.selectedIdSet;
+    const next = applySelectionChanges(this.selectedIds, selected);
+
+    this.selectedIds = next;
+
+    if (withToast) {
+      const nextSet = new Set(next);
+      const addedCount = next.filter((id) => !previous.has(id)).length;
+      const removedCount = [...previous].filter((id) => !nextSet.has(id)).length;
+
+      if (addedCount && removedCount)
+        toast.success(`Selected ${addedCount} items and deselected ${removedCount} items`);
+      else if (addedCount) toast.success(`Selected ${addedCount} items`);
+      else if (removedCount) toast.success(`Deselected ${removedCount} items`);
+    }
+  }
+
+  /* ASYNC ACTIONS */
+  @modelFlow
+  applySavedSearch = asyncAction(async (id: string) => {
+    if (!this.savedSearches.some((s) => s.id === id)) await this.loadSavedSearches();
+
+    const savedSearch = this.savedSearches.find((s) => s.id === id);
+
+    if (!savedSearch) return;
+
+    this.applySearchProps(derefMobx(savedSearch.filterProps));
+    this.setSelectedSavedSearchId(id);
+    await this.loadFiltered({ noCache: true, page: 1 });
+  });
+
+  @modelFlow
+  deleteSavedSearch = asyncAction(async (id: string = this.selectedSavedSearchId) => {
+    if (!id) return;
+
+    const res = await trpc.deleteSavedSearch.mutate({ args: { ids: [id] } });
+
+    if (!res.success) throw new Error(res.error);
+
+    await this.loadSavedSearches();
+
+    if (this.selectedSavedSearchId === id) this.setSelectedSavedSearchId("");
+
+    this.setIsDeleteModalOpen(false);
+    toast.warn("Saved search deleted");
+  });
+
+  @modelFlow
+  getShiftSelected = asyncAction(
+    async ({ id, selectedIds }: { id: string; selectedIds: string[] }) => {
+      const range = getSelectionRange({
+        clickedId: id,
+        orderedIds: this.results.map((r) => r.id),
+        selectedIds,
+      });
+
+      if (range) return range;
+
+      const loadId = this.loadId + 1;
+
+      this.setLoadId(loadId);
+      this.setIsLoading(true);
+      this.setIsPageCountLoading(false);
+
+      try {
+        const res = await trpc.getShiftSelectedMediaProgram.mutate({
+          ...this.cachedFilterProps,
+          clickedId: id,
+          selectedIds,
+        });
+
+        if (loadId !== this.loadId) return null;
+
+        if (!res.success) throw new Error(res.error);
+
+        return res.data;
+      } catch (error) {
+        if (loadId === this.loadId) throw error;
+
+        return null;
+      } finally {
+        if (loadId === this.loadId) this.setIsLoading(false);
+      }
+    },
+  );
+
+  @modelFlow
+  handleSelect = asyncAction(
+    async ({ hasCtrl, hasShift, id }: { hasCtrl: boolean; hasShift: boolean; id: string }) => {
+      if (hasShift) {
+        const res = await this.getShiftSelected({ id, selectedIds: this.selectedIds });
+
+        if (!res?.success) throw new Error(res.error);
+
+        if (res.data) {
+          this.toggleSelected([
+            ...res.data.idsToDeselect.map((i) => ({ id: i, isSelected: false })),
+            ...res.data.idsToSelect.map((i) => ({ id: i, isSelected: true })),
+          ]);
+        }
+      } else if (hasCtrl) {
+        this.toggleSelected([{ id, isSelected: !this.getIsSelected(id) }]);
+      } else if (this.selectedIds.length === 1 && this.getIsSelected(id)) {
+        this.selectedIds = [];
+      } else {
+        this.selectedIds = [id];
+      }
+    },
+  );
+
+  @modelFlow
+  selectAllInQuery = asyncAction(async () => {
+    const filterProps = this.cachedFilterProps ?? this.getFilterProps();
+    const loadId = this.loadId + 1;
+
+    this.setLoadId(loadId);
+    this.setIsLoading(true);
+    this.setIsPageCountLoading(false);
+
+    try {
+      const countRes = await trpc.getFilteredMediaProgramCount.mutate({
+        ...filterProps,
+        curMaxPage: this.pageCount,
+        forcePages: this.forcePages,
+        page: this.page,
+        pageSize: this.pageSize,
+        withFull: true,
+      });
+
+      if (loadId !== this.loadId) return null;
+
+      if (!countRes.success) throw new Error(countRes.error);
+
+      if (countRes.data.count === 0) return 0;
+
+      const res = await trpc.listFilteredMediaProgram.mutate({
+        ...filterProps,
+        forcePages: this.forcePages,
+        page: 1,
+        pageSize: countRes.data.count,
+        select: { _id: 1 },
+      });
+
+      if (loadId !== this.loadId) return null;
+
+      if (!res.success) throw new Error(res.error);
+
+      const items = res.data;
+
+      this.toggleSelected(items.map(({ id }) => ({ id, isSelected: true })));
+
+      return items.length;
+    } catch (error) {
+      if (loadId === this.loadId) throw error;
+
+      return null;
+    } finally {
+      if (loadId === this.loadId) this.setIsLoading(false);
+    }
+  });
+
+  @modelFlow
+  loadFiltered = asyncAction(
+    async ({
+      noCache,
+      page,
+      toLastPage,
+      withFullCount,
+    }: {
+      noCache?: boolean;
+      page?: number;
+      toLastPage?: boolean;
+      withFullCount?: boolean;
+    } = {}) => {
+      const debug = false;
+      const { perfLog } = makePerfLog("[MediaProgramSearch]");
+      const loadId = this.loadId + 1;
+
+      this.setLoadId(loadId);
+      this.setIsLoading(true);
+      this.setIsPageCountLoading(true);
+
+      try {
+        const shouldCacheFilterProps = noCache || !this.cachedFilterProps;
+        const filterProps = shouldCacheFilterProps ? this.getFilterProps() : this.cachedFilterProps;
+
+        const exactCount = withFullCount || toLastPage;
+        let nextPageCount = this.pageCount;
+
+        if (exactCount) {
+          const countRes = await trpc.getFilteredMediaProgramCount.mutate({
+            ...filterProps,
+            curMaxPage: this.pageCount,
+            forcePages: this.forcePages,
+            page,
+            pageSize: this.pageSize,
+            withFull: true,
+          });
+
+          if (loadId !== this.loadId) return;
+
+          if (!countRes.success) throw new Error(countRes.error);
+
+          nextPageCount = countRes.data.pageCount;
+        }
+
+        const newPage = toLastPage
+          ? Math.max(nextPageCount, 1)
+          : exactCount
+            ? Math.min(page ?? this.page, Math.max(nextPageCount, 1))
+            : (page ?? this.page);
+
+        const itemsRes = await trpc.listFilteredMediaProgram.mutate({
+          ...filterProps,
+          forcePages: this.forcePages,
+          page: newPage,
+          pageSize: this.pageSize,
+        });
+
+        if (loadId !== this.loadId) return;
+
+        if (!itemsRes.success) throw new Error(itemsRes.error);
+
+        let items = itemsRes.data;
+
+        if (debug) perfLog(`Loaded ${items.length} items`);
+
+        const tagIds = [...new Set(items.flatMap((item) => [item.tagIds, item.genreIds].flat()))];
+        const tagRes = await trpc.listTag.mutate({ filter: { id: tagIds } });
+
+        if (loadId !== this.loadId) return;
+
+        if (!tagRes.success) throw new Error(tagRes.error);
+
+        const selectTags = makeTagSelector(tagRes.data);
+
+        items = items.map((item) => ({
+          ...item,
+          genres: selectTags(item.genreIds),
+          tags: selectTags(item.tagIds),
+        }));
+
+        const results = items;
+
+        if (loadId !== this.loadId) return;
+
+        this.setResults(results.map((result) => new Stores.MediaProgram(result)));
+
+        if (shouldCacheFilterProps) this.setCachedFilterProps(derefMobx(filterProps));
+
+        if (exactCount) {
+          this.setPageCount(nextPageCount);
+          this.setIsPageCountLoading(false);
+        }
+
+        this.setPage(newPage);
+
+        if (debug) perfLog("Overwrite and re-render");
+
+        this.setIsLoading(false);
+
+        if (noCache) this.setHasChanges(false);
+
+        if (!exactCount) {
+          (async () => {
+            try {
+              const countRes = await trpc.getFilteredMediaProgramCount.mutate({
+                ...filterProps,
+                curMaxPage: this.pageCount,
+                forcePages: this.forcePages,
+                page: newPage,
+                pageSize: this.pageSize,
+                withFull: withFullCount,
+              });
+
+              if (loadId !== this.loadId) return;
+
+              this.setIsPageCountLoading(false);
+
+              if (!countRes.success) console.error(countRes.error);
+              else {
+                const pageCount = countRes.data.pageCount;
+
+                this.setPageCount(pageCount);
+
+                if (debug) perfLog(`Set pageCount to ${pageCount}`);
+              }
+            } catch (error) {
+              if (loadId !== this.loadId) return;
+
+              this.setIsPageCountLoading(false);
+              console.error(error);
+            }
+          })();
+        }
+
+        return results;
+      } catch (error) {
+        if (loadId !== this.loadId) return;
+
+        this.setIsLoading(false);
+        this.setIsPageCountLoading(false);
+
+        throw error;
+      }
+    },
+  );
+
+  @modelFlow
+  loadSavedSearches = asyncAction(async () => {
+    const res = await trpc.listSavedSearch.mutate({
+      args: {
+        filter: { searchType: "MediaProgram" },
+        page: 1,
+        pageSize: 1000,
+        sort: { label: "asc" },
+      },
+    });
+
+    if (!res.success) throw new Error(res.error);
+
+    this.setSavedSearches(res.data.items.map((result) => new Stores.SavedSearch(result)));
+
+    return res.data.items;
+  });
+
+  @modelFlow
+  saveSavedSearch = asyncAction(async (label: string) => {
+    const trimmedLabel = label.trim();
+
+    if (!trimmedLabel) throw new Error("Saved search label is required");
+
+    const existing = this.savedSearches.find((s) => s.label === trimmedLabel);
+    const selected = this.savedSearches.find((s) => s.id === this.selectedSavedSearchId);
+    const filterProps = this.getSearchProps();
+    let res: Awaited<
+      ReturnType<typeof trpc.createSavedSearch.mutate | typeof trpc.updateSavedSearch.mutate>
+    >;
+
+    if (selected)
+      res = await trpc.updateSavedSearch.mutate({
+        args: { id: selected.id, updates: { filterProps, label: trimmedLabel } },
+      });
+    else if (existing)
+      res = await trpc.updateSavedSearch.mutate({
+        args: { id: existing.id, updates: { filterProps } },
+      });
+    else
+      res = await trpc.createSavedSearch.mutate({
+        args: {
+          dateCreated: dayjs().toISOString(),
+          filterProps,
+          label: trimmedLabel,
+          searchType: "MediaProgram",
+        },
+      });
+
+    if (!res.success) throw new Error(res.error);
+
+    await this.loadSavedSearches();
+    this.setSelectedSavedSearchId(selected?.id ?? existing?.id ?? res.data.id);
+    this.setIsSaveModalOpen(false);
+    toast.success(selected || existing ? "Saved search updated" : "Saved search created");
+
+    return res.data;
+  });
+
+  /* GETTERS */
+  @computed
+  get numOfFilters() {
+    return (
+      (!isDeepEqual(this.dateCreatedEnd, "") ? 1 : 0) +
+      (!isDeepEqual(this.dateCreatedStart, "") ? 1 : 0) +
+      (!isDeepEqual(this.dateLastWatchedEnd, "") ? 1 : 0) +
+      (!isDeepEqual(this.dateLastWatchedStart, "") ? 1 : 0) +
+      (!isDeepEqual(this.dateModifiedEnd, "") ? 1 : 0) +
+      (!isDeepEqual(this.dateModifiedStart, "") ? 1 : 0) +
+      (!isDeepEqual(this.fileCount, { logOp: "", value: 0 }) ? 1 : 0) +
+      (!isDeepEqual(this.genres, []) ? 1 : 0) +
+      (!isDeepEqual(this.ids, []) ? 1 : 0) +
+      (!isDeepEqual(this.isRewatching, null) ? 1 : 0) +
+      (!isDeepEqual(this.languages, []) ? 1 : 0) +
+      (!isDeepEqual(this.maxYear, null) ? 1 : 0) +
+      (!isDeepEqual(this.mediums, []) ? 1 : 0) +
+      (!isDeepEqual(this.minYear, null) ? 1 : 0) +
+      (!isDeepEqual(this.name, "") ? 1 : 0) +
+      (!isDeepEqual(this.rating, { logOp: "", value: 0 }) ? 1 : 0) +
+      (!isDeepEqual(this.sortValue, getConfig().mediaPrograms.manager.search.sort) ? 1 : 0) +
+      (!isDeepEqual(this.tags, []) ? 1 : 0) +
+      (!isDeepEqual(this.types, []) ? 1 : 0) +
+      (!isDeepEqual(this.watchStatuses, []) ? 1 : 0)
+    );
+  }
+
+  @computed({ keepAlive: true })
+  get resultsById() {
+    return new Map(this.results.map((result) => [result.id, result]));
+  }
+
+  @computed({ keepAlive: true })
+  get selectedIdSet() {
+    return new Set(this.selectedIds);
+  }
+
+  /* DYNAMIC GETTERS */
+  getCachedFilterProps() {
+    if (!this.cachedFilterProps) this.setCachedFilterProps(derefMobx(this.getFilterProps()));
+
+    return this.cachedFilterProps;
+  }
+
+  getFilterProps() {
+    return {
+      dateCreatedEnd: this.dateCreatedEnd,
+      dateCreatedMode: this.dateCreatedMode,
+      dateCreatedStart: this.dateCreatedStart,
+      dateLastWatchedEnd: this.dateLastWatchedEnd,
+      dateLastWatchedMode: this.dateLastWatchedMode,
+      dateLastWatchedStart: this.dateLastWatchedStart,
+      dateModifiedEnd: this.dateModifiedEnd,
+      dateModifiedMode: this.dateModifiedMode,
+      dateModifiedStart: this.dateModifiedStart,
+      fileCount: this.fileCount,
+      fileCountMode: this.fileCountMode,
+      ...getRootStore<Stores.RootStore>(this)?.tag?.tagSearchOptsToIds(this.genres, false, "Genre"),
+      ids: this.ids,
+      isRewatching: this.isRewatching,
+      languages: this.languages,
+      maxYear: this.maxYear,
+      mediums: this.mediums,
+      minYear: this.minYear,
+      name: this.name,
+      nameMode: this.nameMode,
+      rating: this.rating,
+      ratingMode: this.ratingMode,
+      sortValue: this.sortValue,
+      ...getRootStore<Stores.RootStore>(this)?.tag?.tagSearchOptsToIds(this.tags),
+      types: this.types,
+      watchStatuses: this.watchStatuses,
+      yearMode: this.yearMode,
+    };
+  }
+
+  getIsSelected(id: string) {
+    return this.selectedIdSet.has(id);
+  }
+
+  getResult(id: string) {
+    return this.resultsById.get(id);
+  }
+
+  getSearchProps() {
+    return derefMobx({
+      dateCreatedEnd: this.dateCreatedEnd,
+      dateCreatedMode: this.dateCreatedMode,
+      dateCreatedStart: this.dateCreatedStart,
+      dateLastWatchedEnd: this.dateLastWatchedEnd,
+      dateLastWatchedMode: this.dateLastWatchedMode,
+      dateLastWatchedStart: this.dateLastWatchedStart,
+      dateModifiedEnd: this.dateModifiedEnd,
+      dateModifiedMode: this.dateModifiedMode,
+      dateModifiedStart: this.dateModifiedStart,
+      fileCount: this.fileCount,
+      fileCountMode: this.fileCountMode,
+      genres: this.genres,
+      ids: this.ids,
+      isRewatching: this.isRewatching,
+      languages: this.languages,
+      maxYear: this.maxYear,
+      mediums: this.mediums,
+      minYear: this.minYear,
+      name: this.name,
+      nameMode: this.nameMode,
+      rating: this.rating,
+      ratingMode: this.ratingMode,
+      sortValue: this.sortValue,
+      tags: this.tags,
+      types: this.types,
+      watchStatuses: this.watchStatuses,
+      yearMode: this.yearMode,
+    });
+  }
+}
+
 @model("medior/_SavedImportConfigSearch")
 export class _SavedImportConfigSearch extends Model({
   cachedFilterProps: prop<object | null>(null).withSetter(),
@@ -4113,6 +4752,7 @@ export class _FileImport extends Model({
   progressRevision: prop<number>(0),
   size: prop<number>(),
   status: prop<string | "COMPLETE" | "DELETED" | "DUPLICATE" | "ERROR" | "PENDING">("PENDING"),
+  subtitles: prop<Array<{ path: string }>>(null),
   tagIds: prop<string[]>(() => []),
   thumb: prop<{
     frameHeight?: number;
@@ -4147,6 +4787,7 @@ export class _FileImportBatch extends Model({
   isReady: prop<boolean>(false),
   lastUploadHash: prop<string>(null),
   lastUploadOffset: prop<number>(null),
+  mediaProgram: prop<import("medior/utils/common/media-programs").MediaProgramImport>(null),
   processedCount: prop<number>(0),
   processedSize: prop<number>(0),
   progressRevision: prop<number>(0),
@@ -4154,6 +4795,7 @@ export class _FileImportBatch extends Model({
   size: prop<number>(null),
   sourceFolderPath: prop<string>(null),
   startedAt: prop<string>(null),
+  subtitleMode: prop<"embed" | "keep" | "none">(null),
   tagIds: prop<string[]>(() => []),
   tagIdsWithAncestors: prop<string[]>(() => []),
 }) {
@@ -4361,8 +5003,11 @@ export class _File extends Model({
   originalVideoCodec: prop<string>(null),
   path: prop<string>(),
   peakDecibels: prop<number>(null),
+  previousHashes: prop<string[]>(null),
   rating: prop<number>(),
   size: prop<number>(),
+  sourceHash: prop<string>(null),
+  subtitles: prop<Array<{ ext: string; path: string; pathKey: string }>>(null),
   tagIds: prop<string[]>(),
   tagIdsWithAncestors: prop<string[]>(),
   thumb: prop<{
@@ -4432,6 +5077,89 @@ export class _FileStore extends Model({ isLoading: prop<boolean>(false).withSett
     this.setIsLoading(true);
 
     const res = await trpc.updateFile.mutate({ args });
+
+    this.setIsLoading(false);
+
+    if (res.error) throw new Error(res.error);
+
+    return res.data;
+  });
+}
+/* --------------------------------------------------------------------------- */
+/*                               MediaProgram
+/* --------------------------------------------------------------------------- */
+
+@model("medior/_MediaProgram")
+export class _MediaProgram extends Model({
+  collectionIdIndexes: prop<Array<{ collectionId: string; index: number }>>(() => []),
+  dateCreated: prop<string>(() => dayjs().toISOString()),
+  dateLastWatched: prop<string>(null),
+  dateModified: prop<string>(null),
+  fileCount: prop<number>(0),
+  genreIds: prop<string[]>(() => []),
+  id: prop<string>(),
+  isRewatching: prop<boolean>(false),
+  language: prop<string>(null),
+  lastWatchedFileId: prop<string>(null),
+  medium: prop<string>(null),
+  name: prop<string>(),
+  posterFileId: prop<string>(null),
+  rating: prop<number>(0),
+  ratingIsManual: prop<boolean>(null),
+  rewatchCount: prop<number>(0),
+  rewatchedFileIds: prop<string[]>(() => []),
+  size: prop<number>(0),
+  sourceFolderKey: prop<string>(null),
+  sourceFolderPath: prop<string>(null),
+  tagIds: prop<string[]>(() => []),
+  tagIdsWithAncestors: prop<string[]>(() => []),
+  type: prop<string>(null),
+  watchedFileIds: prop<string[]>(() => []),
+  watchStatus: prop<"dropped" | "inactive" | "unwatched" | "watched" | "watching">(
+    "unwatched" as const,
+  ),
+  year: prop<number>(null),
+}) {
+  @modelAction
+  update(updates: Partial<ModelCreationData<this>>) {
+    applySnapshot(this, { ...getSnapshot(this), ...updates });
+  }
+}
+
+@model("medior/_MediaProgramStore")
+export class _MediaProgramStore extends Model({ isLoading: prop<boolean>(false).withSetter() }) {
+  /* ------------------------------ ASYNC ACTIONS ----------------------------- */
+  @modelFlow
+  createMediaProgram = asyncAction(async (args: Types._CreateMediaProgramInput) => {
+    this.setIsLoading(true);
+
+    const res = await trpc._createMediaProgram.mutate({ args });
+
+    this.setIsLoading(false);
+
+    if (res.error) throw new Error(res.error);
+
+    return res.data;
+  });
+
+  @modelFlow
+  deleteMediaProgram = asyncAction(async (args: Types.DeleteMediaProgramInput) => {
+    this.setIsLoading(true);
+
+    const res = await trpc.deleteMediaProgram.mutate({ args });
+
+    this.setIsLoading(false);
+
+    if (res.error) throw new Error(res.error);
+
+    return res.data;
+  });
+
+  @modelFlow
+  updateMediaProgram = asyncAction(async (args: Types._UpdateMediaProgramInput) => {
+    this.setIsLoading(true);
+
+    const res = await trpc._updateMediaProgram.mutate({ args });
 
     this.setIsLoading(false);
 

@@ -11,7 +11,7 @@ export interface ExtColumnProps {
 
 export const ExtColumn = Comp(({ configKey, label, options }: ExtColumnProps) => {
   return (
-    <Card column header={label} bgColor={colors.foregroundCard} overflow="hidden auto">
+    <Card header={label} bgColor={colors.foregroundCard} overflow="hidden auto">
       {options.map((ext) => (
         <ExtCheckbox key={ext} ext={ext} configKey={configKey} />
       ))}

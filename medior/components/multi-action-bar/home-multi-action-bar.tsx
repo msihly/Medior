@@ -26,7 +26,7 @@ export const HomeMultiActionBar = Comp(
       ? undefined
       : ((store.cachedFilterProps as { sortValue?: SortValue })?.sortValue ?? store.sortValue);
 
-    const handleAutoDetect = () => stores.faceRecog.addFilesToAutoDetectQueue(selectedIds);
+    // const handleAutoDetect = () => stores.faceRecog.addFilesToAutoDetectQueue(selectedIds);
 
     const handleDelete = () => stores.file.confirmDeleteFiles(selectedIds);
 
@@ -49,8 +49,6 @@ export const HomeMultiActionBar = Comp(
     const handleExport = () => stores.file.exporter.open(selectedIds);
 
     const handleFileInfoRefresh = () => stores.file.refreshFiles({ ids: selectedIds });
-
-    const handleFindDuplicates = () => stores.file.lowerResolution.open();
 
     const handleReencode = () =>
       stores.file.openVideoTransformer(selectedIds, "reencode", sourceSortValue);
@@ -94,14 +92,6 @@ export const HomeMultiActionBar = Comp(
             </View>
 
             <View row align="center" spacing="0.5rem">
-              {isHome && !suppliedStore && (
-                <MultiActionButton
-                  name="ImageSearch"
-                  tooltip="Find Duplicates"
-                  onClick={handleFindDuplicates}
-                />
-              )}
-
               {store.isArchived && (
                 <MultiActionButton
                   name="Delete"
@@ -117,6 +107,13 @@ export const HomeMultiActionBar = Comp(
                 tooltip={store.isArchived ? "Unarchive" : "Archive"}
                 onClick={store.isArchived ? handleUnarchive : handleDelete}
                 disabled={hasNoSelection}
+              />
+
+              <MultiActionButton
+                name="ContentCut"
+                tooltip="Splice Videos with a Single Timeline"
+                onClick={handleSplice}
+                disabled={hasNoSelection || !isHome}
               />
 
               <MultiActionButton
@@ -136,13 +133,6 @@ export const HomeMultiActionBar = Comp(
               />
 
               <MultiActionButton
-                name="ContentCut"
-                tooltip="Splice Videos with a Single Timeline"
-                onClick={handleSplice}
-                disabled={hasNoSelection || !isHome}
-              />
-
-              <MultiActionButton
                 name="Refresh"
                 iconProps={{ rotation: 190, size: "1.1em" }}
                 tooltip="Refresh File Info"
@@ -157,12 +147,12 @@ export const HomeMultiActionBar = Comp(
                 disabled={hasNoSelection || !isHome}
               />
 
-              <MultiActionButton
+              {/* <MultiActionButton
                 name="Face"
                 tooltip="Auto Detect Faces"
                 onClick={handleAutoDetect}
                 disabled={hasNoSelection || !isHome}
-              />
+              /> */}
 
               <MultiActionButton
                 name="Collections"

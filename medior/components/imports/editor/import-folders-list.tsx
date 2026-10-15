@@ -19,6 +19,9 @@ export const ImportFoldersList = Comp(({ store }: ImportFoldersListProps) => {
     [store.flatFolderHierarchy],
   );
 
+  // Read here so renaming a program re-renders the rows showing its season titles.
+  const collectionTitles = folders.map(store.getFolderCollectionTitle);
+
   const isPaged = store.folderTotalCount > store.folderPageSize;
 
   useEffect(() => {
@@ -28,16 +31,14 @@ export const ImportFoldersList = Comp(({ store }: ImportFoldersListProps) => {
     listRef.current?.scrollTo(0);
   }, [folders, store.isLoading]);
 
-  const getByIndex = useCallback((index: number) => folders[index], [folders]);
-
   const getItemSize = useCallback(
     (index: number) =>
-      FOLDER_GAP + getImportFolderHeight({ folder: getByIndex(index), withListItems: true }),
-    [getByIndex],
+      FOLDER_GAP + getImportFolderHeight({ folder: folders[index], withListItems: true }),
+    [folders],
   );
 
   return (
-    <Card column flex={1} minHeight={0} overflow="hidden" padding={{ all: 0 }}>
+    <Card flex={1} minHeight={0} overflow="hidden" padding={{ all: 0 }}>
       <View flex={1} minHeight={0} padding={{ all: "0.5rem", top: "1rem" }}>
         <AutoSizer disableWidth>
           {({ height }) => (
@@ -47,11 +48,15 @@ export const ImportFoldersList = Comp(({ store }: ImportFoldersListProps) => {
               width="100%"
               itemCount={folders.length}
               itemSize={getItemSize}
-              itemKey={(index) => getByIndex(index).folderName}
+              itemKey={(index) => folders[index].folderName}
             >
               {({ index, style }) => (
                 <View style={style} padding={{ all: "0 0.5rem" }}>
-                  <ImportFolderList folder={getByIndex(index)} noStatus />
+                  <ImportFolderList
+                    collectionTitle={collectionTitles[index]}
+                    folder={folders[index]}
+                    noStatus
+                  />
                 </View>
               )}
             </VariableSizeList>

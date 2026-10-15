@@ -23,7 +23,7 @@ export const TagFilterMenu = Comp(({ color = colors.foreground, store }: TagFilt
   return (
     <FilterMenu store={store} color={color} sortOptions={SORT_OPTIONS.Tag}>
       <View row spacing="0.5rem" width="100%">
-        <Card column flex={1} spacing="0.5rem">
+        <Card flex={1} spacing="0.5rem">
           <TagInput
             header="Tags"
             value={store.tags}
@@ -53,7 +53,7 @@ export const TagFilterMenu = Comp(({ color = colors.foreground, store }: TagFilt
           />
         </Card>
 
-        <Card column width="20rem" spacing="0.5rem">
+        <Card width="20rem" spacing="0.5rem">
           <Input
             header={
               <FilterHeader label="Label" mode={store.labelMode} setMode={store.setLabelMode} />

@@ -1,4 +1,4 @@
-import { serverRouter as _serverRouter } from "medior/_generated/server";
+import { serverRouter } from "medior/_generated/server";
 
-export const serverRouter = _serverRouter;
+export { serverRouter };
 export type ServerRouter = typeof serverRouter;

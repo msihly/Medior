@@ -1,7 +1,7 @@
 import autoBind from "auto-bind";
 import { ObjectId } from "bson";
 import { computed, reaction } from "mobx";
-import { Model, model, modelAction, modelFlow, prop } from "mobx-keystone";
+import { Model, model, modelFlow, prop } from "mobx-keystone";
 import { asyncAction } from "medior/utils/client";
 import {
   IMPORT_UPLOAD_BYTES,
@@ -41,25 +41,11 @@ export class ImportManager extends Model({
           this.search.reset();
         } else {
           this.setIsLoading(false);
+          this.setIsReady(false);
           this.getImporterStatus();
         }
       },
     );
-  }
-
-  /* ---------------------------- STANDARD ACTIONS ---------------------------- */
-  @modelAction
-  _deleteBatch(id: string) {
-    this.search._deleteResults([id]);
-  }
-
-  reset() {
-    this.activeBatchLoadRevision++;
-    this.setActiveBatch(null);
-    this.setActiveFilePath(null);
-    this.setActiveFileProgress(null);
-    this.setIsLoading(false);
-    this.search.reset();
   }
 
   /* ------------------------------ ASYNC ACTIONS ----------------------------- */
@@ -112,7 +98,7 @@ export class ImportManager extends Model({
 
     if (!deleteRes.success) throw new Error(deleteRes.error);
 
-    this._deleteBatch(args.id);
+    this.search._deleteResults([args.id]);
     await this.loadActiveBatch();
     await this.getImporterStatus();
   });
@@ -123,11 +109,14 @@ export class ImportManager extends Model({
 
     if (!res.success) throw new Error(res.error);
 
+    const wasReady = this.isReady;
+
     this.setIsImporting(res.data.isImporting);
     this.setIsPaused(res.data.isPaused);
     this.setIsReady(res.data.isReady);
 
-    if (this.isOpen && this.isReady)
+    // The manager loads once the importer is ready; later status changes update it through sockets.
+    if (this.isOpen && this.isReady && !wasReady)
       await Promise.all([this.loadActiveBatch(), this.search.loadFiltered()]);
 
     return res.data;
@@ -184,6 +173,20 @@ export class ImportManager extends Model({
   });
 
   @modelFlow
+  reprocessStoredImports = asyncAction(async (args: { id: string }) => {
+    await this.pauseImporter();
+
+    const res = await trpc.reprocessStoredImports.mutate({ id: args.id });
+
+    if (!res.success) throw new Error(res.error);
+
+    await this.loadActiveBatch();
+    await this.getImporterStatus();
+
+    return res.data;
+  });
+
+  @modelFlow
   runImporter = asyncAction(async () => {
     if (this.isImporting) return;
 
@@ -235,15 +238,11 @@ export class ImportManager extends Model({
       let size = 2;
 
       const retryUploadRequest = async <T>(send: () => Promise<T>) => {
-        let result: T;
-
         try {
-          result = await send();
+          return await send();
         } catch {
-          result = await send();
+          return await send();
         }
-
-        return result;
       };
 
       const flush = async () => {
@@ -282,6 +281,7 @@ export class ImportManager extends Model({
             path: entry.path,
             sidecar: entry.sidecar,
             size: entry.size,
+            subtitles: entry.subtitles,
             tagIds: [...new Set(entry.tagIds ?? [])],
           };
           const bytes = Buffer.byteLength(JSON.stringify(input), "utf8");
@@ -341,15 +341,11 @@ export class ImportManager extends Model({
   /* --------------------------------- GETTERS -------------------------------- */
   @computed
   get bytesCompleted() {
-    if (!this.activeBatch) return 0;
-
-    return this.activeBatch.processedSize;
+    return this.activeBatch ? this.activeBatch.processedSize : 0;
   }
 
   @computed
   get bytesTotal() {
-    if (!this.activeBatch) return 0;
-
-    return this.activeBatch.size;
+    return this.activeBatch ? this.activeBatch.size : 0;
   }
 }

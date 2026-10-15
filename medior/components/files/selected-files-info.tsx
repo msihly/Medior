@@ -22,8 +22,7 @@ export const useFileInfo = () => {
 
       if (!res?.success) throw new Error(res.error);
 
-      const selectedFiles = res.data.items;
-      const [images, videos, imagesSize, videosSize] = selectedFiles.reduce(
+      const [images, videos, imagesSize, videosSize] = res.data.items.reduce(
         (acc, cur) => {
           const isVideo = getIsVideo(cur.ext);
 
@@ -46,7 +45,7 @@ export const useFileInfo = () => {
   const renderFileInfo = () => (
     <View column padding={{ all: "0.4rem 0.8rem" }}>
       {load.isLoading ? (
-        <View row align="center" spacing="0.5rem">
+        <View column align="center" spacing="0.5rem">
           <ProgressCircle color="inherit" size={20} variant="indeterminate" />
 
           <Button text="Cancel" icon="Close" onClick={load.cancel} />

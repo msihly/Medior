@@ -199,9 +199,5 @@ export const useHotkeys = ({ rootRef, videoRef, view }: UseHotkeysProps) => {
     [activeFileId],
   );
 
-  return {
-    handleKeyPress,
-    navCarouselByArrowKey,
-    selectFileByArrowKey,
-  };
+  return { handleKeyPress, navCarouselByArrowKey };
 };

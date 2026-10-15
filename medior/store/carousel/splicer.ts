@@ -28,11 +28,11 @@ const toComparablePairs = (pairs: readonly FileTimestampPair[]) =>
 @model("medior/Splicer")
 export class Splicer extends Model({
   isLoading: prop<boolean>(false).withSetter(),
-  isOpen: prop<boolean>(false).withSetter(),
+  isOpen: prop<boolean>(false),
   spliceMode: prop<SpliceMode>("replace").withSetter(),
   timestampId: prop<string>(""),
   timestampLabel: prop<string>("").withSetter(),
-  timestampPairs: prop<FileTimestampPair[]>(() => []).withSetter(),
+  timestampPairs: prop<FileTimestampPair[]>(() => []),
 }) {
   onAttachedToRootStore(stores: RootStore) {
     return reaction(

@@ -20,6 +20,7 @@ type ModelSortName =
   | "FileImportBatch"
   | "FileTransform"
   | "File"
+  | "MediaProgram"
   | "Notification"
   | "SavedImportConfig"
   | "SavedSearch"
@@ -70,6 +71,16 @@ const MODEL_SORT_OPTIONS: Record<ModelSortName, SortOption[]> = {
     { attribute: "rating", icon: "Star", label: "Rating" },
     { attribute: "size", icon: "FormatSize", label: "Size" },
     { attribute: "width", icon: "Height", iconProps: { rotation: 90 }, label: "Width" },
+  ],
+  MediaProgram: [
+    { attribute: "dateCreated", icon: "DateRange", label: "Date Created" },
+    { attribute: "dateLastWatched", icon: "History", label: "Date Last Watched" },
+    { attribute: "dateModified", icon: "DateRange", label: "Date Modified" },
+    { attribute: "fileCount", icon: "Numbers", label: "Episode Count" },
+    { attribute: "name", icon: "Title", label: "Name" },
+    { attribute: "rating", icon: "Star", label: "Rating" },
+    { attribute: "size", icon: "FormatSize", label: "Size" },
+    { attribute: "year", icon: "CalendarMonth", label: "Year" },
   ],
   Notification: [{ attribute: "dateCreated", icon: "DateRange", label: "Date Created" }],
   SavedImportConfig: [

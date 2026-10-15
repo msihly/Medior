@@ -80,11 +80,9 @@ let transcriber: Transcriber;
 let transcriberKey = "";
 let transformers: TransformersModule;
 
-const getTranscriber = async (onProgress?: ProgressReporter, signal?: AbortSignal) => {
+const getTranscriber = async (onProgress?: ProgressReporter) => {
   const config = transcriptionConfig;
   const key = `${config.model}:${config.modelCachePath}:${config.quantization}`;
-
-  signal?.throwIfAborted();
 
   if (transcriber && transcriberKey === key) return transcriber;
 
@@ -108,8 +106,6 @@ const getTranscriber = async (onProgress?: ProgressReporter, signal?: AbortSigna
       dtype: config.quantization,
 
       progress_callback: ({ file, progress, status }) => {
-        signal?.throwIfAborted();
-
         if (status === "ready") {
           onProgress?.(`Transcription model loaded on ${device === "dml" ? "GPU" : "CPU"}.`);
         } else if (status === "progress" && progress !== undefined) {
@@ -128,7 +124,6 @@ const getTranscriber = async (onProgress?: ProgressReporter, signal?: AbortSigna
   try {
     transcriber = await loadTranscriber("dml");
   } catch (error) {
-    signal?.throwIfAborted();
     console.warn("Failed to initialize GPU transcription. Falling back to CPU.", error);
     onProgress?.("GPU transcription unavailable. Falling back to CPU.");
     transcriber = await loadTranscriber("cpu");
@@ -139,16 +134,8 @@ const getTranscriber = async (onProgress?: ProgressReporter, signal?: AbortSigna
   return transcriber;
 };
 
-const transcribe = async (
-  samples: Float32Array,
-  onProgress?: ProgressReporter,
-  signal?: AbortSignal,
-) => {
-  signal?.throwIfAborted();
-
-  const _transcribe = await getTranscriber(onProgress, signal);
-
-  signal?.throwIfAborted();
+const transcribe = async (samples: Float32Array, onProgress?: ProgressReporter) => {
+  const _transcribe = await getTranscriber(onProgress);
 
   const scriptChunkCount = Math.max(
     1,
@@ -171,13 +158,13 @@ const transcribe = async (
 
     const now = Date.now();
 
-    const isCompleted =
+    const isRedundant =
       lastReportedProgress >= 0 &&
       (progress === 100
         ? lastReportedProgress === 100
         : now - lastReportedAt < TRANSCRIPTION_PROGRESS_INTERVAL);
 
-    if (isCompleted) return;
+    if (isRedundant) return;
 
     lastReportedAt = now;
     lastReportedProgress = progress;
@@ -194,8 +181,6 @@ const transcribe = async (
     callback_function: () => undefined,
 
     on_chunk_end: (time) => {
-      signal?.throwIfAborted();
-
       currentChunkProgress = Math.max(
         currentChunkProgress,
         Math.min(
@@ -214,7 +199,6 @@ const transcribe = async (
     },
 
     on_finalize: () => {
-      signal?.throwIfAborted();
       completedChunkCount++;
       currentChunkProgress = 0;
       generatedTokenCount = 0;
@@ -224,7 +208,6 @@ const transcribe = async (
     skip_prompt: true,
 
     token_callback_function: (tokens) => {
-      signal?.throwIfAborted();
       generatedTokenCount += tokens.length;
       reportTranscriptionProgress();
     },
@@ -237,15 +220,11 @@ const transcribe = async (
       end: () => streamer.end(),
 
       put: (value) => {
-        signal?.throwIfAborted();
-
         if (value[0]?.length) streamer.put(value);
       },
     },
     stride_length_s: TRANSCRIPTION_STRIDE_LENGTH,
   });
-
-  signal?.throwIfAborted();
 
   return {
     segments: (result.chunks ?? []).map(({ text, timestamp }) => ({

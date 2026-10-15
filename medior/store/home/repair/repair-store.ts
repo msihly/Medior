@@ -1,7 +1,16 @@
 import autoBind from "auto-bind";
-import { applySnapshot, getSnapshot, Model, model, modelAction, prop } from "mobx-keystone";
-import { CssColor } from "medior/utils/client";
+import {
+  applySnapshot,
+  getSnapshot,
+  Model,
+  model,
+  modelAction,
+  modelFlow,
+  prop,
+} from "mobx-keystone";
+import { asyncAction, colors, CssColor } from "medior/utils/client";
 import { dayjs } from "medior/utils/common";
+import { trpc } from "medior/utils/server";
 import { RepairAudioStore } from "./audio";
 import { RepairCollectionsStore } from "./collections";
 import { RepairFilesStore } from "./files";
@@ -26,6 +35,8 @@ export class RepairStore extends Model({
   indexes: prop<RepairIndexesStore>(() => new RepairIndexesStore({})),
   isCancellationRequested: prop<boolean>(false).withSetter(),
   isConfirmCancelOpen: prop<boolean>(false).withSetter(),
+  /** The modal is hidden while its repair runs in the background. */
+  isMinimized: prop<boolean>(false).withSetter(),
   isOpen: prop<boolean>(false),
   isRunning: prop<boolean>(false).withSetter(),
   outputLog: prop<RepairLog[]>(() => []).withSetter(),
@@ -55,8 +66,30 @@ export class RepairStore extends Model({
   setIsOpen(isOpen: boolean) {
     if (!isOpen) applySnapshot<RepairStore>(this, getSnapshot(new RepairStore({})));
 
+    this.isMinimized = false;
     this.isOpen = isOpen;
   }
+
+  /* ------------------------------ ASYNC ACTIONS ----------------------------- */
+  @modelFlow
+  cancel = asyncAction(async () => {
+    const repairId = this.repairId;
+
+    this.setIsCancellationRequested(true);
+    this.log("[INFO] Cancelling the current operation.");
+
+    if (repairId) {
+      const res = await trpc.cancelRepair.mutate({ repairId });
+
+      if (!res.success) {
+        this.log(`[ERROR] Failed to request repair cancellation: ${res.error}`, colors.custom.red);
+
+        return false;
+      }
+    }
+
+    return true;
+  });
 
   /* ----------------------------- DYNAMIC GETTERS ---------------------------- */
   get canStart() {

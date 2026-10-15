@@ -1,6 +1,6 @@
 import { ModelDb } from "medior/generator/schema/generators";
 
-const model = new ModelDb("SavedImportConfig", { withStore: true });
+const model = new ModelDb("SavedImportConfig");
 
 model.addIndex({ dateModified: 1, _id: 1 });
 model.addIndex({ folderPath: 1 }, { unique: true });

@@ -1,5 +1,15 @@
 import { useCallback, useContext, useMemo, useState } from "react";
-import { Button, Comp, IconButton, Slider, Text, VideoWaveform, View } from "medior/components";
+import {
+  Button,
+  Comp,
+  IconButton,
+  ListItem,
+  MenuButton,
+  Slider,
+  Text,
+  VideoWaveform,
+  View,
+} from "medior/components";
 import { useStores } from "medior/store";
 import { colors, makeClasses, toast, Toaster } from "medior/utils/client";
 import { CONSTANTS, Fmt, round, throttle } from "medior/utils/common";
@@ -12,8 +22,9 @@ export const VideoControls = Comp(() => {
 
   const activeFile = store.getActiveFile();
 
-  const isCaptionsActive =
-    store.isCaptionsVisible && Boolean(activeFile?.transcription?.segments?.length);
+  const hasTranscript = Boolean(activeFile?.transcription?.segments?.length);
+  const hasCaptions = hasTranscript || store.subtitleTracks.length > 0;
+  const isCaptionsActive = store.isCaptionsVisible && hasCaptions;
 
   const isWaveformActive = store.isWaveformVisible && Boolean(activeFile?.waveformPeaks?.length);
 
@@ -97,6 +108,13 @@ export const VideoControls = Comp(() => {
     toaster.toast(
       newMarkOut === null ? "Mark Out (B) Cleared" : `Mark Out (B): ${Fmt.commas(newMarkOut)}`,
     );
+  };
+
+  const handleSubtitleTrack = async (id: string, onClose: () => void) => {
+    onClose();
+
+    const res = await store.selectSubtitleTrack({ id, remember: true });
+    if (!res.success) toast.error(res.error);
   };
 
   const handleTranscodeBitrateCommit = () =>
@@ -209,12 +227,40 @@ export const VideoControls = Comp(() => {
         <IconButton
           name={isCaptionsActive ? "ClosedCaption" : "ClosedCaptionOff"}
           onClick={store.toggleCaptions}
-          disabled={!activeFile.transcription?.segments?.length}
+          disabled={!hasCaptions}
           iconProps={{
             color: isCaptionsActive ? colors.custom.lightBlue : colors.custom.lightGrey,
           }}
           tooltip={isCaptionsActive ? "Hide Captions" : "Show Captions"}
         />
+
+        {store.subtitleTracks.length > 0 && (
+          <MenuButton
+            icon="Subtitles"
+            color={colors.custom.lightGrey}
+            tooltip="Subtitle Track"
+            anchorOrigin={{ horizontal: "right", vertical: "top" }}
+            transformOrigin={{ horizontal: "right", vertical: "bottom" }}
+          >
+            {(onClose) =>
+              [
+                ...(hasTranscript ? [{ id: "", label: "Transcript" }] : []),
+                ...store.subtitleTracks,
+              ].map((track) => (
+                <ListItem
+                  key={track.id}
+                  text={track.label}
+                  icon={
+                    store.subtitleTrackId === track.id
+                      ? "RadioButtonChecked"
+                      : "RadioButtonUnchecked"
+                  }
+                  onClick={() => handleSubtitleTrack(track.id, onClose)}
+                />
+              ))
+            }
+          </MenuButton>
+        )}
 
         <IconButton
           name="GraphicEq"

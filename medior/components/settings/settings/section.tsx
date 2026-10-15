@@ -29,10 +29,8 @@ export const Section = ({ children, leftNode, rightNode, title }: SectionProps) 
         </UniformList>
       }
     >
-      <Card spacing="1rem" overflow="initial" borderRadiuses={{ top: 0 }}>
-        <View column spacing="0.5rem">
-          {children}
-        </View>
+      <Card spacing="0.5rem" overflow="initial" minWidth={0} borderRadiuses={{ top: 0 }}>
+        {children}
       </Card>
     </Accordion>
   );

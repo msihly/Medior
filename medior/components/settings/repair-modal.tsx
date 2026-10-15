@@ -20,7 +20,7 @@ import {
 } from "medior/components";
 import { filePathsToImports, useStores } from "medior/store";
 import { colors, CssColor } from "medior/utils/client";
-import { chunkArray, Fmt, sleep } from "medior/utils/common";
+import { Fmt, sleep } from "medior/utils/common";
 import { socket, trpc } from "medior/utils/server";
 
 const SIMILARITY_PROGRESS_TIME_INTERVAL_MS = 30_000;
@@ -60,8 +60,9 @@ export const RepairModal = Comp(() => {
         args.status === "progress" &&
           (args.message.startsWith("Tag repair:") ||
             args.message.startsWith("Storage scan:") ||
-            args.message.startsWith("Downloading transcription model:") ||
-            args.message.startsWith("Transcribing audio:")),
+            args.message.startsWith("Previous checksums:") ||
+            args.message.startsWith("Audio analysis:") ||
+            args.message.startsWith("Codec inspection:")),
       );
     };
 
@@ -70,29 +71,24 @@ export const RepairModal = Comp(() => {
     return () => socket.off("onRepairProgress", onRepairProgress);
   }, [store]);
 
-  const handleCancel = async () => {
+  const handleCancel = () => {
     if (store.isRunning) store.setIsConfirmCancelOpen(true);
     else store.setIsOpen(false);
   };
 
-  const handleConfirmCancel = async () => {
-    let isSuccessful = true;
-    const repairId = store.repairId;
-
-    store.setIsCancellationRequested(true);
-    store.log("[INFO] Cancelling the current operation.");
-
-    if (repairId) {
-      const res = await trpc.cancelRepair.mutate({ repairId });
-
-      if (!res.success) {
-        isSuccessful = false;
-        store.log(`[ERROR] Failed to request repair cancellation: ${res.error}`, colors.custom.red);
-      }
-    }
-
-    return isSuccessful;
+  /** A running repair keeps going in the background while the modal is hidden. */
+  const handleClose = () => {
+    if (store.isRunning) handleMinimize();
+    else store.setIsOpen(false);
   };
+
+  const handleConfirmCancel = async () => {
+    const res = await store.cancel();
+
+    return res.success && res.data;
+  };
+
+  const handleMinimize = () => store.setIsMinimized(true);
 
   const rebuildSimilarityIndex = async () => {
     const formatDecodeDiagnostics = (diagnostics: SimilarityDecodeDiagnostics) => {
@@ -380,25 +376,24 @@ export const RepairModal = Comp(() => {
 
   const handleDeleteUntrackedFiles = () =>
     runRepair(async (repairId) => {
-      for (const paths of chunkArray(storageResult.filesLeftInStorageOnly, 200)) {
-        if (store.isCancellationRequested) throw new Error("Repair cancelled.");
+      const result = await trpc.deleteUntrackedStorageFiles.mutate({
+        paths: storageResult.filesLeftInStorageOnly,
+        repairId,
+      });
 
-        const result = await trpc.deleteUntrackedStorageFiles.mutate({ paths, repairId });
+      if (!result.success) throw new Error(result.error);
 
-        if (!result.success) throw new Error(result.error);
+      const removed = new Set(result.data.removedPaths);
 
-        const removed = new Set(result.data.removedPaths);
-
-        setStorageResult((previous) => ({
-          ...previous,
-          filesLeftInStorageOnly: previous.filesLeftInStorageOnly.filter(
-            (file) => !removed.has(file),
-          ),
-        }));
-        store.log(
-          `[INFO] Removed ${Fmt.commas(removed.size)} untracked files; retained ${Fmt.commas(result.data.retainedCount)} files.`,
-        );
-      }
+      setStorageResult((previous) => ({
+        ...previous,
+        filesLeftInStorageOnly: previous.filesLeftInStorageOnly.filter(
+          (file) => !removed.has(file),
+        ),
+      }));
+      store.log(
+        `[INFO] Removed ${Fmt.commas(removed.size)} untracked files; retained ${Fmt.commas(result.data.retainedCount)} files.`,
+      );
     });
 
   const handleReimportUntrackedFiles = () =>
@@ -456,23 +451,17 @@ export const RepairModal = Comp(() => {
 
   const handleRemoveMissingRecords = () =>
     runRepair(async (repairId) => {
-      for (const fileIds of chunkArray(storageResult.fileIdsLeftInDbOnly, 200)) {
-        if (store.isCancellationRequested) throw new Error("Repair cancelled.");
+      const result = await trpc.removeMissingStorageRecords.mutate({
+        fileIds: storageResult.fileIdsLeftInDbOnly,
+        repairId,
+      });
 
-        const result = await trpc.removeMissingStorageRecords.mutate({ fileIds, repairId });
+      if (!result.success) throw new Error(result.error);
 
-        if (!result.success) throw new Error(result.error);
-
-        const checkedIds = new Set(fileIds);
-
-        setStorageResult((previous) => ({
-          ...previous,
-          fileIdsLeftInDbOnly: previous.fileIdsLeftInDbOnly.filter((id) => !checkedIds.has(id)),
-        }));
-        store.log(
-          `[INFO] Removed ${Fmt.commas(result.data.removedCount)} missing records; retained ${Fmt.commas(result.data.retainedCount)} records whose files are now present.`,
-        );
-      }
+      setStorageResult((previous) => ({ ...previous, fileIdsLeftInDbOnly: [] }));
+      store.log(
+        `[INFO] Removed ${Fmt.commas(result.data.removedCount)} missing records; retained ${Fmt.commas(result.data.retainedCount)} records whose files are now present.`,
+      );
     });
 
   const handleStart = () =>
@@ -578,6 +567,14 @@ export const RepairModal = Comp(() => {
 
           if (!missingInfoRes.success) throw new Error(missingInfoRes.error);
         }
+
+        if (store.files.previousHashes) {
+          store.log("[INFO] Starting previous checksum repair.");
+
+          const res = await trpc.repairPreviousHashes.mutate({ repairId });
+
+          if (!res.success) throw new Error(res.error);
+        }
       }
 
       if (store.indexes.isSelected) {
@@ -604,7 +601,8 @@ export const RepairModal = Comp(() => {
   return (
     <Modal.Container
       isLoading={stores.home.settings.isLoading}
-      onClose={handleCancel}
+      visible={!store.isMinimized}
+      onClose={handleClose}
       height="100%"
       width="100%"
     >
@@ -720,7 +718,7 @@ export const RepairModal = Comp(() => {
 
             <RepairCheckbox
               label="Ext. / Codecs"
-              description="File extension and video metadata repairs."
+              description="File extension, video metadata, and checksum history repairs."
               checked={store.files.enabled}
               setChecked={store.files.setEnabled}
               disabled={store.isRunning}
@@ -750,6 +748,14 @@ export const RepairModal = Comp(() => {
                 setChecked={store.files.setOriginalInfo}
                 disabled={store.isRunning || !store.files.enabled}
               />
+
+              <RepairCheckbox
+                label="Record Previous Checksums"
+                description="Records transformed files' earlier checksums from transform history so imports treat those versions as duplicates."
+                checked={store.files.previousHashes}
+                setChecked={store.files.setPreviousHashes}
+                disabled={store.isRunning || !store.files.enabled}
+              />
             </View>
 
             <RepairCheckbox
@@ -771,7 +777,7 @@ export const RepairModal = Comp(() => {
 
               <RepairCheckbox
                 label="Rebuild Existing Indexes"
-                description="Rebuilds indexes; affected data is unavailable during rebuilding."
+                description="Pauses imports and transforms, then rebuilds indexes one at a time; searches using an index are slow while it rebuilds."
                 checked={store.indexes.rebuild}
                 setChecked={store.indexes.setRebuild}
                 disabled={store.isRunning || !store.indexes.enabled}
@@ -964,6 +970,10 @@ export const RepairModal = Comp(() => {
 
       <Modal.Footer>
         <Button text="Cancel" icon="Close" onClick={handleCancel} />
+
+        {store.isRunning && (
+          <Button text="Minimize" icon="IndeterminateCheckBox" onClick={handleMinimize} />
+        )}
 
         <Button
           text="Start"

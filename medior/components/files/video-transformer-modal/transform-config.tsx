@@ -38,8 +38,6 @@ export const TransformConfig = Comp(() => {
 
   return (
     <Card
-      column
-      position="relative"
       spacing="0.5rem"
       height="fit-content"
       overflow="hidden auto"
@@ -66,154 +64,147 @@ export const TransformConfig = Comp(() => {
     >
       <LoadingOverlay isLoading={isSaving} />
 
-      <View
-        column
-        spacing="1rem"
-        width="100%"
-        maxWidth="75rem"
-        margins={{ left: "auto", right: "auto" }}
-      >
-        <Card header="Video" spacing="0.75rem" padding={{ all: "0.75rem" }}>
-          <UniformList row spacing="0.75rem" align="flex-end">
-            <Settings.Input header="Codec" configKey="file.reencode.codec" width="100%" />
+      <View column spacing="0.5rem" width="100%">
+        <Card header="Video" row spacing="0.5rem">
+          <Settings.Input header="Codec" configKey="file.reencode.codec" width="8rem" dense />
 
-            <Settings.NumInput
-              header="Max Bitrate"
-              configKey="file.reencode.maxBitrate"
-              minValue={1}
-              width="100%"
-            />
+          <Settings.NumInput
+            header="Max Bitrate"
+            configKey="file.reencode.maxBitrate"
+            minValue={1}
+            dense
+          />
 
-            <Settings.NumInput
-              header="Max FPS"
-              configKey="file.reencode.maxFps"
-              minValue={1}
-              width="100%"
-            />
+          <Settings.NumInput header="Max FPS" configKey="file.reencode.maxFps" minValue={1} dense />
 
-            <Settings.NumInput
-              header="Max Long Edge"
-              configKey="file.reencode.maxLongEdge"
-              minValue={1}
-              width="100%"
-            />
+          <Settings.NumInput
+            header="Max Long Edge"
+            configKey="file.reencode.maxLongEdge"
+            minValue={1}
+            dense
+          />
 
-            <Settings.NumInput
-              header="Max Short Edge"
-              configKey="file.reencode.maxShortEdge"
-              minValue={1}
-              width="100%"
-            />
+          <Settings.NumInput
+            header="Max Short Edge"
+            configKey="file.reencode.maxShortEdge"
+            minValue={1}
+            dense
+          />
 
-            <Settings.NumInput
-              header="Concurrent Videos"
-              configKey="file.reencode.videoConcurrency"
-              minValue={1}
-              maxValue={16}
-              width="100%"
-            />
-          </UniformList>
+          <Settings.NumInput
+            header="Concurrent Videos"
+            configKey="file.reencode.videoConcurrency"
+            minValue={1}
+            maxValue={16}
+            dense
+          />
 
           <Settings.Input
             header="Override Args"
             configKey={overrideKey}
             value={stores.home.settings.getConfigByKey<string[]>(overrideKey)?.join(", ") ?? ""}
             setValue={handleOverrideChange}
+            flex={1}
+            width="auto"
+            dense
           />
         </Card>
 
-        <Card header="Image" padding={{ all: "0.75rem" }}>
-          <UniformList row spacing="0.75rem" align="flex-end">
-            <Settings.Dropdown
-              header="Output Format"
-              configKey="file.reencode.imageExt"
-              options={["avif", "gif", "jpeg", "jpg", "png", "tiff", "webp"].map((value) => ({
-                label: value.toUpperCase(),
-                value,
-              }))}
-              width="100%"
-            />
+        <Card header="Image" row spacing="0.5rem">
+          <Settings.Dropdown
+            header="Output Format"
+            configKey="file.reencode.imageExt"
+            options={["avif", "gif", "jpeg", "jpg", "png", "tiff", "webp"].map((value) => ({
+              label: value.toUpperCase(),
+              value,
+            }))}
+            width="8rem"
+            dense
+          />
 
-            <Settings.NumInput
-              header="JPG Quality"
-              configKey="file.reencode.imageJpgQuality"
-              disabled={
-                !["jpeg", "jpg"].includes(
-                  stores.home.settings.getConfigByKey<string>("file.reencode.imageExt"),
-                )
-              }
-              minValue={1}
-              maxValue={100}
-              width="100%"
-            />
+          <Settings.NumInput
+            header="JPG Quality"
+            configKey="file.reencode.imageJpgQuality"
+            disabled={
+              !["jpeg", "jpg"].includes(
+                stores.home.settings.getConfigByKey<string>("file.reencode.imageExt"),
+              )
+            }
+            minValue={1}
+            maxValue={100}
+            dense
+          />
 
-            <Settings.NumInput
-              header="Max Long Edge"
-              configKey="file.reencode.imageMaxLongEdge"
-              minValue={1}
-              width="100%"
-            />
+          <Settings.NumInput
+            header="Max Long Edge"
+            configKey="file.reencode.imageMaxLongEdge"
+            minValue={1}
+            dense
+          />
 
-            <Settings.NumInput
-              header="Max Short Edge"
-              configKey="file.reencode.imageMaxShortEdge"
-              minValue={1}
-              width="100%"
-            />
+          <Settings.NumInput
+            header="Max Short Edge"
+            configKey="file.reencode.imageMaxShortEdge"
+            minValue={1}
+            dense
+          />
 
-            <Settings.NumInput
-              header="Concurrent Images"
-              configKey="file.reencode.imageConcurrency"
-              minValue={1}
-              maxValue={16}
-              width="100%"
-            />
-          </UniformList>
+          <Settings.NumInput
+            header="Concurrent Images"
+            configKey="file.reencode.imageConcurrency"
+            minValue={1}
+            maxValue={16}
+            dense
+          />
         </Card>
 
-        <Card header="Tags" spacing="0.75rem" padding={{ all: "0.75rem" }}>
-          <UniformList row spacing="0.75rem" height="6.5rem">
-            <ConfigTags
-              label="Add Re-encodes - Exclude (Descendants)"
-              configKey="file.reencode.excludedDescTagIds"
-            />
-          </UniformList>
+        <Card header="Tags" spacing="0.5rem">
+          <View row spacing="1rem">
+            <UniformList row flex={1} spacing="0.5rem" height="5.5rem">
+              <ConfigTags
+                label="Add Re-encodes - Exclude (Descendants)"
+                configKey="file.reencode.excludedDescTagIds"
+              />
+            </UniformList>
 
-          <UniformList row spacing="0.75rem" height="6.5rem">
-            <ConfigTags label="Complete - Add" configKey="file.reencode.onComplete.addTagIds" />
+            <UniformList row flex={1} spacing="0.5rem" height="5.5rem">
+              <ConfigTags label="Complete - Add" configKey="file.reencode.onComplete.addTagIds" />
 
-            <ConfigTags
-              label="Complete - Remove"
-              configKey="file.reencode.onComplete.removeTagIds"
-            />
-          </UniformList>
+              <ConfigTags
+                label="Complete - Remove"
+                configKey="file.reencode.onComplete.removeTagIds"
+              />
+            </UniformList>
 
-          <UniformList row spacing="0.75rem" height="6.5rem">
-            <ConfigTags label="Duplicate - Add" configKey="file.reencode.onDuplicate.addTagIds" />
+            <UniformList row flex={1} spacing="0.5rem" height="5.5rem">
+              <ConfigTags label="Duplicate - Add" configKey="file.reencode.onDuplicate.addTagIds" />
 
-            <ConfigTags
-              label="Duplicate - Remove"
-              configKey="file.reencode.onDuplicate.removeTagIds"
-            />
-          </UniformList>
+              <ConfigTags
+                label="Duplicate - Remove"
+                configKey="file.reencode.onDuplicate.removeTagIds"
+              />
+            </UniformList>
+          </View>
 
-          <UniformList row spacing="0.75rem" height="6.5rem">
-            <ConfigTags label="Error - Add" configKey="file.reencode.onError.addTagIds" />
+          <View row spacing="1rem">
+            <UniformList row flex={1} spacing="0.5rem" height="5.5rem">
+              <ConfigTags label="Error - Add" configKey="file.reencode.onError.addTagIds" />
 
-            <ConfigTags label="Error - Remove" configKey="file.reencode.onError.removeTagIds" />
-          </UniformList>
+              <ConfigTags label="Error - Remove" configKey="file.reencode.onError.removeTagIds" />
+            </UniformList>
 
-          <UniformList row spacing="0.75rem" height="6.5rem">
-            <ConfigTags label="Skip - Add" configKey="file.reencode.onSkip.addTagIds" />
+            <UniformList row flex={1} spacing="0.5rem" height="5.5rem">
+              <ConfigTags label="Skip - Add" configKey="file.reencode.onSkip.addTagIds" />
 
-            <ConfigTags label="Skip - Remove" configKey="file.reencode.onSkip.removeTagIds" />
-          </UniformList>
+              <ConfigTags label="Skip - Remove" configKey="file.reencode.onSkip.removeTagIds" />
+            </UniformList>
 
-          <UniformList row spacing="0.75rem" height="6.5rem">
-            <ConfigTags label="Splice - Add" configKey="file.splice.onComplete.addTagIds" />
+            <UniformList row flex={1} spacing="0.5rem" height="5.5rem">
+              <ConfigTags label="Splice - Add" configKey="file.splice.onComplete.addTagIds" />
 
-            <ConfigTags label="Splice - Remove" configKey="file.splice.onComplete.removeTagIds" />
-          </UniformList>
+              <ConfigTags label="Splice - Remove" configKey="file.splice.onComplete.removeTagIds" />
+            </UniformList>
+          </View>
         </Card>
       </View>
     </Card>

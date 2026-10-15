@@ -20,7 +20,7 @@ export const TransformFilterMenu = Comp(() => {
   return (
     <FilterMenu store={store} color={colors.foreground} sortOptions={SORT_OPTIONS.FileTransform}>
       <View row height="18rem" spacing="0.5rem">
-        <Card column width="20rem" spacing="0.5rem">
+        <Card width="20rem" spacing="0.5rem">
           <Input
             header={
               <FilterHeader
@@ -55,7 +55,7 @@ export const TransformFilterMenu = Comp(() => {
           />
         </Card>
 
-        <Card column width="20rem" spacing="0.5rem">
+        <Card width="20rem" spacing="0.5rem">
           <Checkbox
             label="Completed"
             checked={store.isCompleted}

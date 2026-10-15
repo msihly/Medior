@@ -1,62 +1,53 @@
-import type { FileCollectionSearch, FileSearch, TagSearch } from "medior/store";
+import type { FileSearch } from "medior/store";
 
-const FILTER_DEPENDENCIES: Record<string, string[]> = {
-  aliases: ["alias"],
-  ancestorIds: ["excludedDescTagIds", "requiredDescTagIds"],
-  audioCodec: ["selectedAudioCodecs"],
-  collectionIds: ["numOfCollections"],
-  dateCreated: ["dateCreatedEnd", "dateCreatedStart"],
-  dateImported: ["dateImportedEnd", "dateImportedStart"],
-  dateModified: ["dateModifiedEnd", "dateModifiedStart"],
-  dateOfInception: ["dateOfInceptionEnd", "dateOfInceptionStart"],
-  diffusionParams: ["diffusionParams", "hasDiffParams"],
-  ext: ["selectedImageExts", "selectedVideoExts"],
-  hash: ["isModified"],
-  hasTranscript: ["isTranscribed"],
-  height: ["maxHeight", "maxLongEdge", "maxShortEdge", "minHeight", "minLongEdge", "minShortEdge"],
-  id: ["excludedFileIds", "ids"],
-  originalHash: ["isModified"],
-  regEx: ["hasRegEx"],
-  size: ["maxSize", "minSize", "size"],
-  tagIds: [
-    "excludedDescTagIds",
-    "excludedTagIds",
-    "numOfTags",
-    "optionalTagIds",
-    "requiredDescTagIds",
-    "requiredTagIds",
-  ],
-  tagIdsWithAncestors: ["excludedDescTagIds", "requiredDescTagIds"],
-  timestamps: ["hasTimeline"],
-  transcription: ["isTranscribed", "transcription"],
-  videoCodec: ["selectedVideoCodecs"],
-  width: ["maxLongEdge", "maxShortEdge", "maxWidth", "minLongEdge", "minShortEdge", "minWidth"],
+const getFilters = (search: FileSearch) =>
+  (search.cachedFilterProps ?? search.getFilterProps()) as Record<string, any>;
+
+/** Items outside the results cannot enter them when their new archive state is filtered out. */
+export const canEnterSearch = (search: FileSearch, updates: Record<string, any>) => {
+  const filters = getFilters(search);
+
+  return (
+    typeof updates.isArchived !== "boolean" ||
+    typeof filters.isArchived !== "boolean" ||
+    updates.isArchived === filters.isArchived
+  );
 };
 
-export const updatesAffectSearch = (
-  search: FileCollectionSearch | FileSearch | TagSearch,
-  updatedKeys: string[],
-) => {
-  const filters = (search.cachedFilterProps ?? search.getFilterProps()) as Record<string, any>;
+/** Modification dates only matter to searches sorted or filtered by them. */
+export const dateModifiedAffectsSearch = (search: FileSearch) => {
+  const filters = getFilters(search);
 
-  return updatedKeys.some(
-    (key) =>
-      key === (filters.sortValue ?? search.sortValue).key ||
-      (FILTER_DEPENDENCIES[key] ?? [key]).some((filterKey) => {
-        const value = filters[filterKey];
+  return (
+    (filters.sortValue ?? search.sortValue).key === "dateModified" ||
+    !!filters.dateModifiedStart ||
+    !!filters.dateModifiedEnd
+  );
+};
 
-        if (value === null || value === undefined || value === "") return false;
-        else if (Array.isArray(value)) return value.length > 0;
-        else if (typeof value === "object")
-          return "logOp" in value ? Boolean(value.logOp) : Object.values(value).includes(false);
-        else if (typeof value === "boolean")
-          return (
-            value ||
-            ["hasRegEx", "isArchived", "isCorrupted", "isModified", "isTranscribed"].includes(
-              filterKey,
-            )
-          );
-        else return true;
-      }),
+/** Items outside a full first page cannot appear on it when their new sort value orders after its last result. */
+export const sortsAfterPage = (search: FileSearch, updates: Record<string, any>) => {
+  const { isDesc, key } = getFilters(search).sortValue ?? search.sortValue;
+  const lastValue = search.results.at(-1)?.[key];
+  const value = updates[key];
+
+  if (search.page !== 1 || search.results.length < search.pageSize) return false;
+  if (value === null || value === undefined || lastValue === null || lastValue === undefined)
+    return false;
+
+  return isDesc ? value < lastValue : value > lastValue;
+};
+
+/** Tag edits only matter to tag-count filters and tag filters that include or descend from the edited tags. */
+export const tagChangesAffectSearch = (search: FileSearch, tagIds: string[]) => {
+  const changedIds = new Set(tagIds);
+
+  return (
+    Boolean(getFilters(search).numOfTags?.logOp) ||
+    search.tags.some(
+      (tag) =>
+        changedIds.has(tag.id) ||
+        (tag.searchType?.includes("Desc") && tag.descendantIds?.some((id) => changedIds.has(id))),
+    )
   );
 };

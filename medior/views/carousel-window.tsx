@@ -7,6 +7,7 @@ import {
   CarouselThumbNavigator,
   CarouselTopBar,
   Comp,
+  MinimizedJobs,
   View,
   WindowTitleBar,
 } from "medior/components";
@@ -160,20 +161,22 @@ export const CarouselWindow = Comp(({ embedded = false }: CarouselWindowProps) =
           tabIndex={-1}
           className={css.root}
         >
-          {!embedded && <WindowTitleBar isDark {...{ title }} />}
+          {!embedded && <WindowTitleBar isDark title={title} />}
 
           <View column flex={1} overflow="hidden" position="relative">
             <CarouselTopBar />
 
             <Carousel ref={videoRef} />
 
-            {!stores.carousel.splicer.isOpen && <CarouselThumbNavigator />}
+            {!store.splicer.isOpen && <CarouselThumbNavigator />}
 
             {!embedded && <Views.CollectionModals />}
 
             {!embedded && <Views.FileModals />}
 
             <Views.TagModals view="carousel" />
+
+            {!embedded && <MinimizedJobs />}
           </View>
         </View>
       </VideoContext.Provider>

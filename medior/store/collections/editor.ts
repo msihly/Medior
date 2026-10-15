@@ -3,6 +3,7 @@ import { Model, model, modelAction, ModelCreationData, modelFlow, prop } from "m
 import { SortMenuProps } from "medior/components";
 import { File, FileSearch, Tag } from "medior/store";
 import { asyncAction, toast } from "medior/utils/client";
+import { isDeepEqual } from "medior/utils/common";
 import { getConfig, trpc } from "medior/utils/server";
 import { FileCollection } from ".";
 
@@ -56,6 +57,37 @@ export class CollectionEditor extends Model({
     this.search.reset();
     this.search.setPageSize(config.search.pageSize);
     this.search.setSortValue(config.search.sort);
+  }
+
+  /**
+   * Applies files added to or removed from the open collection elsewhere, such as by deleting
+   * files, while keeping this editor's own unsaved order. Saving can then no longer restore files
+   * removed meanwhile; added files join the end and show as search changes.
+   */
+  @modelAction
+  syncCollectionFiles(fileIdIndexes: { fileId: string; index: number }[]) {
+    const previousIds = new Set(this.collection.fileIdIndexes.map(({ fileId }) => fileId));
+    const nextIds = new Set(fileIdIndexes.map(({ fileId }) => String(fileId)));
+    const removedIds = [...previousIds].filter((fileId) => !nextIds.has(fileId));
+    const addedIds = [...nextIds].filter((fileId) => !previousIds.has(fileId));
+
+    if (!removedIds.length && !addedIds.length) return;
+
+    const removedSet = new Set(removedIds);
+    const localIds = this.fileIndexes.map(({ fileId }) => fileId);
+    const localIdSet = new Set(localIds);
+    const fileIds = [
+      ...localIds.filter((fileId) => !removedSet.has(fileId)),
+      ...addedIds.filter((fileId) => !localIdSet.has(fileId)),
+    ];
+
+    // This editor's own saves already hold the list they sent.
+    if (isDeepEqual(fileIds, localIds)) return;
+
+    this.setFileIndexes(fileIds.map((fileId, index) => ({ fileId, index })));
+    this.search.removeFiles(removedIds);
+    this.search.setIds(fileIds);
+    this.fileSearch.setExcludedFileIds(fileIds);
   }
 
   @modelAction
@@ -145,9 +177,7 @@ export class CollectionEditor extends Model({
 
     if (!loaded.data) return false;
 
-    const files = await this.fileSearch.loadFiltered();
-
-    if (!files.success) throw new Error(files.error);
+    this.fileSearch.removeFiles(args.fileIds);
 
     return true;
   });
@@ -291,6 +321,21 @@ export class CollectionEditor extends Model({
     }
   });
 
+  /** Loads the open collection's tags after they changed, such as when its files were retagged. */
+  @modelFlow
+  loadTags = asyncAction(async () => {
+    const collectionId = this.collection?.id;
+    const tagIds = [...(this.collection?.tagIds ?? [])];
+
+    const res = tagIds.length
+      ? await trpc.listTag.mutate({ filter: { id: tagIds } })
+      : { data: [], error: null, success: true };
+    if (!res.success) throw new Error(res.error);
+
+    if (this.collection?.id === collectionId)
+      this.setTags(res.data.sort((a, b) => b.count - a.count).map((tag) => new Tag(tag)));
+  });
+
   @modelFlow
   moveFileIndexes = asyncAction(
     async ({ down, maxDelta }: { down: boolean; maxDelta?: number }) => {
@@ -352,23 +397,41 @@ export class CollectionEditor extends Model({
   @modelFlow
   removeFiles = asyncAction(async (ids: string[]) => {
     const removedIds = new Set(ids);
+    const fileIndexes = this.fileIndexes
+      .filter((f) => !removedIds.has(f.fileId))
+      .map((f, i) => ({ fileId: f.fileId, index: i }));
+    const fileIds = fileIndexes.map(({ fileId }) => fileId);
 
     this.setIsSaving(true);
 
     try {
       const res = await trpc.updateCollection.mutate({
-        fileIdIndexes: this.fileIndexes
-          .filter((f) => !removedIds.has(f.fileId))
-          .map((f, i) => ({ fileId: f.fileId, index: i })),
+        fileIdIndexes: fileIndexes,
         id: this.collection.id,
       });
 
       if (!res.success) throw new Error(res.error);
 
-      await this.loadCollection(this.collection.id);
+      // The collection itself updates through sockets; only the current page is filled again.
+      this.setFileIndexes(fileIndexes);
+      this.setHasUnsavedChanges(this.title !== this.collection.title);
+      this.search.setIds(fileIds);
+      this.search.removeFiles(ids);
+      this.fileSearch.setExcludedFileIds(fileIds);
+      this.fileSearch.setHasChanges(true);
       toast.success("Files removed from collection");
     } finally {
       this.setIsSaving(false);
+    }
+
+    // The page stays unless removing its last files leaves it past the end.
+    if (fileIds.length) {
+      const pageRes = await this.search.loadFiltered({
+        noCache: true,
+        page: Math.min(this.search.page, Math.ceil(fileIds.length / this.search.pageSize)),
+        withFullCount: true,
+      });
+      if (!pageRes.success) throw new Error(pageRes.error);
     }
   });
 
@@ -385,8 +448,8 @@ export class CollectionEditor extends Model({
 
       if (!res.success) throw new Error(res.error);
 
+      // The collection updates through sockets, keeping the loaded files and page.
       this.setHasUnsavedChanges(false);
-      await this.loadCollection(this.collection.id);
       toast.success("Collection saved");
     } finally {
       this.setIsSaving(false);

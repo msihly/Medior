@@ -89,7 +89,7 @@ export const Splicer = Comp(() => {
       maxWidth="21rem"
       minWidth="21rem"
     >
-      <Card column spacing="1rem" height="100%" width="100%" bgColor={colors.background}>
+      <Card spacing="1rem" height="100%" width="100%" bgColor={colors.background}>
         <View column>
           <Dropdown
             header="Timelines"

@@ -61,14 +61,9 @@ export const DeleteCollectionModal = Comp(() => {
       toast.success("Collection deleted");
 
       store.editor.setIsOpen(false);
-      store.manager.search.loadFiltered();
       store.setIsConfirmDeleteOpen(false);
-
-      return true;
     } catch (err) {
       toast.error(err);
-
-      return false;
     } finally {
       setIsDeleting(false);
     }

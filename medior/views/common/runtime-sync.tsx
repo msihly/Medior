@@ -45,9 +45,7 @@ export const RuntimeSync = ({ children }: RuntimeSyncProps) => {
 
       if (previousConfig.ports.server !== config.ports.server) setupTRPC();
 
-      if (previousConfig.ports.socket !== config.ports.socket) {
-        socket.reconnect();
-      }
+      if (previousConfig.ports.socket !== config.ports.socket) socket.reconnect();
     };
 
     const handleServerStatuses = (statuses: ServerProcessStatus[]) => {

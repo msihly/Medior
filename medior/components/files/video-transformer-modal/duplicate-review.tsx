@@ -61,7 +61,7 @@ export const DuplicateReview = Comp(({ transform }: { transform: FileTransform }
     event.stopPropagation();
 
     if (transform.duplicateFileId) setIsOpen(true);
-    else return inspectOutputHash(event);
+    else inspectOutputHash(event);
   };
 
   const mergeDuplicate = async () => {

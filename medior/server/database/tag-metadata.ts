@@ -9,6 +9,7 @@ import { Types } from "mongoose";
 import { runFileCleanupQueue } from "medior/server/database/actions/background-operations";
 import { checkBackgroundExecution } from "medior/server/database/background-execution";
 import { getBackgroundSession } from "medior/server/database/database-context";
+import { withIndexHint } from "medior/server/database/index-hints";
 import { mediaPathKey } from "medior/server/database/media-paths";
 import { metadataWriteOptions } from "medior/server/database/metadata-work";
 import { loadTagGraph } from "medior/server/database/tag-ancestry";
@@ -59,86 +60,92 @@ export const readTagMetadata = async (
     ? await FileModel.findOne().select({ _id: 1 }).sort({ _id: -1 }).lean()
     : null;
 
-  if (newestFile) {
-    const files = FileModel.find({
-      _id: { $lte: newestFile?._id },
-      tagIds: { $in: relatedIds },
-    })
-      .select({ _id: 1, dateCreated: 1, rating: 1, size: 1, tagIds: 1, thumb: 1 })
-      .hint({ tagIds: 1 })
-      .lean()
-      .cursor({ batchSize: 1000 });
+  // The scan reads through the direct tag index, which a rebuild may drop for a moment; a scan
+  // interrupted by that starts over once the index is back.
+  if (newestFile)
+    await withIndexHint(async () => {
+      metadata.clear();
+      scanned = 0;
 
-    for await (const file of files) {
-      checkBackgroundExecution();
-      checkCancelled?.();
+      const files = FileModel.find({
+        _id: { $lte: newestFile._id },
+        tagIds: { $in: relatedIds },
+      })
+        .select({ _id: 1, dateCreated: 1, rating: 1, size: 1, tagIds: 1, thumb: 1 })
+        .hint({ tagIds: 1 })
+        .lean()
+        .cursor({ batchSize: 1000 });
 
-      const targets = new Set<string>();
+      for await (const file of files) {
+        checkBackgroundExecution();
+        checkCancelled?.();
 
-      for (const directId of file.tagIds) {
-        const id = String(directId);
+        const targets = new Set<string>();
 
-        if (!targetsByDirectTag.has(id))
-          targetsByDirectTag.set(
-            id,
-            collectRelatedTagIds(parents, [id]).filter((id) => targetIds.has(id)),
+        for (const directId of file.tagIds) {
+          const id = String(directId);
+
+          if (!targetsByDirectTag.has(id))
+            targetsByDirectTag.set(
+              id,
+              collectRelatedTagIds(parents, [id]).filter((id) => targetIds.has(id)),
+            );
+
+          for (const targetId of targetsByDirectTag.get(id)) targets.add(targetId);
+        }
+
+        for (const targetId of targets) {
+          let result = metadata.get(targetId);
+
+          if (!result) {
+            result = {
+              _id: new Types.ObjectId(targetId),
+              count: 0,
+              oldest: null,
+              ratingCount: 0,
+              ratingTotal: 0,
+              size: 0,
+            };
+
+            metadata.set(targetId, result);
+          }
+
+          result.count++;
+          result.size += file.size ?? 0;
+
+          if (file.rating > 0) {
+            result.ratingCount++;
+            result.ratingTotal += file.rating;
+          }
+
+          const dateCreated = file.dateCreated ?? null;
+          const oldestDate = result.oldest?.dateCreated ?? null;
+
+          if (
+            !result.oldest ||
+            (dateCreated === oldestDate
+              ? String(file._id) < String(result.oldest.id)
+              : dateCreated === null || (oldestDate !== null && dateCreated < oldestDate))
+          )
+            result.oldest = { dateCreated, id: file._id, thumb: file.thumb ?? null };
+        }
+
+        scanned++;
+
+        if (operation && scanned % 1000 === 0 && performance.now() - lastProgressAt >= 1000) {
+          const message = `Scanned ${scanned.toLocaleString()} matching files for ${tagIds.length} tags.`;
+
+          await BackgroundOperationModel.updateOne(
+            { _id: operation.id, status: "RUNNING" },
+            { $set: { dateModified: new Date().toISOString(), message } },
+            metadataWriteOptions(),
           );
 
-        for (const targetId of targetsByDirectTag.get(id)) targets.add(targetId);
-      }
-
-      for (const targetId of targets) {
-        let result = metadata.get(targetId);
-
-        if (!result) {
-          result = {
-            _id: new Types.ObjectId(targetId),
-            count: 0,
-            oldest: null,
-            ratingCount: 0,
-            ratingTotal: 0,
-            size: 0,
-          };
-
-          metadata.set(targetId, result);
+          socket.emit("onBackgroundOperationUpdated", { id: operation.id, updates: { message } });
+          lastProgressAt = performance.now();
         }
-
-        result.count++;
-        result.size += file.size ?? 0;
-
-        if (file.rating > 0) {
-          result.ratingCount++;
-          result.ratingTotal += file.rating;
-        }
-
-        const dateCreated = file.dateCreated ?? null;
-        const oldestDate = result.oldest?.dateCreated ?? null;
-
-        if (
-          !result.oldest ||
-          (dateCreated === oldestDate
-            ? String(file._id) < String(result.oldest.id)
-            : dateCreated === null || (oldestDate !== null && dateCreated < oldestDate))
-        )
-          result.oldest = { dateCreated, id: file._id, thumb: file.thumb ?? null };
       }
-
-      scanned++;
-
-      if (operation && scanned % 1000 === 0 && performance.now() - lastProgressAt >= 1000) {
-        const message = `Scanned ${scanned.toLocaleString()} matching files for ${tagIds.length} tags.`;
-
-        await BackgroundOperationModel.updateOne(
-          { _id: operation.id, status: "RUNNING" },
-          { $set: { dateModified: new Date().toISOString(), message } },
-          metadataWriteOptions(),
-        );
-
-        socket.emit("onBackgroundOperationUpdated", { id: operation.id, updates: { message } });
-        lastProgressAt = performance.now();
-      }
-    }
-  }
+    });
 
   checkBackgroundExecution();
 

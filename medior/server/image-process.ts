@@ -29,7 +29,27 @@ process.on("message", async ({ id, input: task }: { id: string; input: ImageTask
       );
     }
 
-    if (task.visualSize) {
+    if (task.grayscale) {
+      const decoded = await image
+        .rotate()
+        .resize(task.grayscale.width, task.grayscale.height, { fit: "fill" })
+        .removeAlpha()
+        .toColourspace("b-w")
+        .raw()
+        .toBuffer({ resolveWithObject: true });
+
+      process.send({ data: { decoded, metadata }, id });
+    } else if (task.rgb) {
+      const decoded = await image
+        .rotate()
+        .resize(task.rgb.width, task.rgb.height, { fit: "fill" })
+        .toColorspace("srgb")
+        .removeAlpha()
+        .raw()
+        .toBuffer({ resolveWithObject: true });
+
+      process.send({ data: { decoded, metadata }, id });
+    } else if (task.visualSize) {
       const decoded = await image
         .rotate()
         .resize(task.visualSize, task.visualSize, {

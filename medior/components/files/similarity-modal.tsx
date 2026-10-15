@@ -3,6 +3,7 @@ import {
   Button,
   CardGrid,
   Comp,
+  FileFilter,
   HomeMultiActionBar,
   Modal,
   Pagination,
@@ -27,6 +28,11 @@ export const SimilarityModal = Comp(() => {
     filesRef.current?.scrollTo({ top: 0 });
   };
 
+  const handleFilterSearch = () => {
+    store.applyFilter();
+    store.loadSimilar();
+  };
+
   const handleLoadMore = () => setIsLoadMoreOpen(true);
 
   const handleRefresh = () => store.loadSimilar();
@@ -41,7 +47,15 @@ export const SimilarityModal = Comp(() => {
         store={store.search}
       />
 
-      <Modal.Header>
+      <Modal.Header
+        leftNode={
+          <FileFilter.Menu
+            store={store.search}
+            onSearch={handleFilterSearch}
+            hideArchivedAndCorrupted
+          />
+        }
+      >
         <Text preset="title">{"Similarity Lookup"}</Text>
       </Modal.Header>
 

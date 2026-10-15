@@ -109,9 +109,7 @@ registerProcessLifecycle({
       resolveExit = resolve;
     });
 
-    const handleExit = () => resolveExit();
-
-    native.once("exit", handleExit);
+    native.once("exit", resolveExit);
 
     try {
       await client.connect();
@@ -135,7 +133,7 @@ registerProcessLifecycle({
       mongoServer.instanceInfo.instance.mongodProcess = undefined;
       await mongoServer.stop({ doCleanup: false });
     } finally {
-      native.off("exit", handleExit);
+      native.off("exit", resolveExit);
       await client.close();
     }
 

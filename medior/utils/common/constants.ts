@@ -20,7 +20,6 @@ export interface Constants extends _Constants {
       GRID_ROWS: number;
       MAX_DIM: number;
       NTFS_BATCH_SIZE: number;
-      NTFS_CONCURRENCY: number;
     };
     TRANSFORM: {
       BATCH_SIZE: number;
@@ -61,7 +60,6 @@ export const CONSTANTS: Constants = {
       GRID_ROWS: 3,
       MAX_DIM: 300,
       NTFS_BATCH_SIZE: 1000,
-      NTFS_CONCURRENCY: 32,
     },
     TRANSFORM: {
       BATCH_SIZE: 1000,

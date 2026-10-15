@@ -7,6 +7,7 @@ export class RepairFilesStore extends Model({
   enabled: prop<boolean>(false).withSetter(),
   extensions: prop<boolean>(true).withSetter(),
   originalInfo: prop<boolean>(true).withSetter(),
+  previousHashes: prop<boolean>(true).withSetter(),
 }) {
   onInit() {
     autoBind(this);
@@ -14,6 +15,8 @@ export class RepairFilesStore extends Model({
 
   /* ----------------------------- DYNAMIC GETTERS ---------------------------- */
   get isSelected() {
-    return this.enabled && (this.codecs || this.extensions || this.originalInfo);
+    return (
+      this.enabled && (this.codecs || this.extensions || this.originalInfo || this.previousHashes)
+    );
   }
 }

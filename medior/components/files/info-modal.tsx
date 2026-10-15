@@ -38,8 +38,12 @@ export const InfoModal = Comp(() => {
     store.setIsInfoModalOpen(false);
   };
 
+  /** The refresh runs as a server job, so the file is read again once the job is done with it. */
   const handleRefresh = async () => {
-    await store.refreshFiles({ ids: [file.id] });
+    const res = await store.refreshFiles({ ids: [file.id] });
+    if (!res.data) return;
+
+    await store.waitForFileRelease(file.id, res.data);
 
     if (store.isInfoModalOpen) await loadFile();
   };

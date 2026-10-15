@@ -1,6 +1,6 @@
 import { ModelDb } from "medior/generator/schema/generators";
 
-const model = new ModelDb("Tag", { withStore: true });
+const model = new ModelDb("Tag");
 
 model.addProp("aliases", "string[]", { defaultValue: "[]", required: true });
 

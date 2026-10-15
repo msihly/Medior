@@ -6,6 +6,7 @@ import {
   cancelBackgroundExecutions,
   runBackgroundExecution,
 } from "medior/server/database/background-execution";
+import { runOutsideLockOwner } from "medior/server/database/file-locks";
 import {
   areMediaPathIndexesReady,
   pauseFileCleanups,
@@ -29,6 +30,16 @@ import { dayjs } from "medior/utils/common";
 import { leanModelToJson, makeAction, objectId, objectIds, socket } from "medior/utils/server";
 import { vectorTrpc } from "medior/utils/server/trpc";
 import { workSignal } from "medior/utils/server/work-signal";
+
+/** Activity only needs to know whether targets remain; the full queue stays in the database. */
+const ACTIVITY_PROJECTION = {
+  metadataScan: 0,
+  targetIds: { $slice: 1 },
+  targetVersions: 0,
+  transformIds: 0,
+  transformOptions: 0,
+  work: 0,
+};
 
 const runners = new Map<() => Promise<void>, boolean>();
 
@@ -73,18 +84,8 @@ export const stopBackgroundQueues = () => {
 /* -------------------------------------------------------------------------- */
 // @generator-ignore-export
 export const emitBackgroundOperation = async (id: string) => {
-  // Activity only needs to know whether targets remain; the full queue stays in the database.
   const operation = leanModelToJson<models.BackgroundOperationSchema>(
-    await models.BackgroundOperationModel.findById(id)
-      .select({
-        metadataScan: 0,
-        targetIds: { $slice: 1 },
-        targetVersions: 0,
-        transformIds: 0,
-        transformOptions: 0,
-        work: 0,
-      })
-      .lean(),
+    await models.BackgroundOperationModel.findById(id).select(ACTIVITY_PROJECTION).lean(),
   );
 
   socket.emit("onBackgroundOperationUpdated", { id, updates: operation });
@@ -229,21 +230,19 @@ export const makeBackgroundOperationRunner = (
                 return run();
               };
 
-              if (!(await isPersistenceReady())) {
+              if (
+                !(await isPersistenceReady()) ||
+                (requiresMediaPaths && !(await areMediaPathIndexesReady()))
+              ) {
                 hasQueuedRun = false;
 
                 return;
               }
 
-              if (requiresMediaPaths && !(await areMediaPathIndexesReady())) {
-                hasQueuedRun = false;
-
-                return;
-              }
-
+              // A queue first triggered by a job or repair never acts as that operation's owner.
               while (hasQueuedRun && canRunBackgroundQueues()) {
                 hasQueuedRun = false;
-                await processQueue();
+                await runOutsideLockOwner(processQueue);
               }
             })
               .catch(async (error) => {
@@ -607,14 +606,7 @@ export const listBackgroundActivity = makeAction(async () => {
         },
       ].map((filter) =>
         models.BackgroundOperationModel.find({ $and: [filter, { dismissedAt: null }] })
-          .select({
-            metadataScan: 0,
-            targetIds: { $slice: 1 },
-            targetVersions: 0,
-            transformIds: 0,
-            transformOptions: 0,
-            work: 0,
-          })
+          .select(ACTIVITY_PROJECTION)
           .sort({ dateCreated: -1, _id: -1 })
           .limit(100)
           .lean(),

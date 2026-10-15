@@ -18,7 +18,7 @@ export const ExtColumn = Comp(({ configTypes, label, selected, setSelected }: Ex
   }, [selected]);
 
   const toggleSelected = () => {
-    setSelected(Object.fromEntries(configTypes.map((t) => [t, isAllSelected ? false : true])));
+    setSelected(Object.fromEntries(configTypes.map((t) => [t, !isAllSelected])));
   };
 
   return (
@@ -31,7 +31,7 @@ export const ExtColumn = Comp(({ configTypes, label, selected, setSelected }: Ex
         flex={0}
       />
 
-      <View column margins={{ left: "0.5rem" }} overflow="hidden auto">
+      <View column flex="1 1 0" margins={{ left: "0.5rem" }} overflow="hidden auto">
         {configTypes.map((ext) => (
           <FileFilter.ExtCheckbox key={ext} {...{ ext, selected, setSelected }} />
         ))}

@@ -12,6 +12,7 @@ import {
 import { backgroundExecution } from "medior/server/database/background-execution";
 import { getBackgroundSession } from "medior/server/database/database-context";
 import { assertImportEntriesReady } from "medior/server/database/import-entry-state";
+import { startJob } from "medior/server/database/jobs";
 import { normalizeMediaPathWrites } from "medior/server/database/media-paths";
 import {
   getMetadataCreateId,
@@ -255,80 +256,78 @@ const processTagRegenQueue = async () => {
           ? await readTagMetadata(tagIds, operation)
           : null;
 
-      await (async () => {
-        const current = await models.BackgroundOperationModel.findById(operation.id).lean();
+      const current = await models.BackgroundOperationModel.findById(operation.id).lean();
 
-        if (
-          !current ||
-          !["PENDING", "RUNNING"].includes(current.status) ||
-          current.targetIds.slice(0, tagIds.length).join() !== tagIds.join()
-        )
-          return;
+      if (
+        !current ||
+        !["PENDING", "RUNNING"].includes(current.status) ||
+        current.targetIds.slice(0, tagIds.length).join() !== tagIds.join()
+      )
+        continue;
 
-        if (!tagIds.length) {
-          if (!current.targetIds.length)
-            await actions.completeEmptyBackgroundOperation(
-              operation.id,
-              `${operation.label} completed.`,
-            );
-        } else if (operation.type === "tagMetadata") {
-          await actions.setBackgroundOperationStatus(operation.id, "RUNNING", {
-            message: `File scan complete. Saving metadata for ${tagIds.length} tags.`,
-          });
+      if (!tagIds.length) {
+        if (!current.targetIds.length)
+          await actions.completeEmptyBackgroundOperation(
+            operation.id,
+            `${operation.label} completed.`,
+          );
+      } else if (operation.type === "tagMetadata") {
+        await actions.setBackgroundOperationStatus(operation.id, "RUNNING", {
+          message: `File scan complete. Saving metadata for ${tagIds.length} tags.`,
+        });
 
-          const tagsById = new Map(metadata.tags.map((tag) => [String(tag._id), tag]));
+        const tagsById = new Map(metadata.tags.map((tag) => [String(tag._id), tag]));
 
-          for (const ids of chunkArray(tagIds, 100)) {
-            await writeTagMetadata(
-              {
-                ...metadata,
-                tagIds: ids,
-                tags: ids.map((id) => tagsById.get(id)).filter(Boolean),
-              },
-              true,
-            );
-
-            await actions.completeBackgroundOperationTargets(
-              operation.id,
-              ids,
-              `File scan complete. Saving metadata for ${tagIds.length} tags.`,
-              metadata.versions,
-            );
-          }
-        } else {
-          if (operation.type === "tagRefresh") {
-            for (const tagId of tagIds) {
-              if (!(await models.TagModel.exists({ _id: tagId }))) continue;
-
-              const refreshed = await refreshTag({ tagId, withSub: false });
-
-              if (!refreshed.success) throw new Error(refreshed.error);
-            }
-
-            socket.emit("onTagsUpdated", {
-              tags: tagIds.map((tagId) => ({ tagId, updates: {} })),
-              withFileReload: true,
-            });
-          } else {
-            const tagRes = await regenTagAncestors({ tagIds, withSub: false });
-
-            if (!tagRes.success) throw new Error(tagRes.error);
-
-            // Only cached relationships changed. Source edits already notify searches at commit.
-          }
-
-          await actions.setBackgroundOperationStatus(operation.id, "RUNNING", {
-            message: `Metadata saved. Updating the remaining tag queue (${current.targetIds.length.toLocaleString()} tags).`,
-          });
+        for (const ids of chunkArray(tagIds, 100)) {
+          await writeTagMetadata(
+            {
+              ...metadata,
+              tagIds: ids,
+              tags: ids.map((id) => tagsById.get(id)).filter(Boolean),
+            },
+            true,
+          );
 
           await actions.completeBackgroundOperationTargets(
             operation.id,
-            tagIds,
-            `${operation.label}: processed ${current.processedCount + tagIds.length} of ${current.totalCount} tags.`,
-            metadata?.versions ?? operation.targetVersions ?? {},
+            ids,
+            `File scan complete. Saving metadata for ${tagIds.length} tags.`,
+            metadata.versions,
           );
         }
-      })();
+      } else {
+        if (operation.type === "tagRefresh") {
+          for (const tagId of tagIds) {
+            if (!(await models.TagModel.exists({ _id: tagId }))) continue;
+
+            const refreshed = await refreshTag({ tagId, withSub: false });
+
+            if (!refreshed.success) throw new Error(refreshed.error);
+          }
+
+          socket.emit("onTagsUpdated", {
+            tags: tagIds.map((tagId) => ({ tagId, updates: {} })),
+            withFileReload: true,
+          });
+        } else {
+          const tagRes = await regenTagAncestors({ tagIds, withSub: false });
+
+          if (!tagRes.success) throw new Error(tagRes.error);
+
+          // Only cached relationships changed. Source edits already notify searches at commit.
+        }
+
+        await actions.setBackgroundOperationStatus(operation.id, "RUNNING", {
+          message: `Metadata saved. Updating the remaining tag queue (${current.targetIds.length.toLocaleString()} tags).`,
+        });
+
+        await actions.completeBackgroundOperationTargets(
+          operation.id,
+          tagIds,
+          `${operation.label}: processed ${current.processedCount + tagIds.length} of ${current.totalCount} tags.`,
+          metadata?.versions ?? operation.targetVersions ?? {},
+        );
+      }
     } catch (error) {
       if (!canRunBackgroundQueues()) return;
 
@@ -464,7 +463,7 @@ export const createTag = makeAction(
 
       return created;
     },
-    true,
+    { persistInBackground: true },
   ),
 );
 
@@ -494,6 +493,11 @@ export const deleteTag = makeAction(
         { $inc: { __v: 1 }, $pull: { tagIds: id }, $set: { dateModified } },
       );
 
+      await models.MediaProgramModel.updateMany(
+        { $or: [{ genreIds: id }, { tagIds: id }] },
+        { $pull: { genreIds: id, tagIds: id }, $set: { dateModified } },
+      );
+
       await models.TagModel.updateMany(
         { $or: [{ childIds: id }, { parentIds: id }] },
         { $pullAll: { childIds: tagIds, parentIds: tagIds }, dateModified },
@@ -511,7 +515,7 @@ export const deleteTag = makeAction(
 
       socket.emit("onTagDeleted", { ids: [id] });
     },
-    true,
+    { persistInBackground: true },
   ),
 );
 
@@ -572,15 +576,13 @@ export const editTag = makeAction(
 
       await assertTagRelationships([{ childIds, id, parentIds }]);
 
-      const bulkWriteOps = makeRelationsUpdateOps({
-        changedChildIds: { ...changedChildIds, added: childIds ?? [] },
-        changedParentIds: { ...changedParentIds, added: parentIds ?? [] },
-        dateModified,
-        tagId: id,
-      });
-
       const operations: AnyBulkWriteOperation<models.TagSchema>[] = [
-        ...bulkWriteOps,
+        ...makeRelationsUpdateOps({
+          changedChildIds: { ...changedChildIds, added: childIds ?? [] },
+          changedParentIds: { ...changedParentIds, added: parentIds ?? [] },
+          dateModified,
+          tagId: id,
+        }),
         {
           updateOne: {
             filter: { _id: objectId(id) },
@@ -592,7 +594,7 @@ export const editTag = makeAction(
             },
           },
         },
-      ].filter(Boolean);
+      ];
 
       const res = await models.TagModel.bulkWrite(normalizeMediaPathWrites("Tag", operations), {
         ...metadataWriteOptions(),
@@ -1019,6 +1021,18 @@ export const mergeTags = makeAction(
         await models.FileImportModel.updateMany(updateManyFilter, updateManyPull);
         await models.FileModel.updateMany(updateManyFilter, updateManyPull);
 
+        for (const field of ["genreIds", "tagIds"]) {
+          await models.MediaProgramModel.updateMany(
+            { [field]: _tagIdToMerge },
+            { $addToSet: { [field]: _tagIdToKeep } },
+          );
+
+          await models.MediaProgramModel.updateMany(
+            { [field]: _tagIdToMerge },
+            { $pull: { [field]: _tagIdToMerge } },
+          );
+        }
+
         const relationsFilter: FilterQuery<models.TagSchema> = {
           $or: [{ childIds: _tagIdToMerge }, { parentIds: _tagIdToMerge }],
         };
@@ -1122,7 +1136,7 @@ export const mergeTags = makeAction(
         }
       }
     },
-    true,
+    { persistInBackground: true },
   ),
 );
 
@@ -1480,8 +1494,6 @@ const mergeRepairTags = async (
   });
 
   if (!result.success) throw new Error(result.error);
-
-  return result;
 };
 
 export const repairTags = makeAction(
@@ -1548,10 +1560,7 @@ export const repairTags = makeAction(
                     "Decoded label already exists; enable duplicate label merging to repair it",
                   );
 
-                const result = await mergeRepairTags(String(existing._id), String(tag._id), true);
-
-                if (!result.success) throw new Error(result.error);
-
+                await mergeRepairTags(String(existing._id), String(tag._id), true);
                 checkCancelled();
                 merged = true;
               } else {
@@ -1607,14 +1616,7 @@ export const repairTags = makeAction(
               .lean();
 
             if (existing) {
-              const result = await mergeRepairTags(
-                String(existing._id),
-                String(tag._id),
-                false,
-                true,
-              );
-
-              if (!result.success) throw new Error(result.error);
+              await mergeRepairTags(String(existing._id), String(tag._id), false, true);
             } else {
               if (label !== tag.label || !isDeepEqual(aliases, tag.aliases)) {
                 await models.TagModel.updateOne({ _id: tag._id }, { $set: { aliases, label } });
@@ -1696,14 +1698,12 @@ export const repairTags = makeAction(
 
             if (matches.length < 2) break;
 
-            const merged = await mergeRepairTags(
+            await mergeRepairTags(
               String(matches[0]._id),
               String(matches[1]._id),
               false,
               cleanNames,
             );
-
-            if (!merged.success) throw new Error(merged.error);
 
             mergedCount++;
             progress(`Tag repair: merged ${mergedCount} duplicate tags.`);
@@ -1914,6 +1914,70 @@ export const setTagCount = makeAction(async ({ count, id }: { count: number; id:
   return models.TagModel.updateOne({ _id: id }, { $set: { count }, dateModified });
 });
 
+/** Deletes tags one at a time on the server. */
+export const startTagDeletion = makeAction(async ({ tagIds }: { tagIds: string[] }) =>
+  startJob({
+    label: "Tag Deletion",
+    run: async (job) => {
+      for (const id of tagIds) {
+        job.signal.throwIfAborted();
+
+        const res = await deleteTag({ id });
+        if (!res.success) throw new Error(res.error);
+
+        job.complete([], 1);
+      }
+    },
+    total: tagIds.length,
+    type: "deleteTags",
+  }),
+);
+
+/** Rebuilds each tag's RegEx from its label and aliases, then regenerates the rebuilt tags. */
+export const startTagRegExRegeneration = makeAction(async ({ tagIds }: { tagIds: string[] }) =>
+  startJob({
+    label: "Tag RegEx Regeneration",
+    run: async (job) => {
+      const updatedIds: string[] = [];
+
+      try {
+        const tags = await models.TagModel.find({ _id: { $in: objectIds(tagIds) } })
+          .select({ aliases: 1, label: 1 })
+          .lean();
+
+        // Tags deleted since they were selected count as skipped, keeping the total accurate.
+        if (tags.length < tagIds.length) {
+          job.addFailure("Tag no longer exists", tagIds.length - tags.length);
+          job.complete([], tagIds.length - tags.length);
+        }
+
+        for (const tag of tags) {
+          job.signal.throwIfAborted();
+
+          const res = await editTag({
+            id: String(tag._id),
+            regEx: tagsToRegEx([{ aliases: tag.aliases, label: tag.label }]),
+            withRegen: false,
+            withSub: false,
+          });
+          if (!res.success) throw new Error(res.error);
+
+          updatedIds.push(String(tag._id));
+          job.complete([], 1);
+        }
+      } finally {
+        // Tags rebuilt before a stop or failure are regenerated too.
+        if (updatedIds.length) {
+          const res = await regenTags({ tagIds: updatedIds });
+          if (!res.success) throw new Error(res.error);
+        }
+      }
+    },
+    total: tagIds.length,
+    type: "regenerateTagRegEx",
+  }),
+);
+
 export const upsertTag = makeAction(
   async ({
     aliases,
@@ -1949,7 +2013,7 @@ export const upsertTag = makeAction(
     if (tagId) {
       label = preferredTagLabel(tag.label, label);
 
-      const existingParentIds = new Set(tag?.parentIds.map(String));
+      const existingParentIds = new Set(tag.parentIds.map(String));
       const missingParentIds = parentIds.filter((id) => !existingParentIds.has(id));
 
       if (missingParentIds.length || category !== undefined || label !== tag.label) {

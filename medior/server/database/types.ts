@@ -1,3 +1,4 @@
+export type { JobState, JobType } from "./jobs";
 export * from "medior/_generated/server/types";
 import { AudioCodec, ImageExt, VideoCodec, VideoExt } from "medior/utils/common";
 

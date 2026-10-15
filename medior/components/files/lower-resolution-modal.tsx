@@ -1,58 +1,56 @@
+import { useEffect, useRef } from "react";
 import {
   Button,
   Card,
   CardGrid,
   Checkbox,
+  Chip,
   Comp,
-  FileBase,
+  Divider,
   Icon,
+  JobProgress,
   LoadingOverlay,
   Modal,
   Pagination,
   ProgressBar,
-  Slider,
   Text,
   View,
 } from "medior/components";
 import { useStores } from "medior/store";
-import { colors, openCarouselWindow } from "medior/utils/client";
+import { colors, toast } from "medior/utils/client";
 import { Fmt } from "medior/utils/common";
-import { MIN_DUPLICATE_SIMILARITY } from "medior/utils/common/duplicate-search";
+import { GroupFile } from "./lower-resolution-modal/group-file";
+import { SearchSettings } from "./lower-resolution-modal/search-settings";
+import { SearchStatus } from "./lower-resolution-modal/search-status";
 
 export const LowerResolutionModal = Comp(() => {
   const stores = useStores();
   const store = stores.file.lowerResolution;
 
-  const isBusy = store.isScanning || store.isStarting || store.isArchiving;
-  const remainingSeconds =
-    store.rate > 0 && store.total > store.processed
-      ? (store.total - store.processed) / store.rate
-      : null;
-  const progressLabel = [
-    `${Fmt.commas(store.processed)}${store.total ? ` / ~${Fmt.commas(store.total)}` : ""} files`,
-    store.isScanning ? `${Fmt.commas(Math.round(store.rate))} files/s` : null,
-    remainingSeconds === null || !store.isScanning
-      ? null
-      : `~${Math.floor(remainingSeconds / 3600)}h ${Math.floor((remainingSeconds % 3600) / 60)}m left`,
-    `${Fmt.commas(store.found)} groups`,
-  ]
-    .filter(Boolean)
-    .join(" · ");
-  const statusLabels = {
-    complete: "Search complete",
-    error: "Search stopped",
-    idle: "Ready to search",
-    paused: "Search paused",
-    running: store.cancelRequested ? "Pausing…" : "Searching…",
-  };
+  const groupsRef = useRef<HTMLDivElement>(null);
+
+  // Groups filling in during grouping keep the reader's position; only page changes scroll up.
+  useEffect(() => {
+    groupsRef.current?.scrollTo({ behavior: "instant", top: 0 });
+  }, [store.page]);
+
+  const isTimeGrouped = !!store.options.timeWindow;
   const emptyStates = {
     complete: {
-      description: `No files matched at ${store.reviewThreshold}% similarity or higher.`,
+      description: `No files matched at ${store.minSimilarity.toFixed(1)}% similarity or higher.`,
       title: "No duplicates found",
     },
     error: {
-      description: "Nothing was found before the search stopped. Search again to retry.",
+      description: "Nothing was found before the search stopped. Resume the search to retry.",
       title: "No duplicates to review",
+    },
+    grouping: {
+      description: "Groups appear here as they are built.",
+      title: "Grouping the search's matches",
+    },
+    groupingPaused: {
+      description: "Resume grouping to build groups from the rest of the search's matches.",
+      title: "Grouping paused",
     },
     idle: {
       description:
@@ -64,18 +62,13 @@ export const LowerResolutionModal = Comp(() => {
       title: "No duplicates found yet",
     },
     running: {
-      description: "You can close this window while the search runs in the background.",
-      title: "Duplicate groups will appear here as they are found",
+      description: "Groups are built when the search is paused or completes.",
+      title: "Searching for matches",
     },
   };
-  const emptyState = emptyStates[store.status];
+  const emptyState = emptyStates[store.displayStatus];
+  const errors = [store.optionsError, store.actionError, store.error].filter(Boolean);
   const notices = [
-    !!store.scanId && store.needsRescan && !!store.reviewOptions
-      ? {
-          color: colors.custom.lightBlue,
-          text: `This search only recorded matches at ${store.reviewOptions.minSimilarity}% or higher. Search Again to find weaker matches; raising the threshold filters the current results instantly.`,
-        }
-      : null,
     !store.hasSearchIndex
       ? {
           color: colors.custom.lightBlue,
@@ -96,155 +89,87 @@ export const LowerResolutionModal = Comp(() => {
       : null,
   ].filter(Boolean);
 
+  /** Archiving keeps going in the background while the modal is hidden. */
+  const handleClose = () => {
+    if (store.isArchiving) handleMinimize();
+    else store.close();
+  };
+
+  const handleCreateCollection = async (groupId: string) => {
+    const res = await store.createGroupCollection(groupId);
+    if (!res.success) toast.error(res.error);
+  };
+
+  const handleMinimize = () => store.setIsMinimized(true);
+
   const handlePageChange = (page: number) => {
     if (!store.isArchiving) store.loadPage(page);
   };
 
-  const handleScan = () => store.scan();
-
-  const handleStopArchiving = () => store.setArchiveStopRequested(true);
+  const handleTagSelected = () => store.editTags(Object.keys(store.selection));
 
   return (
-    <Modal.Container height="100%" width="100%" onClose={store.close}>
+    <Modal.Container visible={!store.isMinimized} height="100%" width="100%" onClose={handleClose}>
       <LoadingOverlay
         isLoading={store.isArchiving}
-        sub={
-          <View column align="center" spacing="0.5rem">
-            <Text preset="title" fontSize="0.9em">
-              {`${store.mergeMetadata ? "Merged and archived" : "Archived"} ${Fmt.commas(store.archiveProcessed)} of ${Fmt.commas(store.archiveTotal)} files…`}
-            </Text>
-
-            <Button
-              text={store.archiveStopRequested ? "Stopping…" : "Stop Archiving"}
-              icon="Stop"
-              onClick={handleStopArchiving}
-              disabled={store.archiveStopRequested}
-            />
-          </View>
-        }
+        sub={store.archiveJob && <JobProgress job={store.archiveJob} onMinimize={handleMinimize} />}
       />
 
       <Modal.Header>
-        <View column align="center">
-          <Text preset="title">{"Find Duplicates"}</Text>
-
-          <Text color={colors.custom.lightGrey} fontSize="0.8em">
-            {store.sourceFileId ? "Variants of the selected file" : "Across your library"}
-          </Text>
-        </View>
+        <Text preset="title">{"Find Duplicates"}</Text>
       </Modal.Header>
 
-      <Modal.Content dividers={false} overflow="hidden" spacing="0.5rem">
-        <Card flex="none" width="100%" spacing="0.5rem">
-          <View row wrap="wrap" align="center" spacing="1rem">
-            <View column width="20rem">
-              <View row align="center" justify="space-between">
-                <Text bold fontSize="0.9em">
-                  {"Minimum Similarity"}
-                </Text>
+      <Modal.Content dividers={false} overflow="hidden">
+        <View row flex="none" spacing="0.5rem">
+          <SearchSettings />
 
-                <Text bold color={colors.custom.lightBlue}>{`${store.minSimilarity}%`}</Text>
-              </View>
+          <SearchStatus />
+        </View>
 
-              <Slider
-                value={store.minSimilarity}
-                setValue={store.setMinSimilarity}
-                onCommit={store.applyReviewThreshold}
-                min={MIN_DUPLICATE_SIMILARITY}
-                max={100}
-                step={0.5}
-                disabled={store.isStarting || store.isArchiving}
-              />
-            </View>
+        {notices.map(({ color, text }) => (
+          <View key={text} row align="center" spacing="0.5rem">
+            <Icon name="Info" size="1.1em" color={color} />
 
-            {store.isScanning ? (
-              <Button
-                text={store.cancelRequested ? "Pausing…" : "Pause"}
-                icon="Pause"
-                onClick={store.pause}
-                disabled={store.cancelRequested}
-                width="10rem"
-              />
-            ) : (
-              <Button
-                text={
-                  store.isStarting
-                    ? "Starting…"
-                    : store.status === "paused" && !store.needsRescan
-                      ? "Resume"
-                      : store.status === "idle" || !store.scanId
-                        ? "Find Duplicates"
-                        : "Search Again"
-                }
-                icon="Search"
-                color={colors.custom.blue}
-                onClick={handleScan}
-                disabled={isBusy || store.isPageLoading}
-                width="10rem"
-              />
-            )}
-
-            <View column flex={1} spacing="0.5rem">
-              <View row wrap="wrap" align="center" justify="space-between" spacing="1rem">
-                <Text bold>{statusLabels[store.status]}</Text>
-
-                {store.status !== "idle" && (
-                  <Text color={colors.custom.lightGrey} fontSize="0.85em">
-                    {progressLabel}
-                  </Text>
-                )}
-              </View>
-
-              {store.isScanning && (
-                <ProgressBar
-                  denominator={store.total}
-                  numerator={store.processed}
-                  variant={store.total ? "determinate" : "indeterminate"}
-                  viewProps={{ flex: "none" }}
-                />
-              )}
-            </View>
+            <Text fontSize="0.85em" whiteSpace="normal">
+              {text}
+            </Text>
           </View>
+        ))}
 
-          {notices.map(({ color, text }) => (
-            <View key={text} row align="center" spacing="0.5rem">
-              <Icon name="Info" size="1.1em" color={color} />
+        {errors.map((error) => (
+          <View key={error} row align="center" spacing="0.5rem">
+            <Icon name="Error" size="1.1em" color={colors.custom.red} />
 
-              <Text fontSize="0.85em" whiteSpace="normal">
-                {text}
-              </Text>
-            </View>
-          ))}
-
-          {store.error && (
-            <View row align="center" spacing="0.5rem">
-              <Icon name="Error" size="1.1em" color={colors.custom.red} />
-
-              <Text
-                color={colors.custom.red}
-                fontSize="0.85em"
-                whiteSpace="normal"
-                overflowWrap="anywhere"
-              >
-                {store.error}
-              </Text>
-            </View>
-          )}
-        </Card>
+            <Text
+              color={colors.custom.red}
+              fontSize="0.85em"
+              whiteSpace="normal"
+              overflowWrap="anywhere"
+            >
+              {error}
+            </Text>
+          </View>
+        ))}
 
         {store.groups.length ? (
           <View column flex={1} minHeight={0} spacing="0.5rem">
             <View row wrap="wrap" align="center" justify="space-between" spacing="1rem">
-              <Text bold>
-                {`${Fmt.commas(store.reviewCount)} groups at ${store.reviewThreshold}%+ · ${Fmt.commas(store.selectedCount)} selected`}
-              </Text>
+              <View row align="center" spacing="0.5rem">
+                <Text bold>
+                  {`${Fmt.commas(store.reviewCount)} groups at ${store.minSimilarity.toFixed(1)}%+`}
+                </Text>
 
-              <View row wrap="wrap" spacing="0.5rem">
+                {!!store.selectedCount && (
+                  <Chip label={`${Fmt.commas(store.selectedCount)} Selected`} />
+                )}
+              </View>
+
+              <View row align="center" spacing="0.5rem">
                 <Button
                   text={store.isSelecting ? "Selecting…" : "Select All Duplicates"}
                   icon="SelectAll"
                   onClick={store.selectAllDuplicates}
-                  disabled={store.isArchiving || store.isSelecting}
+                  disabled={store.isArchiving || store.isGrouping || store.isSelecting}
                   tooltip="Select every file except the best one in each group, across all pages. Shift-click tiles to select a range."
                 />
 
@@ -255,11 +180,24 @@ export const LowerResolutionModal = Comp(() => {
                   disabled={store.isArchiving || !store.selectedCount}
                 />
 
+                <Divider orientation="vertical" />
+
+                <Button
+                  text="Tag Selected"
+                  icon="Label"
+                  onClick={handleTagSelected}
+                  disabled={store.isArchiving || !store.selectedCount}
+                />
+
+                <Divider orientation="vertical" />
+
                 <Checkbox
                   label="Merge into kept file"
                   checked={store.mergeMetadata}
                   setChecked={store.setMergeMetadata}
                   disabled={store.isArchiving}
+                  flex="none"
+                  width="auto"
                 />
 
                 <Button
@@ -268,7 +206,9 @@ export const LowerResolutionModal = Comp(() => {
                   color={colors.custom.red}
                   onClick={store.archive}
                   disabled={
+                    store.isApplyingOptions ||
                     store.isArchiving ||
+                    store.isGrouping ||
                     store.isStarting ||
                     store.isPageLoading ||
                     !store.selectedCount
@@ -280,98 +220,110 @@ export const LowerResolutionModal = Comp(() => {
             <CardGrid
               maxCards={2}
               padding={{ all: 0 }}
-              cards={store.groups.map((group) => (
-                <View key={group.id} padding={{ all: "0.3rem" }}>
-                  <Card spacing="0.5rem">
-                    <View row align="center" justify="space-between">
-                      <Text bold>{`Up to ${group.score.toFixed(1)}% similar`}</Text>
+              ref={groupsRef}
+              cards={store.groups.map((group) => {
+                const groupFileIds = [...group.files, ...group.nearby].map((file) => file.id);
 
-                      <Text color={colors.custom.lightGrey} fontSize="0.85em">
-                        {`${group.files.length - 1} ${group.files.length === 2 ? "duplicate" : "duplicates"}`}
-                      </Text>
-                    </View>
+                return (
+                  <View key={group.id} padding={{ all: "0.3rem" }}>
+                    <Card spacing="0.5rem">
+                      <View row align="center" justify="space-between" spacing="0.5rem">
+                        <Text bold>{`Up to ${group.score.toFixed(1)}% similar`}</Text>
 
-                    <View row wrap="wrap">
-                      {group.files.map((file, index) => {
-                        const isSelected = !!store.selection[file.id];
+                        <View row align="center" spacing="0.5rem">
+                          <Text color={colors.custom.lightGrey} fontSize="0.85em">
+                            {`${group.files.length - 1} ${group.files.length === 2 ? "duplicate" : "duplicates"}`}
+                          </Text>
 
-                        return (
-                          <View
-                            key={file.id}
-                            column
-                            flex="none"
-                            width="15rem"
-                            spacing="0.3rem"
-                            padding={{ all: "0.3rem" }}
-                          >
-                            <FileBase.Container
-                              height="13rem"
-                              selected={isSelected}
-                              selectedColor={colors.custom.red}
-                              onClick={(event) => store.toggleSelected(file.id, event.shiftKey)}
-                              onDoubleClick={() =>
-                                openCarouselWindow({
-                                  file,
-                                  selectedFileIds: group.files.map((f) => f.id),
-                                })
+                          <Button
+                            icon="Label"
+                            tooltip="Add Tags to Group"
+                            onClick={() => store.editTags(groupFileIds)}
+                            disabled={store.isArchiving}
+                            color={colors.foregroundCard}
+                          />
+
+                          <Button
+                            icon="Collections"
+                            tooltip="Create Collection from Group"
+                            onClick={() => handleCreateCollection(group.id)}
+                            disabled={store.isArchiving}
+                            color={colors.foregroundCard}
+                          />
+                        </View>
+                      </View>
+
+                      <View row wrap="wrap">
+                        {group.files.map((file, index) => {
+                          const isSelected = !!store.selection[file.id];
+
+                          return (
+                            <GroupFile
+                              key={file.id}
+                              file={file}
+                              carouselFileIds={groupFileIds}
+                              chip={
+                                isSelected
+                                  ? { bgColor: colors.custom.red, label: "Archive" }
+                                  : index === 0
+                                    ? { bgColor: colors.custom.green, label: "Best Quality" }
+                                    : file.isVariation
+                                      ? {
+                                          bgColor: colors.custom.orange,
+                                          label: `Variation · ${file.similarity.toFixed(1)}%`,
+                                        }
+                                      : { label: `${file.similarity.toFixed(1)}%` }
                               }
-                            >
-                              <FileBase.Image
-                                thumb={file.thumb}
-                                fileId={file.id}
-                                title={file.originalName}
-                                fit="contain"
-                                height="13rem"
-                              >
-                                <FileBase.Chip
-                                  position="top-left"
-                                  label={
-                                    isSelected
-                                      ? "Archive"
-                                      : index === 0
-                                        ? "Best Quality"
-                                        : `${file.similarity.toFixed(1)}%`
-                                  }
-                                  bgColor={
-                                    isSelected
-                                      ? colors.custom.red
-                                      : index === 0
-                                        ? colors.custom.green
-                                        : undefined
-                                  }
-                                  color={colors.custom.white}
-                                  opacity={1}
-                                />
+                              comparison={
+                                index === 0
+                                  ? null
+                                  : file.difference !== null
+                                    ? `${file.difference.toFixed(1)}% of the image differs`
+                                    : file.isVariation
+                                      ? "Different shape"
+                                      : null
+                              }
+                              isSelected={isSelected}
+                              jpeg={file.jpeg}
+                              onClick={(event) => store.toggleSelected(file.id, event.shiftKey)}
+                              showDateCreated={isTimeGrouped}
+                            />
+                          );
+                        })}
+                      </View>
 
-                                <FileBase.Chip position="top-right" label={file.ext} />
+                      {group.nearby.length > 0 && (
+                        <>
+                          <Divider />
 
-                                {!!file.duration && (
-                                  <FileBase.Chip
-                                    position="bottom-right"
-                                    label={Fmt.duration(file.duration)}
-                                  />
-                                )}
-                              </FileBase.Image>
-                            </FileBase.Container>
-
-                            <Text fontSize="0.85em">
-                              {`${file.width} × ${file.height} · ${Fmt.bytes(file.size)}`}
+                          <View row align="center" justify="space-between" spacing="0.5rem">
+                            <Text bold fontSize="0.9em">
+                              {"Created Nearby"}
                             </Text>
 
-                            <Text
-                              color={colors.custom.lightGrey}
-                              fontSize="0.8em"
-                              tooltip={file.originalName}
-                            >
-                              {file.originalName}
+                            <Text color={colors.custom.lightGrey} fontSize="0.85em">
+                              {group.nearbyCount > group.nearby.length
+                                ? `First ${group.nearby.length} of ${Fmt.commas(group.nearbyCount)} files`
+                                : `${group.nearby.length} ${group.nearby.length === 1 ? "file" : "files"}`}
                             </Text>
                           </View>
-                        );
-                      })}
-                    </View>
-                  </Card>
-                </View>
-              ))}
+
+                          <View row wrap="wrap">
+                            {group.nearby.map((file) => (
+                              <GroupFile
+                                key={file.id}
+                                file={file}
+                                carouselFileIds={groupFileIds}
+                                showDateCreated
+                              />
+                            ))}
+                          </View>
+                        </>
+                      )}
+                    </Card>
+                  </View>
+                );
+              })}
             />
 
             {store.pageCount > 1 && (
@@ -407,9 +359,9 @@ export const LowerResolutionModal = Comp(() => {
 
       <Modal.Footer>
         <Button
-          text={store.isScanning ? "Run in Background" : "Close"}
+          text={store.isScanning || store.isGrouping ? "Run in Background" : "Close"}
           icon="Close"
-          onClick={store.close}
+          onClick={handleClose}
         />
       </Modal.Footer>
     </Modal.Container>

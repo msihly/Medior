@@ -1,5 +1,12 @@
 import { useEffect } from "react";
-import { Comp, SettingsModal, View, WindowTitleBar } from "medior/components";
+import {
+  Comp,
+  MinimizedJobs,
+  RepairModal,
+  SettingsModal,
+  View,
+  WindowTitleBar,
+} from "medior/components";
 import { useStores } from "medior/store";
 import { makeClasses } from "medior/utils/client";
 import { useSockets, Views } from "./common";
@@ -37,9 +44,15 @@ export const HomeWindow = Comp(() => {
 
           <Views.ImportModals />
 
+          <Views.MediaProgramModals />
+
           <Views.TagModals view="home" />
 
           {store.settings.isOpen && <SettingsModal />}
+
+          {store.settings.repair.isOpen && <RepairModal />}
+
+          <MinimizedJobs />
         </View>
       </View>
     </Views.ImportDnD>

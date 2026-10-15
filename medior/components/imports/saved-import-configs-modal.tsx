@@ -1,5 +1,5 @@
 import path from "path";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Button,
   Card,
@@ -36,6 +36,8 @@ export const SavedImportConfigsModal = Comp(
     const [isSaving, setIsSaving] = useState(false);
     const [overwriteConfig, setOverwriteConfig] = useState<SavedImportConfig>(null);
 
+    const configsRef = useRef<HTMLDivElement>(null);
+
     const canSave =
       !!editorStore?.rootFolderPath && !!configLabel.trim() && !!configFolderPath.trim();
 
@@ -47,6 +49,10 @@ export const SavedImportConfigsModal = Comp(
     useEffect(() => {
       resetEditorConfig();
     }, [editorStore?.rootFolderPath, editorStore?.rootFolderIndex]);
+
+    useEffect(() => {
+      configsRef.current?.scrollTo({ behavior: "instant", top: 0 });
+    }, [store.page, store.pageCount]);
 
     const handleClose = () => {
       if (!isSaving) {
@@ -183,8 +189,8 @@ export const SavedImportConfigsModal = Comp(
 
             <View column flex={1} minHeight={0} spacing="0.8rem" padding={{ all: "0.2rem 1rem" }}>
               {editorStore && (
-                <Card column spacing="0.6rem" bgColor={colors.background}>
-                  <View row align="stretch" spacing={0}>
+                <Card bgColor={colors.background}>
+                  <View row align="stretch">
                     <Input
                       header="Config Label"
                       headerProps={{ borderRadiuses: { topRight: 0 } }}
@@ -219,7 +225,7 @@ export const SavedImportConfigsModal = Comp(
                 </Card>
               )}
 
-              <View column flex={1} overflow="hidden auto" spacing="0.5rem">
+              <View column flex={1} overflow="hidden auto" spacing="0.5rem" ref={configsRef}>
                 {store.results.length ? (
                   store.results.map((config) => (
                     <Card
@@ -235,23 +241,10 @@ export const SavedImportConfigsModal = Comp(
                         {editingLabelConfigId === config.id ? (
                           <Input value={editingLabel} setValue={setEditingLabel} dense />
                         ) : (
-                          <Text
-                            fontWeight={500}
-                            textOverflow="ellipsis"
-                            overflow="hidden"
-                            whiteSpace="nowrap"
-                          >
-                            {config.label}
-                          </Text>
+                          <Text fontWeight={500}>{config.label}</Text>
                         )}
 
-                        <Text
-                          color={colors.custom.lightGrey}
-                          fontSize="0.85em"
-                          textOverflow="ellipsis"
-                          overflow="hidden"
-                          whiteSpace="nowrap"
-                        >
+                        <Text color={colors.custom.lightGrey} fontSize="0.85em">
                           {config.folderPath}
                         </Text>
 

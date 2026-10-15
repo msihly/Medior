@@ -74,14 +74,8 @@ export interface SocketEmitEvents {
     },
     options?: SocketEventOptions,
   ) => void;
-  onFileRefreshProgress: (
-    args: {
-      fileId: string;
-      fileName: string;
-      message: string;
-      progress?: number;
-      refreshId: string;
-    },
+  onFileLocksUpdated: (
+    args: { fileIds: string[]; label: string | null },
     options?: SocketEventOptions,
   ) => void;
   onFilesArchived: (args: { fileIds: string[] }, options?: SocketEventOptions) => void;
@@ -115,6 +109,13 @@ export interface SocketEmitEvents {
   onImportBatchCompleted: (args: { id: string }, options?: SocketEventOptions) => void;
   onImportBatchLoaded: (args: { id: string }, options?: SocketEventOptions) => void;
   onImporterStatusUpdated: (options?: SocketEventOptions) => void;
+  onJobUpdated: (args: Types.JobState, options?: SocketEventOptions) => void;
+  onMediaProgramCreated: (args: models.MediaProgramSchema, options?: SocketEventOptions) => void;
+  onMediaProgramDeleted: (args: { ids: string[] }, options?: SocketEventOptions) => void;
+  onMediaProgramUpdated: (
+    args: { id: string; updates: Partial<models.MediaProgramSchema> },
+    options?: SocketEventOptions,
+  ) => void;
   onNotificationCreated: (args: models.NotificationSchema, options?: SocketEventOptions) => void;
   onNotificationDeleted: (args: { ids: string[] }, options?: SocketEventOptions) => void;
   onNotificationsRead: (args: { ids: string[] }, options?: SocketEventOptions) => void;
@@ -196,6 +197,9 @@ export const socketEvents: SocketEmitEvent[] = [
   "onFileCreated",
   "onFileDeleted",
   "onFileUpdated",
+  "onMediaProgramCreated",
+  "onMediaProgramDeleted",
+  "onMediaProgramUpdated",
   "onNotificationCreated",
   "onNotificationDeleted",
   "onNotificationUpdated",
@@ -213,7 +217,7 @@ export const socketEvents: SocketEmitEvent[] = [
   "onFileImportProgress",
   "onFileImportStarted",
   "onFileImportUpdated",
-  "onFileRefreshProgress",
+  "onFileLocksUpdated",
   "onFilesArchived",
   "onFilesDeleted",
   "onFilesUpdated",
@@ -223,6 +227,7 @@ export const socketEvents: SocketEmitEvent[] = [
   "onImportBatchCompleted",
   "onImportBatchLoaded",
   "onImporterStatusUpdated",
+  "onJobUpdated",
   "onNotificationsRead",
   "onReloadBackgroundActivity",
   "onReloadFileCollections",

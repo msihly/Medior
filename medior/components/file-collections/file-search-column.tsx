@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import {
   Button,
   Card,
@@ -17,6 +18,12 @@ export const FileSearchColumn = Comp(() => {
   const stores = useStores();
   const store = stores.collection.editor.fileSearch;
 
+  const filesRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    filesRef.current?.scrollTo({ behavior: "instant", top: 0 });
+  }, [store.page, store.pageCount]);
+
   const handleFullPageLoad = () => store.loadFiltered({ toLastPage: true });
 
   const handlePageChange = (page: number) => store.loadFiltered({ page });
@@ -33,15 +40,7 @@ export const FileSearchColumn = Comp(() => {
     store.toggleSelected(store.results.map(({ id }) => ({ id, isSelected: true })));
 
   return (
-    <Card
-      column
-      flex="none"
-      height="100%"
-      width="16rem"
-      overflow="hidden"
-      padding={{ all: 0 }}
-      position="relative"
-    >
+    <Card flex="none" height="100%" width="16rem" overflow="hidden" padding={{ all: 0 }}>
       <SearchLoadingOverlay store={store} />
 
       <View column spacing="0.5rem" padding={{ all: "0.5rem" }}>
@@ -77,6 +76,7 @@ export const FileSearchColumn = Comp(() => {
 
       <CardGrid
         padding={{ all: "0.3rem" }}
+        ref={filesRef}
         cards={store.results.map((f) => (
           <FileCard key={f.id} file={f} store={store} height="14rem" />
         ))}

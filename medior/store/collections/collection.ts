@@ -22,9 +22,10 @@ export class FileCollection extends ExtendedModel(_FileCollection, {
   /* --------------------------------- GETTERS -------------------------------- */
   @computed
   get previewIds() {
-    return [...this.fileIdIndexes]
-      .sort((a, b) => a.index - b.index)
-      .slice(0, 8)
-      .map((f) => f.fileId);
+    return this.sortedFileIds.slice(0, 8);
+  }
+
+  get sortedFileIds() {
+    return [...this.fileIdIndexes].sort((a, b) => a.index - b.index).map((f) => f.fileId);
   }
 }

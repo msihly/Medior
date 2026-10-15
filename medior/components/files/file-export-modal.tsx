@@ -32,7 +32,7 @@ export const FileExportModal = Comp(() => {
 
     startFileDrag({
       file: store.filePaths[0],
-      files: [...store.filePaths, ...store.sidecarPaths],
+      files: [...store.filePaths, ...store.sidecarPaths, ...store.subtitlePaths],
       icon: store.thumbPath,
     });
   };
@@ -50,7 +50,7 @@ export const FileExportModal = Comp(() => {
         <Text preset="title">{"Export Files"}</Text>
       </Modal.Header>
 
-      <Modal.Content dividers={false} align="center" spacing="0.5rem">
+      <Modal.Content dividers={false} align="center">
         <Text>{`Sidecar fields for ${store.fileIds.length} files`}</Text>
 
         <View column>

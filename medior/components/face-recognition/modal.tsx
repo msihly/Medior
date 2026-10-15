@@ -136,7 +136,6 @@ export const FaceRecognitionModal = Comp(() => {
     store.setIsDetecting(false);
     store.setDetectedFaces([]);
     store.setIsModalOpen(false);
-    stores.file.search.reloadIfQueued();
   };
 
   const handleDetect = async () => {

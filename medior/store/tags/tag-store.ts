@@ -254,8 +254,13 @@ export class TagStore extends Model({
     return source ? resolveTagCategory(source, this.categorySources) : tag?.category;
   }
 
-  tagSearchOptsToIds(options: TagOption[], withDescArrays = false) {
-    return options.reduce(
+  /** `label` renames the ids for tag fields other than `tagIds`, such as `requiredGenreIds`. */
+  tagSearchOptsToIds<Label extends string = "Tag">(
+    options: TagOption[],
+    withDescArrays = false,
+    label = "Tag" as Label,
+  ) {
+    const ids = options.reduce(
       (acc, cur) => {
         if (cur.searchType.includes("Desc")) {
           const childTagIds = withDescArrays ? cur.descendantIds : [];
@@ -294,5 +299,13 @@ export class TagStore extends Model({
         requiredTagIds: string[];
       },
     );
+
+    return Object.fromEntries(
+      Object.entries(ids).map(([key, value]) => [key.replace("Tag", label), value]),
+    ) as {
+      [Key in keyof typeof ids as Key extends `${infer Start}Tag${infer End}`
+        ? `${Start}${Label}${End}`
+        : Key]: (typeof ids)[Key];
+    };
   }
 }

@@ -9,13 +9,7 @@ export const StorageInputs = Comp(
     const store = stores.home.settings;
 
     return (
-      <Card
-        header="File Storage Locations"
-        column
-        spacing="0.5rem"
-        padding={{ all: "0.5rem" }}
-        bgColor={colors.foregroundCard}
-      >
+      <Card header="File Storage Locations" spacing="0.5rem" bgColor={colors.foregroundCard}>
         {store.db.fileStorage.locations.map((_, index) => (
           <StorageInput
             {...{ index, selectLocation }}

@@ -6,16 +6,18 @@ import type { FolderToCollMode, FolderToTagsMode, SortMenuProps } from "medior/c
 import {
   AudioCodec,
   CONSTANTS,
-  deepMerge,
   DEFAULT_HOTKEYS,
   handleErrors,
   Hotkeys,
   ImageExt,
+  mergePreset,
   migrateReencodeDimensions,
   NestedKeys,
+  SubtitleMode,
   VideoCodec,
   VideoExt,
 } from "medior/utils/common";
+import { isWithinFolder } from "medior/utils/server/source-folders";
 
 type DevToolsMode = null | Electron.OpenDevToolsOptions["mode"];
 
@@ -142,6 +144,8 @@ export interface Config {
     fileCardFit: "contain" | "cover";
     hideUnratedIcon: boolean;
     imageExts: Array<ImageExt>;
+    /** Deleted files keep a gzipped copy of their record beside each of their checksums. */
+    keepDeletedMetadata: boolean;
     reencode: {
       codec: string;
       /** Files with these tags or their descendants never qualify for Add Re-encodes. */
@@ -254,6 +258,7 @@ export interface Config {
     manager: {
       search: Search;
     };
+    subtitleMode: SubtitleMode;
     withDelimiters: boolean;
     withDiffModel: boolean;
     withDiffParams: boolean;
@@ -262,6 +267,14 @@ export interface Config {
     withFileNameToTags: boolean;
     withFolderNameRegEx: boolean;
     withNewTagsToRegEx: boolean;
+  };
+  mediaPrograms: {
+    languages: string[];
+    manager: {
+      search: Search;
+    };
+    mediums: string[];
+    types: string[];
   };
   ports: {
     db: number;
@@ -320,6 +333,7 @@ export const DEFAULT_CONFIG: Config = {
     fileCardFit: "contain",
     hideUnratedIcon: false,
     imageExts: [...CONSTANTS.IMAGE.EXTS_COMMON],
+    keepDeletedMetadata: false,
     reencode: {
       codec: "libx265",
       excludedDescTagIds: [],
@@ -434,6 +448,7 @@ export const DEFAULT_CONFIG: Config = {
         sort: { isDesc: true, key: "dateCreated" },
       },
     },
+    subtitleMode: "keep",
     withDelimiters: true,
     withDiffModel: true,
     withDiffParams: false,
@@ -442,6 +457,17 @@ export const DEFAULT_CONFIG: Config = {
     withFileNameToTags: false,
     withFolderNameRegEx: true,
     withNewTagsToRegEx: true,
+  },
+  mediaPrograms: {
+    languages: ["English", "Korean", "Japanese", "Chinese", "French", "Spanish", "German"],
+    manager: {
+      search: {
+        pageSize: 50,
+        sort: { isDesc: true, key: "dateModified" },
+      },
+    },
+    mediums: ["Animated", "Live-Action"],
+    types: ["Show", "Movie", "Podcast", "Livestream"],
   },
   ports: {
     db: 27070,
@@ -462,7 +488,9 @@ export const DEFAULT_CONFIG: Config = {
 let config: Config;
 
 export const setConfig = (value: Config) => {
-  config = deepMerge(DEFAULT_CONFIG, value);
+  // Saved lists replace the defaults; an index merge would restore removed entries. Both sides are
+  // copied so the live config never shares arrays with the defaults or the caller.
+  config = mergePreset(structuredClone(DEFAULT_CONFIG), structuredClone(value));
 
   return config;
 };
@@ -497,8 +525,27 @@ export const getAvailableFileStorage = (bytesNeeded: number) =>
 export const getScratchFolder = (storageFolder: string) =>
   getConfig().db.fileStorage.scratchPath || storageFolder;
 
-export const getConfig = (debugLoc?: string) => {
-  if (!config) throw new Error(`Config not loaded. ${debugLoc}`);
+/** Scratch output that may still be in use: the scratch folder, or storage's own scratch without one. */
+export const getIsActiveScratchPath = (filePath: string) => {
+  const { scratchPath } = getConfig().db.fileStorage;
+
+  return scratchPath ? isWithinFolder(scratchPath, filePath) : getIsStorageScratchPath(filePath);
+};
+
+export const getIsStoragePath = (filePath: string) =>
+  getConfig().db.fileStorage.locations.some((location) => isWithinFolder(location, filePath));
+
+/** Scratch output written into storage without a scratch folder: `_tmp` folders and transform temp files. */
+export const getIsStorageScratchPath = (filePath: string) =>
+  getConfig().db.fileStorage.locations.some(
+    (location) =>
+      isWithinFolder(path.join(location, "_tmp"), filePath) ||
+      (!path.relative(location, path.dirname(filePath)) &&
+        path.basename(filePath).startsWith("temp-")),
+  );
+
+export const getConfig = () => {
+  if (!config) throw new Error("Config not loaded.");
 
   return config;
 };
@@ -585,6 +632,7 @@ export const loadConfig = async (filePath: string) => {
     config.file.similarity.writerBatchSize = +config.file.similarity.writerBatchSize;
     config.file.search.pageSize = +config.file.search.pageSize;
     config.file.transforms.search.pageSize = +config.file.transforms.search.pageSize;
+    config.mediaPrograms.manager.search.pageSize = +config.mediaPrograms.manager.search.pageSize;
     config.ports.db = +config.ports.db;
     config.ports.server = +config.ports.server;
     config.ports.socket = +config.ports.socket;

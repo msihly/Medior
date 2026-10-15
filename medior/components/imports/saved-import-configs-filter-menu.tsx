@@ -10,7 +10,7 @@ export const SavedImportConfigsFilterMenu = Comp(
       color={colors.foreground}
       sortOptions={SORT_OPTIONS.SavedImportConfig}
     >
-      <Card column spacing="0.5rem" width="30rem">
+      <Card spacing="0.5rem" width="30rem">
         <Input header="Label" value={store.label} setValue={store.setLabel} />
 
         <Input header="Folder Path" value={store.folderPath} setValue={store.setFolderPath} />

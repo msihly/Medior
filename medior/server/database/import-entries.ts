@@ -1,7 +1,7 @@
 import { FileImportModel } from "medior/_generated/server/models";
 import { runBackgroundExecution } from "medior/server/database/background-execution";
 import { getBackgroundSession } from "medior/server/database/database-context";
-import { getCommonSourceFolder } from "medior/utils/server/source-folders";
+import { getCommonSourceFolder, mergeSourceFolders } from "medior/utils/server/source-folders";
 
 export const getImportSourceFolder = async (batchIds: string[], statuses?: string[]) => {
   let folder: string | undefined;
@@ -13,14 +13,7 @@ export const getImportSourceFolder = async (batchIds: string[], statuses?: strin
     .select({ path: 1 })
     .lean()
     .cursor({ batchSize: 500 })) {
-    const next = getCommonSourceFolder([entry.path]);
-
-    folder =
-      folder === undefined
-        ? next
-        : folder && next
-          ? getCommonSourceFolder([folder, next], true)
-          : null;
+    folder = mergeSourceFolders(folder, getCommonSourceFolder([entry.path]));
 
     if (folder === null) break;
   }

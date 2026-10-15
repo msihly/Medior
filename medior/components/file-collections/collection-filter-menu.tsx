@@ -43,7 +43,7 @@ export const CollectionFilterMenu = Comp(
             />
           </Card>
 
-          <Card column spacing="0.5rem">
+          <Card spacing="0.5rem">
             <Input
               header={
                 <FilterHeader label="Title" mode={store.titleMode} setMode={store.setTitleMode} />

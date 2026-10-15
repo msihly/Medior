@@ -26,7 +26,7 @@ export const getActions = async () => {
 };
 
 const makeFnAndTypeNames = (rawName: string, actions: { custom: string[]; model: string[] }) => {
-  const prefix = [...actions.custom].includes(rawName) ? "_" : "";
+  const prefix = actions.custom.includes(rawName) ? "_" : "";
 
   return { fnName: `${prefix}${rawName}`, typeName: `${prefix}${Fmt.capitalize(rawName)}Input` };
 };
@@ -259,7 +259,7 @@ export const makeActionsDef = async (
         socket.emit("on${modelDef.name}Updated", ${withDateModified ? "{ ...args, updates }" : "args"}, socketOpts);
 
         return updated;
-      }${usesMetadataWork(fnName) ? ")" : ""});`;
+      }${modelDef.name === "File" ? ", { getFileIds: ({ args }) => [args.id] })" : usesMetadataWork(fnName) ? ")" : ""});`;
   };
 
   return `/* ------------------------------------ ${modelDef.name} ----------------------------------- */
@@ -352,11 +352,13 @@ export const makeSearchActionsDef = async (
         )
         .join("\n\n")}
 
-      const sortDir = args.sortValue.isDesc ? -1 : 1;
+      // Callers that only need the match, like duplicate grouping, pass no sort value.
+      const sortValue = args.sortValue ?? { isDesc: false, key: "_id" };
+      const sortDir = sortValue.isDesc ? -1 : 1;
 
       return {
         $match,
-        $sort: { [args.sortValue.key]: sortDir, _id: sortDir } as { [key: string]: 1 | -1 },
+        $sort: { [sortValue.key]: sortDir, _id: sortDir } as { [key: string]: 1 | -1 },
       };
     };`;
   };

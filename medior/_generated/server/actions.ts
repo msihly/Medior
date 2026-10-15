@@ -205,11 +205,13 @@ export const createFileCollectionFilterPipeline = async (
     }
   }
 
-  const sortDir = args.sortValue.isDesc ? -1 : 1;
+  // Callers that only need the match, like duplicate grouping, pass no sort value.
+  const sortValue = args.sortValue ?? { isDesc: false, key: "_id" };
+  const sortDir = sortValue.isDesc ? -1 : 1;
 
   return {
     $match,
-    $sort: { [args.sortValue.key]: sortDir, _id: sortDir } as { [key: string]: 1 | -1 },
+    $sort: { [sortValue.key]: sortDir, _id: sortDir } as { [key: string]: 1 | -1 },
   };
 };
 
@@ -488,11 +490,13 @@ export const createFileImportBatchFilterPipeline = async (
     }
   }
 
-  const sortDir = args.sortValue.isDesc ? -1 : 1;
+  // Callers that only need the match, like duplicate grouping, pass no sort value.
+  const sortValue = args.sortValue ?? { isDesc: false, key: "_id" };
+  const sortDir = sortValue.isDesc ? -1 : 1;
 
   return {
     $match,
-    $sort: { [args.sortValue.key]: sortDir, _id: sortDir } as { [key: string]: 1 | -1 },
+    $sort: { [sortValue.key]: sortDir, _id: sortDir } as { [key: string]: 1 | -1 },
   };
 };
 
@@ -780,11 +784,13 @@ export const createFileTransformFilterPipeline = async (
     }
   }
 
-  const sortDir = args.sortValue.isDesc ? -1 : 1;
+  // Callers that only need the match, like duplicate grouping, pass no sort value.
+  const sortValue = args.sortValue ?? { isDesc: false, key: "_id" };
+  const sortDir = sortValue.isDesc ? -1 : 1;
 
   return {
     $match,
-    $sort: { [args.sortValue.key]: sortDir, _id: sortDir } as { [key: string]: 1 | -1 },
+    $sort: { [sortValue.key]: sortDir, _id: sortDir } as { [key: string]: 1 | -1 },
   };
 };
 
@@ -1363,11 +1369,13 @@ export const createFileFilterPipeline = async (args: CreateFileFilterPipelineInp
     }
   }
 
-  const sortDir = args.sortValue.isDesc ? -1 : 1;
+  // Callers that only need the match, like duplicate grouping, pass no sort value.
+  const sortValue = args.sortValue ?? { isDesc: false, key: "_id" };
+  const sortDir = sortValue.isDesc ? -1 : 1;
 
   return {
     $match,
-    $sort: { [args.sortValue.key]: sortDir, _id: sortDir } as { [key: string]: 1 | -1 },
+    $sort: { [sortValue.key]: sortDir, _id: sortDir } as { [key: string]: 1 | -1 },
   };
 };
 
@@ -1528,6 +1536,343 @@ export const listFilteredFile = makeAction(
   },
 );
 
+export type CreateMediaProgramFilterPipelineInput = {
+  dateCreatedEnd?: string;
+  dateCreatedMode?: "optional" | "required";
+  dateCreatedStart?: string;
+  dateLastWatchedEnd?: string;
+  dateLastWatchedMode?: "optional" | "required";
+  dateLastWatchedStart?: string;
+  dateModifiedEnd?: string;
+  dateModifiedMode?: "optional" | "required";
+  dateModifiedStart?: string;
+  excludedDescGenreIds?: string[];
+  excludedDescTagIds?: string[];
+  excludedGenreIds?: string[];
+  excludedTagIds?: string[];
+  fileCount?: { logOp: LogicalOp | ""; value: number };
+  fileCountMode?: "optional" | "required";
+  ids?: string[];
+  isRewatching?: boolean;
+  languages?: string[];
+  maxYear?: number;
+  mediums?: string[];
+  minYear?: number;
+  name?: string;
+  nameMode?: "optional" | "required";
+  optionalGenreIds?: string[];
+  optionalTagIds?: string[];
+  rating?: { logOp: LogicalOp | ""; value: number };
+  ratingMode?: "optional" | "required";
+  requiredDescGenreIds?: string[];
+  requiredDescTagIds?: string[];
+  requiredGenreIds?: string[];
+  requiredTagIds?: string[];
+  sortValue?: SortMenuProps["value"];
+  types?: string[];
+  watchStatuses?: string[];
+  yearMode?: "optional" | "required";
+};
+
+export const createMediaProgramFilterPipeline = async (
+  args: CreateMediaProgramFilterPipelineInput,
+) => {
+  const $match: FilterQuery<models.MediaProgramSchema> = {};
+
+  if (args.ids != null && !isDeepEqual(args.ids, []))
+    ($match.$and ??= []).push(setObj({}, ["_id", "$in"], objectIds(args.ids)));
+
+  if (args.isRewatching != null && !isDeepEqual(args.isRewatching, null))
+    setObj($match, ["isRewatching"], args.isRewatching);
+
+  if (args.languages != null && !isDeepEqual(args.languages, []))
+    setObj($match, ["language", "$in"], args.languages);
+
+  if (args.mediums != null && !isDeepEqual(args.mediums, []))
+    setObj($match, ["medium", "$in"], args.mediums);
+
+  if (args.types != null && !isDeepEqual(args.types, []))
+    setObj($match, ["type", "$in"], args.types);
+
+  if (args.watchStatuses != null && !isDeepEqual(args.watchStatuses, []))
+    setObj($match, ["watchStatus", "$in"], args.watchStatuses);
+
+  if (args.excludedDescGenreIds?.length)
+    setObj($match, ["genreIdsWithAncestors", "$nin"], objectIds(args.excludedDescGenreIds));
+
+  if (args.excludedGenreIds?.length)
+    setObj($match, ["genreIds", "$nin"], objectIds(args.excludedGenreIds));
+
+  if (args.optionalGenreIds?.length)
+    setObj($match, ["genreIds", "$in"], objectIds(args.optionalGenreIds));
+
+  if (args.requiredDescGenreIds?.length)
+    setObj($match, ["genreIdsWithAncestors", "$all"], objectIds(args.requiredDescGenreIds));
+
+  if (args.requiredGenreIds?.length)
+    setObj($match, ["genreIds", "$all"], objectIds(args.requiredGenreIds));
+
+  if (args.excludedDescTagIds?.length)
+    setObj($match, ["tagIdsWithAncestors", "$nin"], objectIds(args.excludedDescTagIds));
+
+  if (args.excludedTagIds?.length)
+    setObj($match, ["tagIds", "$nin"], objectIds(args.excludedTagIds));
+
+  if (args.optionalTagIds?.length)
+    setObj($match, ["tagIds", "$in"], objectIds(args.optionalTagIds));
+
+  if (args.requiredDescTagIds?.length)
+    setObj($match, ["tagIdsWithAncestors", "$all"], objectIds(args.requiredDescTagIds));
+
+  if (args.requiredTagIds?.length)
+    setObj($match, ["tagIds", "$all"], objectIds(args.requiredTagIds));
+
+  {
+    const filter: FilterQuery<models.MediaProgramSchema> = {};
+
+    if (
+      args.dateCreatedEnd != null &&
+      args.dateCreatedEnd !== "" &&
+      !isDeepEqual(args.dateCreatedEnd, "")
+    )
+      setObj(filter, ["dateCreated", "$lte"], args.dateCreatedEnd);
+
+    if (
+      args.dateCreatedStart != null &&
+      args.dateCreatedStart !== "" &&
+      !isDeepEqual(args.dateCreatedStart, "")
+    )
+      setObj(filter, ["dateCreated", "$gte"], args.dateCreatedStart);
+
+    if (Object.keys(filter).length) {
+      const operator = args.dateCreatedMode === "optional" ? "$or" : "$and";
+
+      ($match[operator] ??= []).push(filter);
+    }
+  }
+
+  {
+    const filter: FilterQuery<models.MediaProgramSchema> = {};
+
+    if (
+      args.dateLastWatchedEnd != null &&
+      args.dateLastWatchedEnd !== "" &&
+      !isDeepEqual(args.dateLastWatchedEnd, "")
+    )
+      setObj(filter, ["dateLastWatched", "$lte"], args.dateLastWatchedEnd);
+
+    if (
+      args.dateLastWatchedStart != null &&
+      args.dateLastWatchedStart !== "" &&
+      !isDeepEqual(args.dateLastWatchedStart, "")
+    )
+      setObj(filter, ["dateLastWatched", "$gte"], args.dateLastWatchedStart);
+
+    if (Object.keys(filter).length) {
+      const operator = args.dateLastWatchedMode === "optional" ? "$or" : "$and";
+
+      ($match[operator] ??= []).push(filter);
+    }
+  }
+
+  {
+    const filter: FilterQuery<models.MediaProgramSchema> = {};
+
+    if (
+      args.dateModifiedEnd != null &&
+      args.dateModifiedEnd !== "" &&
+      !isDeepEqual(args.dateModifiedEnd, "")
+    )
+      setObj(filter, ["dateModified", "$lte"], args.dateModifiedEnd);
+
+    if (
+      args.dateModifiedStart != null &&
+      args.dateModifiedStart !== "" &&
+      !isDeepEqual(args.dateModifiedStart, "")
+    )
+      setObj(filter, ["dateModified", "$gte"], args.dateModifiedStart);
+
+    if (Object.keys(filter).length) {
+      const operator = args.dateModifiedMode === "optional" ? "$or" : "$and";
+
+      ($match[operator] ??= []).push(filter);
+    }
+  }
+
+  {
+    const filter: FilterQuery<models.MediaProgramSchema> = {};
+
+    if (args.fileCount?.logOp && args.fileCount?.value != null)
+      setObj(filter, ["fileCount", logicOpsToMongo(args.fileCount.logOp)], args.fileCount.value);
+
+    if (Object.keys(filter).length) {
+      const operator = args.fileCountMode === "optional" ? "$or" : "$and";
+
+      ($match[operator] ??= []).push(filter);
+    }
+  }
+
+  {
+    const filter: FilterQuery<models.MediaProgramSchema> = {};
+
+    if (args.name != null && args.name !== "" && !isDeepEqual(args.name, ""))
+      addRegexSearchFilter(filter, ["name", "$regex"], args.name);
+
+    if (Object.keys(filter).length) {
+      const operator = args.nameMode === "optional" ? "$or" : "$and";
+
+      ($match[operator] ??= []).push(filter);
+    }
+  }
+
+  {
+    const filter: FilterQuery<models.MediaProgramSchema> = {};
+
+    if (args.rating?.logOp && args.rating?.value != null)
+      setObj(filter, ["rating", logicOpsToMongo(args.rating.logOp)], args.rating.value);
+
+    if (Object.keys(filter).length) {
+      const operator = args.ratingMode === "optional" ? "$or" : "$and";
+
+      ($match[operator] ??= []).push(filter);
+    }
+  }
+
+  {
+    const filter: FilterQuery<models.MediaProgramSchema> = {};
+
+    if (args.maxYear != null && !isDeepEqual(args.maxYear, null))
+      setObj(filter, ["year", "$lte"], args.maxYear);
+
+    if (args.minYear != null && !isDeepEqual(args.minYear, null))
+      setObj(filter, ["year", "$gte"], args.minYear);
+
+    if (Object.keys(filter).length) {
+      const operator = args.yearMode === "optional" ? "$or" : "$and";
+
+      ($match[operator] ??= []).push(filter);
+    }
+  }
+
+  // Callers that only need the match, like duplicate grouping, pass no sort value.
+  const sortValue = args.sortValue ?? { isDesc: false, key: "_id" };
+  const sortDir = sortValue.isDesc ? -1 : 1;
+
+  return {
+    $match,
+    $sort: { [sortValue.key]: sortDir, _id: sortDir } as { [key: string]: 1 | -1 },
+  };
+};
+
+export type GetShiftSelectedMediaProgramInput = CreateMediaProgramFilterPipelineInput & {
+  clickedId: string;
+  selectedIds: string[];
+};
+
+export const getShiftSelectedMediaProgram = makeAction(
+  async ({ clickedId, selectedIds, ...filterParams }: GetShiftSelectedMediaProgramInput) => {
+    const filterPipeline = await createMediaProgramFilterPipeline(filterParams);
+
+    return getShiftSelectedItems({
+      clickedId,
+      filterPipeline,
+      ids: filterParams.ids,
+      model: models.MediaProgramModel,
+      selectedIds,
+    });
+  },
+);
+
+export type GetFilteredMediaProgramCountInput = CreateMediaProgramFilterPipelineInput & {
+  curMaxPage: number;
+  forcePages?: boolean;
+  page: number;
+  pageSize: number;
+  withFull: boolean;
+};
+
+export const getFilteredMediaProgramCount = makeAction(
+  async ({
+    curMaxPage,
+    forcePages,
+    pageSize,
+    withFull,
+    ...filterParams
+  }: GetFilteredMediaProgramCountInput) => {
+    const filterPipeline = await createMediaProgramFilterPipeline(filterParams);
+    let count: number;
+    let pageCount: number;
+
+    if (forcePages || filterParams.ids?.length) {
+      const items = await listItemsByIds({
+        ids: filterParams.ids ?? [],
+        model: models.MediaProgramModel,
+        select: { _id: 1 },
+      });
+
+      count = items.length;
+      pageCount = Math.ceil(count / pageSize);
+    } else if (withFull) {
+      count = await models.MediaProgramModel.countDocuments(filterPipeline.$match).allowDiskUse(
+        true,
+      );
+
+      pageCount = Math.ceil(count / pageSize);
+    } else {
+      const targetPage = Math.max(1, filterParams.page ?? 1);
+      const targetMaxPage = targetPage >= (curMaxPage ?? 0) ? targetPage + 1000 : curMaxPage;
+      const probeLimit = targetMaxPage * pageSize;
+
+      count = await models.MediaProgramModel.countDocuments(filterPipeline.$match, {
+        limit: probeLimit,
+      }).allowDiskUse(true);
+
+      pageCount = count < probeLimit ? Math.ceil(count / pageSize) : targetMaxPage;
+    }
+
+    return { count, pageCount };
+  },
+);
+
+export type ListFilteredMediaProgramInput = CreateMediaProgramFilterPipelineInput & {
+  forcePages?: boolean;
+  page: number;
+  pageSize: number;
+  select?: Record<string, 1 | -1>;
+};
+
+export const listFilteredMediaProgram = makeAction(
+  async ({
+    forcePages,
+    page,
+    pageSize,
+    select,
+    ...filterParams
+  }: ListFilteredMediaProgramInput) => {
+    const filterPipeline = await createMediaProgramFilterPipeline(filterParams);
+    const hasIds = forcePages || filterParams.ids?.length > 0;
+
+    const items = await (hasIds
+      ? listItemsByIds({
+          ids: filterParams.ids ?? [],
+          model: models.MediaProgramModel,
+          ...(forcePages ? { page, pageSize } : {}),
+          select,
+        })
+      : models.MediaProgramModel.find(filterPipeline.$match)
+          .sort(filterPipeline.$sort)
+          .select(select)
+          .skip(Math.max(0, page - 1) * pageSize)
+          .limit(pageSize)
+          .allowDiskUse(true)
+          .lean());
+
+    if (!items) throw new Error("Failed to load filtered MediaProgram");
+
+    return items.map((i) => leanModelToJson<models.MediaProgramSchema>(i));
+  },
+);
+
 export type CreateSavedImportConfigFilterPipelineInput = {
   dateModifiedEnd?: string;
   dateModifiedMode?: "optional" | "required";
@@ -1576,11 +1921,13 @@ export const createSavedImportConfigFilterPipeline = async (
     }
   }
 
-  const sortDir = args.sortValue.isDesc ? -1 : 1;
+  // Callers that only need the match, like duplicate grouping, pass no sort value.
+  const sortValue = args.sortValue ?? { isDesc: false, key: "_id" };
+  const sortDir = sortValue.isDesc ? -1 : 1;
 
   return {
     $match,
-    $sort: { [args.sortValue.key]: sortDir, _id: sortDir } as { [key: string]: 1 | -1 },
+    $sort: { [sortValue.key]: sortDir, _id: sortDir } as { [key: string]: 1 | -1 },
   };
 };
 
@@ -1954,11 +2301,13 @@ export const createTagFilterPipeline = async (args: CreateTagFilterPipelineInput
     }
   }
 
-  const sortDir = args.sortValue.isDesc ? -1 : 1;
+  // Callers that only need the match, like duplicate grouping, pass no sort value.
+  const sortValue = args.sortValue ?? { isDesc: false, key: "_id" };
+  const sortDir = sortValue.isDesc ? -1 : 1;
 
   return {
     $match,
-    $sort: { [args.sortValue.key]: sortDir, _id: sortDir } as { [key: string]: 1 | -1 },
+    $sort: { [sortValue.key]: sortDir, _id: sortDir } as { [key: string]: 1 | -1 },
   };
 };
 
@@ -2740,7 +3089,118 @@ export const updateFile = makeAction(
 
       return updated;
     },
+    { getFileIds: ({ args }) => [args.id] },
   ),
+);
+/* ------------------------------------ MediaProgram ----------------------------------- */
+export const _createMediaProgram = makeAction(
+  async ({
+    args,
+    socketOpts,
+  }: {
+    args: Types._CreateMediaProgramInput;
+    socketOpts?: SocketEventOptions;
+  }) => {
+    const model = {
+      ...args,
+      dateCreated: dayjs().toISOString(),
+      collectionIdIndexes: [],
+      dateModified: null,
+      fileCount: 0,
+      genreIds: [],
+      isRewatching: false,
+      rating: 0,
+      rewatchCount: 0,
+      rewatchedFileIds: [],
+      size: 0,
+      tagIds: [],
+      tagIdsWithAncestors: [],
+      watchStatus: "unwatched" as const,
+      watchedFileIds: [],
+    };
+
+    const res = await new models.MediaProgramModel(model).save(metadataWriteOptions());
+    const created = { ...model, id: res._id.toString() };
+
+    socket.emit("onMediaProgramCreated", created, socketOpts);
+
+    return created;
+  },
+);
+
+export const deleteMediaProgram = makeAction(
+  async ({
+    args,
+    socketOpts,
+  }: {
+    args: Types.DeleteMediaProgramInput;
+    socketOpts?: SocketEventOptions;
+  }) => {
+    await models.MediaProgramModel.deleteMany({ _id: { $in: args.ids } }, metadataWriteOptions());
+
+    socket.emit("onMediaProgramDeleted", args, socketOpts);
+  },
+);
+
+export const listMediaProgram = makeAction(
+  async ({
+    args,
+  }: {
+    args?: Types.ListMediaProgramInput;
+  } = {}) => {
+    args ??= {};
+
+    const filter = { ...args.filter };
+
+    if (args.filter?.id) {
+      filter._id = Array.isArray(args.filter.id)
+        ? { $in: args.filter.id }
+        : typeof args.filter.id === "string"
+          ? { $in: [args.filter.id] }
+          : args.filter.id;
+
+      delete filter.id;
+    }
+
+    const items = await models.MediaProgramModel.find(filter)
+      .sort(args.sort ?? { dateCreated: "desc" })
+      .skip(Math.max(0, (args.page ?? 1) - 1) * (args.pageSize ?? 0))
+      .limit(args.pageSize ?? 0)
+      .allowDiskUse(true)
+      .lean();
+
+    const totalCount = await models.MediaProgramModel.countDocuments(filter);
+
+    if (!items || !(totalCount > -1)) throw new Error("Failed to load filtered MediaProgram");
+
+    return {
+      items: items.map((item) => leanModelToJson<models.MediaProgramSchema>(item)),
+      pageCount: args.pageSize > 0 ? Math.ceil(totalCount / args.pageSize) : Number(totalCount > 0),
+    };
+  },
+);
+
+export const _updateMediaProgram = makeAction(
+  async ({
+    args,
+    socketOpts,
+  }: {
+    args: Types._UpdateMediaProgramInput;
+    socketOpts?: SocketEventOptions;
+  }) => {
+    const updates = { ...args.updates, dateModified: dayjs().toISOString() };
+
+    const updated = leanModelToJson<models.MediaProgramSchema>(
+      await models.MediaProgramModel.findByIdAndUpdate(args.id, updates, {
+        new: true,
+        ...metadataWriteOptions(),
+      }).lean(),
+    );
+
+    socket.emit("onMediaProgramUpdated", { id: args.id, updates }, socketOpts);
+
+    return updated;
+  },
 );
 /* ------------------------------------ Notification ----------------------------------- */
 export const createNotification = makeAction(

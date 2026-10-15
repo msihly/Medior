@@ -25,29 +25,27 @@ export const ScratchInput = Comp(
     return (
       <Card
         header="Scratch Folder"
-        column
+        row
+        align="center"
         spacing="0.5rem"
-        padding={{ all: "0.5rem" }}
         bgColor={colors.foregroundCard}
       >
-        <View row align="center" spacing="0.5rem">
-          <Input configKey="db.fileStorage.scratchPath" onClick={handleLocationClick} flex={1} />
+        <Input configKey="db.fileStorage.scratchPath" onClick={handleLocationClick} flex={1} />
 
-          {value ? (
-            <DiskStatus diskPath={value} />
-          ) : (
-            <View row align="center" width="17rem">
-              <Text color={colors.custom.grey}>{"Uses the storage locations"}</Text>
-            </View>
-          )}
+        {value ? (
+          <DiskStatus diskPath={value} />
+        ) : (
+          <View row align="center" width="17rem">
+            <Text color={colors.custom.grey}>{"Uses the storage locations"}</Text>
+          </View>
+        )}
 
-          <IconButton
-            name="Close"
-            onClick={handleClear}
-            disabled={!value}
-            tooltip="Use the storage locations"
-          />
-        </View>
+        <IconButton
+          name="Close"
+          onClick={handleClear}
+          disabled={!value}
+          tooltip="Use the storage locations"
+        />
       </Card>
     );
   },

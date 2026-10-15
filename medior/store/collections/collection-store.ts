@@ -42,14 +42,15 @@ export class FileCollectionStore extends Model({
     this.editor.setIsLoading(true);
     this.manager.setIsLoading(true);
 
-    const res = await trpc.regenCollAttrs.mutate({ collIds });
+    try {
+      const res = await trpc.regenCollAttrs.mutate({ collIds });
+      if (!res.success) throw new Error(res.error);
 
-    this.editor.setIsLoading(false);
-    this.manager.setIsLoading(false);
-
-    if (!res.success) throw new Error(res.error);
-
-    toast.success("Collection metadata refresh queued in Activity");
+      toast.success("Collection metadata refresh queued in Activity");
+    } finally {
+      this.editor.setIsLoading(false);
+      this.manager.setIsLoading(false);
+    }
   });
 
   @modelFlow

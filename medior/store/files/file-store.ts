@@ -1,4 +1,5 @@
 import autoBind from "auto-bind";
+import { observable } from "mobx";
 import {
   ExtendedModel,
   getRootStore,
@@ -12,7 +13,7 @@ import { _FileStore, SortValue } from "medior/store/_generated";
 import * as db from "medior/server/database";
 import { FaceModel, RootStore } from "medior/store";
 import { asyncAction, toast } from "medior/utils/client";
-import { chunkArray } from "medior/utils/common";
+import { chunkArray, Fmt } from "medior/utils/common";
 import { trpc } from "medior/utils/server";
 import {
   File,
@@ -24,50 +25,59 @@ import {
   VideoTransformerStore,
 } from ".";
 
-export interface FileDeletionProgress {
-  message: string;
-  processedCount: number;
-  totalCount: number;
-}
-
 @model("medior/FileStore")
 export class FileStore extends ExtendedModel(_FileStore, {
-  actionCancelToken: prop<number>(0).withSetter(),
-  actionMessage: prop<string>("").withSetter(),
+  /** The server job deleting or unarchiving files started here. */
+  actionJobId: prop<string>(null).withSetter(),
   activeFileId: prop<string | null>(null).withSetter(),
   archivedFileIds: prop<string[]>(() => []).withSetter(),
-  deleteCancelToken: prop<number>(0).withSetter(),
   exporter: prop<FileExporterStore>(() => new FileExporterStore({})),
-  hasArchivedFiles: prop<boolean>(false).withSetter(),
   idsForConfirmDelete: prop<string[]>(() => []).withSetter(),
-  isActionCancelling: prop<boolean>(false).withSetter(),
-  isActionRunning: prop<boolean>(false).withSetter(),
+  isActionMinimized: prop<boolean>(false).withSetter(),
+  /** The files chosen for deletion are being checked before anything changes. */
+  isActionPreparing: prop<boolean>(false).withSetter(),
   isConfirmDeleteOpen: prop<boolean>(false).withSetter(),
   isInfoModalOpen: prop<boolean>(false).withSetter(),
-  isRefreshing: prop<boolean>(false).withSetter(),
   isRefreshMinimized: prop<boolean>(false).withSetter(),
   isRefreshOpen: prop<boolean>(false).withSetter(),
   lowerResolution: prop<LowerResolutionStore>(() => new LowerResolutionStore({})),
-  refreshCancelToken: prop<number>(0).withSetter(),
-  refreshCurrentFileId: prop<string | null>(null).withSetter(),
-  refreshCurrentFileName: prop<string | null>(null).withSetter(),
-  refreshErrorCount: prop<number>(0).withSetter(),
-  refreshFileIds: prop<string[]>(() => []).withSetter(),
-  refreshId: prop<string | null>(null).withSetter(),
-  refreshMessage: prop<string>("").withSetter(),
-  refreshProcessedCount: prop<number>(0).withSetter(),
-  refreshStepProgress: prop<number | null>(null).withSetter(),
-  refreshTotalCount: prop<number>(0).withSetter(),
+  /** The server job refreshing files that this window follows. */
+  refreshJobId: prop<string>(null).withSetter(),
   search: prop<FileSearch>(() => new FileSearch({})),
   similarity: prop<FileSimilarityStore>(() => new FileSimilarityStore({})),
   tagsEditor: prop<FileTagsEditorStore>(() => new FileTagsEditorStore({})),
   videoTransformer: prop<VideoTransformerStore>(() => new VideoTransformerStore({})),
 }) {
   private actionAbortController: AbortController = null;
-  private refreshAbortController: AbortController = null;
+  /** The files sent to the action job, in the order it processes them. */
+  private actionFileIds: string[] = [];
+  /**
+   * Files an operation is changing, by the operation's label, which can't be edited until done.
+   * Kept apart from the store's snapshots so locking the whole library stays cheap to update.
+   */
+  private fileLocks = observable.map<string, string>();
+  private releaseWaiters = new Map<string, (() => void)[]>();
 
   onInit() {
     autoBind(this);
+  }
+
+  private followAction(jobId: string) {
+    const stores = getRootStore<RootStore>(this);
+
+    if (stores.home.isFollowingJob(jobId)) return;
+
+    this.setActionJobId(jobId);
+    stores.home.followJob(jobId, this.finishAction);
+  }
+
+  private followRefresh(jobId: string) {
+    const stores = getRootStore<RootStore>(this);
+
+    if (stores.home.isFollowingJob(jobId)) return;
+
+    this.setRefreshJobId(jobId);
+    stores.home.followJob(jobId, this.finishRefresh);
   }
 
   /* ---------------------------- STANDARD ACTIONS ---------------------------- */
@@ -76,53 +86,8 @@ export class FileStore extends ExtendedModel(_FileStore, {
     this.search.results.splice(index + 1, 0, new File(file));
   }
 
-  @modelAction
-  cancelDeleteFiles() {
-    this.deleteCancelToken++;
-  }
-
-  @modelAction
-  cancelFileAction() {
-    this.setActionCancelToken(this.actionCancelToken + 1);
-    this.setIsActionCancelling(true);
+  cancelActionPreparation() {
     this.actionAbortController?.abort();
-    this.cancelDeleteFiles();
-  }
-
-  @modelAction
-  cancelFileRefresh() {
-    if (!this.isRefreshing) return;
-
-    const refreshId = this.refreshId;
-
-    this.refreshAbortController?.abort();
-    this.setRefreshCancelToken(this.refreshCancelToken + 1);
-    this.resetFileRefreshState();
-    toast.info("File refresh cancelled.");
-
-    if (refreshId) trpc.cancelFileRefresh.mutate({ refreshId }).catch(console.error);
-  }
-
-  @modelAction
-  handleFileRefreshProgress({
-    fileId,
-    fileName,
-    message,
-    progress,
-    refreshId,
-  }: {
-    fileId: string;
-    fileName: string;
-    message: string;
-    progress?: number;
-    refreshId: string;
-  }) {
-    if (refreshId !== this.refreshId) return;
-
-    this.setRefreshCurrentFileId(fileId);
-    this.setRefreshCurrentFileName(fileName);
-    this.setRefreshMessage(message);
-    this.setRefreshStepProgress(progress ?? null);
   }
 
   @modelAction
@@ -146,18 +111,6 @@ export class FileStore extends ExtendedModel(_FileStore, {
   }
 
   @modelAction
-  resetFileRefreshState() {
-    this.refreshAbortController = null;
-    this.setIsRefreshMinimized(false);
-    this.setIsRefreshOpen(false);
-    this.setIsRefreshing(false);
-    this.setRefreshCurrentFileId(null);
-    this.setRefreshCurrentFileName(null);
-    this.setRefreshFileIds([]);
-    this.setRefreshId(null);
-  }
-
-  @modelAction
   updateArchivedFileIds(fileIds: string[], isArchived: boolean) {
     const updatedIds = new Set(fileIds);
 
@@ -166,8 +119,28 @@ export class FileStore extends ExtendedModel(_FileStore, {
         ? [...new Set([...this.archivedFileIds, ...fileIds])]
         : this.archivedFileIds.filter((id) => !updatedIds.has(id)),
     );
+  }
 
-    this.setHasArchivedFiles(this.archivedFileIds.length > 0);
+  @modelAction
+  setFileLocks(locks: { fileIds: string[]; label: string }[]) {
+    this.fileLocks.replace(
+      locks.flatMap(({ fileIds, label }) =>
+        fileIds.map((fileId): [string, string] => [fileId, label]),
+      ),
+    );
+  }
+
+  /** Locks files for the labeled operation, or releases them without a label. */
+  @modelAction
+  updateFileLocks({ fileIds, label }: { fileIds: string[]; label: string | null }) {
+    for (const fileId of fileIds) {
+      if (label) this.fileLocks.set(fileId, label);
+      else {
+        this.fileLocks.delete(fileId);
+        this.releaseWaiters.get(fileId)?.forEach((resolve) => resolve());
+        this.releaseWaiters.delete(fileId);
+      }
+    }
   }
 
   @modelAction
@@ -211,6 +184,8 @@ export class FileStore extends ExtendedModel(_FileStore, {
       ...stores.collection.manager.selectedFiles,
       ...stores.collection.editor.fileSearch.results,
       ...stores.collection.manager.search.files.values(),
+      ...stores.mediaProgram.editor.search.results,
+      ...stores.mediaProgram.manager.search.files.values(),
     ];
 
     this.updateFiles(fileIds, updates);
@@ -219,6 +194,25 @@ export class FileStore extends ExtendedModel(_FileStore, {
     for (const file of files) {
       if (updatedIds.has(file.id)) file.update(updates);
     }
+  }
+
+  /** Resolves once a job has finished with a file, which it releases then, or has ended. */
+  async waitForFileRelease(fileId: string, jobId: string) {
+    const stores = getRootStore<RootStore>(this);
+
+    let onRelease: () => void;
+    const release = new Promise<void>((resolve) => {
+      onRelease = resolve;
+      this.releaseWaiters.set(fileId, [...(this.releaseWaiters.get(fileId) ?? []), resolve]);
+    });
+
+    await Promise.race([release, stores.home.waitForJob(jobId)]);
+
+    // A job that ended first leaves no waiter behind.
+    const waiters = this.releaseWaiters.get(fileId)?.filter((resolve) => resolve !== onRelease);
+
+    if (waiters?.length) this.releaseWaiters.set(fileId, waiters);
+    else this.releaseWaiters.delete(fileId);
   }
 
   /* ------------------------------ ASYNC ACTIONS ----------------------------- */
@@ -245,126 +239,60 @@ export class FileStore extends ExtendedModel(_FileStore, {
   confirmDeleteFiles = asyncAction(async (ids: string[]) => {
     if (this.isActionRunning || !ids.length) return;
 
-    const cancelToken = this.actionCancelToken;
+    const abortController = new AbortController();
 
+    this.actionAbortController = abortController;
     this.setIdsForConfirmDelete([...ids]);
-    this.setIsActionCancelling(false);
-    this.setIsActionRunning(true);
-    this.setActionMessage("Preparing files…");
-    this.actionAbortController = new AbortController();
+    this.setIsActionMinimized(false);
+    this.setIsActionPreparing(true);
 
     try {
       const res = await trpc.listFile.mutate(
         { args: { filter: { id: ids } } },
-        { signal: this.actionAbortController.signal },
+        { signal: abortController.signal },
       );
 
-      if (cancelToken !== this.actionCancelToken) return;
+      if (abortController.signal.aborted) return;
 
       if (!res.success) throw new Error(res.error);
-
-      this.actionAbortController = null;
 
       if (res.data.items.some((file) => file.isArchived)) this.setIsConfirmDeleteOpen(true);
       else {
-        const deleted = await this.deleteFiles(({ message }) => this.setActionMessage(message));
-
+        const deleted = await this.deleteFiles(abortController.signal);
         if (!deleted.success) throw new Error(deleted.error);
       }
     } catch (error) {
-      if (cancelToken === this.actionCancelToken) toast.error(error);
+      if (!abortController.signal.aborted) toast.error(error);
     } finally {
       this.actionAbortController = null;
-      this.setIsActionRunning(false);
-      this.setIsActionCancelling(false);
+      this.setIsActionPreparing(false);
     }
   });
 
+  /**
+   * Archives the chosen files still in the library and deletes those already archived. A deletion
+   * cancelled while it was starting is stopped as soon as it has started.
+   */
   @modelFlow
-  deleteFiles = asyncAction(async (onProgress?: (progress: FileDeletionProgress) => void) => {
-    const cancelToken = this.deleteCancelToken;
+  deleteFiles = asyncAction(async (signal?: AbortSignal) => {
+    const stores = getRootStore<RootStore>(this);
+
     const fileIds = [...this.idsForConfirmDelete];
+    if (!fileIds.length) throw new Error("No files to delete");
 
-    if (!fileIds?.length) throw new Error("No files to delete");
+    this.setIsActionPreparing(true);
 
-    const isCancelled = () => this.deleteCancelToken !== cancelToken;
-
-    const reportProgress = (processedCount: number, message: string) =>
-      onProgress?.({ message, processedCount, totalCount: fileIds.length });
-
-    reportProgress(0, `Processing ${fileIds.length} files.`);
-
-    const archivedIds: string[] = [];
-    const deletedIds: string[] = [];
-
-    for (const chunk of chunkArray(fileIds, 1000)) {
-      if (isCancelled()) break;
-
-      const res = await trpc.listFileSelectionState.mutate({ fileIds: chunk });
-
+    try {
+      const res = await trpc.startFileDeletion.mutate({ fileIds });
       if (!res.success) throw new Error(res.error);
 
-      for (const file of res.data) {
-        if (file.isArchived) deletedIds.push(file.id);
-        else archivedIds.push(file.id);
-      }
+      this.actionFileIds = fileIds;
+      this.followAction(res.data);
+
+      if (signal?.aborted) await stores.home.stopJob(res.data);
+    } finally {
+      this.setIsActionPreparing(false);
     }
-
-    if (!deletedIds.length && !archivedIds.length) throw new Error("No files to delete or archive");
-
-    const processedIds: string[] = [];
-    let processedCount = 0;
-
-    for (const chunk of chunkArray(archivedIds, 200)) {
-      if (isCancelled()) break;
-
-      const res = await trpc.setFileIsArchived.mutate({ fileIds: chunk, isArchived: true });
-
-      if (!res.success) throw new Error(`Error archiving files: ${res.error}`);
-
-      this.updateArchivedFileIds(chunk, true);
-      this.search.removeFiles(chunk);
-      processedIds.push(...chunk);
-      processedCount += chunk.length;
-      reportProgress(
-        processedCount,
-        `Archived ${processedCount} / ${archivedIds.length} files; ${deletedIds.length} files remain to be deleted.`,
-      );
-    }
-
-    const archivedCount = processedCount;
-
-    if (archivedCount) toast.warn(`${archivedCount} files archived`);
-
-    let deletedCount = 0;
-
-    for (const chunk of chunkArray(deletedIds, 200)) {
-      if (isCancelled()) break;
-
-      const deleteRes = await trpc.deleteFiles.mutate({ fileIds: chunk, withTagRegen: false });
-
-      if (!deleteRes.success) throw new Error(deleteRes.error);
-
-      this.updateArchivedFileIds(chunk, false);
-      this.search.removeFiles(chunk);
-      processedIds.push(...chunk);
-
-      deletedCount += chunk.length;
-      processedCount += chunk.length;
-
-      reportProgress(processedCount, `Deleted ${deletedCount} / ${deletedIds.length} files.`);
-    }
-
-    this.search.toggleSelected(processedIds.map((id) => ({ id, isSelected: false })));
-    this.setIdsForConfirmDelete([]);
-    this.setIsConfirmDeleteOpen(false);
-
-    if (deletedCount) toast.warn(`${deletedCount} files deleted`);
-
-    if (this.search.isArchived)
-      await this.search.loadFiltered({ noCache: true, page: 1, withFullCount: true });
-
-    return { archivedCount, deletedCount };
   });
 
   @modelFlow
@@ -400,117 +328,48 @@ export class FileStore extends ExtendedModel(_FileStore, {
     if (!res.success) throw new Error(res.error);
 
     this.setArchivedFileIds(res.data);
-    this.setHasArchivedFiles(res.data.length > 0);
   });
 
   @modelFlow
-  refreshFiles = asyncAction(async (args: { ids: string[] }) => {
-    if (!args.ids.length) return;
+  loadFileLocks = asyncAction(async () => {
+    const res = await trpc.listFileLocks.mutate();
+    if (!res.success) throw new Error(res.error);
 
+    this.setFileLocks(res.data);
+  });
+
+  /**
+   * Starts refreshing files on the server, or adds them to the refresh already running. Returns
+   * the refresh's job ID, or nothing when it couldn't start.
+   */
+  @modelFlow
+  refreshFiles = asyncAction(async (args: { ids: string[] }) => {
+    if (!args.ids.length) return null;
+
+    try {
+      const res = await trpc.startFileRefresh.mutate({ fileIds: args.ids });
+      if (!res.success) throw new Error(res.error);
+
+      this.setIsRefreshMinimized(false);
+      this.setIsRefreshOpen(true);
+      this.followRefresh(res.data);
+
+      return res.data;
+    } catch (error) {
+      toast.error(error);
+
+      return null;
+    }
+  });
+
+  /** Stops the running refresh, as saving settings that restart its services does. */
+  @modelFlow
+  stopFileRefresh = asyncAction(async () => {
     const stores = getRootStore<RootStore>(this);
 
-    const ids = [...new Set(args.ids)];
+    const job = stores.home.getJob("refreshFiles");
 
-    if (this.isRefreshing) {
-      this.setRefreshFileIds([...new Set([...this.refreshFileIds, ...ids])]);
-      this.setRefreshTotalCount(this.refreshFileIds.length);
-      this.setIsRefreshMinimized(false);
-      this.setIsRefreshOpen(true);
-    } else {
-      const abortController = new AbortController();
-      const cancelToken = this.refreshCancelToken;
-      const refreshId = crypto.randomUUID();
-
-      const isCurrentRefresh = () =>
-        this.refreshId === refreshId && this.refreshCancelToken === cancelToken;
-
-      this.refreshAbortController = abortController;
-      this.setIsRefreshMinimized(false);
-      this.setIsRefreshOpen(true);
-      this.setIsRefreshing(true);
-      this.setRefreshCurrentFileId(null);
-      this.setRefreshCurrentFileName(null);
-      this.setRefreshErrorCount(0);
-      this.setRefreshFileIds(ids);
-      this.setRefreshId(refreshId);
-      this.setRefreshMessage("Preparing refresh queue.");
-      this.setRefreshProcessedCount(0);
-      this.setRefreshStepProgress(null);
-      this.setRefreshTotalCount(ids.length);
-
-      try {
-        while (isCurrentRefresh() && this.refreshProcessedCount < this.refreshFileIds.length) {
-          const fileId = this.refreshFileIds[this.refreshProcessedCount];
-          const file =
-            this.getById(fileId) ??
-            stores.collection.editor.getFileById(fileId) ??
-            stores.collection.editor.fileSearch.getResult(fileId);
-
-          this.setRefreshCurrentFileId(fileId);
-          this.setRefreshCurrentFileName(file?.originalName ?? fileId);
-          this.setRefreshMessage("Starting refresh.");
-          this.setRefreshStepProgress(null);
-
-          try {
-            const res = await trpc.refreshFileInfo.mutate(
-              { fileId, refreshId },
-              { signal: abortController.signal },
-            );
-
-            if (isCurrentRefresh()) {
-              if (!res.success) throw new Error(res.error);
-
-              this.updateVisibleFiles([fileId], res.data);
-            }
-          } catch (error) {
-            if (isCurrentRefresh()) {
-              console.error(error);
-              this.setRefreshErrorCount(this.refreshErrorCount + 1);
-            }
-          } finally {
-            if (isCurrentRefresh()) {
-              this.setRefreshProcessedCount(this.refreshProcessedCount + 1);
-              this.setRefreshTotalCount(this.refreshFileIds.length);
-            }
-          }
-
-          if (isCurrentRefresh() && this.refreshProcessedCount === this.refreshFileIds.length) {
-            this.setRefreshMessage("Reloading refreshed files.");
-
-            try {
-              const res = await (stores.collection.editor.isOpen
-                ? stores.collection.editor.search.loadFiltered()
-                : this.search.loadFiltered());
-
-              if (!res.success) console.error(res.error);
-            } catch (error) {
-              console.error(error);
-            }
-          }
-        }
-
-        if (isCurrentRefresh()) {
-          const errorCount = this.refreshErrorCount;
-          const refreshedCount = this.refreshProcessedCount - errorCount;
-          const totalCount = this.refreshTotalCount;
-
-          this.resetFileRefreshState();
-
-          if (errorCount) toast.warn(`Refreshed ${refreshedCount} / ${totalCount} files.`);
-          else toast.success(`Refreshed ${refreshedCount} files.`);
-        }
-      } finally {
-        if (this.refreshId === refreshId) this.resetFileRefreshState();
-
-        try {
-          const res = await trpc.finishFileRefresh.mutate({ refreshId });
-
-          if (!res.success) console.error(res.error);
-        } catch (error) {
-          console.error(error);
-        }
-      }
-    }
+    if (job) await stores.home.stopJob(job.id);
   });
 
   @modelFlow
@@ -528,45 +387,98 @@ export class FileStore extends ExtendedModel(_FileStore, {
 
   @modelFlow
   unarchiveFiles = asyncAction(async ({ fileIds }: { fileIds: string[] }) => {
-    if (!fileIds?.length || this.isActionRunning) return false;
+    if (!fileIds?.length || this.isActionRunning) return;
 
-    const cancelToken = this.actionCancelToken;
-    let processedCount = 0;
-
-    this.setIsActionCancelling(false);
-    this.setIsActionRunning(true);
-    this.setActionMessage(`Unarchiving ${fileIds.length} files…`);
+    this.setIsActionMinimized(false);
+    this.setIsActionPreparing(true);
 
     try {
-      for (const ids of chunkArray(fileIds, 200)) {
-        if (cancelToken !== this.actionCancelToken) break;
+      const res = await trpc.startFileUnarchive.mutate({ fileIds });
+      if (!res.success) throw new Error(res.error);
 
-        const res = await trpc.setFileIsArchived.mutate({ fileIds: ids, isArchived: false });
-
-        if (!res.success) throw new Error(res.error);
-
-        this.updateArchivedFileIds(ids, false);
-        this.search.toggleSelected(ids.map((id) => ({ id, isSelected: false })));
-        this.search.removeFiles(ids);
-        processedCount += ids.length;
-        this.setActionMessage(`Unarchived ${processedCount} / ${fileIds.length} files`);
-      }
-
-      toast.info(`${processedCount} files unarchived`);
-
-      return cancelToken === this.actionCancelToken;
+      this.actionFileIds = fileIds;
+      this.followAction(res.data);
     } catch (error) {
       toast.error(error);
-
-      return false;
     } finally {
-      this.setIsActionRunning(false);
-      this.setIsActionCancelling(false);
+      this.setIsActionPreparing(false);
     }
   });
 
+  /**
+   * Takes in a deletion or unarchiving job's results once it ends. Unarchiving goes through its
+   * files in order, so the processed count covers the first.
+   */
+  @modelFlow
+  private finishAction = asyncAction(async (job: db.JobState) => {
+    const processedIds =
+      job.type === "unarchiveFiles"
+        ? this.actionFileIds.slice(0, job.processed)
+        : job.processed === job.total
+          ? this.actionFileIds
+          : [];
+
+    if (this.actionJobId === job.id) this.setActionJobId(null);
+
+    this.actionFileIds = [];
+    this.setIsActionMinimized(false);
+    this.search.toggleSelected(processedIds.map((id) => ({ id, isSelected: false })));
+
+    if (job.error) toast.error(job.error);
+
+    if (job.type === "unarchiveFiles") {
+      this.search.removeFiles(processedIds);
+      toast.info(`${Fmt.commas(job.processed)} files unarchived`);
+    } else {
+      this.setIdsForConfirmDelete([]);
+      this.setIsConfirmDeleteOpen(false);
+
+      if (job.message) toast.warn(job.message);
+    }
+  });
+
+  /** Refreshed files were updated in place as each finished, so only the result is reported. */
+  @modelFlow
+  private finishRefresh = asyncAction(async (job: db.JobState) => {
+    const failedCount = job.failures.reduce((count, failure) => count + failure.count, 0);
+    const refreshedCount = job.processed - failedCount;
+
+    if (this.refreshJobId === job.id) this.setRefreshJobId(null);
+
+    this.setIsRefreshMinimized(false);
+    this.setIsRefreshOpen(false);
+
+    if (job.error) toast.error(job.error);
+    else if (job.isStopping)
+      toast.info(`File refresh stopped after ${Fmt.commas(refreshedCount)} files.`);
+    else if (failedCount)
+      toast.warn(`Refreshed ${Fmt.commas(refreshedCount)} / ${Fmt.commas(job.total)} files.`);
+    else toast.success(`Refreshed ${Fmt.commas(refreshedCount)} files.`);
+  });
+
   /* --------------------------------- DYNAMIC GETTERS -------------------------------- */
+  get actionJob() {
+    return getRootStore<RootStore>(this).home.jobs.find((job) => job.id === this.actionJobId);
+  }
+
+  get hasArchivedFiles() {
+    return this.archivedFileIds.length > 0;
+  }
+
+  get isActionRunning() {
+    return this.isActionPreparing || !!this.actionJobId;
+  }
+
+  get refreshJob() {
+    return getRootStore<RootStore>(this).home.jobs.find((job) => job.id === this.refreshJobId);
+  }
+
   getById(id: string) {
     return this.search.results.find((f) => f.id === id);
+  }
+
+  /** The label of the operation locking a file, if any. */
+  getFileLock(fileId: string) {
+    return this.fileLocks.get(fileId);
   }
 }

@@ -14,157 +14,195 @@ import { colors, makeClasses, openSearchWindow } from "medior/utils/client";
 import { CONSTANTS } from "medior/utils/common";
 
 export interface DrawerProps {
+  hasDuplicates?: boolean;
   hasImports?: boolean;
   hasSettings?: boolean;
 }
 
-export const Drawer = Comp(({ hasImports = false, hasSettings = false }: DrawerProps) => {
-  const stores = useStores();
+export const Drawer = Comp(
+  ({ hasDuplicates = false, hasImports = false, hasSettings = false }: DrawerProps) => {
+    const stores = useStores();
+    const lowerResolution = stores.file.lowerResolution;
 
-  const { css, cx } = useClasses(null);
+    const { css, cx } = useClasses(null);
 
-  const activeOperationCount = stores.home.backgroundOperations.filter(
-    ({ status }) => status === "PENDING" || status === "RUNNING",
-  ).length;
-  const tooltipProps: Partial<TooltipProps> = {
-    placement: "right",
-  };
+    const activeOperationCount = stores.home.backgroundOperations.filter(
+      ({ status }) => status === "PENDING" || status === "RUNNING",
+    ).length;
 
-  const handleActivity = () => {
-    stores.home.setIsActivityOpen(true);
-  };
+    const tooltipProps: Partial<TooltipProps> = { placement: "right" };
 
-  const handleCollections = () => {
-    stores.collection.manager.setSelectedFileIds([]);
-    stores.collection.manager.setIsOpen(true);
-  };
+    const handleActivity = () => stores.home.setIsActivityOpen(true);
 
-  const handleImport = () => stores.import.manager.setIsOpen(true);
+    const handleCollections = () => {
+      stores.collection.manager.setSelectedFileIds([]);
+      stores.collection.manager.setIsOpen(true);
+    };
 
-  const handleManageTags = () => stores.tag.manager.setIsOpen(true);
+    const handleFindDuplicates = () => lowerResolution.open();
 
-  const handleSearchWindow = () => openSearchWindow();
+    const handleImport = () => stores.import.manager.setIsOpen(true);
 
-  const handleSettings = () => stores.home.settings.setIsOpen(true);
+    const handleManageTags = () => stores.tag.manager.setIsOpen(true);
 
-  const handleVideoTransformer = () => {
-    stores.file.videoTransformer.setFileIds([]);
-    stores.file.videoTransformer.setFnType(null);
-    stores.file.videoTransformer.setIsOpen(true);
-  };
+    const handleMediaPrograms = () => stores.mediaProgram.manager.setIsOpen(true);
 
-  useEffect(() => {
-    stores.file.loadArchivedFileIds();
-    stores.home.loadBackgroundActivity();
-    stores.file.videoTransformer.getTransformerStatus();
-    stores.file.videoTransformer.loadQueueCount();
-  }, []);
+    const handleSearchWindow = () => openSearchWindow();
 
-  return (
-    <View className={css.drawer}>
-      <View column spacing="0.5rem">
-        {hasSettings && (
+    const handleSettings = () => stores.home.settings.setIsOpen(true);
+
+    const handleVideoTransformer = () => {
+      stores.file.videoTransformer.setFileIds([]);
+      stores.file.videoTransformer.setFnType(null);
+      stores.file.videoTransformer.setIsOpen(true);
+    };
+
+    useEffect(() => {
+      stores.file.loadArchivedFileIds();
+      stores.home.loadBackgroundActivity();
+      stores.file.videoTransformer.getTransformerStatus();
+      stores.file.videoTransformer.loadQueueCount();
+
+      if (hasDuplicates) lowerResolution.loadStatus();
+    }, []);
+
+    return (
+      <View className={css.drawer}>
+        <View column spacing="0.5rem">
+          {hasSettings && (
+            <IconButton
+              name="Settings"
+              tooltip="Open Settings"
+              onClick={handleSettings}
+              {...{ tooltipProps }}
+            />
+          )}
+
+          {hasImports && (
+            <View display="inline-flex" position="relative" flex="none">
+              <IconButton
+                name="GetApp"
+                tooltip="Open Import Manager"
+                onClick={handleImport}
+                {...{ tooltipProps }}
+              />
+
+              <ActivityBadge
+                isPaused={stores.import.manager.isPaused}
+                isRunning={stores.import.manager.isImporting}
+              />
+            </View>
+          )}
+
           <IconButton
-            name="Settings"
-            tooltip="Open Settings"
-            onClick={handleSettings}
+            name="Label"
+            tooltip="Open Tag Manager"
+            onClick={handleManageTags}
             {...{ tooltipProps }}
           />
-        )}
 
-        {hasImports && (
+          <IconButton
+            {...{ tooltipProps }}
+            name="Collections"
+            tooltip="Open Collection Manager"
+            onClick={handleCollections}
+          />
+
+          <IconButton
+            name="LiveTv"
+            tooltip="Open Media Programs"
+            onClick={handleMediaPrograms}
+            {...{ tooltipProps }}
+          />
+
+          <IconButton
+            name="Search"
+            tooltip="Open New Search Window"
+            onClick={handleSearchWindow}
+            {...{ tooltipProps }}
+          />
+
           <View display="inline-flex" position="relative" flex="none">
             <IconButton
-              name="GetApp"
-              tooltip="Open Import Manager"
-              onClick={handleImport}
+              name="MovieFilter"
+              tooltip="Open Media Transformer"
+              onClick={handleVideoTransformer}
               {...{ tooltipProps }}
             />
 
             <ActivityBadge
-              isPaused={stores.import.manager.isPaused}
-              isRunning={stores.import.manager.isImporting}
+              isPaused={stores.file.videoTransformer.hasPausedQueue}
+              isRunning={stores.file.videoTransformer.isTransforming}
             />
           </View>
-        )}
 
-        <View display="inline-flex" position="relative" flex="none">
-          <IconButton
-            name="MovieFilter"
-            tooltip="Open Media Transformer"
-            onClick={handleVideoTransformer}
-            {...{ tooltipProps }}
-          />
+          {hasDuplicates && (
+            <View display="inline-flex" position="relative" flex="none">
+              <IconButton
+                name="ImageSearch"
+                tooltip="Find Duplicates"
+                onClick={handleFindDuplicates}
+                {...{ tooltipProps }}
+              />
 
-          <ActivityBadge
-            isPaused={stores.file.videoTransformer.hasPausedQueue}
-            isRunning={stores.file.videoTransformer.isTransforming}
-          />
-        </View>
-
-        <IconButton
-          name="Label"
-          tooltip="Open Tag Manager"
-          onClick={handleManageTags}
-          {...{ tooltipProps }}
-        />
-
-        <IconButton
-          {...{ tooltipProps }}
-          name="Collections"
-          tooltip="Open Collection Manager"
-          onClick={handleCollections}
-        />
-
-        <IconButton
-          name="Search"
-          tooltip="Open New Search Window"
-          onClick={handleSearchWindow}
-          {...{ tooltipProps }}
-        />
-
-        <IconButton
-          name={stores.file.hasArchivedFiles ? "Delete" : "DeleteOutline"}
-          tooltip="Delete Archived Files"
-          onClick={stores.file.confirmDeleteArchivedFiles}
-          disabled={!stores.file.hasArchivedFiles}
-          {...{ tooltipProps }}
-        />
-      </View>
-
-      <View column flex={1} justify="flex-end">
-        <View display="inline-flex" position="relative" flex="none">
-          <IconButton
-            name={
-              stores.home.hasUnreadErrors
-                ? "NotificationImportant"
-                : stores.home.hasRunningBackgroundOperations
-                  ? "NotificationsActive"
-                  : stores.home.hasUnreadNotifications
-                    ? "Notifications"
-                    : "NotificationsNone"
-            }
-            tooltip="Open Activity"
-            onClick={handleActivity}
-            {...{ tooltipProps }}
-          />
-
-          {activeOperationCount > 0 && (
-            <View className={cx(css.badge, css.count)}>
-              <Text color="inherit" fontSize="0.75rem" fontWeight={500} lineHeight={1}>
-                {activeOperationCount > 99 ? "99+" : activeOperationCount}
-              </Text>
+              <ActivityBadge
+                isPaused={
+                  lowerResolution.displayStatus === "paused" ||
+                  lowerResolution.displayStatus === "groupingPaused"
+                }
+                isRunning={lowerResolution.isScanning || lowerResolution.isGrouping}
+              />
             </View>
           )}
+
+          <IconButton
+            name={stores.file.hasArchivedFiles ? "Delete" : "DeleteOutline"}
+            tooltip="Delete Archived Files"
+            onClick={stores.file.confirmDeleteArchivedFiles}
+            disabled={!stores.file.hasArchivedFiles}
+            {...{ tooltipProps }}
+          />
         </View>
+
+        <View column flex={1} justify="flex-end">
+          <View display="inline-flex" position="relative" flex="none">
+            <IconButton
+              name={
+                stores.home.hasUnreadErrors
+                  ? "NotificationImportant"
+                  : stores.home.hasRunningBackgroundOperations
+                    ? "NotificationsActive"
+                    : stores.home.hasUnreadNotifications
+                      ? "Notifications"
+                      : "NotificationsNone"
+              }
+              tooltip="Open Activity"
+              onClick={handleActivity}
+              {...{ tooltipProps }}
+            />
+
+            {activeOperationCount > 0 && (
+              <View className={cx(css.badge, css.count)}>
+                <Text color="inherit" fontSize="0.75rem" fontWeight={500} lineHeight={1}>
+                  {activeOperationCount > 99 ? "99+" : activeOperationCount}
+                </Text>
+              </View>
+            )}
+          </View>
+        </View>
+
+        {stores.home.isActivityOpen && <BackgroundActivityModal />}
       </View>
+    );
+  },
+);
 
-      {stores.home.isActivityOpen && <BackgroundActivityModal />}
-    </View>
-  );
-});
+export interface ActivityBadgeProps {
+  isPaused: boolean;
+  isRunning: boolean;
+}
 
-const ActivityBadge = Comp(({ isPaused, isRunning }: { isPaused: boolean; isRunning: boolean }) => {
+export const ActivityBadge = Comp(({ isPaused, isRunning }: ActivityBadgeProps) => {
   const { css } = useClasses(null);
 
   if (!isPaused && !isRunning) return null;
@@ -182,9 +220,7 @@ const ActivityBadge = Comp(({ isPaused, isRunning }: { isPaused: boolean; isRunn
 
 const useClasses = makeClasses((_, theme) => ({
   drawer: {
-    position: "fixed",
-    top: 0,
-    left: 0,
+    flexShrink: 0,
     overflowY: "auto",
     color: theme.palette.text.primary,
     "&::-webkit-scrollbar": {
@@ -195,9 +231,8 @@ const useClasses = makeClasses((_, theme) => ({
     borderRight: "1px solid #111",
     display: "flex",
     flexDirection: "column",
-    height: `calc(100% - ${CONSTANTS.HOME.TOP_BAR.HEIGHT + CONSTANTS.WINDOW.TITLE_BAR.HEIGHT}px)`,
-    marginTop: CONSTANTS.HOME.TOP_BAR.HEIGHT + CONSTANTS.WINDOW.TITLE_BAR.HEIGHT,
-    padding: "0.2rem 0.3rem",
+    height: "100%",
+    padding: "0.3rem",
     width: CONSTANTS.HOME.DRAWER.WIDTH,
     zIndex: 20,
   },

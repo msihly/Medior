@@ -50,6 +50,7 @@ export const ImportListItem = Comp(
     const handleOpen = async () => {
       try {
         const res = await trpc.listTag.mutate({ filter: { id: fileImport.tagIds } });
+        if (!res.success) throw new Error(res.error);
 
         setTags(res.data);
       } catch (err) {
@@ -88,7 +89,6 @@ export const ImportListItem = Comp(
 
     return (
       <View
-        key={fileImport.path}
         row
         align="center"
         justify="space-between"
@@ -106,7 +106,11 @@ export const ImportListItem = Comp(
                   {statusMeta.label}
                 </Text>
 
-                {fileImport?.errorMsg && <Text>{fileImport?.errorMsg}</Text>}
+                {fileImport.errorMsg && (
+                  <Text whiteSpace="normal" overflowWrap="anywhere">
+                    {fileImport.errorMsg}
+                  </Text>
+                )}
 
                 {fileImport.fileId && ["COMPLETE", "DUPLICATE"].includes(fileImport.status) && (
                   <Button text="Open File" onClick={openFile} loading={isOpening} />
@@ -126,7 +130,6 @@ export const ImportListItem = Comp(
             flexShrink: "inherit",
             viewProps: { width: "100%" },
           }}
-          className={css.name}
         >
           {fileImport.name}
         </Text>
@@ -236,9 +239,5 @@ const useClasses = makeClasses({
   chip: IMPORT_CHIP_STYLE,
   divider: {
     margin: "0.5rem 0",
-  },
-  name: {
-    textOverflow: "ellipsis",
-    textWrap: "nowrap",
   },
 });

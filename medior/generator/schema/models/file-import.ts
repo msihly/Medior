@@ -5,7 +5,6 @@ const model = new ModelDb("FileImport", {
   idDefault: "null",
   noCommon: true,
   withActions: false,
-  withStore: true,
 });
 
 model.addIndex({ batchId: 1, index: 1 });
@@ -43,6 +42,8 @@ model.addProp(
 );
 
 model.addProp("size", "number", { required: true });
+
+model.addProp("subtitles", "Array<{ path: string }>", { schemaType: "[{ path: String }]" });
 
 model.addProp("status", "string | 'COMPLETE' | 'DELETED' | 'DUPLICATE' | 'ERROR' | 'PENDING'", {
   defaultValue: '"PENDING"',

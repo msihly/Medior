@@ -10,8 +10,9 @@ import {
 } from "medior/_generated/server/models";
 import { Schema } from "mongoose";
 import { addAbortSignal } from "stream";
-import { deleteFile, removeEmptyFolders } from "trabecula/utils/server";
+import { deleteFile, extendFileName, removeEmptyFolders } from "trabecula/utils/server";
 import { backgroundExecutionPlugin } from "medior/server/database/database-context";
+import { withIndexHint } from "medior/server/database/index-hints";
 import type { MediaImportInput } from "medior/server/database/media-import";
 import {
   getMediaIndexVersion,
@@ -21,6 +22,7 @@ import {
 import { registerPersistenceModel } from "medior/server/database/persistence";
 import { isServerStopping, serverShutdownSignal } from "medior/server/process-lifecycle";
 import { Fmt } from "medior/utils/common";
+import { isWithinFolder } from "medior/utils/server/source-folders";
 import { workSignal } from "medior/utils/server/work-signal";
 
 export interface FileCleanup {
@@ -29,12 +31,15 @@ export interface FileCleanup {
   pathKey: string;
   retainedHash?: string;
   retainedPath?: string;
+  /** The recorded size, which confirms the file without reading it in full. */
+  size?: number;
 }
 
-export const makeFileCleanup = (hash: string, path: string): FileCleanup => ({
+export const makeFileCleanup = (hash: string, path: string, size?: number): FileCleanup => ({
   hash,
   path,
   pathKey: mediaPathKey(path),
+  ...(typeof size === "number" ? { size } : {}),
 });
 
 class FileCleanupPausedError extends Error {
@@ -68,10 +73,20 @@ const hashCleanupFile = async (path: string, canContinue: () => boolean = () => 
   return hash.digest("hex");
 };
 
+/**
+ * Confirms a file is the one recorded before it's removed. A file whose recorded size still
+ * matches is taken as unchanged; others, including any whose size differs, are checksummed in full.
+ */
+const isCleanupFileUnchanged = async (file: FileCleanup, canContinue: () => boolean) =>
+  (typeof file.size === "number" && (await fs.stat(file.path)).size === file.size) ||
+  (!!file.hash && (await hashCleanupFile(file.path, canContinue)) === file.hash);
+
 export interface FileOperation {
   _id: string;
   batchId?: string;
   cleanup: FileCleanup[];
+  /** Imported in place of the source, such as the source remuxed with its subtitles. */
+  contentPath?: string;
   emptyFolderPath?: string;
   error?: string;
   fileId?: string;
@@ -81,6 +96,7 @@ export interface FileOperation {
     cleanup: FileCleanup[];
     ignored: boolean;
     info?: Omit<FileSchema, "id">;
+    subtitles?: FileSchema["subtitles"];
     unusedOutput: FileCleanup[];
   };
   kind?: "import" | "thumbnail" | "transform";
@@ -107,8 +123,16 @@ const schema = new Schema<FileOperation>({
   _id: { default: () => randomUUID(), type: String },
   batchId: { index: true, type: String },
   cleanup: [
-    { hash: String, path: String, pathKey: String, retainedHash: String, retainedPath: String },
+    {
+      hash: String,
+      path: String,
+      pathKey: String,
+      retainedHash: String,
+      retainedPath: String,
+      size: Number,
+    },
   ],
+  contentPath: String,
   emptyFolderPath: String,
   error: String,
   fileId: String,
@@ -179,6 +203,30 @@ export const mediaPathPattern = (filePath: string) =>
     "i",
   );
 
+/** Committed cleanups own the paths they will delete or still write. */
+const makeCleanupOwnerFilter = (keys: string[]) => ({
+  $or: [{ "cleanup.pathKey": { $in: keys } }, { tempPathKey: { $in: keys, $type: "string" } }],
+  state: "COMMITTED",
+});
+
+/** Transforms own their unfinished output and the files their pending cleanup will delete. */
+const makeTransformOwnerFilter = (keys: string[], transformId?: string) => ({
+  ...(transformId ? { _id: { $ne: transformId } } : {}),
+  $or: [
+    {
+      afterPathKey: { $in: keys, $type: "string" },
+      cleanupPending: true,
+      status: { $ne: "REPLACED" },
+    },
+    {
+      beforePathKey: { $in: keys, $type: "string" },
+      cleanupPending: true,
+      status: { $ne: "SKIPPED" },
+    },
+    { outputTempPathKey: { $in: keys, $type: "string" } },
+  ],
+});
+
 export const assertMediaPathsAvailable = async (paths: string[], transformId?: string) => {
   const keys = [...new Set(paths.filter(Boolean).map(mediaPathKey))];
 
@@ -187,26 +235,8 @@ export const assertMediaPathsAvailable = async (paths: string[], transformId?: s
   await assertMediaPathIndexesReady();
 
   const [fileOperation, transform] = await Promise.all([
-    FileOperationModel.exists({
-      $or: [{ "cleanup.pathKey": { $in: keys } }, { tempPathKey: { $in: keys, $type: "string" } }],
-      state: "COMMITTED",
-    }),
-    FileTransformModel.exists({
-      ...(transformId ? { _id: { $ne: transformId } } : {}),
-      $or: [
-        {
-          afterPathKey: { $in: keys, $type: "string" },
-          cleanupPending: true,
-          status: { $ne: "REPLACED" },
-        },
-        {
-          beforePathKey: { $in: keys, $type: "string" },
-          cleanupPending: true,
-          status: { $ne: "SKIPPED" },
-        },
-        { outputTempPathKey: { $in: keys, $type: "string" } },
-      ],
-    }),
+    FileOperationModel.exists(makeCleanupOwnerFilter(keys)),
+    FileTransformModel.exists(makeTransformOwnerFilter(keys, transformId)),
   ]);
 
   if (fileOperation)
@@ -216,6 +246,48 @@ export const assertMediaPathsAvailable = async (paths: string[], transformId?: s
     throw new Error(
       "Transform cleanup owns this path. Complete recovery in Activity before retrying.",
     );
+};
+
+/** Lists the keys of paths that `assertMediaPathsAvailable` rejects, by the kind of owner. */
+export const listOwnedMediaPathKeys = async (paths: string[]) => {
+  const keys = [...new Set(paths.filter(Boolean).map(mediaPathKey))];
+
+  await assertMediaPathIndexesReady();
+
+  const [operations, transforms] = await Promise.all([
+    FileOperationModel.find(makeCleanupOwnerFilter(keys))
+      .select({ "cleanup.pathKey": 1, tempPath: 1 })
+      .lean(),
+    FileTransformModel.find(makeTransformOwnerFilter(keys))
+      .select({ afterPath: 1, beforePath: 1, outputTempPath: 1 })
+      .lean(),
+  ]);
+
+  const keySet = new Set(keys);
+
+  const getOwnedKeys = (ownedPaths: string[]) =>
+    new Set(
+      ownedPaths
+        .filter(Boolean)
+        .map(mediaPathKey)
+        .filter((key) => keySet.has(key)),
+    );
+
+  return {
+    cleanupKeys: getOwnedKeys(
+      operations.flatMap((operation) => [
+        ...operation.cleanup.map((file) => file.pathKey),
+        operation.tempPath,
+      ]),
+    ),
+    transformKeys: getOwnedKeys(
+      transforms.flatMap((transform) => [
+        transform.afterPath,
+        transform.beforePath,
+        transform.outputTempPath,
+      ]),
+    ),
+  };
 };
 
 export const describeFileCleanup = async (path: string, retainedPath?: string) => {
@@ -239,6 +311,101 @@ export const describeFileCleanup = async (path: string, retainedPath?: string) =
   } satisfies FileCleanup;
 };
 
+/**
+ * Describes a file that cleanup confirms by its size alone, which reads only its metadata. Missing
+ * files need no cleanup.
+ */
+export const describeFileCleanupBySize = async (path: string) => {
+  if (!path) return null;
+
+  try {
+    return makeFileCleanup(null, path, (await fs.stat(path)).size);
+  } catch (error) {
+    if (error.code === "ENOENT") return null;
+
+    throw error;
+  }
+};
+
+/** VobSub .sub images belong to the .idx a file records. */
+const getSubtitlePathKeys = (path: string) => {
+  const key = mediaPathKey(path);
+
+  return nodePath.extname(path).toLowerCase() === ".sub"
+    ? [key, mediaPathKey(extendFileName(path, "idx"))]
+    : [key];
+};
+
+/**
+ * The given paths still referenced by the library, a transform, another prepared operation, or a
+ * tag thumbnail, checked together rather than one path at a time. Committed cleanups reserve their
+ * paths, so nothing new can claim them while the cleanup runs.
+ */
+const listReferencedCleanupPaths = async (paths: string[], fileOperationId: string) => {
+  await assertMediaPathIndexesReady();
+
+  const subtitleKeysByPath = new Map(paths.map((path) => [path, getSubtitlePathKeys(path)]));
+  const keys = [...new Set(paths.map(mediaPathKey))];
+  const subtitleKeys = [...new Set([...subtitleKeysByPath.values()].flat())];
+  const inKeys = { $in: keys, $type: "string" };
+
+  const [files, transforms, operations, tags] = await Promise.all([
+    FileModel.find({
+      $or: [
+        { pathKey: inKeys },
+        { "subtitles.pathKey": { $in: subtitleKeys, $type: "string" } },
+        { thumbPathKey: inKeys },
+      ],
+    })
+      .select({ pathKey: 1, "subtitles.pathKey": 1, thumbPathKey: 1 })
+      .lean<{ pathKey?: string; subtitles?: { pathKey?: string }[]; thumbPathKey?: string }[]>(),
+    FileTransformModel.find({
+      $or: [{ afterPathKey: inKeys }, { outputTempPathKey: inKeys }],
+    })
+      .select({ afterPathKey: 1, outputTempPathKey: 1 })
+      .lean<{ afterPathKey?: string; outputTempPathKey?: string }[]>(),
+    FileOperationModel.find({
+      _id: { $ne: fileOperationId },
+      $or: ["contentPathKey", "outputPathKey", "tempPathKey", "thumbPathKey"].map((field) => ({
+        [field]: inKeys,
+      })),
+      state: "PREPARED",
+    })
+      .select({ contentPathKey: 1, outputPathKey: 1, tempPathKey: 1, thumbPathKey: 1 })
+      .lean<Record<string, string>[]>(),
+    withIndexHint(() =>
+      TagModel.find({ thumbPathKey: inKeys })
+        .select({ thumbPathKey: 1 })
+        .hint({ thumbPathKey: 1 })
+        .lean<{ thumbPathKey?: string }[]>()
+        .exec(),
+    ),
+  ]);
+
+  const subtitleReferences = new Set(
+    files.flatMap((file) => (file.subtitles ?? []).map((subtitle) => subtitle.pathKey)),
+  );
+  const references = new Set([
+    ...files.flatMap((file) => [file.pathKey, file.thumbPathKey]),
+    ...transforms.flatMap((transform) => [transform.afterPathKey, transform.outputTempPathKey]),
+    ...operations.flatMap((operation) => [
+      operation.contentPathKey,
+      operation.outputPathKey,
+      operation.tempPathKey,
+      operation.thumbPathKey,
+    ]),
+    ...tags.map((tag) => tag.thumbPathKey),
+  ]);
+
+  return new Set(
+    paths.filter(
+      (path) =>
+        references.has(mediaPathKey(path)) ||
+        subtitleKeysByPath.get(path).some((key) => subtitleReferences.has(key)),
+    ),
+  );
+};
+
 export const isMediaPathReferenced = async (
   filePath: string,
   exclude: { fileOperationId?: string; transformId?: string } = {},
@@ -246,12 +413,15 @@ export const isMediaPathReferenced = async (
   await assertMediaPathIndexesReady();
 
   const key = mediaPathKey(filePath);
+  const subtitleKeys = getSubtitlePathKeys(filePath);
 
   return !!(
     (await FileModel.exists({
-      $or: ["pathKey", "thumbPathKey"].map((field) => ({
-        [field]: { $eq: key, $type: "string" },
-      })),
+      $or: [
+        { pathKey: { $eq: key, $type: "string" } },
+        { "subtitles.pathKey": { $in: subtitleKeys, $type: "string" } },
+        { thumbPathKey: { $eq: key, $type: "string" } },
+      ],
     })) ||
     (await FileTransformModel.exists({
       ...(exclude.transformId ? { _id: { $ne: exclude.transformId } } : {}),
@@ -261,19 +431,11 @@ export const isMediaPathReferenced = async (
     })) ||
     (await FileOperationModel.exists({
       ...(exclude.fileOperationId ? { _id: { $ne: exclude.fileOperationId } } : {}),
-      $or: ["outputPathKey", "tempPathKey", "thumbPathKey"].map((field) => ({
+      $or: ["contentPathKey", "outputPathKey", "tempPathKey", "thumbPathKey"].map((field) => ({
         [field]: { $eq: key, $type: "string" },
       })),
       state: "PREPARED",
     }))
-  );
-};
-
-const isWithinFolder = (parent: string, child: string) => {
-  const relative = nodePath.relative(parent, child);
-
-  return (
-    !nodePath.isAbsolute(relative) && relative !== ".." && !relative.startsWith(`..${nodePath.sep}`)
   );
 };
 
@@ -296,7 +458,7 @@ const removeEmptySourceFolders = async (filePaths: string[], rootPath: string) =
 };
 
 /** WAITING means files still referenced by the library or a tag thumbnail keep the operation open. */
-export type FileCleanupResult = "DONE" | "PAUSED" | "WAITING";
+type FileCleanupResult = "DONE" | "PAUSED" | "WAITING";
 
 /** Lists path keys that committed cleanups still intend to delete. Failed cleanups stop reserving them. */
 export const listPendingCleanupPathKeys = async (pathKeys: string[]) => {
@@ -376,56 +538,65 @@ const cleanFileOperation = async (
     // A retried cleanup reserves its paths again until it succeeds or fails anew.
     if (operation.error) await FileOperationModel.updateOne({ _id: id }, { $unset: { error: 1 } });
 
-    for (const file of operation.cleanup) {
-      checkCleanupCancelled(canContinue);
+    const cleanedPaths: string[] = [];
 
-      if (await isMediaPathReferenced(file.path, { fileOperationId: id })) continue;
+    try {
+      // Derived tag thumbnails may still reference an old file until their queued refresh commits.
+      const referencedPaths = await listReferencedCleanupPaths(
+        operation.cleanup.map((file) => file.path),
+        id,
+      );
 
-      // Derived tag thumbnails may still reference the old file until their queued refresh commits.
-      if (
-        await TagModel.exists({
-          thumbPathKey: { $eq: mediaPathKey(file.path), $type: "string" },
-        }).hint({ thumbPathKey: 1 })
-      )
-        continue;
-
-      let hash: string | null;
-
-      try {
-        hash = await hashCleanupFile(file.path, canContinue);
-      } catch (error) {
-        if (error.code !== "ENOENT") throw error;
-
-        hash = null;
-      }
-
-      if (hash !== null) {
-        if (hash !== file.hash) throw new Error(`Cleanup checksum changed: ${file.path}`);
-
-        // Imports verified their retained copy when publishing it, so they only record its path.
-        if (
-          file.retainedHash &&
-          (await hashCleanupFile(file.retainedPath, canContinue)) !== file.retainedHash
-        )
-          throw new Error("Retained file checksum changed; cleanup deferred");
-
+      for (const file of operation.cleanup) {
         checkCleanupCancelled(canContinue);
 
-        const removed = await deleteFile(file.path, file.retainedPath);
+        if (referencedPaths.has(file.path)) continue;
 
-        if (!removed.success) throw new Error(removed.error);
+        let isMissing = false;
+        let isUnchanged = false;
+
+        try {
+          isUnchanged = await isCleanupFileUnchanged(file, canContinue);
+        } catch (error) {
+          if (error.code !== "ENOENT") throw error;
+
+          isMissing = true;
+        }
+
+        if (!isMissing) {
+          if (!isUnchanged) throw new Error(`Cleanup checksum changed: ${file.path}`);
+
+          // Imports verified their retained copy when publishing it, so they only record its path.
+          if (
+            file.retainedHash &&
+            (await hashCleanupFile(file.retainedPath, canContinue)) !== file.retainedHash
+          )
+            throw new Error("Retained file checksum changed; cleanup deferred");
+
+          checkCleanupCancelled(canContinue);
+
+          const removed = await deleteFile(file.path, file.retainedPath);
+
+          if (!removed.success) throw new Error(removed.error);
+        }
+
+        cleanedPaths.push(file.path);
       }
-
-      await FileOperationModel.updateOne(
-        { _id: id, state: "COMMITTED" },
-        { $pull: { cleanup: file } },
-      );
+    } finally {
+      // Every write waits for the journal, so finished files are recorded together rather than
+      // one at a time, and not at all when the whole operation is removed next. A retry
+      // interrupted before then finds their files already gone.
+      if (cleanedPaths.length && cleanedPaths.length < operation.cleanup.length)
+        await FileOperationModel.updateOne(
+          { _id: id, state: "COMMITTED" },
+          { $pull: { cleanup: { path: { $in: cleanedPaths } } } },
+        );
     }
 
     checkCleanupCancelled(canContinue);
 
-    if (await FileOperationModel.exists({ _id: id, "cleanup.0": { $exists: true } }))
-      return "WAITING";
+    // Files still referenced keep the operation open until they are released.
+    if (cleanedPaths.length < operation.cleanup.length) return "WAITING";
 
     let tempPathExists = false;
 
@@ -476,11 +647,15 @@ const cleanFileOperation = async (
 };
 
 export const recoverFileOperations = async (canContinue: () => boolean) => {
-  for await (const operation of FileOperationModel.find({ state: "COMMITTED" })
-    .select({ _id: 1 })
-    .hint({ recordType: 1, state: 1, "cleanup.pathKey": 1 })
-    .lean()
-    .cursor()) {
+  const operations = await withIndexHint(() =>
+    FileOperationModel.find({ state: "COMMITTED" })
+      .select({ _id: 1 })
+      .hint({ recordType: 1, state: 1, "cleanup.pathKey": 1 })
+      .lean()
+      .exec(),
+  );
+
+  for (const operation of operations) {
     if (!canContinue()) return;
 
     try {

@@ -11,18 +11,31 @@ import {
   chunkArray,
   dayjs,
   Fmt,
+  getIsMediaProgramRoot,
+  getMediaProgramChanges,
+  getSeasonSortKey,
   ImageExt,
   ImportBatchInput,
+  makeSeasonTitle,
+  makeSubtitlePathMap,
+  matchSubtitleFiles,
+  MediaProgramPlan,
   mergeTagDefinitions,
+  naturalCompare,
   parseDiffParams,
+  parseMediaProgramName,
+  parseMediaProgramYear,
   preferredTagLabel,
+  resolveMediaProgramFolder,
   sleep,
+  sortEpisodeNames,
   splitArray,
+  SUBTITLE_EXTS,
   TagRegExMap,
   TagRegExMatcher,
   VideoExt,
 } from "medior/utils/common";
-import { getConfig, trpc } from "medior/utils/server";
+import { getConfig, getIsVideo, trpc } from "medior/utils/server";
 import { getImportTagIndex } from "./import-tag-index";
 
 const DEBUG = false;
@@ -53,7 +66,7 @@ const makeSetInitProgress =
     store.setInitProgressTotal(total);
   };
 
-export class EditorImportsCache {
+class EditorImportsCache {
   private ancestorLabels = new Map<string, { count: number; label: string }>();
   private lastYield = performance.now();
   private parentTagsCache = new Map<string, string[]>();
@@ -305,7 +318,12 @@ const makeImportPathFilter = () => {
   return (filePath: string) => {
     const ext = path.extname(filePath).slice(1).toLowerCase();
 
-    return validExts.has(ext as ImageExt | VideoExt) || ext === "json" || ext === "txt";
+    return (
+      validExts.has(ext as ImageExt | VideoExt) ||
+      ext === "json" ||
+      ext === "txt" ||
+      SUBTITLE_EXTS.includes(ext)
+    );
   };
 };
 
@@ -325,24 +343,22 @@ export const filePathsToImports = async (
   for (let idx = 0; idx < validFilePaths.length; idx += STAT_BATCH_SIZE) {
     throwIfIngestCancelled(isCancelled);
     imports.push(
-      ...(
-        await Promise.all(
-          validFilePaths.slice(idx, idx + STAT_BATCH_SIZE).map(async (filePath) => {
-            const stats = await fs.stat(filePath);
+      ...(await Promise.all(
+        validFilePaths.slice(idx, idx + STAT_BATCH_SIZE).map(async (filePath) => {
+          const stats = await fs.stat(filePath);
 
-            return {
-              dateCreated: dayjs(
-                Math.min(stats.birthtime.valueOf(), stats.ctime.valueOf(), stats.mtime.valueOf()),
-              ).toISOString(),
-              extension: path.extname(filePath).slice(1).toLowerCase() as ImageExt | VideoExt,
-              name: path.parse(filePath).name,
-              path: filePath,
-              size: stats.size,
-              status: "PENDING",
-            };
-          }),
-        )
-      ).filter(Boolean),
+          return {
+            dateCreated: dayjs(
+              Math.min(stats.birthtime.valueOf(), stats.ctime.valueOf(), stats.mtime.valueOf()),
+            ).toISOString(),
+            extension: path.extname(filePath).slice(1).toLowerCase() as ImageExt | VideoExt,
+            name: path.parse(filePath).name,
+            path: filePath,
+            size: stats.size,
+            status: "PENDING",
+          };
+        }),
+      )),
     );
     onProgress?.(Math.min(idx + STAT_BATCH_SIZE, validFilePaths.length), validFilePaths.length);
   }
@@ -568,6 +584,8 @@ export const useImportEditor = (store: Ingester | Reingester) => {
   const stores = useStores();
 
   const cache = useRef<EditorImportsCache>();
+  /** Whether each import root is one program, decided once per scan from all its files. */
+  const programRoots = useRef(new Map<string, boolean>());
 
   useEffect(() => {
     store.options.reset();
@@ -611,11 +629,9 @@ export const useImportEditor = (store: Ingester | Reingester) => {
       const tagParentLabel = folderNameParts.slice(0, -1).pop();
 
       if (store.options.folderToTagsMode !== "none") {
-        if (store.options.folderToTagsMode === "cascading") {
-          const labels = store.options.withDelimiters
-            ? folderNameParts.flatMap(delimit)
-            : folderNameParts;
+        const labels = folderNameParts.flatMap(delimit);
 
+        if (store.options.folderToTagsMode === "cascading") {
           for (const label of labels) {
             if (label === collectionTitle) continue;
 
@@ -635,15 +651,10 @@ export const useImportEditor = (store: Ingester | Reingester) => {
         }
 
         if (store.options.folderToTagsMode === "hierarchical" && tagLabel) {
-          const labels = store.options.withDelimiters
-            ? folderNameParts.flatMap(delimit)
-            : folderNameParts;
-
           for (const label of labels) {
             if (label === collectionTitle) continue;
 
             const tag = await cache.current.getTagByLabel(label);
-
             const parentLabels = tagParentLabel ? delimit(tagParentLabel) : [];
 
             folderTags.push({ ...tag, label, parentLabels });
@@ -699,7 +710,6 @@ export const useImportEditor = (store: Ingester | Reingester) => {
           if (DEBUG) perfLog("Parsed tags from folder name RegEx maps");
         }
 
-        /** Parse tags from collectionTitle via folder regex maps */
         if (collectionTitle && store.options.folderToCollectionMode === "withTag") {
           const collectionTitleTags = await cache.current.getTagIdsByRegEx(collectionTitle);
 
@@ -717,11 +727,27 @@ export const useImportEditor = (store: Ingester | Reingester) => {
 
       if (DEBUG) perfLog("Filtered out duplicate / ancestor tags");
 
+      const program = store.options.withMediaPrograms
+        ? resolveMediaProgramFolder(folderName, store.rootFolderIndex, getIsProgramRoot(folderName))
+        : null;
+
       return {
-        collectionTitle,
+        collectionTitle: program
+          ? makeSeasonTitle(program.programFolderName, program.seasonLabel)
+          : collectionTitle,
         folderName,
         folderNameParts,
         imports: [fileImport],
+        mediaProgram: program
+          ? {
+              folderPath: program.programFolderPath,
+              language: store.options.mediaProgramLanguage,
+              medium: store.options.mediaProgramMedium,
+              seasonLabel: program.seasonLabel,
+              seasonNumber: program.seasonNumber,
+              type: store.options.mediaProgramType,
+            }
+          : undefined,
         savedConfigLabel: savedConfig?.label,
         tags,
       };
@@ -805,6 +831,7 @@ export const useImportEditor = (store: Ingester | Reingester) => {
   const createImportBatches = async (isCancelled?: () => boolean) => {
     const importBatches: ImportBatchInput[] = [];
     const folders = [...store.allFlatFolderHierarchy.values()];
+    const seasonIndexes = getSeasonIndexes(folders);
 
     store.setInitProgressCompleted(0);
     store.setInitProgressTotal(folders.length);
@@ -814,6 +841,7 @@ export const useImportEditor = (store: Ingester | Reingester) => {
 
       const folder = folders[idx];
       const { imports, tagIds } = await createFolderTagIds(folder);
+      const plan = folder.mediaProgram && store.getMediaProgram(folder.mediaProgram.folderPath);
 
       const savedConfig = store.options.useSavedConfigs
         ? stores.import.getSavedConfigForFolder(folder.folderName)
@@ -821,15 +849,23 @@ export const useImportEditor = (store: Ingester | Reingester) => {
 
       importBatches.push({
         collectionSourceFolderPath: folder.collectionTitle ? folder.folderName : null,
-        collectionTitle: folder.collectionTitle,
+        collectionTitle: store.getFolderCollectionTitle(folder),
         deleteOnImport: store.options.deleteOnImport || !!savedConfig?.options.deleteOnImport,
         ignorePrevDeleted:
           savedConfig?.options.ignorePrevDeleted ?? store.options.ignorePrevDeleted,
         imports,
+        mediaProgram: plan
+          ? {
+              ...getMediaProgramChanges(plan),
+              seasonIndex: seasonIndexes.get(folder.folderName),
+              sourceFolderPath: plan.folderPath,
+            }
+          : undefined,
         rootFolderPath: folder.folderName
           .split(path.sep)
           .slice(0, store.rootFolderIndex + 1)
           .join(path.sep),
+        subtitleMode: savedConfig?.options.subtitleMode ?? store.options.subtitleMode,
         tagIds,
       });
 
@@ -942,17 +978,14 @@ export const useImportEditor = (store: Ingester | Reingester) => {
       store.clearValues({ diffusionParams: true, tagIds: true, tagsToUpsert: true });
 
       if (DEBUG) perfLog("Cleared diffParams and tags");
-    } else {
-      if (store.options.withDiffusionParams) {
-        const res = await store.loadDiffusionParams();
+    } else if (store.options.withDiffusionParams) {
+      const res = await store.loadDiffusionParams();
 
-        if (!res.success) throw new Error(res.error);
+      if (!res.success) throw new Error(res.error);
 
-        if (DEBUG) perfLog("Loaded diffusion params");
-      }
+      if (DEBUG) perfLog("Loaded diffusion params");
     }
 
-    /** Create meta tags for diffusion params if not found. */
     const { diffMetaTagsToEdit, originalTag, upscaledTag } = await upsertDiffMetaTags();
 
     if (DEBUG) perfLog("Upserted diffusion meta tags");
@@ -1014,13 +1047,12 @@ export const useImportEditor = (store: Ingester | Reingester) => {
 
       tagsToUpsert.push(...fileTagsToUpsert);
 
-      const updates = { tagIds, tagsToUpsert: fileTagsToUpsert };
-
       if (DEBUG) perfLog(`Updated file import with tags for ${imp.name}`);
 
       editorImports.push({
         ...cloneFileImportSnapshot(imp),
-        ...updates,
+        tagIds,
+        tagsToUpsert: fileTagsToUpsert,
       });
 
       if (editorImports.length % STAT_BATCH_SIZE === 0)
@@ -1086,6 +1118,152 @@ export const useImportEditor = (store: Ingester | Reingester) => {
     }
 
     return [...resolvedIds].filter(Boolean);
+  };
+
+  /** Whether the folder's import root is itself one program, decided once per root per scan. */
+  const getIsProgramRoot = (folderName: string) => {
+    const rootFolderPath = folderName
+      .split(path.sep)
+      .slice(0, store.rootFolderIndex + 1)
+      .join(path.sep);
+
+    if (!programRoots.current.has(rootFolderPath))
+      programRoots.current.set(
+        rootFolderPath,
+        getIsMediaProgramRoot(store.filePaths.values(), rootFolderPath),
+      );
+
+    return programRoots.current.get(rootFolderPath);
+  };
+
+  /** New seasons follow a program's existing ones, ordered by season number, then name. */
+  const getSeasonIndexes = (folders: FlatFolder[]) => {
+    const seasonIndexes = new Map<string, number>();
+    const seasonFolders = folders.filter((folder) => folder.mediaProgram);
+
+    for (const plan of store.mediaPrograms) {
+      seasonFolders
+        .filter((folder) => folder.mediaProgram.folderPath === plan.folderPath)
+        .map((folder) => ({ ...folder.mediaProgram, folderName: folder.folderName }))
+        .sort(
+          (a, b) =>
+            getSeasonSortKey(a.seasonNumber, !!a.seasonLabel) -
+              getSeasonSortKey(b.seasonNumber, !!b.seasonLabel) ||
+            naturalCompare(a.seasonLabel, b.seasonLabel),
+        )
+        .forEach((season, index) =>
+          seasonIndexes.set(season.folderName, plan.nextSeasonIndex + index),
+        );
+    }
+
+    return seasonIndexes;
+  };
+
+  /**
+   * Groups season folders into programs, ordering each season's episodes. Existing programs supply
+   * their saved details, and edits from the previous scan are kept.
+   */
+  const loadMediaPrograms = async (folders: Map<string, FlatFolder>) => {
+    const editedPlans = new Map(store.mediaPrograms.map((plan) => [plan.folderPath, plan]));
+    const plans = new Map<string, MediaProgramPlan>();
+
+    for (const folder of folders.values()) {
+      await cache.current.checkpoint();
+
+      if (!folder.mediaProgram) continue;
+
+      const { folderPath, language, medium, seasonLabel, type } = folder.mediaProgram;
+      const plan = plans.get(folderPath);
+
+      folder.imports = sortEpisodeNames(folder.imports, (imp) => imp.name);
+
+      if (plan) {
+        plan.fileCount += folder.imports.length;
+        plan.seasonLabels.push(seasonLabel);
+      } else {
+        const { name, year } = parseMediaProgramName(path.basename(folderPath));
+
+        plans.set(folderPath, {
+          fileCount: folder.imports.length,
+          folderPath,
+          language,
+          medium,
+          name,
+          nextSeasonIndex: 0,
+          seasonLabels: [seasonLabel],
+          type,
+          year: year ?? parseMediaProgramYear(folder.imports[0]?.name ?? ""),
+        });
+      }
+    }
+
+    if (plans.size) {
+      const res = await trpc.listMediaProgramsBySourceFolders.mutate({
+        folderPaths: [...plans.keys()],
+      });
+
+      if (!res.success) throw new Error(res.error);
+
+      await cache.current.checkpoint();
+
+      for (const program of res.data) {
+        const plan = plans.get(program.folderPath);
+
+        plan.existingId = program.id;
+        plan.language = program.language ?? plan.language;
+        plan.medium = program.medium ?? plan.medium;
+        plan.name = program.name;
+        plan.nextSeasonIndex = program.nextSeasonIndex;
+        plan.type = program.type ?? plan.type;
+        plan.year = program.year ?? plan.year;
+        plan.saved = {
+          language: program.language,
+          medium: program.medium,
+          name: program.name,
+          type: program.type,
+          year: program.year,
+        };
+      }
+    }
+
+    for (const plan of plans.values()) {
+      const edited = editedPlans.get(plan.folderPath);
+
+      if (edited) {
+        plan.language = edited.language;
+        plan.medium = edited.medium;
+        plan.name = edited.name;
+        plan.type = edited.type;
+        plan.year = edited.year;
+      }
+    }
+
+    store.setMediaPrograms([...plans.values()].sort((a, b) => naturalCompare(a.name, b.name)));
+  };
+
+  /** Attaches the subtitles found among the scanned files to videos in folders that keep them. */
+  const matchSubtitles = async (folders: Map<string, FlatFolder>) => {
+    const subtitlePaths = makeSubtitlePathMap(store.filePaths.values());
+
+    if (!subtitlePaths.size) return;
+
+    for (const folder of folders.values()) {
+      const savedConfig = store.options.useSavedConfigs
+        ? stores.import.getSavedConfigForFolder(folder.folderName)
+        : null;
+
+      if ((savedConfig?.options.subtitleMode ?? store.options.subtitleMode) === "none") continue;
+
+      for (const imp of folder.imports) {
+        await cache.current.checkpoint();
+
+        const subtitles = getIsVideo(imp.extension)
+          ? matchSubtitleFiles(subtitlePaths, imp.path)
+          : [];
+
+        if (subtitles.length) imp.subtitles = subtitles;
+      }
+    }
   };
 
   const parseDiffTags = async ({
@@ -1480,13 +1658,12 @@ export const useImportEditor = (store: Ingester | Reingester) => {
 
         if (DEBUG) perfLog("START");
 
-        cache.current = new EditorImportsCache(stores, isCancelled, (status, completed, total) => {
-          if (isCancelled()) return;
-
-          store.setInitProgressStatus(status);
-          store.setInitProgressCompleted(completed);
-          store.setInitProgressTotal(total);
-        });
+        programRoots.current.clear();
+        cache.current = new EditorImportsCache(
+          stores,
+          isCancelled,
+          makeSetInitProgress(store, isCancelled),
+        );
 
         await cache.current.checkpoint();
 
@@ -1500,7 +1677,7 @@ export const useImportEditor = (store: Ingester | Reingester) => {
           if (isInitialScan && savedConfigMatch?.config.options.withSidecar != null)
             store.options.setWithSidecar(savedConfigMatch.config.options.withSidecar);
 
-          /** Only seed the root from the saved config so a root changed in the editor survives rescans. */
+          // Only seed the root from the saved config so a root changed in the editor survives rescans.
           if (isInitialScan && savedConfigMatch?.rootFolderPath) {
             store.setRootFolderPath(savedConfigMatch.rootFolderPath);
             store.setRootFolderIndex(savedConfigMatch.rootFolderPath.split(path.sep).length - 1);
@@ -1561,6 +1738,12 @@ export const useImportEditor = (store: Ingester | Reingester) => {
         const folders = await createFolderHierarchy(editorImports, perfLog);
 
         throwIfIngestCancelled(isCancelled);
+
+        store.setInitProgressStatus("Matching subtitles");
+        await matchSubtitles(folders);
+
+        store.setInitProgressStatus("Detecting media programs");
+        await loadMediaPrograms(folders);
 
         /* -------------------------------- Sidecars -------------------------------- */
         const sidecarFolderPaths = new Set(

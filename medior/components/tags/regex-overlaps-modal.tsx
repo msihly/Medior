@@ -45,7 +45,7 @@ export const RegExOverlapsModal = Comp(({ setVisible }: RegExOverlapsModalProps)
         <Text preset="title">{"Overlapping RegEx"}</Text>
       </Modal.Header>
 
-      <Modal.Content spacing="0.5rem">
+      <Modal.Content>
         {result?.total > 0 && (
           <Text color={colors.custom.lightGrey} whiteSpace="normal">
             {`${Fmt.commas(result.total)} pairs where one tag's RegEx matches another tag's label or alias.${

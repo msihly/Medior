@@ -28,11 +28,7 @@ export const Carousel = Comp((_, videoRef: MutableRefObject<ReactPlayer>) => {
 
   const playbackUrl = store.requiresTranscoding ? store.mediaSourceUrl : activeFile?.path;
 
-  const activeTranscript = store.isCaptionsVisible
-    ? activeFile?.transcription?.segments?.find(
-        ({ end, start }) => store.curTime >= start && store.curTime <= end,
-      )?.text
-    : null;
+  const activeCaption = store.isCaptionsVisible ? store.activeCaption : null;
 
   const { css } = useClasses({
     isPinned: store.isPinned,
@@ -76,6 +72,7 @@ export const Carousel = Comp((_, videoRef: MutableRefObject<ReactPlayer>) => {
     if (activeFile?.isVideo) store.setCurFrame(0, activeFile.frameRate);
 
     store.transcodeVideo();
+    store.loadSubtitleTracks();
 
     return () => videoTranscoder.dispose();
   }, [activeFile?.path]);
@@ -126,6 +123,7 @@ export const Carousel = Comp((_, videoRef: MutableRefObject<ReactPlayer>) => {
   const handleVideoEnd = () => {
     if (!isCurrentPlayback()) return;
 
+    store.recordWatchProgress();
     store.setCurFrame(1, activeFile.frameRate);
 
     if (store.requiresTranscoding) {
@@ -149,7 +147,10 @@ export const Carousel = Comp((_, videoRef: MutableRefObject<ReactPlayer>) => {
           seekTime: Fmt.frameToSec(store.markIn, activeFile.frameRate),
         });
       } else videoRef.current.seekTo(store.markIn / activeFile.totalFrames, "fraction");
-    } else store.setCurFrame(frame, activeFile.frameRate);
+    } else {
+      store.setCurFrame(frame, activeFile.frameRate);
+      store.recordWatchProgress();
+    }
   };
 
   const togglePlaying = () => store.setIsPlaying(!store.isPlaying);
@@ -240,10 +241,15 @@ export const Carousel = Comp((_, videoRef: MutableRefObject<ReactPlayer>) => {
                         playbackRate={store.playbackRate}
                       />
 
-                      {activeTranscript && (
+                      {activeCaption && (
                         <View className={css.captions}>
-                          <Text color={colors.custom.white} fontSize="1.1em" fontWeight={600}>
-                            {activeTranscript}
+                          <Text
+                            color={colors.custom.white}
+                            fontSize="1.1em"
+                            fontWeight={600}
+                            whiteSpace="pre-line"
+                          >
+                            {activeCaption}
                           </Text>
                         </View>
                       )}

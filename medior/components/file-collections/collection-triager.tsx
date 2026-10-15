@@ -131,10 +131,7 @@ export const CollectionTriager = Comp(() => {
     }
   };
 
-  const advance = () => {
-    setQueue((prev) => prev.slice(1));
-    stores.collection.manager.search.loadFiltered();
-  };
+  const advance = () => setQueue((prev) => prev.slice(1));
 
   const close = () => {
     if (!isSaving && !stores.collection.editor.isSaving) {
@@ -228,7 +225,7 @@ export const CollectionTriager = Comp(() => {
         <Text preset="title">{"Collection Triager"}</Text>
       </Modal.Header>
 
-      <Modal.Content row dividers={false} flex={1} height="100%" spacing="0.5rem">
+      <Modal.Content row dividers={false} spacing="0.5rem">
         <View flex={1} overflow="hidden" onWheelCapture={handleCarouselWheel}>
           <CarouselWindow embedded />
         </View>

@@ -3,6 +3,7 @@ import * as Dropdown from "./dropdown";
 import * as ExtCheckbox from "./ext-checkbox";
 import * as ExtColumn from "./ext-column";
 import * as Input from "./input";
+import * as ListInput from "./list-input";
 import * as NumInput from "./num-input";
 import * as ScratchInput from "./scratch-input";
 import * as Section from "./section";
@@ -15,6 +16,7 @@ export const Settings = {
   ...ExtCheckbox,
   ...ExtColumn,
   ...Input,
+  ...ListInput,
   ...NumInput,
   ...ScratchInput,
   ...Section,

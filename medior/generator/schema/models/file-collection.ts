@@ -1,6 +1,6 @@
 import { ModelDb } from "medior/generator/schema/generators";
 
-const model = new ModelDb("FileCollection", { defaultPageSize: 50, withStore: true });
+const model = new ModelDb("FileCollection");
 
 model.addIndex({ dateModified: 1, _id: 1 });
 model.addProp("dateModified", "string", {

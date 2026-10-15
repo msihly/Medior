@@ -1,12 +1,13 @@
 import { shell } from "@electron/remote";
 import path from "path";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { FixedSizeList } from "react-window";
 import Color from "color";
 import {
   Card,
   Chip,
   Comp,
+  ConfirmModal,
   FlatFolder,
   IconButton,
   Pagination,
@@ -28,6 +29,8 @@ type Folder = Pick<FlatFolder, "collectionTitle" | "imports" | "savedConfigLabel
 
 export interface ImportFolderListProps {
   collapsible?: boolean;
+  /** Replaces the folder's collection title, such as a season titled after its renamed program. */
+  collectionTitle?: string;
   folder: Folder;
   maxVisibleFiles?: number;
   noStatus?: boolean;
@@ -37,6 +40,7 @@ export interface ImportFolderListProps {
 export const ImportFolderList = Comp(
   ({
     collapsible = false,
+    collectionTitle,
     folder,
     maxVisibleFiles,
     noStatus = false,
@@ -45,6 +49,9 @@ export const ImportFolderList = Comp(
     const stores = useStores();
 
     const [collapsed, setCollapsed] = useState(!withListItems);
+    const [isReprocessConfirmOpen, setIsReprocessConfirmOpen] = useState(false);
+
+    const listRef = useRef<FixedSizeList>(null);
 
     const batch = folder instanceof FileImportBatch ? folder : null;
     const folderPath =
@@ -52,8 +59,13 @@ export const ImportFolderList = Comp(
       batch?.rootFolderPath ??
       (folder?.imports[0]?.path && path.dirname(folder.imports[0].path));
 
-    const hasCollection = folder?.collectionTitle?.length > 0;
+    const title = collectionTitle ?? folder?.collectionTitle;
+    const hasCollection = title?.length > 0;
     const hasTags = folder?.tags?.length > 0;
+    const subtitleCount = folder?.imports.reduce(
+      (count, imp) => count + (imp.subtitles?.length ?? 0),
+      0,
+    );
     const height = folder
       ? getImportFolderHeight({ folder, maxVisibleFiles, withListItems: !collapsed })
       : null;
@@ -78,15 +90,31 @@ export const ImportFolderList = Comp(
       if (error) toast.error(error);
     };
 
+    const openReprocessConfirm = () => setIsReprocessConfirmOpen(true);
+
+    const reprocessStoredFiles = async () => {
+      const res = await stores.import.manager.reprocessStoredImports({ id: batch.id });
+      if (!res.success) toast.error(res.error);
+      else
+        toast.success(
+          `Requeued ${Fmt.commas(res.data.requeuedCount)} stored files and deleted ${Fmt.commas(res.data.deletedCount)} records. Resume importing to process them.`,
+        );
+
+      return res.success;
+    };
+
     const toggleCollapsed = () => setCollapsed(!collapsed);
 
     useEffect(() => {
       if (batch && !collapsed) batch.loadPage();
     }, [batch, collapsed]);
 
+    useEffect(() => {
+      listRef.current?.scrollTo(0);
+    }, [batch?.page]);
+
     return !folder ? null : (
       <Card
-        column
         flex="none"
         overflow="hidden"
         padding={{ all: 0 }}
@@ -133,7 +161,19 @@ export const ImportFolderList = Comp(
               className={css.chip}
             />
 
+            {subtitleCount > 0 && (
+              <Chip label={`${Fmt.commas(subtitleCount)} subtitles`} className={css.chip} />
+            )}
+
             {batch && !batch.isReady && <Chip label="Upload incomplete" className={css.chip} />}
+
+            {batch?.isReady && (
+              <IconButton
+                name="Refresh"
+                tooltip="Reprocess Stored Files"
+                onClick={openReprocessConfirm}
+              />
+            )}
 
             {batch ? (
               <IconButton
@@ -147,7 +187,7 @@ export const ImportFolderList = Comp(
 
         {hasCollection && (
           <View column className={css.collection}>
-            <Text className={css.collectionTitle}>{folder.collectionTitle}</Text>
+            <Text className={css.collectionTitle}>{title}</Text>
           </View>
         )}
 
@@ -160,6 +200,7 @@ export const ImportFolderList = Comp(
             {batch?.loadError && <Text color={colors.custom.red}>{batch.loadError}</Text>}
 
             <FixedSizeList
+              ref={listRef}
               layout="vertical"
               width="100%"
               height={getImportFolderListHeight(folder.imports.length, maxVisibleFiles)}
@@ -194,12 +235,25 @@ export const ImportFolderList = Comp(
             )}
           </View>
         )}
+
+        {isReprocessConfirmOpen && (
+          <ConfirmModal
+            headerText="Reprocess Stored Files"
+            subText="Requeues stored files this batch copied, kept as duplicates, or failed. Files it re-created from originals of compressed or edited files, scratch leftovers, deleted files, or files in use are removed."
+            confirmIcon="Refresh"
+            confirmText="Reprocess"
+            height="28rem"
+            width="35rem"
+            setVisible={setIsReprocessConfirmOpen}
+            onConfirm={reprocessStoredFiles}
+          />
+        )}
       </Card>
     );
   },
 );
 
-export const getImportFolderListHeight = (count: number, maxVisibleFiles = 12) => {
+const getImportFolderListHeight = (count: number, maxVisibleFiles = 12) => {
   return 3 + Math.min(count * IMPORT_LIST_ITEM_HEIGHT, maxVisibleFiles * IMPORT_LIST_ITEM_HEIGHT);
 };
 

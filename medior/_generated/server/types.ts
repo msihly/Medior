@@ -102,6 +102,18 @@ export type ListFileInput = {
 };
 export type UpdateFileInput = { id: string; updates: Partial<db.FileSchema> };
 
+/* ------------------------------------ MediaProgram ----------------------------------- */
+export type _CreateMediaProgramInput = Omit<db.MediaProgramSchema, "id">;
+export type DeleteMediaProgramInput = { ids: string[] };
+export type ListMediaProgramInput = {
+  filter?: _FilterQuery<db.MediaProgramSchema>;
+  page?: number;
+  pageSize?: number;
+  sort?: Record<string, SortOrder>;
+  withOverwrite?: boolean;
+};
+export type _UpdateMediaProgramInput = { id: string; updates: Partial<db.MediaProgramSchema> };
+
 /* ------------------------------------ Notification ----------------------------------- */
 export type CreateNotificationInput = Omit<db.NotificationSchema, "id">;
 export type DeleteNotificationInput = { ids: string[] };
@@ -269,6 +281,9 @@ export type GetImporterStatusOutput = ReturnType<typeof db.getImporterStatus>;
 export type ReingestFolderInput = Parameters<typeof db.reingestFolder>[0];
 export type ReingestFolderOutput = ReturnType<typeof db.reingestFolder>;
 
+export type ReprocessStoredImportsInput = Parameters<typeof db.reprocessStoredImports>[0];
+export type ReprocessStoredImportsOutput = ReturnType<typeof db.reprocessStoredImports>;
+
 export type ImportMediaFileInput = Parameters<typeof db.importMediaFile>[0];
 export type ImportMediaFileOutput = ReturnType<typeof db.importMediaFile>;
 
@@ -412,9 +427,6 @@ export type ListFilePathsOutput = ReturnType<typeof db.listFilePaths>;
 export type ListFileReingestMetadataInput = Parameters<typeof db.listFileReingestMetadata>[0];
 export type ListFileReingestMetadataOutput = ReturnType<typeof db.listFileReingestMetadata>;
 
-export type ListFileSelectionStateInput = Parameters<typeof db.listFileSelectionState>[0];
-export type ListFileSelectionStateOutput = ReturnType<typeof db.listFileSelectionState>;
-
 export type ListFileTagIdsInput = Parameters<typeof db.listFileTagIds>[0];
 export type ListFileTagIdsOutput = ReturnType<typeof db.listFileTagIds>;
 
@@ -435,6 +447,9 @@ export type RelinkFilesOutput = ReturnType<typeof db.relinkFiles>;
 
 export type RepairFilesWithBrokenExtInput = Parameters<typeof db.repairFilesWithBrokenExt>[0];
 export type RepairFilesWithBrokenExtOutput = ReturnType<typeof db.repairFilesWithBrokenExt>;
+
+export type RepairPreviousHashesInput = Parameters<typeof db.repairPreviousHashes>[0];
+export type RepairPreviousHashesOutput = ReturnType<typeof db.repairPreviousHashes>;
 
 export type RepairFilesWithMissingInfoInput = Parameters<typeof db.repairFilesWithMissingInfo>[0];
 export type RepairFilesWithMissingInfoOutput = ReturnType<typeof db.repairFilesWithMissingInfo>;
@@ -457,14 +472,14 @@ export type RepairFileThumbnailOutput = ReturnType<typeof db.repairFileThumbnail
 export type RepairThumbnailNtfsMetadataInput = Parameters<typeof db.repairThumbnailNtfsMetadata>[0];
 export type RepairThumbnailNtfsMetadataOutput = ReturnType<typeof db.repairThumbnailNtfsMetadata>;
 
-export type CancelFileRefreshInput = Parameters<typeof db.cancelFileRefresh>[0];
-export type CancelFileRefreshOutput = ReturnType<typeof db.cancelFileRefresh>;
+export type StartFileDeletionInput = Parameters<typeof db.startFileDeletion>[0];
+export type StartFileDeletionOutput = ReturnType<typeof db.startFileDeletion>;
 
-export type FinishFileRefreshInput = Parameters<typeof db.finishFileRefresh>[0];
-export type FinishFileRefreshOutput = ReturnType<typeof db.finishFileRefresh>;
+export type StartFileRefreshInput = Parameters<typeof db.startFileRefresh>[0];
+export type StartFileRefreshOutput = ReturnType<typeof db.startFileRefresh>;
 
-export type RefreshFileInfoInput = Parameters<typeof db.refreshFileInfo>[0];
-export type RefreshFileInfoOutput = ReturnType<typeof db.refreshFileInfo>;
+export type StartFileUnarchiveInput = Parameters<typeof db.startFileUnarchive>[0];
+export type StartFileUnarchiveOutput = ReturnType<typeof db.startFileUnarchive>;
 
 export type RepairThumbsInput = Parameters<typeof db.repairThumbs>[0];
 export type RepairThumbsOutput = ReturnType<typeof db.repairThumbs>;
@@ -478,8 +493,17 @@ export type EditImageOutput = ReturnType<typeof db.editImage>;
 export type RebuildIndexesInput = Parameters<typeof db.rebuildIndexes>[0];
 export type RebuildIndexesOutput = ReturnType<typeof db.rebuildIndexes>;
 
-export type ArchiveLowerResolutionCopyInput = Parameters<typeof db.archiveLowerResolutionCopy>[0];
-export type ArchiveLowerResolutionCopyOutput = ReturnType<typeof db.archiveLowerResolutionCopy>;
+export type ListFileLocksInput = Parameters<typeof db.listFileLocks>[0];
+export type ListFileLocksOutput = ReturnType<typeof db.listFileLocks>;
+
+export type ListJobsInput = Parameters<typeof db.listJobs>[0];
+export type ListJobsOutput = ReturnType<typeof db.listJobs>;
+
+export type StopJobInput = Parameters<typeof db.stopJob>[0];
+export type StopJobOutput = ReturnType<typeof db.stopJob>;
+
+export type StartLowerResolutionArchiveInput = Parameters<typeof db.startLowerResolutionArchive>[0];
+export type StartLowerResolutionArchiveOutput = ReturnType<typeof db.startLowerResolutionArchive>;
 
 export type ListLowerResolutionDuplicateIdsInput = Parameters<
   typeof db.listLowerResolutionDuplicateIds
@@ -494,11 +518,59 @@ export type GetLowerResolutionScanOutput = ReturnType<typeof db.getLowerResoluti
 export type ListLowerResolutionCopiesInput = Parameters<typeof db.listLowerResolutionCopies>[0];
 export type ListLowerResolutionCopiesOutput = ReturnType<typeof db.listLowerResolutionCopies>;
 
+export type PauseLowerResolutionGroupingInput = Parameters<
+  typeof db.pauseLowerResolutionGrouping
+>[0];
+export type PauseLowerResolutionGroupingOutput = ReturnType<typeof db.pauseLowerResolutionGrouping>;
+
 export type PauseLowerResolutionScanInput = Parameters<typeof db.pauseLowerResolutionScan>[0];
 export type PauseLowerResolutionScanOutput = ReturnType<typeof db.pauseLowerResolutionScan>;
 
+export type ResumeLowerResolutionGroupingInput = Parameters<
+  typeof db.resumeLowerResolutionGrouping
+>[0];
+export type ResumeLowerResolutionGroupingOutput = ReturnType<
+  typeof db.resumeLowerResolutionGrouping
+>;
+
+export type SetLowerResolutionReviewOptionsInput = Parameters<
+  typeof db.setLowerResolutionReviewOptions
+>[0];
+export type SetLowerResolutionReviewOptionsOutput = ReturnType<
+  typeof db.setLowerResolutionReviewOptions
+>;
+
 export type StartLowerResolutionScanInput = Parameters<typeof db.startLowerResolutionScan>[0];
 export type StartLowerResolutionScanOutput = ReturnType<typeof db.startLowerResolutionScan>;
+
+export type CreateMediaProgramInput = Parameters<typeof db.createMediaProgram>[0];
+export type CreateMediaProgramOutput = ReturnType<typeof db.createMediaProgram>;
+
+export type DeleteMediaProgramsInput = Parameters<typeof db.deleteMediaPrograms>[0];
+export type DeleteMediaProgramsOutput = ReturnType<typeof db.deleteMediaPrograms>;
+
+export type ListMediaProgramsBySourceFoldersInput = Parameters<
+  typeof db.listMediaProgramsBySourceFolders
+>[0];
+export type ListMediaProgramsBySourceFoldersOutput = ReturnType<
+  typeof db.listMediaProgramsBySourceFolders
+>;
+
+export type MarkFileWatchedInput = Parameters<typeof db.markFileWatched>[0];
+export type MarkFileWatchedOutput = ReturnType<typeof db.markFileWatched>;
+
+export type RegenMediaProgramAttrsInput = Parameters<typeof db.regenMediaProgramAttrs>[0];
+export type RegenMediaProgramAttrsOutput = ReturnType<typeof db.regenMediaProgramAttrs>;
+
+export type SetMediaProgramEpisodesWatchedInput = Parameters<
+  typeof db.setMediaProgramEpisodesWatched
+>[0];
+export type SetMediaProgramEpisodesWatchedOutput = ReturnType<
+  typeof db.setMediaProgramEpisodesWatched
+>;
+
+export type UpdateMediaProgramInput = Parameters<typeof db.updateMediaProgram>[0];
+export type UpdateMediaProgramOutput = ReturnType<typeof db.updateMediaProgram>;
 
 export type FindSimilarFilesInput = Parameters<typeof db.findSimilarFiles>[0];
 export type FindSimilarFilesOutput = ReturnType<typeof db.findSimilarFiles>;
@@ -629,6 +701,12 @@ export type RepairTagsOutput = ReturnType<typeof db.repairTags>;
 
 export type SetTagCountInput = Parameters<typeof db.setTagCount>[0];
 export type SetTagCountOutput = ReturnType<typeof db.setTagCount>;
+
+export type StartTagDeletionInput = Parameters<typeof db.startTagDeletion>[0];
+export type StartTagDeletionOutput = ReturnType<typeof db.startTagDeletion>;
+
+export type StartTagRegExRegenerationInput = Parameters<typeof db.startTagRegExRegeneration>[0];
+export type StartTagRegExRegenerationOutput = ReturnType<typeof db.startTagRegExRegeneration>;
 
 export type UpsertTagInput = Parameters<typeof db.upsertTag>[0];
 export type UpsertTagOutput = ReturnType<typeof db.upsertTag>;

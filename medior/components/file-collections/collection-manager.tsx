@@ -23,7 +23,6 @@ import { colors, toast, useCancellableLoad } from "medior/utils/client";
 import {
   CollectionFilterMenu,
   CollectionTriager,
-  DeleteCollectionModal,
   FileCollection,
   RelatedCollectionsQueue,
 } from ".";
@@ -40,6 +39,7 @@ export const FileCollectionManager = Comp(() => {
   const [activeTab, setActiveTab] = useState("0");
 
   const collsRef = useRef<HTMLDivElement>(null);
+  const currentCollsRef = useRef<HTMLDivElement>(null);
 
   const hasSelectedCollectionIds = store.search.selectedIds.length > 0;
   const selectedFileIds = store.selectedFileIds;
@@ -63,6 +63,10 @@ export const FileCollectionManager = Comp(() => {
   }, [page, pageCount]);
 
   useEffect(() => {
+    currentCollsRef.current?.scrollTo({ behavior: "instant", top: 0 });
+  }, [store.currentCollectionsPage]);
+
+  useEffect(() => {
     if (
       !store.search.isLoading &&
       !store.search.isPageCountLoading &&
@@ -70,6 +74,18 @@ export const FileCollectionManager = Comp(() => {
     )
       handlePageChange(Math.max(pageCount, 1));
   }, [store.search.isLoading, store.search.isPageCountLoading, page, pageCount]);
+
+  const handleAddSeasons = async () => {
+    if (stores.mediaProgram.editor.program?.id !== store.seasonsProgramId) {
+      toast.error("The program these seasons were for is no longer open");
+      return handleClose();
+    }
+
+    const res = await stores.mediaProgram.editor.addSeasons([...store.search.selectedIds]);
+
+    if (!res.success) toast.error(res.error);
+    else handleClose();
+  };
 
   const handleAddToCollection = async () => {
     const collId = store.search.selectedIds[0];
@@ -105,7 +121,6 @@ export const FileCollectionManager = Comp(() => {
     load.cancel();
     merge.cancelLoad();
     store.setIsOpen(false);
-    stores.file.search.reloadIfQueued();
   };
 
   const handleDelete = () => {
@@ -117,9 +132,9 @@ export const FileCollectionManager = Comp(() => {
 
   const handleRefreshMeta = () => stores.collection.regenCollMeta(store.search.selectedIds);
 
+  // Merged collections leave the results and the kept one updates in place through sockets.
   const handleMerged = () => {
     store.search.setSelectedIds([]);
-    store.search.loadFiltered();
     loadSelectedFiles();
   };
 
@@ -128,10 +143,7 @@ export const FileCollectionManager = Comp(() => {
     onMerged: handleMerged,
   });
 
-  const handleRelatedQueueClose = () => {
-    store.setIsRelatedQueueOpen(false);
-    store.search.reloadIfQueued();
-  };
+  const handleRelatedQueueClose = () => store.setIsRelatedQueueOpen(false);
 
   const handleNewCollection = async () => {
     store.setIsLoading(true);
@@ -216,7 +228,6 @@ export const FileCollectionManager = Comp(() => {
       <Modal.Content dividers={false} overflow="hidden" padding={{ all: 0 }}>
         {hasAnyFilesSelected && (
           <Card
-            column
             flex="none"
             header={
               <Text preset="title" padding="0.3rem 0">
@@ -260,7 +271,7 @@ export const FileCollectionManager = Comp(() => {
               tabs={[
                 {
                   content: (
-                    <Card column height="100%" minHeight={0} overflow="hidden" padding={{ all: 0 }}>
+                    <Card height="100%" minHeight={0} overflow="hidden" padding={{ all: 0 }}>
                       <CardGrid
                         cards={store.currentCollections.map((c) => (
                           <FileCollection key={c.id} collection={c} />
@@ -268,6 +279,7 @@ export const FileCollectionManager = Comp(() => {
                         maxCards={1}
                         noResultsText="No collections found"
                         padding={{ all: "0.3rem" }}
+                        ref={currentCollsRef}
                       />
 
                       <Pagination
@@ -310,38 +322,36 @@ export const FileCollectionManager = Comp(() => {
                 </View>
 
                 <View row justify="flex-end">
-                  <View row>
-                    <MultiActionButton
-                      name="Merge"
-                      tooltip="Quick Merge Selected Collections"
-                      iconProps={{ color: colors.custom.purple }}
-                      onClick={merge.handleQuickMerge}
-                      disabled={store.search.isLoading || store.search.selectedIds.length < 2}
-                    />
+                  <MultiActionButton
+                    name="Merge"
+                    tooltip="Quick Merge Selected Collections"
+                    iconProps={{ color: colors.custom.purple }}
+                    onClick={merge.handleQuickMerge}
+                    disabled={store.search.isLoading || store.search.selectedIds.length < 2}
+                  />
 
-                    <MultiActionButton
-                      name="Merge"
-                      tooltip="Merge Selected Collections"
-                      iconProps={{ color: colors.custom.blue }}
-                      onClick={merge.openMergeConfirmation}
-                      disabled={store.search.isLoading || store.search.selectedIds.length < 2}
-                    />
+                  <MultiActionButton
+                    name="Merge"
+                    tooltip="Merge Selected Collections"
+                    iconProps={{ color: colors.custom.blue }}
+                    onClick={merge.openMergeConfirmation}
+                    disabled={store.search.isLoading || store.search.selectedIds.length < 2}
+                  />
 
-                    <MultiActionButton
-                      name="Delete"
-                      tooltip="Delete"
-                      iconProps={{ color: colors.custom.red }}
-                      onClick={handleDelete}
-                      disabled={!hasSelectedCollectionIds}
-                    />
+                  <MultiActionButton
+                    name="Delete"
+                    tooltip="Delete"
+                    iconProps={{ color: colors.custom.red }}
+                    onClick={handleDelete}
+                    disabled={!hasSelectedCollectionIds}
+                  />
 
-                    <MultiActionButton
-                      name="Refresh"
-                      tooltip="Refresh"
-                      onClick={handleRefreshMeta}
-                      disabled={!hasSelectedCollectionIds}
-                    />
-                  </View>
+                  <MultiActionButton
+                    name="Refresh"
+                    tooltip="Refresh"
+                    onClick={handleRefreshMeta}
+                    disabled={!hasSelectedCollectionIds}
+                  />
                 </View>
               </UniformList>
             }
@@ -415,9 +425,17 @@ export const FileCollectionManager = Comp(() => {
             colorOnHover={colors.custom.purple}
           />
         )}
-      </Modal.Footer>
 
-      {store.isConfirmDeleteOpen && <DeleteCollectionModal />}
+        {store.seasonsProgramId && (
+          <Button
+            text="Add as Seasons"
+            icon="LiveTv"
+            onClick={handleAddSeasons}
+            disabled={!hasSelectedCollectionIds}
+            color={colors.custom.blue}
+          />
+        )}
+      </Modal.Footer>
 
       {store.isTriagerOpen && <CollectionTriager />}
 

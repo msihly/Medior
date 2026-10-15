@@ -124,7 +124,6 @@ export const TagMerger = Comp(() => {
     store.merger.setIsOpen(false);
     store.subEditor.setIsOpen(false);
     store.editor.setIsOpen(false);
-    stores.file.search.reloadIfQueued();
 
     return true;
   };
@@ -199,8 +198,8 @@ export const TagMerger = Comp(() => {
         <Text preset="title">{"Merge Tags"}</Text>
       </Modal.Header>
 
-      <Modal.Content spacing="0.5rem">
-        <Card column>
+      <Modal.Content>
+        <Card>
           <UniformList row spacing="0.5rem">
             <View column flex={1}>
               <HeaderWrapper header="Base Tag">
@@ -240,7 +239,7 @@ export const TagMerger = Comp(() => {
           </UniformList>
         </Card>
 
-        <Card column position="relative" spacing="0.5rem">
+        <Card spacing="0.5rem">
           {disabled && <View className={css.disabledOverlay} />}
 
           <View row flex={1} spacing="0.5rem">
@@ -293,7 +292,7 @@ export const TagMerger = Comp(() => {
           icon="Check"
           onClick={handleConfirm}
           color={colors.custom.purple}
-          {...{ disabled }}
+          disabled={disabled}
         />
       </Modal.Footer>
     </Modal.Container>

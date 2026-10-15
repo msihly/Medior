@@ -37,7 +37,15 @@ export type FileSidecarCollection = FileImportSidecar["collections"][number];
 
 export type ImportEntryInput = Pick<
   FileImportSchema,
-  "dateCreated" | "diffusionParams" | "extension" | "name" | "path" | "sidecar" | "size" | "tagIds"
+  | "dateCreated"
+  | "diffusionParams"
+  | "extension"
+  | "name"
+  | "path"
+  | "sidecar"
+  | "size"
+  | "subtitles"
+  | "tagIds"
 >;
 
 export type ImportBatchOptions = Pick<
@@ -46,7 +54,9 @@ export type ImportBatchOptions = Pick<
   | "collectionTitle"
   | "deleteOnImport"
   | "ignorePrevDeleted"
+  | "mediaProgram"
   | "rootFolderPath"
+  | "subtitleMode"
 > & { tagIds?: string[] };
 
 export type ImportBatchInput = ImportBatchOptions & { imports: ImportEntryInput[] };

@@ -74,12 +74,10 @@ const parseDiffParam = <IsNum extends boolean>(
   isNumber: IsNum,
   optional = false,
   endDelimiter = ",",
-  startDelimeter = ": ",
+  startDelimiter = ": ",
 ): IsNum extends true ? number : string => {
   try {
-    const hasParam = diffParams.includes(`${paramName}: `);
-
-    if (!hasParam) {
+    if (!diffParams.includes(`${paramName}: `)) {
       if (!optional)
         throw new Error(`Param "${paramName}" not found in generation parameters: ${diffParams}.`);
 
@@ -87,24 +85,24 @@ const parseDiffParam = <IsNum extends boolean>(
     }
 
     const rawParamUnterminated = diffParams.substring(
-      diffParams.indexOf(`${paramName}${startDelimeter}`),
+      diffParams.indexOf(`${paramName}${startDelimiter}`),
     );
 
-    const startIndex = rawParamUnterminated.indexOf(startDelimeter) + startDelimeter.length;
+    const startIndex = rawParamUnterminated.indexOf(startDelimiter) + startDelimiter.length;
     let endIndex = rawParamUnterminated.indexOf(endDelimiter, startIndex);
 
     if (!(endIndex > 0)) endIndex = undefined;
 
     const value = rawParamUnterminated
       .substring(startIndex, endIndex)
-      ?.replace?.(/^(\s|\r)|(\s|\r)$/gim, "");
+      .replace(/^(\s|\r)|(\s|\r)$/gim, "");
 
     if (isNumber) {
       if (isNaN(+value)) throw new Error(`Received NaN when parsing ${paramName}`);
 
       return +value as any;
     } else return value as any;
-  } catch (err) {
+  } catch {
     return undefined;
   }
 };

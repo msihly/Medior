@@ -165,15 +165,10 @@ export const runNativeTask = async <T>(
     worker.on("error", (error) => console.error(`[${name}] ${error.message}`));
     worker.setMaxListeners(0);
 
-    const ownedWorker = worker;
-
     pool.add(worker);
-
     registerWorkerCancellation(serverShutdownSignal, worker);
 
-    if (signal !== serverShutdownSignal) {
-      registerWorkerCancellation(signal, worker);
-    }
+    if (signal !== serverShutdownSignal) registerWorkerCancellation(signal, worker);
 
     if (!workers.has(signal)) workers.set(signal, new Map());
 
@@ -182,9 +177,9 @@ export const runNativeTask = async <T>(
     workers.get(signal).get(name).add(worker);
 
     worker.once("close", () => {
-      clearTimeout(idleTimeouts.get(ownedWorker));
-      pool.delete(ownedWorker);
-      workers.get(signal)?.get(name)?.delete(ownedWorker);
+      clearTimeout(idleTimeouts.get(worker));
+      pool.delete(worker);
+      workers.get(signal)?.get(name)?.delete(worker);
       notifyWorkerAvailability(name);
     });
   }

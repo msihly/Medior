@@ -1,5 +1,5 @@
 import autoBind from "auto-bind";
-import { Model, model, modelAction, modelFlow, prop } from "mobx-keystone";
+import { Model, model, modelFlow, prop } from "mobx-keystone";
 import { asyncAction } from "medior/utils/client";
 import { dayjs } from "medior/utils/common";
 import { trpc } from "medior/utils/server";
@@ -14,7 +14,6 @@ import { ImportManager, Ingester, Reingester } from ".";
 
 @model("medior/ImportStore")
 export class ImportStore extends Model({
-  deletedFileHashes: prop<string[]>(() => []).withSetter(),
   ingester: prop<Ingester>(() => new Ingester({})),
   manager: prop<ImportManager>(() => new ImportManager({})),
   reingester: prop<Reingester>(() => new Reingester({})),
@@ -23,12 +22,6 @@ export class ImportStore extends Model({
 }) {
   onInit() {
     autoBind(this);
-  }
-
-  /* ---------------------------- STANDARD ACTIONS ---------------------------- */
-  @modelAction
-  addDeletedFileHashes(hashes: string[]) {
-    this.deletedFileHashes = [...new Set([...this.deletedFileHashes, ...hashes])];
   }
 
   /* ------------------------------ ASYNC ACTIONS ----------------------------- */

@@ -122,8 +122,6 @@ export const FileCollectionEditor = Comp(
       if (onClose) onClose();
       else store.setIsOpen(false);
 
-      stores.file.search.reloadIfQueued();
-
       return true;
     };
 
@@ -286,12 +284,12 @@ export const FileCollectionEditor = Comp(
           </Text>
         </Modal.Header>
 
-        <Modal.Content dividers={false} row flex={1} height="100%" spacing="0.5rem">
+        <Modal.Content dividers={false} row spacing="0.5rem">
           {mode === "edit" && isAddingFiles && <FileSearchColumn />}
 
           <View column flex={1} spacing="0.5rem" overflow="hidden">
             <View row spacing="0.5rem">
-              <Card column flex={1} spacing="0.5rem" overflow="hidden">
+              <Card flex={1} spacing="0.5rem" overflow="hidden">
                 <HeaderRow label="Title">
                   <Input value={store.title} setValue={handleTitleChange} width="100%" />
                 </HeaderRow>
@@ -301,7 +299,7 @@ export const FileCollectionEditor = Comp(
                 </HeaderRow>
               </Card>
 
-              <Card column flex="none" height="100%">
+              <Card flex="none" height="100%">
                 <View row>
                   <MultiActionButton
                     name="ArrowUpward"
@@ -329,7 +327,7 @@ export const FileCollectionEditor = Comp(
                 />
               </Card>
 
-              <Card column flex="none" height="100%">
+              <Card flex="none" height="100%">
                 <View row>
                   {mode === "edit" && (
                     <>
@@ -402,14 +400,7 @@ export const FileCollectionEditor = Comp(
               </Card>
             </View>
 
-            <Card
-              column
-              flex={1}
-              minHeight={0}
-              overflow="hidden"
-              padding={{ all: 0 }}
-              position="relative"
-            >
+            <Card flex={1} minHeight={0} overflow="hidden" padding={{ all: 0 }}>
               <SearchLoadingOverlay
                 isLoading={
                   !isSaving && !store.isSaving && !store.isLoading && store.search.isLoading

@@ -28,7 +28,7 @@ export const OperationCard = Comp(({ operation }: { operation: BackgroundOperati
         </View>
 
         <View row flex="none" align="center" spacing="0.75rem">
-          <Text color={meta.color} fontSize="0.8em" whiteSpace="nowrap">
+          <Text color={meta.color} fontSize="0.8em">
             {`${operation.status} · ${
               operation.type === "mediaPathIndex"
                 ? `${operation.processedCount.toLocaleString()} checked`
@@ -106,7 +106,7 @@ export const OperationCard = Comp(({ operation }: { operation: BackgroundOperati
         ))}
       </View>
 
-      <Text color={colors.custom.lightGrey} flex="none" fontSize="0.8em" whiteSpace="nowrap">
+      <Text color={colors.custom.lightGrey} flex="none" fontSize="0.8em">
         {`Updated ${formatDate(operation.dateModified ?? operation.dateCreated)}`}
       </Text>
     </Card>

@@ -38,7 +38,7 @@ export const FileCollection = Comp(
       if (!res?.success) toast.error(res.error);
     };
 
-    const handleDelete = async () => {
+    const handleDelete = () => {
       stores.collection.setIdsForConfirmDelete([collection.id]);
       stores.collection.setIsConfirmDeleteOpen(true);
     };

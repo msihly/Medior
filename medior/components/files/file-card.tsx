@@ -11,6 +11,8 @@ interface FileCardProps {
   file?: File;
   height?: CSS["height"];
   similarity?: {
+    /** Looks alike but was edited, recoloured, or reframed rather than copied. */
+    isVariation?: boolean;
     rank: number;
     score: number;
   };
@@ -32,17 +34,10 @@ export const FileCard = Comp(
     const handleClick = async (event: React.MouseEvent) => {
       if (disabled) return;
 
+      const args = { hasCtrl: event.ctrlKey, hasShift: event.shiftKey, id: file.id };
       const res = await ("handleFileSelect" in store
-        ? store.handleFileSelect({
-            hasCtrl: event.ctrlKey,
-            hasShift: event.shiftKey,
-            id: file.id,
-          })
-        : store.handleSelect({
-            hasCtrl: event.ctrlKey,
-            hasShift: event.shiftKey,
-            id: file.id,
-          }));
+        ? store.handleFileSelect(args)
+        : store.handleSelect(args));
 
       if (!res?.success) toast.error(res.error);
     };
@@ -67,11 +62,7 @@ export const FileCard = Comp(
       );
 
     return (
-      <FileBase.ContextMenu
-        key="context-menu"
-        {...{ carouselFileIds, disabled, file }}
-        store={store}
-      >
+      <FileBase.ContextMenu {...{ carouselFileIds, disabled, file }} store={store}>
         <FileBase.Tooltip {...{ file }}>
           <FileBase.Container
             {...{ disabled, height, width }}
@@ -97,11 +88,13 @@ export const FileCard = Comp(
                 <FileBase.Chip
                   position="top-left"
                   bgColor={
-                    similarity.score >= 0.9
-                      ? colors.custom.green
-                      : similarity.score >= 0.7
-                        ? colors.custom.orange
-                        : colors.custom.red
+                    similarity.isVariation
+                      ? colors.custom.orange
+                      : similarity.score >= 0.9
+                        ? colors.custom.green
+                        : similarity.score >= 0.7
+                          ? colors.custom.orange
+                          : colors.custom.red
                   }
                   color={colors.custom.white}
                   opacity={1}
@@ -116,7 +109,7 @@ export const FileCard = Comp(
                       {`#${similarity.rank}`}
                     </Text>
                   }
-                  label={`${round(similarity.score * 100, 1)}%`}
+                  label={`${similarity.isVariation ? "Variation · " : ""}${round(similarity.score * 100, 1)}%`}
                 />
               ) : (
                 <FileBase.RatingChip position="top-left" rating={file.rating} />

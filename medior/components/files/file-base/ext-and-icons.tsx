@@ -1,5 +1,5 @@
-import { FileBase, Icon, Text, View } from "medior/components";
-import { File } from "medior/store";
+import { Comp, FileBase, Icon, Text, View } from "medior/components";
+import { File, useStores } from "medior/store";
 import { colors } from "medior/utils/client";
 import { CONSTANTS, VideoCodec } from "medior/utils/common";
 import { ChipProps } from "./chip";
@@ -8,12 +8,18 @@ interface ExtAndIconsProps extends Omit<ChipProps, "label"> {
   file: File;
 }
 
-export const ExtAndIcons = ({ file, ...props }: ExtAndIconsProps) => {
+export const ExtAndIcons = Comp(({ file, ...props }: ExtAndIconsProps) => {
+  const stores = useStores();
+
   return (
     <FileBase.Chip
       {...props}
       label={
         <View row spacing="0.3em">
+          {!!stores.file.getFileLock(file.id) && (
+            <Icon name="Lock" size="1em" color={colors.custom.orange} />
+          )}
+
           {!file.isAnimated && (
             <Icon
               name="Face"
@@ -43,4 +49,4 @@ export const ExtAndIcons = ({ file, ...props }: ExtAndIconsProps) => {
       }
     />
   );
-};
+});

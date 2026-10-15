@@ -16,6 +16,7 @@ import {
 } from "medior/server/database/background-execution";
 import { getBackgroundSession } from "medior/server/database/database-context";
 import { mergeDuplicateFile } from "medior/server/database/duplicate-merge";
+import { assertFilesUnlocked, getForeignFileLock } from "medior/server/database/file-locks";
 import {
   assertMediaPathIndexesReady,
   assertMediaPathsAvailable,
@@ -25,6 +26,7 @@ import {
   mediaPathPattern,
   pauseFileCleanups,
 } from "medior/server/database/file-operations";
+import { withIndexHint } from "medior/server/database/index-hints";
 import { recoverDirectImports } from "medior/server/database/media-import";
 import { withMetadataMutation } from "medior/server/database/metadata-mutations";
 import {
@@ -195,6 +197,19 @@ const makeAfterAttrs = (info: MediaInfo, path: string, hash: string) => ({
   afterVideoCodec: info.videoCodec,
   afterWidth: info.width,
 });
+
+/** Refuses applying transforms to files, or their duplicates, while another operation locks them. */
+const assertTransformFilesUnlocked = async (ids: string[]) => {
+  const transforms = await models.FileTransformModel.find({ _id: { $in: ids } })
+    .select({ duplicateFileId: 1, fileId: 1 })
+    .lean();
+
+  assertFilesUnlocked(
+    transforms.flatMap(({ duplicateFileId, fileId }) =>
+      [fileId, duplicateFileId].filter(Boolean).map(String),
+    ),
+  );
+};
 
 const updateFileTransform = async (id: string, updates: Partial<models.FileTransformSchema>) => {
   const tagEvent = {
@@ -566,6 +581,8 @@ export const createFileTransforms = makeAction(
   }) => {
     if (!args.fileIds.length) throw new Error("No files selected");
 
+    assertFilesUnlocked(args.fileIds);
+
     // Without shared pairs, each selected video is spliced by its own single timeline.
     const isTimelineSplice = args.type === "splice" && !args.timestampPairs?.length;
 
@@ -725,22 +742,26 @@ export const listReencodeCandidateIds = makeAction(
 
       const sortKey = type === "image" ? "size" : "bitrate";
 
-      const files = await models.FileModel.aggregate<{ _id: MongoTypes.ObjectId }>([
-        { $match: matches[type] },
-        { $sort: { [sortKey]: -1, _id: -1 } },
-        {
-          $lookup: {
-            as: "reencodes",
-            foreignField: "fileId",
-            from: models.FileTransformModel.collection.name,
-            localField: "_id",
-            pipeline: [{ $match: { type: "reencode" } }, { $limit: 1 }, { $project: { _id: 1 } }],
+      const files = await withIndexHint(() =>
+        models.FileModel.aggregate<{ _id: MongoTypes.ObjectId }>([
+          { $match: matches[type] },
+          { $sort: { [sortKey]: -1, _id: -1 } },
+          {
+            $lookup: {
+              as: "reencodes",
+              foreignField: "fileId",
+              from: models.FileTransformModel.collection.name,
+              localField: "_id",
+              pipeline: [{ $match: { type: "reencode" } }, { $limit: 1 }, { $project: { _id: 1 } }],
+            },
           },
-        },
-        { $match: { "reencodes.0": { $exists: false } } },
-        { $limit: REENCODE_BATCH_SIZES[type] },
-        { $project: { _id: 1 } },
-      ]).hint({ [sortKey]: 1, _id: 1 });
+          { $match: { "reencodes.0": { $exists: false } } },
+          { $limit: REENCODE_BATCH_SIZES[type] },
+          { $project: { _id: 1 } },
+        ])
+          .hint({ [sortKey]: 1, _id: 1 })
+          .exec(),
+      );
 
       for (const file of files) ids.push(file._id.toString());
     }
@@ -879,7 +900,7 @@ export const deleteFileTransforms = makeAction(
         return result;
       }
     },
-    true,
+    { persistInBackground: true },
   ),
 );
 
@@ -890,6 +911,9 @@ export const deleteFileTransformsByFileIds = makeAction(async (args: { fileIds: 
   })
     .select({ _id: 1 })
     .lean();
+
+  // Deletions are saved as their own request first, which files without transforms don't need.
+  if (!transforms.length) return { acknowledged: true, deletedCount: 0 };
 
   const res = await deleteFileTransforms({ ids: transforms.map(({ _id }) => _id.toString()) });
 
@@ -1234,25 +1258,18 @@ const processDuplicateMergeQueue = async (operationId?: string, batchId?: string
       for (const id of ids) {
         try {
           const verified = await verifyDuplicateTransform({ id });
+          const current = await models.BackgroundOperationModel.findById(operation.id).lean();
 
-          const merged = await (async () => {
-            const current = await models.BackgroundOperationModel.findById(operation.id).lean();
+          if (!current || !["PENDING", "RUNNING"].includes(current.status)) return;
 
-            if (!current || !["PENDING", "RUNNING"].includes(current.status)) return false;
-
-            if (!current.targetIds.includes(id)) return true;
-
+          if (current.targetIds.includes(id)) {
             await mergeDuplicateTransform({ id }, verified);
             await actions.completeBackgroundOperationTargets(
               operation.id,
               [id],
               `Merged ${current.processedCount + 1} of ${current.totalCount} duplicates.`,
             );
-
-            return true;
-          })();
-
-          if (!merged) return;
+          }
         } catch (error) {
           if (backgroundExecution.getStore()?.cancelled || isServerStopping()) return;
 
@@ -1294,6 +1311,8 @@ export const mergeFileTransformDuplicate = makeAction(
 
     if (ids.length > CONSTANTS.FILE.TRANSFORM.BATCH_SIZE)
       throw new Error(`Merge at most ${CONSTANTS.FILE.TRANSFORM.BATCH_SIZE} duplicates per batch`);
+
+    await assertTransformFilesUnlocked(ids);
 
     activeMediaFinalizations++;
     duplicateMergeAbortController = new AbortController();
@@ -1504,6 +1523,10 @@ const replaceTransformOutput = async (args: { id: string }, outputInfo?: MediaIn
     return { status: "REPLACED" as const };
   } else if (transform.status === "DUPLICATE") return { status: "DUPLICATE" as const };
   else {
+    // Queued replacements run outside any request, so locks are checked here as well.
+    const lock = getForeignFileLock(String(transform.fileId));
+    if (lock) throw new Error(`The original is locked by ${lock}; replace it once that finishes.`);
+
     const source = await models.FileModel.findById(transform.fileId)
       .select({ hash: 1, path: 1, thumb: 1 })
       .lean();
@@ -1611,7 +1634,13 @@ const replaceTransformOutput = async (args: { id: string }, outputInfo?: MediaIn
         const updated = await actions.updateFile({
           args: {
             id: original._id.toString(),
-            updates: fileUpdates,
+            updates: {
+              ...fileUpdates,
+              // Imports recognize the replaced version as this file.
+              previousHashes: [
+                ...new Set([...(original.previousHashes ?? []), transform.beforeHash]),
+              ].filter((hash) => hash !== transform.afterHash),
+            },
           },
         });
 
@@ -1753,6 +1782,9 @@ makeBackgroundOperationRunner("file recovery and duplicate merging", async () =>
       .cursor()) {
       if (!canRunBackgroundQueues()) return;
 
+      // Originals another operation locks stay pending until a later recovery.
+      if (getForeignFileLock(String(transform.fileId))) continue;
+
       try {
         if (transform.status === "DUPLICATE")
           await autoMergeDuplicateTransform(String(transform._id));
@@ -1795,13 +1827,15 @@ const withMediaFinalization = async <T>(
   }
 };
 
-export const replaceFileTransformOutput = makeAction(async (args: { id: string }) =>
-  withMediaFinalization(
+export const replaceFileTransformOutput = makeAction(async (args: { id: string }) => {
+  await assertTransformFilesUnlocked([args.id]);
+
+  return withMediaFinalization(
     "Wait for the current media operation to finish before replacing output",
     () => replaceTransformOutput(args),
     true,
-  ),
-);
+  );
+});
 
 const executeFileTransform = async (args: { id: string }, signal: AbortSignal) => {
   let output: { hash: string; info?: MediaInfo; path: string } = null;
@@ -1984,6 +2018,8 @@ const executeFileTransform = async (args: { id: string }, signal: AbortSignal) =
 
     // Auto mode finalizes each job by its own choice, so splices need no input either.
     const isAutoFinalized = fileTransformerStatus.getIsAuto() && status !== "SKIPPED";
+    // An original another operation locks is finalized later, by recovery or by hand.
+    const isOriginalLocked = !!getForeignFileLock(String(transform.fileId));
 
     setStage("committing completion and tag changes");
     await updateFileTransform(args.id, {
@@ -1998,7 +2034,7 @@ const executeFileTransform = async (args: { id: string }, signal: AbortSignal) =
 
     if (status === "SKIPPED") runTransformCleanupQueue();
 
-    if (isAutoFinalized) {
+    if (isAutoFinalized && !isOriginalLocked) {
       activeMediaFinalizations++;
 
       try {
@@ -2109,6 +2145,7 @@ const startFileTransform = (args: { id: string; type: Types.FileTransformType })
   startupTimeout.unref();
   signal.addEventListener("abort", clearStartupTimeout, { once: true });
 
+  // Declared before assignment, since the run's own cleanup compares against it.
   let execution: Promise<void>;
 
   execution = (async () => {
@@ -2226,13 +2263,14 @@ const startFileTransform = (args: { id: string; type: Types.FileTransformType })
   return true;
 };
 
-export const runFileTransform = makeAction(async (args: { id: string; isAuto?: boolean }) => {
+/** Stops the running transformer and resets interrupted transforms before another run starts. */
+const prepareTransformerRun = async (isAuto?: boolean) => {
   await assertMediaPathIndexesReady();
 
   if (activeMediaFinalizations)
     throw new Error("Wait for media finalization or recovery to finish");
 
-  if (typeof args.isAuto === "boolean") fileTransformerStatus.setIsAuto(args.isAuto);
+  if (typeof isAuto === "boolean") fileTransformerStatus.setIsAuto(isAuto);
 
   if (activeTransformExecution) {
     fileTransformerStatus.setIsPaused(true);
@@ -2240,6 +2278,10 @@ export const runFileTransform = makeAction(async (args: { id: string; isAuto?: b
   }
 
   await resetStaleRunningTransforms();
+};
+
+export const runFileTransform = makeAction(async (args: { id: string; isAuto?: boolean }) => {
+  await prepareTransformerRun(args.isAuto);
 
   const transform = await models.FileTransformModel.findById(args.id).lean();
 
@@ -2270,19 +2312,7 @@ export const runFileTransform = makeAction(async (args: { id: string; isAuto?: b
 
 export const runFileTransformer = makeAction(
   async (args: { isAuto?: boolean; type: Types.FileTransformType }) => {
-    await assertMediaPathIndexesReady();
-
-    if (activeMediaFinalizations)
-      throw new Error("Wait for media finalization or recovery to finish");
-
-    if (typeof args.isAuto === "boolean") fileTransformerStatus.setIsAuto(args.isAuto);
-
-    if (activeTransformExecution) {
-      fileTransformerStatus.setIsPaused(true);
-      await activeTransformExecution;
-    }
-
-    await resetStaleRunningTransforms();
+    await prepareTransformerRun(args.isAuto);
 
     const transform = await getPendingTransform(args.type);
 

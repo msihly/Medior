@@ -54,15 +54,15 @@ export const CustomSlider = (props: CustomSliderProps) => {
 
       <View display={isVisible ? "block" : "none"} className={css.sliderContainer}>
         <Slider
-          value={props?.value}
-          setValue={props?.setValue}
-          onCommit={props?.onCommit}
+          value={props.value}
+          setValue={props.setValue}
+          onCommit={props.onCommit}
           onMouseDown={handleMouseDown}
           onMouseUp={handleMouseUp}
-          disabled={props?.disabled}
-          min={props?.min}
-          max={props?.max}
-          step={props?.step}
+          disabled={props.disabled}
+          min={props.min}
+          max={props.max}
+          step={props.step}
           orientation="vertical"
           valueLabelDisplay="off"
           className={css.slider}

@@ -1,4 +1,4 @@
-import { createTRPCProxyClient, httpBatchLink, httpLink } from "@trpc/client";
+import { createTRPCProxyClient, httpBatchLink, httpLink, splitLink } from "@trpc/client";
 import { SocketEmitEvent, SocketEvents } from "medior/_generated/server/socket";
 import { io, Socket } from "socket.io-client";
 import { fileLog } from "trabecula/utils/server";
@@ -20,9 +20,18 @@ export const setupTRPC = () => {
 };
 
 export const setupVectorTRPC = () => {
+  const url = `http://127.0.0.1:${getConfig().ports.vector}`;
+
   // @ts-expect-error
   vectorTrpc = createTRPCProxyClient<VectorRouter>({
-    links: [httpBatchLink({ url: `http://127.0.0.1:${getConfig().ports.vector}` })],
+    links: [
+      // Duplicate searches run several queries at once; batched, each would wait for the slowest.
+      splitLink({
+        condition: (op) => op.path === "findDuplicateCandidates",
+        false: httpBatchLink({ url }),
+        true: httpLink({ url }),
+      }),
+    ],
   });
 };
 
@@ -82,7 +91,7 @@ class SocketClass {
         }
       });
     } catch (err) {
-      fileLog(`emit() scheduleer error: ${err.message}`, { type: "error" });
+      fileLog(`emit() scheduler error: ${err.message}`, { type: "error" });
     }
   }
 

@@ -7,9 +7,6 @@ import { InputOutputRow } from "./input-output-row";
 export const TransformDetails = Comp(
   ({ transform, compact = false }: { compact?: boolean; transform: FileTransform }) => {
     const outputSize = transform.afterSize ?? transform.progressSize;
-    const outputCodec = getOutputCodec(transform);
-    const outputDimensions = getOutputDimensions(transform);
-    const outputFrameRate = getOutputFrameRate(transform);
 
     const detailLabelProps = {
       alignSelf: "center",
@@ -32,7 +29,7 @@ export const TransformDetails = Comp(
               compact={compact}
               label="Codec"
               input={transform.beforeVideoCodec || "--"}
-              output={outputCodec}
+              output={getOutputCodec(transform)}
             />
           )}
 
@@ -44,7 +41,7 @@ export const TransformDetails = Comp(
                 ? `${transform.beforeWidth}x${transform.beforeHeight}`
                 : "--"
             }
-            output={outputDimensions}
+            output={getOutputDimensions(transform)}
           />
 
           {transform.isAnimated && (
@@ -53,7 +50,7 @@ export const TransformDetails = Comp(
                 compact={compact}
                 label="FPS"
                 input={transform.beforeFrameRate ? round(transform.beforeFrameRate) : "--"}
-                output={outputFrameRate}
+                output={getOutputFrameRate(transform)}
               />
 
               <InputOutputRow

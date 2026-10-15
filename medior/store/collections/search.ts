@@ -20,7 +20,6 @@ export class FileCollectionSearch extends ExtendedModel(_FileCollectionSearch, {
   files: prop<Record<string, File>>(() => ({}))
     .withTransform(objectToMapTransform<File>())
     .withSetter(),
-  hasQueuedReload: prop<boolean>(false).withSetter(),
 }) {
   onInit() {
     autoBind(this);
@@ -62,41 +61,32 @@ export class FileCollectionSearch extends ExtendedModel(_FileCollectionSearch, {
     this._minSize = Number.isFinite(searchProps.minSize) ? searchProps.minSize / 1024 : null;
   }
 
-  @modelAction
-  reloadIfQueued() {
-    const stores = getRootStore<RootStore>(this);
-
-    if (this.hasQueuedReload && !stores.collection.editor.isOpen) {
-      this.setHasQueuedReload(false);
-      this.loadFiltered();
-    }
-  }
-
   /* ------------------------------ ASYNC ACTIONS ----------------------------- */
+  /** Loads the preview files of the shown collections, unless they are all loaded already. */
   @modelFlow
   loadFiles = asyncAction(async () => {
     const stores = getRootStore<RootStore>(this);
 
     const loadId = this.loadId;
     const results = this.results;
+    const fileIds = [
+      ...new Set(
+        [...this.results, ...stores.collection.manager.currentCollections]
+          .map((c) => c.previewIds)
+          .flat(),
+      ),
+    ];
+
+    // Removing collections, or updating them in place, keeps the previews already loaded.
+    if (this.results.length && fileIds.every((fileId) => this.files.has(fileId))) return;
 
     this.setIsLoading(true);
 
     try {
       if (!this.results.length) {
-        if (loadId === this.loadId) {
-          this.setFiles(new Map());
-          this.setIsLoading(false);
-        }
+        this.setFiles(new Map());
+        this.setIsLoading(false);
       } else {
-        const fileIds = [
-          ...new Set(
-            [...this.results, ...stores.collection.manager.currentCollections]
-              .map((c) => c.previewIds)
-              .flat(),
-          ),
-        ];
-
         const files = await loadFilesWithTags(fileIds);
 
         if (loadId !== this.loadId || results !== this.results) return;

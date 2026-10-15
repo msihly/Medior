@@ -118,12 +118,14 @@ export interface DeletedFileSchema {
   dateCreated: string;
   hash: string;
   id: string;
+  metadata?: Buffer;
 }
 
 const DeletedFileSchema = new Schema<DeletedFileSchema>({
   id: String,
   dateCreated: String,
   hash: String,
+  metadata: { type: Buffer, select: false },
 });
 
 DeletedFileSchema.plugin(backgroundExecutionPlugin);
@@ -219,6 +221,7 @@ export interface FileImportSchema {
   >;
   size: number;
   status?: string | "COMPLETE" | "DELETED" | "DUPLICATE" | "ERROR" | "PENDING";
+  subtitles?: Array<{ path: string }>;
   tagIds?: string[];
   thumb?: {
     frameHeight?: number;
@@ -244,6 +247,7 @@ const FileImportSchema = new Schema<FileImportSchema>({
   progressRevision: Number,
   sidecar: Schema.Types.Mixed,
   size: Number,
+  subtitles: [{ path: String }],
   status: { type: String, enum: ["COMPLETE", "DELETED", "DUPLICATE", "ERROR", "PENDING"] },
   tagIds: [{ type: Schema.Types.ObjectId, ref: "Tag" }],
   thumb: {
@@ -284,6 +288,7 @@ export interface FileImportBatchSchema {
   isReady: boolean;
   lastUploadHash?: string;
   lastUploadOffset?: number;
+  mediaProgram?: import("medior/utils/common/media-programs").MediaProgramImport;
   processedCount: number;
   processedSize: number;
   progressRevision: number;
@@ -291,6 +296,7 @@ export interface FileImportBatchSchema {
   size?: number;
   sourceFolderPath?: string;
   startedAt?: string;
+  subtitleMode?: "embed" | "keep" | "none";
   tagIds: string[];
   tagIdsWithAncestors: string[];
 }
@@ -309,12 +315,14 @@ const FileImportBatchSchema = new Schema<FileImportBatchSchema>({
   isReady: Boolean,
   lastUploadHash: String,
   lastUploadOffset: Number,
+  mediaProgram: Schema.Types.Mixed,
   processedCount: Number,
   processedSize: Number,
   progressRevision: Number,
   rootFolderPath: String,
   size: Number,
   sourceFolderPath: String,
+  subtitleMode: { type: String, enum: ["embed", "keep", "none"] },
   startedAt: String,
   tagIds: [{ type: Schema.Types.ObjectId, ref: "Tag" }],
   tagIdsWithAncestors: [{ type: Schema.Types.ObjectId, ref: "Tag" }],
@@ -557,8 +565,11 @@ export interface FileSchema {
   originalVideoCodec?: string;
   path: string;
   peakDecibels?: number;
+  previousHashes?: string[];
   rating: number;
   size: number;
+  sourceHash?: string;
+  subtitles?: Array<{ ext: string; path: string; pathKey: string }>;
   tagIds: string[];
   tagIdsWithAncestors: string[];
   thumb: {
@@ -620,8 +631,11 @@ const FileSchema = new Schema<FileSchema>({
   originalVideoCodec: String,
   path: String,
   peakDecibels: Number,
+  previousHashes: [String],
   rating: Number,
   size: Number,
+  sourceHash: String,
+  subtitles: [{ ext: String, path: String, pathKey: String }],
   tagIds: [{ type: Schema.Types.ObjectId, ref: "Tag" }],
   tagIdsWithAncestors: [{ type: Schema.Types.ObjectId, ref: "Tag" }],
   thumb: {
@@ -663,14 +677,30 @@ FileSchema.index({ hasTranscript: 1 }, { unique: false });
 FileSchema.index({ height: 1, _id: 1 }, { unique: true });
 FileSchema.index({ isArchived: 1 }, { unique: false });
 FileSchema.index({ isCorrupted: 1 }, { unique: false });
+FileSchema.index(
+  { originalHash: 1 },
+  { partialFilterExpression: { originalHash: { $type: "string" } }, unique: false },
+);
 FileSchema.index({ originalName: 1, _id: 1 }, { unique: true });
 FileSchema.index(
   { isArchived: 1, originalPath: 1, _id: 1, dateCreated: 1, dateImported: 1, dateModified: 1 },
   { unique: false },
 );
 FileSchema.index({ peakDecibels: 1, _id: 1 }, { unique: true });
+FileSchema.index(
+  { previousHashes: 1 },
+  { partialFilterExpression: { previousHashes: { $type: "string" } }, unique: false },
+);
 FileSchema.index({ rating: 1, _id: 1 }, { unique: true });
 FileSchema.index({ size: 1, _id: 1 }, { unique: true });
+FileSchema.index(
+  { sourceHash: 1 },
+  { partialFilterExpression: { sourceHash: { $type: "string" } }, unique: false },
+);
+FileSchema.index(
+  { "subtitles.pathKey": 1 },
+  { partialFilterExpression: { "subtitles.pathKey": { $type: "string" } }, unique: false },
+);
 FileSchema.index({ tagIds: 1 }, { unique: false });
 FileSchema.index({ tagIdsWithAncestors: 1 }, { unique: false });
 FileSchema.index(
@@ -681,6 +711,97 @@ FileSchema.index({ videoCodec: 1 }, { unique: false });
 FileSchema.index({ width: 1, _id: 1 }, { unique: true });
 
 export const FileModel = model<FileSchema>("File", FileSchema);
+
+/* --------------------------------------------------------------------------- */
+/*                               MediaProgram
+/* --------------------------------------------------------------------------- */
+
+export interface MediaProgramSchema {
+  collectionIdIndexes: Array<{ collectionId: string; index: number }>;
+  dateCreated: string;
+  dateLastWatched?: string;
+  dateModified: string;
+  fileCount: number;
+  genreIds: string[];
+  id: string;
+  isRewatching: boolean;
+  language?: string;
+  lastWatchedFileId?: string;
+  medium?: string;
+  name: string;
+  posterFileId?: string;
+  rating: number;
+  ratingIsManual?: boolean;
+  rewatchCount: number;
+  rewatchedFileIds: string[];
+  size: number;
+  sourceFolderKey?: string;
+  sourceFolderPath?: string;
+  tagIds: string[];
+  tagIdsWithAncestors: string[];
+  type?: string;
+  watchedFileIds: string[];
+  watchStatus: "dropped" | "inactive" | "unwatched" | "watched" | "watching";
+  year?: number;
+}
+
+const MediaProgramSchema = new Schema<MediaProgramSchema>({
+  id: String,
+  dateCreated: String,
+  collectionIdIndexes: [{ collectionId: Schema.Types.ObjectId, index: Number }],
+  dateLastWatched: String,
+  dateModified: String,
+  fileCount: Number,
+  genreIds: [{ type: Schema.Types.ObjectId, ref: "Tag" }],
+  isRewatching: Boolean,
+  language: String,
+  lastWatchedFileId: Schema.Types.ObjectId,
+  medium: String,
+  name: String,
+  posterFileId: Schema.Types.ObjectId,
+  rating: Number,
+  ratingIsManual: Boolean,
+  rewatchCount: Number,
+  rewatchedFileIds: [{ type: Schema.Types.ObjectId, ref: "File" }],
+  size: Number,
+  sourceFolderKey: String,
+  sourceFolderPath: String,
+  tagIds: [{ type: Schema.Types.ObjectId, ref: "Tag" }],
+  tagIdsWithAncestors: [{ type: Schema.Types.ObjectId, ref: "Tag" }],
+  type: String,
+  watchStatus: { type: String, enum: ["dropped", "inactive", "unwatched", "watched", "watching"] },
+  watchedFileIds: [{ type: Schema.Types.ObjectId, ref: "File" }],
+  year: Number,
+});
+
+MediaProgramSchema.plugin(backgroundExecutionPlugin);
+
+MediaProgramSchema.plugin(mediaAncestryPlugin, {
+  aliases: [{ field: "genreIdsWithAncestors", targetField: "genreIds" }],
+});
+
+MediaProgramSchema.index({ dateCreated: 1, _id: 1 }, { unique: true });
+MediaProgramSchema.index({ "collectionIdIndexes.collectionId": 1 }, { unique: false });
+MediaProgramSchema.index({ dateLastWatched: 1, _id: 1 }, { unique: true });
+MediaProgramSchema.index({ dateModified: 1, _id: 1 }, { unique: true });
+MediaProgramSchema.index({ fileCount: 1, _id: 1 }, { unique: true });
+MediaProgramSchema.index({ genreIds: 1, _id: 1 }, { unique: true });
+MediaProgramSchema.index({ language: 1, _id: 1 }, { unique: true });
+MediaProgramSchema.index({ medium: 1, _id: 1 }, { unique: true });
+MediaProgramSchema.index({ name: 1, _id: 1 }, { unique: true });
+MediaProgramSchema.index({ rating: 1, _id: 1 }, { unique: true });
+MediaProgramSchema.index({ size: 1, _id: 1 }, { unique: true });
+MediaProgramSchema.index(
+  { sourceFolderKey: 1 },
+  { partialFilterExpression: { sourceFolderKey: { $type: "string" } }, unique: true },
+);
+MediaProgramSchema.index({ tagIds: 1, _id: 1 }, { unique: true });
+MediaProgramSchema.index({ tagIdsWithAncestors: 1, _id: 1 }, { unique: true });
+MediaProgramSchema.index({ type: 1, _id: 1 }, { unique: true });
+MediaProgramSchema.index({ watchStatus: 1, _id: 1 }, { unique: true });
+MediaProgramSchema.index({ year: 1, _id: 1 }, { unique: true });
+
+export const MediaProgramModel = model<MediaProgramSchema>("MediaProgram", MediaProgramSchema);
 
 /* --------------------------------------------------------------------------- */
 /*                               Notification

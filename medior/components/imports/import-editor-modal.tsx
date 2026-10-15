@@ -62,13 +62,15 @@ export const ImportEditorModal = Comp(
 
           <ImportEditor.Header type={type} />
 
-          <Modal.Content row column={false} flex={1} height="100%" width="100%">
+          <Modal.Content row>
             <Card width="17rem" overflow="hidden auto">
               <ImportEditor.ImportOptions {...{ scan, store }} />
             </Card>
 
             <View column width="100%" spacing="0.5rem" overflow="hidden">
               <ImportEditor.TagSelector options={store.options} store={store} />
+
+              {store.mediaPrograms.length > 0 && <ImportEditor.MediaProgramPlans store={store} />}
 
               <ImportEditor.ImportFoldersList store={store} />
             </View>
@@ -87,7 +89,11 @@ export const ImportEditorModal = Comp(
               text={submitText}
               icon="Check"
               onClick={onSubmit}
-              disabled={store.isDisabled || store.hasChangesSinceLastScan}
+              disabled={
+                store.isDisabled ||
+                store.hasChangesSinceLastScan ||
+                store.mediaPrograms.some((plan) => !plan.name.trim())
+              }
               color={colors.custom.blue}
             />
           </Modal.Footer>

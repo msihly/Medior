@@ -47,7 +47,6 @@ export const RatingChip = ({
       text={rating === 0 ? "Rate" : round(rating, 1)}
       icon="Star"
       iconProps={{ color: colors.custom.white }}
-      color={colors.custom.grey}
       onClick={props.onClick}
     />
   ) : (

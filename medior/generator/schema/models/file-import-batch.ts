@@ -1,6 +1,6 @@
 import { ModelDb } from "medior/generator/schema/generators";
 
-const model = new ModelDb("FileImportBatch", { defaultPageSize: 20, withStore: true });
+const model = new ModelDb("FileImportBatch");
 
 model.addProp("collectionId", "string");
 
@@ -38,6 +38,10 @@ model.addProp("lastUploadHash", "string");
 
 model.addProp("lastUploadOffset", "number");
 
+model.addProp("mediaProgram", 'import("medior/utils/common/media-programs").MediaProgramImport', {
+  schemaType: "Schema.Types.Mixed",
+});
+
 model.addProp("processedCount", "number", { defaultValue: "0", required: true });
 
 model.addProp("processedSize", "number", { defaultValue: "0", required: true });
@@ -53,6 +57,10 @@ model.addProp("size", "number", {
 });
 
 model.addProp("sourceFolderPath", "string");
+
+model.addProp("subtitleMode", "'embed' | 'keep' | 'none'", {
+  schemaType: "{ type: String, enum: ['embed', 'keep', 'none'] }",
+});
 
 model.addIndex({ isCompleted: 1, isReady: 1, startedAt: -1, dateCreated: 1 }, { unique: false });
 model.addIndex({ startedAt: 1, _id: 1 });

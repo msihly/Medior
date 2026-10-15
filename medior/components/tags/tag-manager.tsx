@@ -1,5 +1,4 @@
 import { KeyboardEvent, useEffect, useRef, useState } from "react";
-import { FixedSizeGrid } from "react-window";
 import {
   Button,
   Card,
@@ -7,6 +6,7 @@ import {
   Chip,
   Comp,
   ConfirmModal,
+  JobProgress,
   LoadingOverlay,
   Modal,
   MultiActionButton,
@@ -20,87 +20,53 @@ import {
   View,
 } from "medior/components";
 import { useStores } from "medior/store";
-import { colors, openSearchWindow, toast, useDeepEffect } from "medior/utils/client";
-import { getHotkeyRating, matchesHotkey, tagsToRegEx } from "medior/utils/common";
-import { trpc } from "medior/utils/server";
+import { colors, openSearchWindow, toast } from "medior/utils/client";
+import { getHotkeyRating, matchesHotkey } from "medior/utils/common";
 
 export const TagManager = Comp(() => {
   const stores = useStores();
-  const store = stores.tag.manager.search;
+  const manager = stores.tag.manager;
+  const store = manager.search;
 
-  const [isCancelling, setIsCancelling] = useState(false);
   const [isConfirmDeleteOpen, setIsConfirmDeleteOpen] = useState(false);
   const [isRegExOverlapsOpen, setIsRegExOverlapsOpen] = useState(false);
 
-  const cancelRequested = useRef(false);
-  const resultsRef = useRef<FixedSizeGrid>(null);
+  const tagsRef = useRef<HTMLDivElement>(null);
 
   const hasNoSelection = store.selectedIds.length === 0;
-
-  useDeepEffect(() => {
-    if (resultsRef.current) resultsRef.current.scrollTo({ scrollTop: 0 });
-  }, [store.results]);
 
   useEffect(() => {
     store.loadFiltered({ page: 1 });
   }, []);
 
+  useEffect(() => {
+    tagsRef.current?.scrollTo({ behavior: "instant", top: 0 });
+  }, [store.page, store.pageCount]);
+
+  /** A running job keeps going in the background while the manager is hidden. */
   const handleClose = () => {
-    if (stores.tag.manager.isLoading) handleCancelOperation();
+    if (manager.jobId) handleMinimize();
     else {
-      stores.tag.manager.setIsOpen(false);
+      manager.setIsOpen(false);
       store.reset();
-      stores.file.search.reloadIfQueued();
     }
   };
 
   const handleCreate = () => stores.tag.editor.setIsOpen(true);
 
-  const handleCancelOperation = () => {
-    cancelRequested.current = true;
-    setIsCancelling(true);
-  };
-
   const handleConfirmDelete = async () => {
-    const tagIds = [...store.selectedIds];
-    const deletedIds: string[] = [];
-
-    cancelRequested.current = false;
-    setIsCancelling(false);
     setIsConfirmDeleteOpen(false);
-    stores.tag.manager.setIsLoading(true);
 
-    try {
-      for (const id of tagIds) {
-        if (cancelRequested.current) break;
+    const res = await manager.deleteTags([...store.selectedIds]);
 
-        const res = await stores.tag.deleteTag({ id });
+    if (!res.success) toast.error(res.error);
 
-        if (!res.success) throw new Error(res.error);
-
-        deletedIds.push(id);
-      }
-
-      toast.info(
-        `${deletedIds.length} tags deleted${cancelRequested.current ? " before cancellation" : ""}`,
-      );
-
-      return true;
-    } catch (error) {
-      toast.error(error);
-
-      return false;
-    } finally {
-      store.toggleSelected(deletedIds.map((id) => ({ id, isSelected: false })));
-      stores.tag.manager.setIsLoading(false);
-      setIsCancelling(false);
-      await store.loadFiltered();
-    }
+    return res.success;
   };
 
   const handleDelete = () => setIsConfirmDeleteOpen(true);
 
-  const handleEditRelations = () => stores.tag.manager.setIsMultiTagEditorOpen(true);
+  const handleEditRelations = () => manager.setIsMultiTagEditorOpen(true);
 
   const handleFindRegExOverlaps = () => setIsRegExOverlapsOpen(true);
 
@@ -143,77 +109,35 @@ export const TagManager = Comp(() => {
     toast.info("Deselected all tags");
   };
 
+  const handleMinimize = () => manager.setIsMinimized(true);
+
   const handleRegenerateRegEx = async () => {
-    const updatedIds: string[] = [];
+    const res = await manager.regenerateRegEx([...store.selectedIds]);
 
-    cancelRequested.current = false;
-    setIsCancelling(false);
-    stores.tag.manager.setIsLoading(true);
-
-    try {
-      const result = await stores.tag.listByIds({ ids: [...store.selectedIds] });
-
-      if (!result.success) throw new Error(result.error);
-
-      for (const tag of result.data) {
-        if (cancelRequested.current) break;
-
-        const regEx = tagsToRegEx([{ aliases: tag.aliases, label: tag.label }]);
-        const res = await stores.tag.editTag({
-          id: tag.id,
-          regEx,
-          withRegen: false,
-          withSub: false,
-        });
-
-        if (!res.success) throw new Error(res.error);
-
-        updatedIds.push(tag.id);
-      }
-    } catch (error) {
-      toast.error(error);
-    } finally {
-      try {
-        if (updatedIds.length) {
-          const res = await trpc.regenTags.mutate({ tagIds: updatedIds });
-
-          if (!res.success) throw new Error(res.error);
-        }
-      } catch (error) {
-        toast.error(error);
-      } finally {
-        stores.tag.manager.setIsLoading(false);
-        setIsCancelling(false);
-        await store.loadFiltered();
-      }
-    }
+    if (!res.success) toast.error(res.error);
   };
 
   return (
-    <Modal.Container onClose={handleClose} height="100%" width="100%">
+    <Modal.Container
+      visible={!manager.isMinimized}
+      onClose={handleClose}
+      height="100%"
+      width="100%"
+    >
       <LoadingOverlay
-        isLoading={stores.tag.manager.isLoading}
-        sub={
-          <Button
-            text={isCancelling ? "Stopping after current operation..." : "Cancel"}
-            icon="Close"
-            onClick={handleCancelOperation}
-            disabled={isCancelling}
-          />
-        }
+        isLoading={manager.isLoading || !!manager.jobId}
+        sub={manager.job && <JobProgress job={manager.job} onMinimize={handleMinimize} />}
       />
 
       <Modal.Content dividers={false} padding={{ top: "1rem" }} overflow="hidden">
         <Card
-          column
           flex={1}
-          position="relative"
           padding={{ all: 0 }}
           overflow="hidden"
           header={
             <UniformList row flex={1} justify="space-between">
               <View row align="center" spacing="0.5rem">
-                <TagFilterMenu store={store} color={colors.foreground} />
+                <TagFilterMenu store={store} />
 
                 {store.fileTags.length > 0 && (
                   <Chip label={`On files with: ${store.fileTags[0].label}`} />
@@ -252,7 +176,7 @@ export const TagManager = Comp(() => {
                 <MultiActionButton
                   name="Refresh"
                   tooltip="Refresh Selected Tags"
-                  onClick={stores.tag.manager.refreshSelectedTags}
+                  onClick={manager.refreshSelectedTags}
                   disabled={hasNoSelection}
                 />
 
@@ -295,6 +219,7 @@ export const TagManager = Comp(() => {
 
           <CardGrid
             padding={{ all: "0.3rem" }}
+            ref={tagsRef}
             cards={store.results.map((t) => (
               <TagCard key={t.id} tag={t} />
             ))}

@@ -27,6 +27,7 @@ export class SettingsStore extends Model({
   imports: prop<Config["imports"]>(() => getConfig().imports),
   isLoading: prop<boolean>(false).withSetter(),
   isOpen: prop<boolean>(false).withSetter(),
+  mediaPrograms: prop<Config["mediaPrograms"]>(() => getConfig().mediaPrograms),
   ports: prop<Config["ports"]>(() => getConfig().ports),
   repair: prop<RepairStore>(() => new RepairStore({})),
   tags: prop<Config["tags"]>(() => getConfig().tags),
@@ -125,6 +126,7 @@ export class SettingsStore extends Model({
       file: Partial<Config["file"]>;
       hotkeys: Partial<Config["hotkeys"]>;
       imports: Partial<Config["imports"]>;
+      mediaPrograms: Partial<Config["mediaPrograms"]>;
       ports: Partial<Config["ports"]>;
       tags: Partial<Config["tags"]>;
     }>,
@@ -160,6 +162,7 @@ export class SettingsStore extends Model({
       file: getSnapshot(this.file),
       hotkeys: getSnapshot(this.hotkeys),
       imports: getSnapshot(this.imports),
+      mediaPrograms: getSnapshot(this.mediaPrograms),
       ports: getSnapshot(this.ports),
       tags: getSnapshot(this.tags),
     } as Config;

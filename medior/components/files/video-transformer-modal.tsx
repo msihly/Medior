@@ -44,7 +44,6 @@ export const VideoTransformerModal = Comp(() => {
     if (!store.isUpdating) {
       load.cancel();
       store.setIsOpen(false);
-      stores.file.search.reloadIfQueued();
     }
   };
 
