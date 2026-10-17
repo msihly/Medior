@@ -6,6 +6,7 @@ export const PERSISTENCE_MIGRATION_ID = "persistence:consolidation:v1";
 
 export type PersistenceRecordType =
   | "BackgroundOperation"
+  | "DuplicateDismissal"
   | "FileOperation"
   | "ImageCopyMatch"
   | "ImageCopyPair"

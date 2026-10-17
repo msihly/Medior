@@ -388,14 +388,10 @@ export class VectorSimilarityService {
     fileLog(`[VECTOR] LanceDB initialized at ${config.db.vector.path}`);
   }
 
-  /**
-   * Library scans query the opt-in search index and skip rows added since it was last updated;
-   * single-file lookups search every stored vector exactly, like Find Similar.
-   */
+  /** Queries the opt-in search index, skipping rows added since it was last updated. */
   async findDuplicateCandidates(args: {
     files: { fileId: string; hash: string }[];
     minSimilarity: number;
-    useSearchIndex: boolean;
   }) {
     if (!args.files.length || args.files.length > 128)
       throw new Error("Duplicate lookup accepts between 1 and 128 files.");
@@ -407,7 +403,7 @@ export class VectorSimilarityService {
 
     if (!table) throw new Error("No visual similarity vectors are stored yet.");
 
-    if (args.useSearchIndex && !(await this.getVectorIndex(table)))
+    if (!(await this.getVectorIndex(table)))
       throw new Error(
         "Searching the whole library requires the similarity search index. Build it in Settings → Repair, then search again.",
       );
@@ -429,9 +425,7 @@ export class VectorSimilarityService {
     const indexedSources = sources.filter((source) => source.vector);
     const matches = !indexedSources.length
       ? new Map<string, DuplicateMatch[]>()
-      : args.useSearchIndex
-        ? await this.findIndexedDuplicates(table, tableDef, indexedSources, args.minSimilarity)
-        : await this.findExactDuplicates(table, tableDef, indexedSources);
+      : await this.findIndexedDuplicates(table, tableDef, indexedSources, args.minSimilarity);
 
     return sources.map((source) => ({
       candidates: (matches.get(source.fileId) ?? [])
@@ -1568,37 +1562,6 @@ export class VectorSimilarityService {
       );
 
     return { config, isUpdate: !!(await this.getVectorIndex(table)), rowCount, table, tableDef };
-  }
-
-  /** Searches every stored vector exactly; single-file lookups need complete results. */
-  private async findExactDuplicates(
-    table: LanceTable,
-    tableDef: VectorTableManifestEntry,
-    sources: DuplicateSource[],
-  ) {
-    const matches = new Map<string, DuplicateMatch[]>();
-
-    for (const source of sources) {
-      const rows = await table
-        .vectorSearch(source.vector)
-        .column("vector")
-        .distanceType(tableDef.distanceType)
-        .bypassVectorIndex()
-        .select(["_distance", "fileId", "sourceHash"])
-        .limit(MAX_DUPLICATE_CANDIDATES + 1)
-        .toArray();
-
-      matches.set(
-        source.fileId,
-        rows.map((row) => ({
-          fileId: String(row.fileId),
-          hash: String(row.sourceHash),
-          score: getSimilarityScore(1 - Number(row._distance)),
-        })),
-      );
-    }
-
-    return matches;
   }
 
   /**

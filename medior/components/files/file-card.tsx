@@ -11,8 +11,6 @@ interface FileCardProps {
   file?: File;
   height?: CSS["height"];
   similarity?: {
-    /** Looks alike but was edited, recoloured, or reframed rather than copied. */
-    isVariation?: boolean;
     rank: number;
     score: number;
   };
@@ -88,13 +86,11 @@ export const FileCard = Comp(
                 <FileBase.Chip
                   position="top-left"
                   bgColor={
-                    similarity.isVariation
-                      ? colors.custom.orange
-                      : similarity.score >= 0.9
-                        ? colors.custom.green
-                        : similarity.score >= 0.7
-                          ? colors.custom.orange
-                          : colors.custom.red
+                    similarity.score >= 0.9
+                      ? colors.custom.green
+                      : similarity.score >= 0.7
+                        ? colors.custom.orange
+                        : colors.custom.red
                   }
                   color={colors.custom.white}
                   opacity={1}
@@ -109,7 +105,7 @@ export const FileCard = Comp(
                       {`#${similarity.rank}`}
                     </Text>
                   }
-                  label={`${similarity.isVariation ? "Variation · " : ""}${round(similarity.score * 100, 1)}%`}
+                  label={`${round(similarity.score * 100, 1)}%`}
                 />
               ) : (
                 <FileBase.RatingChip position="top-left" rating={file.rating} />

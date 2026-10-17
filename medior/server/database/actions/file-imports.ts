@@ -345,7 +345,7 @@ export const completeImportBatch = makeAction(
         metadataWriteOptions(),
       );
 
-      socket.emit("onImportBatchCompleted", { id: args.id });
+      socket.emitReliable("onImportBatchCompleted", { id: args.id });
 
       if (args.withNextBatch) {
         const nextBatch = (await getNextImportBatch(null)).data;

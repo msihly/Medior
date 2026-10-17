@@ -22,13 +22,7 @@ export const vectorRouter = trpc.router({
     .input((input: { jobId: string }) => input)
     .mutation(({ input }) => vectorSimilarityService.cancelSimilarityBackfill(input)),
   findDuplicateCandidates: trpc.procedure
-    .input(
-      (input: {
-        files: { fileId: string; hash: string }[];
-        minSimilarity: number;
-        useSearchIndex: boolean;
-      }) => input,
-    )
+    .input((input: { files: { fileId: string; hash: string }[]; minSimilarity: number }) => input)
     .mutation(({ input }) => vectorSimilarityService.findDuplicateCandidates(input)),
   findSimilarVectorCandidates: trpc.procedure
     .input(

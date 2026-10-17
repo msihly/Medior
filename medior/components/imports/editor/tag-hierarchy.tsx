@@ -89,15 +89,18 @@ export const TagHierarchy = Comp(
         height={IMPORT_TAG_ROW_HEIGHT}
         padding={{ left: depth * 12 }}
       >
-        {hasChildren && (
+        {/* Nested tags without descendants keep the arrow's space, lining up with their siblings. */}
+        {(hasChildren || depth > 0) && (
           <View width={24} flex="none">
-            <IconButton
-              name="ChevronRight"
-              tooltip={expanded ? "Collapse tags" : "Expand tags"}
-              onClick={onToggle}
-              iconProps={{ rotation: expanded ? 90 : 0, size: 24 }}
-              padding={{ all: 0 }}
-            />
+            {hasChildren && (
+              <IconButton
+                name="ChevronRight"
+                tooltip={expanded ? "Collapse tags" : "Expand tags"}
+                onClick={onToggle}
+                iconProps={{ rotation: expanded ? 90 : 0, size: 24 }}
+                padding={{ all: 0 }}
+              />
+            )}
           </View>
         )}
 

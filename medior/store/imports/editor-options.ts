@@ -51,9 +51,9 @@ export class ImportEditorOptions extends Model({
     this.setFolderToCollectionMode(config.imports.folderToCollMode);
     this.setFolderToTagsMode(config.imports.folderToTagsMode);
     this.setIgnorePrevDeleted(config.imports.ignorePrevDeleted);
-    this.setMediaProgramLanguage(config.mediaPrograms.languages[0] ?? null);
-    this.setMediaProgramMedium(config.mediaPrograms.mediums[0] ?? null);
-    this.setMediaProgramType(config.mediaPrograms.types[0] ?? null);
+    this.setMediaProgramLanguage(null);
+    this.setMediaProgramMedium(null);
+    this.setMediaProgramType(null);
     this.setSubtitleMode(config.imports.subtitleMode);
     this.setUseSavedConfigs(true);
     this.setWithDelimiters(config.imports.withDelimiters);

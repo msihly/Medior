@@ -668,14 +668,23 @@ export const useSockets = ({ enabled = true, view }: UseSocketsProps) => {
         stores.file.search.setHasChanges(true);
 
         if (view === "home") {
-          if (stores.import.manager.activeBatch?.id === id) {
-            stores.import.manager.setActiveBatch(null);
-            stores.import.manager.setActiveFilePath(null);
+          const store = stores.import.manager;
 
-            if (stores.import.manager.isOpen) stores.import.manager.loadActiveBatch();
+          if (store.activeBatch?.id === id) {
+            store.setActiveBatch(null);
+
+            if (store.isOpen) store.loadActiveBatch();
           }
 
-          stores.import.manager.search.setHasChanges(true);
+          // The active file is kept only while a different batch is loaded.
+          if (!store.activeBatch) {
+            store.setActiveFilePath(null);
+            store.setActiveFileProgress(null);
+          }
+
+          if (!store.search.isCompleted) store.search._deleteResults([id]);
+
+          store.search.setHasChanges(true);
         }
       });
 

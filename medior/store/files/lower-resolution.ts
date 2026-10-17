@@ -49,6 +49,7 @@ export class LowerResolutionStore extends Model({
   hasSearchIndex: prop<boolean>(true).withSetter(),
   /** Changed settings are being saved, after which their groups may be rebuilt. */
   isApplyingOptions: prop<boolean>(false).withSetter(),
+  isDismissing: prop<boolean>(false).withSetter(),
   isGrouping: prop<boolean>(false).withSetter(),
   /** Grouping was paused, keeping the groups built so far, until it is resumed. */
   isGroupingPaused: prop<boolean>(false).withSetter(),
@@ -61,11 +62,13 @@ export class LowerResolutionStore extends Model({
   isStartingArchive: prop<boolean>(false).withSetter(),
   /** Lists the files created within the time window beside each group, apart from its duplicates. */
   isTimeGrouped: prop<boolean>(false).withSetter(),
+  /** The group whose last unselected file was clicked, since one file per group is always kept. */
+  keepOneGroupId: prop<string>(null).withSetter(),
   lastSelectedId: prop<string>(null).withSetter(),
   /** Searched files with at least one stored match. */
   matched: prop<number>(0).withSetter(),
   /** Merges archived files into each group's kept file the way the media transformer merges duplicates. */
-  mergeMetadata: prop<boolean>(false).withSetter(),
+  mergeMetadata: prop<boolean>(true).withSetter(),
   minSimilarity: prop<number>(DEFAULT_DUPLICATE_SEARCH_OPTIONS.minSimilarity).withSetter(),
   /** Why the review settings weren't applied, kept apart from the search's own error. */
   optionsError: prop<string>("").withSetter(),
@@ -81,7 +84,6 @@ export class LowerResolutionStore extends Model({
   /** Selected file IDs mapped to their groups, so selections survive paging. */
   selection: prop<Record<string, string>>(() => ({})).withSetter(),
   skipped: prop<number>(0).withSetter(),
-  sourceFileId: prop<string>(null).withSetter(),
   status: prop<"complete" | "error" | "idle" | "paused" | "running">("idle").withSetter(),
   timeWindowMinutes: prop<number>(DEFAULT_TIME_WINDOW).withSetter(),
   total: prop<number>(0).withSetter(),
@@ -155,7 +157,6 @@ export class LowerResolutionStore extends Model({
   /** The filter menu differs from the filter the groups are built with. */
   get hasFilterChanges() {
     return (
-      !this.sourceFileId &&
       this.appliedFilter !== null &&
       getFilterJson(this.search.getFilterProps()) !== this.appliedFilter
     );
@@ -171,9 +172,9 @@ export class LowerResolutionStore extends Model({
 
   get options(): DuplicateSearchOptions {
     return {
-      filter: this.sourceFileId ? null : this.appliedFilter,
+      filter: this.appliedFilter,
       minSimilarity: this.minSimilarity,
-      searchProps: this.sourceFileId ? null : this.appliedSearchProps,
+      searchProps: this.appliedSearchProps,
       // An empty window is invalid rather than turning date grouping off.
       timeWindow: this.isTimeGrouped ? (this.timeWindowMinutes ?? 0) : null,
       variationBlockSize: this.variationBlockSize,
@@ -187,6 +188,18 @@ export class LowerResolutionStore extends Model({
 
   get selectedCount() {
     return Object.keys(this.selection).length;
+  }
+
+  /** The selected files of each group they belong to. */
+  get selectedGroups() {
+    const fileIdsByGroup = new Map<string, string[]>();
+
+    for (const [fileId, groupId] of Object.entries(this.selection)) {
+      if (!fileIdsByGroup.has(groupId)) fileIdsByGroup.set(groupId, []);
+      fileIdsByGroup.get(groupId).push(fileId);
+    }
+
+    return [...fileIdsByGroup].map(([groupId, fileIds]) => ({ fileIds, groupId }));
   }
 
   private followArchive(jobId: string) {
@@ -223,6 +236,7 @@ export class LowerResolutionStore extends Model({
   @modelAction
   clearSelection() {
     this.setSelection({});
+    this.setKeepOneGroupId(null);
     this.setLastSelectedId(null);
   }
 
@@ -238,6 +252,7 @@ export class LowerResolutionStore extends Model({
     const anchorIndex = tiles.findIndex((tile) => tile.fileId === this.lastSelectedId);
     const { group } = tiles[index];
     const selection = { ...this.selection };
+    let keepOneGroupId: string = null;
 
     if (hasShift && anchorIndex > -1) {
       const range = tiles.slice(Math.min(index, anchorIndex), Math.max(index, anchorIndex) + 1);
@@ -251,10 +266,11 @@ export class LowerResolutionStore extends Model({
       }
     } else if (selection[fileId]) delete selection[fileId];
     else if (group.files.every((file) => file.id === fileId || selection[file.id]))
-      toast.warn("Keep at least one file from each group.");
+      keepOneGroupId = group.id;
     else selection[fileId] = group.id;
 
     this.setSelection(selection);
+    this.setKeepOneGroupId(keepOneGroupId);
     this.setLastSelectedId(fileId);
   }
 
@@ -324,6 +340,7 @@ export class LowerResolutionStore extends Model({
     if (
       this.isApplyingOptions ||
       this.isArchiving ||
+      this.isDismissing ||
       this.isGrouping ||
       this.isPageLoading ||
       this.isStarting ||
@@ -331,14 +348,7 @@ export class LowerResolutionStore extends Model({
     )
       return;
 
-    const fileIdsByGroup = new Map<string, string[]>();
-
-    for (const [fileId, groupId] of Object.entries(this.selection)) {
-      if (!fileIdsByGroup.has(groupId)) fileIdsByGroup.set(groupId, []);
-      fileIdsByGroup.get(groupId).push(fileId);
-    }
-
-    this.archiveGroups = [...fileIdsByGroup].map(([groupId, fileIds]) => ({ fileIds, groupId }));
+    this.archiveGroups = this.selectedGroups;
     this.setIsStartingArchive(true);
     this.setActionError("");
 
@@ -357,6 +367,43 @@ export class LowerResolutionStore extends Model({
       this.queueReviewOptions();
     } finally {
       this.setIsStartingArchive(false);
+    }
+  });
+
+  /**
+   * Marks the selected files as not duplicates of their groups' best-quality files, so they leave
+   * their groups and later searches keep them apart.
+   */
+  @modelFlow
+  dismissSelected = asyncAction(async () => {
+    if (
+      this.isApplyingOptions ||
+      this.isArchiving ||
+      this.isDismissing ||
+      this.isGrouping ||
+      this.isPageLoading ||
+      this.isStarting ||
+      !this.selectedCount
+    )
+      return;
+
+    this.setIsDismissing(true);
+    this.setActionError("");
+
+    try {
+      const result = await trpc.dismissLowerResolutionDuplicates.mutate({
+        groups: this.selectedGroups,
+        scanId: this.scanId,
+      });
+      if (!result.success) throw new Error(result.error);
+
+      this.clearSelection();
+
+      await this.loadPage(this.page);
+    } catch (error) {
+      this.setActionError(error.message);
+    } finally {
+      this.setIsDismissing(false);
     }
   });
 
@@ -407,19 +454,16 @@ export class LowerResolutionStore extends Model({
     this.queueReviewOptions();
 
     // A minimized modal closes once its archiving ends, rather than covering the window again.
-    if (this.isMinimized) await this.close();
+    if (this.isMinimized) this.close();
     else if (this.isOpen) await this.loadPage(this.page);
-    else await this.returnToLibrary();
   });
 
-  @modelFlow
-  close = asyncAction(async () => {
+  @modelAction
+  close() {
     this.cancelPageLoad();
     this.setIsMinimized(false);
     this.setIsOpen(false);
-
-    await this.returnToLibrary();
-  });
+  }
 
   /**
    * Creates a collection from a group's files and those listed as created nearby, in the order
@@ -481,7 +525,7 @@ export class LowerResolutionStore extends Model({
     }
   });
 
-  /** Only library scans use the opt-in search index; single files are searched exactly. */
+  /** Searches use the opt-in search index, which misses files vectorized after its last update. */
   @modelFlow
   loadSearchIndexStatus = asyncAction(async () => {
     const result = await trpc.getSimilaritySearchIndexStatus.mutate();
@@ -536,20 +580,17 @@ export class LowerResolutionStore extends Model({
     }
   });
 
-  /** Loads the saved search for a scope with its settings, then follows its progress. */
+  /** Loads the saved search with its settings, then follows its progress. */
   @modelFlow
-  loadScan = asyncAction(async (sourceFileId: string = null) => {
+  loadScan = asyncAction(async () => {
     // A settings change still waiting is saved to the search it was made for before it reloads.
     if (this.hasQueuedReviewOptions) {
       this.applyReviewOptionsLater.cancel();
       await this.saveReviewOptions();
     }
 
-    const isNewScope = sourceFileId !== this.sourceFileId;
-
     this.pollRevision++;
     this.cancelPageLoad();
-    this.setSourceFileId(sourceFileId);
     this.clearSelection();
     this.setGroups([]);
     this.setScanId(null);
@@ -574,9 +615,7 @@ export class LowerResolutionStore extends Model({
     this.setIsStarting(true);
 
     try {
-      const result = await trpc.getLowerResolutionScan.mutate({
-        sourceFileId: sourceFileId || undefined,
-      });
+      const result = await trpc.getLowerResolutionScan.mutate({});
 
       if (!result.success) throw new Error(result.error);
 
@@ -591,36 +630,20 @@ export class LowerResolutionStore extends Model({
         this.setVariationBlockSize(blockSize);
         this.setVariationThreshold(threshold);
 
-        if (!sourceFileId) {
-          // A search saved without the menu's settings was made with the menu untouched.
-          if (searchProps) this.search.applySearchProps(JSON.parse(searchProps));
-          else this.search._reset();
+        // A search saved without the menu's settings was made with the menu untouched.
+        if (searchProps) this.search.applySearchProps(JSON.parse(searchProps));
+        else this.search._reset();
 
-          if (filter) {
-            this.setAppliedFilter(getFilterJson(JSON.parse(filter)));
-            this.setAppliedSearchProps(searchProps);
-          } else this.applyMenuFilter();
-        }
+        if (filter) {
+          this.setAppliedFilter(getFilterJson(JSON.parse(filter)));
+          this.setAppliedSearchProps(searchProps);
+        } else this.applyMenuFilter();
 
         this.setScanId(result.data._id);
-      } else {
-        // A scope without a saved search starts from the default settings.
-        if (isNewScope) {
-          this.setMinSimilarity(DEFAULT_DUPLICATE_SEARCH_OPTIONS.minSimilarity);
-          this.setIsTimeGrouped(false);
-          this.setTimeWindowMinutes(DEFAULT_TIME_WINDOW);
-          this.setVariationBlockSize(DEFAULT_DUPLICATE_SEARCH_OPTIONS.variationBlockSize);
-          this.setVariationThreshold(DEFAULT_DUPLICATE_SEARCH_OPTIONS.variationThreshold);
-        }
+      } else if (this.appliedFilter === null) this.applyMenuFilter();
 
-        if (!sourceFileId && this.appliedFilter === null) this.applyMenuFilter();
-      }
-
-      if (!sourceFileId) {
-        const indexStatus = await this.loadSearchIndexStatus();
-
-        if (!indexStatus.success) throw new Error(indexStatus.error);
-      }
+      const indexStatus = await this.loadSearchIndexStatus();
+      if (!indexStatus.success) throw new Error(indexStatus.error);
     } catch (error) {
       this.setError(error.message);
     } finally {
@@ -628,7 +651,6 @@ export class LowerResolutionStore extends Model({
     }
 
     if (this.scanId) await this.watchScan();
-    else await this.returnToLibrary();
   });
 
   /** Shows the library search's activity before the modal is first opened. */
@@ -638,16 +660,13 @@ export class LowerResolutionStore extends Model({
   });
 
   @modelFlow
-  open = asyncAction(async (sourceFileId: string = null) => {
+  open = asyncAction(async () => {
     this.setIsMinimized(false);
     this.setIsOpen(true);
 
     if (this.isScanning || this.isStarting || this.isArchiving) {
-      if (sourceFileId !== this.sourceFileId)
-        toast.info("Showing the current duplicate search. Pause it before switching scope.");
-
       if (this.scanId && !this.isPageLoading) await this.loadPage(this.page);
-    } else await this.loadScan(sourceFileId);
+    } else await this.loadScan();
   });
 
   @modelFlow
@@ -690,16 +709,6 @@ export class LowerResolutionStore extends Model({
     }
   });
 
-  /**
-   * The badge follows the library search, so a closed single file's search hands the store back to
-   * it once nothing still uses that search's state; the server finishes the search on its own.
-   */
-  @modelFlow
-  returnToLibrary = asyncAction(async () => {
-    if (!this.isOpen && this.sourceFileId && !this.isArchiving && !this.isStarting)
-      await this.loadScan();
-  });
-
   @modelFlow
   scan = asyncAction(async () => {
     if (
@@ -717,18 +726,15 @@ export class LowerResolutionStore extends Model({
     this.clearSelection();
 
     try {
-      if (!this.sourceFileId) {
-        const indexStatus = await this.loadSearchIndexStatus();
+      const indexStatus = await this.loadSearchIndexStatus();
+      if (!indexStatus.success) throw new Error(indexStatus.error);
 
-        if (!indexStatus.success) throw new Error(indexStatus.error);
+      // The modal explains how to build the index when it is still missing.
+      if (!this.hasSearchIndex) return;
 
-        // The modal explains how to build the index when it is still missing.
-        if (!this.hasSearchIndex) return;
-      }
-
-      // A library search always saves the filter its groups are built with; with none applied
-      // yet, it starts from the default menu rather than edits that were never searched.
-      if (!this.sourceFileId && this.appliedFilter === null) {
+      // A search always saves the filter its groups are built with; with none applied yet, it
+      // starts from the default menu rather than edits that were never searched.
+      if (this.appliedFilter === null) {
         this.search._reset();
         this.applyMenuFilter();
       }
@@ -744,10 +750,7 @@ export class LowerResolutionStore extends Model({
       }
 
       // Paused or stopped searches resume; completed ones search again from the start.
-      const result = await trpc.startLowerResolutionScan.mutate({
-        options,
-        sourceFileId: this.sourceFileId || undefined,
-      });
+      const result = await trpc.startLowerResolutionScan.mutate({ options });
       if (!result.success) throw new Error(result.error);
 
       this.setScanId(result.data.scanId);
@@ -763,7 +766,6 @@ export class LowerResolutionStore extends Model({
     }
 
     if (this.isScanning) await this.watchScan();
-    else await this.returnToLibrary();
   });
 
   @modelFlow
@@ -838,8 +840,5 @@ export class LowerResolutionStore extends Model({
 
       if (isWatching) await sleep(1000);
     }
-
-    // A single file's search ending after its modal closed gives the badge back to the library.
-    if (revision === this.pollRevision) await this.returnToLibrary();
   });
 }

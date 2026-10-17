@@ -30,21 +30,17 @@ export const SearchSettings = Comp(() => {
 
   return (
     <>
-      {!store.sourceFileId && (
-        <Card header="Files" flex="1 0 auto" justify="center" maxWidth="fit-content">
-          <FileFilter.Menu
-            store={store.search}
-            color={colors.foregroundCard}
-            onSearch={store.applyMenuFilter}
-            hideArchivedAndCorrupted
-          />
-        </Card>
-      )}
+      <Card header="Files" flex="1 0 auto" justify="center" maxWidth="fit-content">
+        <FileFilter.Menu
+          store={store.search}
+          color={colors.foregroundCard}
+          onSearch={store.applyMenuFilter}
+          hideArchivedAndCorrupted
+        />
+      </Card>
 
-      <Card header="Similarity" flex="1 0 auto" justify="center" width="15rem" maxWidth="18rem">
-        <View row align="center" justify="space-between">
-          <Text fontSize="0.9em">{"Minimum"}</Text>
-
+      <Card header="Similarity" flex="none" justify="center" width="10rem">
+        <View row justify="flex-end">
           <Text bold color={colors.custom.lightBlue}>{`${store.minSimilarity.toFixed(1)}%`}</Text>
         </View>
 
@@ -64,32 +60,34 @@ export const SearchSettings = Comp(() => {
         align="center"
         flex="1 0 auto"
         maxWidth="fit-content"
-        spacing="0.5rem"
+        spacing="0.3rem"
       >
-        <Text tooltip="Size of the areas changes are measured in. Smaller areas catch smaller edits, such as a hat.">
-          {"Block"}
-        </Text>
-
         <Dropdown
+          header="Block"
+          labelTextProps={{
+            tooltip:
+              "Size of the areas changes are measured in. Smaller areas catch smaller edits, such as a hat.",
+          }}
           options={BLOCK_SIZE_OPTIONS}
           value={String(store.variationBlockSize)}
           setValue={(value) => store.setVariationBlockSize(Number(value))}
           disabled={store.isArchiving}
-          width="6rem"
+          width="6.5rem"
           dense
         />
 
-        <Text tooltip="How far an area's brightness must change, out of 255, to mark a variation. Lower values catch subtler edits.">
-          {"Threshold"}
-        </Text>
-
         <NumInput
+          header="Threshold"
+          labelTextProps={{
+            tooltip:
+              "How far an area's brightness must change, out of 255, to mark a variation. Lower values catch subtler edits.",
+          }}
           value={store.variationThreshold}
           setValue={store.setVariationThreshold}
           minValue={MIN_VARIATION_THRESHOLD}
           maxValue={MAX_VARIATION_THRESHOLD}
           disabled={store.isArchiving}
-          width="4rem"
+          width="4.5rem"
           dense
         />
       </Card>
@@ -100,7 +98,7 @@ export const SearchSettings = Comp(() => {
         align="center"
         flex="1 0 auto"
         maxWidth="fit-content"
-        spacing="0.5rem"
+        spacing="0.3rem"
       >
         <Checkbox
           label="Group within"
@@ -112,6 +110,7 @@ export const SearchSettings = Comp(() => {
         />
 
         <NumInput
+          placeholder="Window"
           adornment="min"
           adornmentColor={colors.custom.lightGrey}
           value={store.timeWindowMinutes}

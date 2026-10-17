@@ -1436,7 +1436,7 @@ export const regenTagMeta = makeAction(
 );
 
 const cleanTagName = (name: string) =>
-  Fmt.titleCase(name.replace(/_/g, " ").replace(/\s+/g, " ").trim().toLowerCase());
+  Fmt.titleCase(name.replace(/_/g, " ").replace(/\s+/g, " ").trim());
 
 const repairTagNames = (
   tag: Pick<models.TagSchema, "aliases" | "label">,

@@ -72,7 +72,7 @@ export const LowerResolutionModal = Comp(() => {
     !store.hasSearchIndex
       ? {
           color: colors.custom.lightBlue,
-          text: "Searching the whole library uses the similarity search index. Build it once in Settings → Repair → Similarity Search Index. Find Variants on a single file works without it.",
+          text: "Searching the whole library uses the similarity search index. Build it once in Settings → Repair → Similarity Search Index.",
         }
       : null,
     store.unindexedCount
@@ -189,6 +189,22 @@ export const LowerResolutionModal = Comp(() => {
                   disabled={store.isArchiving || !store.selectedCount}
                 />
 
+                <Button
+                  text={store.isDismissing ? "Marking…" : "Not Duplicates"}
+                  icon="DoNotDisturb"
+                  onClick={store.dismissSelected}
+                  disabled={
+                    store.isApplyingOptions ||
+                    store.isArchiving ||
+                    store.isDismissing ||
+                    store.isGrouping ||
+                    store.isPageLoading ||
+                    store.isStarting ||
+                    !store.selectedCount
+                  }
+                  tooltip="Mark the selected files as not duplicates of their group's best-quality file, such as confirmed variations. They leave their groups and stay apart in later searches until either file changes."
+                />
+
                 <Divider orientation="vertical" />
 
                 <Checkbox
@@ -208,6 +224,7 @@ export const LowerResolutionModal = Comp(() => {
                   disabled={
                     store.isApplyingOptions ||
                     store.isArchiving ||
+                    store.isDismissing ||
                     store.isGrouping ||
                     store.isStarting ||
                     store.isPageLoading ||
@@ -252,6 +269,16 @@ export const LowerResolutionModal = Comp(() => {
                           />
                         </View>
                       </View>
+
+                      {store.keepOneGroupId === group.id && (
+                        <View row align="center" spacing="0.5rem">
+                          <Icon name="Error" size="1.1em" color={colors.custom.red} />
+
+                          <Text color={colors.custom.red} fontSize="0.85em">
+                            {"Keep at least one file from each group."}
+                          </Text>
+                        </View>
+                      )}
 
                       <View row wrap="wrap">
                         {group.files.map((file, index) => {

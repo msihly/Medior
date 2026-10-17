@@ -4,14 +4,12 @@ import {
   CheckboxProps,
   Comp,
   Divider,
-  Dropdown,
   MediaProgramDropdown,
   NumInput,
   View,
 } from "medior/components";
 import { Ingester, Reingester } from "medior/store";
-import { colors } from "medior/utils/client";
-import { SUBTITLE_MODES } from "medior/utils/common";
+import { colors, makeClasses } from "medior/utils/client";
 
 export interface ImportOptionsProps {
   scan: () => Promise<void>;
@@ -19,6 +17,8 @@ export interface ImportOptionsProps {
 }
 
 export const ImportOptions = Comp(({ scan, store }: ImportOptionsProps) => {
+  const { css } = useClasses(null);
+
   const checkboxProps: Partial<CheckboxProps> = {
     disabled: store.isDisabled,
     flex: "initial",
@@ -48,6 +48,7 @@ export const ImportOptions = Comp(({ scan, store }: ImportOptionsProps) => {
         onClick={scan}
         disabled={store.isDisabled}
         color={store.hasChangesSinceLastScan ? colors.custom.purple : colors.custom.blue}
+        className={css.scanButton}
       />
 
       <Checkbox
@@ -183,10 +184,10 @@ export const ImportOptions = Comp(({ scan, store }: ImportOptionsProps) => {
         setChecked={store.options.setWithMediaPrograms}
       />
 
-      <View column spacing="0.5rem" margins={{ left: "1rem" }}>
+      <View column spacing="0.3rem" margins={{ left: "1rem" }} padding={{ all: "0.5rem" }}>
         <MediaProgramDropdown
           field="types"
-          header="Type"
+          placeholder="Type"
           value={store.options.mediaProgramType}
           setValue={handleMediaProgramType}
           disabled={store.isDisabled || !store.options.withMediaPrograms}
@@ -195,7 +196,7 @@ export const ImportOptions = Comp(({ scan, store }: ImportOptionsProps) => {
 
         <MediaProgramDropdown
           field="mediums"
-          header="Medium"
+          placeholder="Medium"
           value={store.options.mediaProgramMedium}
           setValue={handleMediaProgramMedium}
           disabled={store.isDisabled || !store.options.withMediaPrograms}
@@ -204,24 +205,13 @@ export const ImportOptions = Comp(({ scan, store }: ImportOptionsProps) => {
 
         <MediaProgramDropdown
           field="languages"
-          header="Language"
+          placeholder="Language"
           value={store.options.mediaProgramLanguage}
           setValue={handleMediaProgramLanguage}
           disabled={store.isDisabled || !store.options.withMediaPrograms}
           dense
         />
       </View>
-
-      <Divider flexItem={false} />
-
-      <Dropdown
-        header="Subtitles"
-        options={[...SUBTITLE_MODES]}
-        value={store.options.subtitleMode}
-        setValue={store.options.setSubtitleMode}
-        disabled={store.isDisabled}
-        dense
-      />
 
       <Divider flexItem={false} />
 
@@ -278,4 +268,10 @@ export const ImportOptions = Comp(({ scan, store }: ImportOptionsProps) => {
       </View>
     </>
   );
+});
+
+const useClasses = makeClasses({
+  scanButton: {
+    flexShrink: 0,
+  },
 });

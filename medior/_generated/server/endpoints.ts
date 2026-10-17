@@ -111,6 +111,7 @@ export const serverRouter = trpc.router({
   detectFaces: serverEndpoint(db.detectFaces),
   discardImportBatchUpload: serverEndpoint(db.discardImportBatchUpload),
   dismissBackgroundOperation: serverEndpoint(db.dismissBackgroundOperation),
+  dismissLowerResolutionDuplicates: serverEndpoint(db.dismissLowerResolutionDuplicates),
   editFileTags: serverEndpoint(db.editFileTags),
   editImage: serverEndpoint(db.editImage),
   editMultiTagRelations: serverEndpoint(db.editMultiTagRelations),

@@ -6,6 +6,7 @@ import { findJob, startJob } from "medior/server/database/jobs";
 import { withMetadataMutation } from "medior/server/database/metadata-mutations";
 import { getJpegCompression, rankDuplicateQuality } from "medior/server/duplicate-quality";
 import {
+  dismissDuplicateFiles,
   DuplicateGroup,
   getDuplicateScanGroups,
   getDuplicateScanGroupsById,
@@ -199,6 +200,25 @@ export const startLowerResolutionArchive = makeAction(
   },
 );
 
+/** Marks the selected files as not duplicates, such as confirmed variations, so they stop appearing. */
+export const dismissLowerResolutionDuplicates = makeAction(
+  async ({
+    groups,
+    scanId,
+  }: {
+    groups: { fileIds: string[]; groupId: string }[];
+    scanId: string;
+  }) => {
+    if (findJob("mergeDuplicates", scanId))
+      throw new Error("Wait for the selected duplicates to be archived first.");
+
+    if (isDuplicateScanGrouping(scanId))
+      throw new Error("Wait for the search's groups to be built before marking files.");
+
+    return dismissDuplicateFiles(scanId, groups);
+  },
+);
+
 /**
  * Every file at or above the threshold except each group's keeper and its variations, across all
  * pages. Variations are only archived when picked one by one.
@@ -234,8 +254,8 @@ export const listLowerResolutionDuplicateIds = makeAction(
   },
 );
 
-export const getLowerResolutionScan = makeAction(
-  async (args: { scanId?: string; sourceFileId?: string }) => getDuplicateScanProgress(args),
+export const getLowerResolutionScan = makeAction(async (args: { scanId?: string }) =>
+  getDuplicateScanProgress(args),
 );
 
 /**
@@ -384,12 +404,10 @@ export const setLowerResolutionReviewOptions = makeAction(
 );
 
 export const startLowerResolutionScan = makeAction(
-  async ({ options, sourceFileId }: { options: DuplicateSearchOptions; sourceFileId?: string }) => {
+  async ({ options }: { options: DuplicateSearchOptions }) => {
     // Grouping finishes its current step first, which must not hold up other metadata writes.
     await waitForDuplicateGroupingSteps();
 
-    return withMetadataMutation(async () => ({
-      scanId: await startDuplicateScan(options, sourceFileId),
-    }));
+    return withMetadataMutation(async () => ({ scanId: await startDuplicateScan(options) }));
   },
 );

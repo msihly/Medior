@@ -1974,9 +1974,7 @@ export const startFileDeletion = makeAction(async ({ fileIds }: { fileIds: strin
       } finally {
         await removing;
 
-        job.report({
-          message: `${Fmt.commas(archivedCount)} files archived; ${Fmt.commas(deletedCount)} files deleted`,
-        });
+        job.report({ message: `${Fmt.commas(deletedCount)} files deleted` });
 
         // Tag counts are rescanned once for the whole deletion rather than after every batch, and
         // the queue picks up any cleanup left by a stop or failure.

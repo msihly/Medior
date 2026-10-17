@@ -12,11 +12,7 @@ interface LoadSimilarArgs {
 }
 
 interface SimilarityCandidateMeta {
-  /** Percentage of the file that differs from the looked-up file, where their pixels compared. */
-  difference: number | null;
   fileId: string;
-  /** Looks alike but was edited, recoloured, or reframed rather than copied. */
-  isVariation: boolean;
   rank: number;
   score: number;
 }

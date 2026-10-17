@@ -55,7 +55,7 @@ export const SearchStatus = Comp(() => {
   return (
     <Card header="Search" flex={1} justify="center" minWidth={0} spacing="0.5rem">
       <View row align="center" justify="space-between" spacing="1rem">
-        <View row wrap="wrap" align="center" spacing="2rem">
+        <View row align="center" minWidth={0} spacing="2rem">
           <View row align="center" spacing="0.5rem">
             <Icon name={status.icon} size="1.4em" color={status.color} />
 

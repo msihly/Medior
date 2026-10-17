@@ -82,8 +82,6 @@ export const ContextMenu = Comp(
 
     const handleUnarchive = () => fileStore.unarchiveFiles({ fileIds: [file.id] });
 
-    const handleVariants = () => fileStore.lowerResolution.open(file.id);
-
     const openInfo = () => {
       fileStore.setActiveFileId(file.id);
       fileStore.setIsInfoModalOpen(true);
@@ -183,11 +181,6 @@ export const ContextMenu = Comp(
               icon: "Compare",
               label: "Find Similar",
               onClick: handleSimilarity,
-            },
-            {
-              icon: "ImageSearch",
-              label: "Find Variants",
-              onClick: handleVariants,
             },
             {
               icon: "Refresh",

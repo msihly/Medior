@@ -505,6 +505,13 @@ export type StopJobOutput = ReturnType<typeof db.stopJob>;
 export type StartLowerResolutionArchiveInput = Parameters<typeof db.startLowerResolutionArchive>[0];
 export type StartLowerResolutionArchiveOutput = ReturnType<typeof db.startLowerResolutionArchive>;
 
+export type DismissLowerResolutionDuplicatesInput = Parameters<
+  typeof db.dismissLowerResolutionDuplicates
+>[0];
+export type DismissLowerResolutionDuplicatesOutput = ReturnType<
+  typeof db.dismissLowerResolutionDuplicates
+>;
+
 export type ListLowerResolutionDuplicateIdsInput = Parameters<
   typeof db.listLowerResolutionDuplicateIds
 >[0];

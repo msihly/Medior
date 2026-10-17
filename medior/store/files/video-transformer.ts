@@ -48,7 +48,7 @@ export class VideoTransformerStore extends Model({
   queueType: prop<FileTransformType>("reencode").withSetter(),
   search: prop<FileTransformSearch>(() => new FileTransformSearch({})),
   sizeHistory: prop<FileTransformSizeBucket[]>(() => []).withSetter(),
-  sizeHistoryRange: prop<SizeHistoryRange>("7d").withSetter(),
+  sizeHistoryRange: prop<SizeHistoryRange>("24h").withSetter(),
   sourceSortValue: prop<SortValue>(null).withSetter(),
   spliceMode: prop<SpliceMode>("replace").withSetter(),
   timestampPairs: prop<Array<[number, number]>>(() => []).withSetter(),

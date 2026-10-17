@@ -1,21 +1,11 @@
 import * as models from "medior/_generated/server/models";
 import { startRepairChild } from "medior/server/database/repair-progress";
-import { findVariations } from "medior/server/duplicate-quality";
-import { getFileFilterMatch, getLibraryVariationSettings } from "medior/server/lower-resolution";
+import { getFileFilterMatch } from "medior/server/lower-resolution";
 import type { SimilarityVectorType } from "medior/server/vector-service";
-import {
-  leanModelToJson,
-  makeAction,
-  objectIds,
-  sortByStoredNtfsIdentity,
-} from "medior/utils/server";
+import { makeAction, objectIds } from "medior/utils/server";
 import { vectorTrpc } from "medior/utils/server/trpc";
 
-/**
- * The files most similar to one file, restricted to those the filter menu's saved filter chooses.
- * Each is compared with the file the way Find Duplicates marks variations, so copies can be told
- * apart from edited versions that score as high.
- */
+/** The files most similar to one file, restricted to those the filter menu's saved filter chooses. */
 export const findSimilarFiles = makeAction(
   async ({
     filter = null,
@@ -30,48 +20,23 @@ export const findSimilarFiles = makeAction(
     const { candidates, hasMore, nextOffset } =
       await vectorTrpc.findSimilarVectorCandidates.mutate(args);
 
-    const variationFields = { height: 1, thumb: 1, width: 1 };
-    const [filterMatch, settings] = await Promise.all([
-      getFileFilterMatch(filter),
-      getLibraryVariationSettings(),
-    ]);
-    const [source, files] = await Promise.all([
-      models.FileModel.findById(args.fileId).select(variationFields).lean(),
-      models.FileModel.find({
-        $and: [
-          filterMatch ?? {},
-          {
-            _id: { $in: objectIds(candidates.map((candidate) => candidate.fileId)) },
-            isArchived: { $ne: true },
-          },
-        ],
-      })
-        .select(variationFields)
-        .lean(),
-    ]);
-    const available = files.map((file) => leanModelToJson<models.FileSchema>(file));
+    const filterMatch = await getFileFilterMatch(filter);
+    const files = await models.FileModel.find({
+      $and: [
+        filterMatch ?? {},
+        {
+          _id: { $in: objectIds(candidates.map((candidate) => candidate.fileId)) },
+          isArchived: { $ne: true },
+        },
+      ],
+    })
+      .select({ _id: 1 })
+      .lean();
 
-    // Thumbnails are read in disk order, which keeps a hard drive from seeking between them.
-    const variations = source
-      ? await findVariations(
-          leanModelToJson<models.FileSchema>(source),
-          sortByStoredNtfsIdentity(available, (file) => ({
-            fileId: file.thumb?.ntfsFileId,
-            volumeId: file.thumb?.ntfsVolumeId,
-          })),
-          settings,
-        )
-      : new Map<string, { difference: number | null; isVariation: boolean }>();
-    const availableIds = new Set(available.map((file) => file.id));
+    const availableIds = new Set(files.map((file) => String(file._id)));
 
     return {
-      candidates: candidates
-        .filter((candidate) => availableIds.has(candidate.fileId))
-        .map((candidate) => ({
-          ...candidate,
-          difference: variations.get(candidate.fileId)?.difference ?? null,
-          isVariation: !!variations.get(candidate.fileId)?.isVariation,
-        })),
+      candidates: candidates.filter((candidate) => availableIds.has(candidate.fileId)),
       hasMore,
       nextOffset,
     };

@@ -68,6 +68,15 @@ interface ScanGroup {
   score: number;
 }
 
+/**
+ * Two file versions marked as not duplicates of each other, such as confirmed variations. Its ID
+ * names both hashes, so the pair is grouped again once either file changes.
+ */
+interface DuplicateDismissal {
+  _id: string;
+  dismissedAt: Date;
+}
+
 /** A searched file's nearest files at or above the lowest selectable similarity. */
 interface ScanMatch {
   _id: string;
@@ -103,7 +112,6 @@ interface DuplicateScan {
   processed: number;
   scope: string;
   skipped: number;
-  sourceFileId: string;
   status: "complete" | "error" | "paused" | "running";
   total: number;
 }
@@ -175,7 +183,6 @@ const scanSchema = new Schema<DuplicateScan>({
   processed: Number,
   scope: String,
   skipped: Number,
-  sourceFileId: String,
   status: String,
   total: Number,
 });
@@ -201,6 +208,11 @@ const groupSchema = new Schema<ScanGroup>({
 
 groupSchema.index({ scanId: 1, score: -1, _id: 1 });
 
+const dismissalSchema = new Schema<DuplicateDismissal>({
+  _id: String,
+  dismissedAt: Date,
+});
+
 // Matches are read in ID order through the shared record type and ID index.
 const matchSchema = new Schema<ScanMatch>({
   _id: String,
@@ -214,6 +226,11 @@ const matchSchema = new Schema<ScanMatch>({
 const ScanGroupModel = registerPersistenceModel<ScanGroup>("ImageCopyPair", groupSchema);
 const ScanMatchModel = registerPersistenceModel<ScanMatch>("ImageCopyMatch", matchSchema);
 const DuplicateScanModel = registerPersistenceModel<DuplicateScan>("ImageCopyScan", scanSchema);
+// Dismissals belong to no search, so searching again keeps them.
+const DuplicateDismissalModel = registerPersistenceModel<DuplicateDismissal>(
+  "DuplicateDismissal",
+  dismissalSchema,
+);
 
 const BATCH_SIZE = 512;
 const GROUP_BATCH_SIZE = 512;
@@ -249,6 +266,21 @@ const isEligible = (file: { isArchived?: boolean; isCorrupted?: boolean }) =>
 
 /** Matches sort by their searched file's ID, the order the search stores them in. */
 const getMatchId = (scanId: string, fileId: string) => `${scanId}:match:${fileId}`;
+
+/** Either order of a pair's hashes names the same dismissal. */
+const getDismissalId = (hashA: string, hashB: string) => [hashA, hashB].sort().join(":");
+
+/** The IDs of the given hash pairs that were marked as not duplicates. */
+const findDismissalIds = async (pairs: [string, string][]) => {
+  const ids = [...new Set(pairs.map(([hashA, hashB]) => getDismissalId(hashA, hashB)))];
+  if (!ids.length) return new Set<string>();
+
+  const dismissals = await DuplicateDismissalModel.find({ _id: { $in: ids } })
+    .select({ _id: 1 })
+    .lean();
+
+  return new Set(dismissals.map((dismissal) => dismissal._id));
+};
 
 /** Highest member similarity to the keeper. */
 const getGroupScore = (files: ScanGroup["files"], keeperId: string) =>
@@ -393,13 +425,6 @@ const scoreGroups = async (scanId: string, groups: Pick<ScanGroup, "_id" | "file
   });
 };
 
-/** The library search's variation settings, which single-file lookups mark variations with too. */
-export const getLibraryVariationSettings = async () =>
-  getVariationSettings(
-    (await DuplicateScanModel.findOne({ scope: "library" }).select({ options: 1 }).lean())
-      ?.options ?? {},
-  );
-
 /**
  * The query for the files a saved filter menu chooses; null when every file passes. Callers skip
  * archived and corrupted files themselves, so the filter can't choose them, and its remaining
@@ -519,7 +544,7 @@ const formGroups = async (scanId: string, task: GroupTask, docs: ScanMatch[]) =>
 /**
  * Scores groups against their keepers. Files matched through the searched file but below the
  * threshold against the keeper would be hidden in the review, so they are released for other
- * groups to claim instead.
+ * groups to claim instead, as are files marked as not duplicates of the keeper.
  */
 const keepGroups = async (
   scanId: string,
@@ -529,10 +554,22 @@ const keepGroups = async (
   const releasedIds: string[] = [];
   const scored = groups.length ? await scoreGroups(scanId, groups) : [];
 
+  const keeperHashes = scored.map(
+    ({ files, keeperId }) => files.find((file) => file.id === keeperId)?.hash,
+  );
+  const dismissalIds = await findDismissalIds(
+    scored.flatMap(({ files }, index): [string, string][] =>
+      keeperHashes[index] ? files.map((file) => [keeperHashes[index], file.hash]) : [],
+    ),
+  );
+
   const keptGroups = groups.flatMap((group, index) => {
     const { files, keeperId } = scored[index];
     const kept = files.filter(
-      (file) => file.id === keeperId || file.score >= task.options.minSimilarity,
+      (file) =>
+        file.id === keeperId ||
+        (file.score >= task.options.minSimilarity &&
+          !dismissalIds.has(getDismissalId(keeperHashes[index], file.hash))),
     );
     const released = kept.length > 1 ? files.filter((file) => !kept.includes(file)) : files;
 
@@ -696,10 +733,8 @@ const startGrouping = (scanId: string, restart = false) => {
   }
 };
 
-const readFiles = (scan: DuplicateScan, cursor: string) =>
-  FileModel.find(
-    scan.sourceFileId ? { _id: scan.sourceFileId } : cursor ? { _id: { $gt: cursor } } : {},
-  )
+const readFiles = (cursor: string) =>
+  FileModel.find(cursor ? { _id: { $gt: cursor } } : {})
     .select(fileProjection)
     .sort({ _id: 1 })
     .limit(BATCH_SIZE)
@@ -713,11 +748,9 @@ type SearchFile = Awaited<ReturnType<typeof readFiles>>[number];
  * files at a time and reading each batch while the one before it is searched.
  */
 const makeChunkReader = (task: ScanTask) => {
-  const { scan } = task;
-
   let chunks: SearchFile[][] = [];
   let isReadToEnd = false;
-  let nextRead = readFiles(scan, scan.cursor);
+  let nextRead = readFiles(task.scan.cursor);
 
   // A failed read surfaces when its files are needed.
   nextRead.catch(() => null);
@@ -726,14 +759,11 @@ const makeChunkReader = (task: ScanTask) => {
     if (!chunks.length && !isReadToEnd) {
       const files = await nextRead;
 
-      if (scan.sourceFileId && !files.some(isEligible))
-        throw new Error("This file is archived, corrupted, or no longer available.");
-
       chunks = chunkArray(files, QUERY_SIZE);
-      isReadToEnd = !!scan.sourceFileId || files.length < BATCH_SIZE;
+      isReadToEnd = files.length < BATCH_SIZE;
 
       if (!isReadToEnd) {
-        nextRead = readFiles(scan, String(files[files.length - 1]._id));
+        nextRead = readFiles(String(files[files.length - 1]._id));
         nextRead.catch(() => null);
       }
     }
@@ -752,11 +782,7 @@ const searchChunk = async (task: ScanTask, files: SearchFile[]): Promise<Searche
   const hashes = new Map(sources.map((file) => [file.fileId, file.hash]));
   const results = sources.length
     ? await vectorTrpc.findDuplicateCandidates.mutate(
-        {
-          files: sources,
-          minSimilarity: MIN_DUPLICATE_SIMILARITY,
-          useSearchIndex: !scan.sourceFileId,
-        },
+        { files: sources, minSimilarity: MIN_DUPLICATE_SIMILARITY },
         { signal: task.controller.signal },
       )
     : [];
@@ -928,12 +954,12 @@ const runScan = async (task: ScanTask) => {
 
     signal.throwIfAborted();
 
-    if (!scan.sourceFileId && !(await vectorTrpc.getSearchIndexStatus.mutate()).hasIndex)
+    if (!(await vectorTrpc.getSearchIndexStatus.mutate()).hasIndex)
       throw new Error(
         "Searching the whole library requires the similarity search index. Build it in Settings → Repair, then search again.",
       );
 
-    scan.total = scan.sourceFileId ? 1 : await FileModel.estimatedDocumentCount();
+    scan.total = await FileModel.estimatedDocumentCount();
 
     await searchAndStore(task);
   } catch (error) {
@@ -953,12 +979,25 @@ const runScan = async (task: ScanTask) => {
   }
 };
 
-export const getDuplicateScanProgress = async (args: {
-  scanId?: string;
-  sourceFileId?: string;
-}) => {
+/** Searches saved for single files by the retired Find Variants are discarded. */
+const discardFileScans = async () => {
+  const scans = await DuplicateScanModel.find({ scope: { $ne: "library" } })
+    .select({ _id: 1 })
+    .lean();
+
+  for (const scan of scans) {
+    if (findJob("mergeDuplicates", scan._id)) continue;
+
+    await deleteScanRecords(scan._id);
+    await DuplicateScanModel.deleteOne({ _id: scan._id });
+  }
+};
+
+export const getDuplicateScanProgress = async (args: { scanId?: string }) => {
+  if (!args.scanId) await discardFileScans();
+
   const saved = await DuplicateScanModel.findOne(
-    args.scanId ? { _id: args.scanId } : { scope: args.sourceFileId || "library" },
+    args.scanId ? { _id: args.scanId } : { scope: "library" },
   ).lean();
 
   if (!saved) return null;
@@ -1151,18 +1190,11 @@ export const setDuplicateReviewOptions = (scanId: string, options: DuplicateSear
 };
 
 /** Resumes a paused or stopped search; a completed one searches again from the start. */
-export const startDuplicateScan = async (
-  options: DuplicateSearchOptions,
-  sourceFileId?: string,
-) => {
+export const startDuplicateScan = async (options: DuplicateSearchOptions) => {
   validateDuplicateSearchOptions(options);
 
   if (starting || tasks.size)
-    throw new Error(
-      [...tasks.values()].some((task) => task.scan.sourceFileId)
-        ? "A Find Variants search is still running. Open Find Variants on its file to pause it, or wait for it to finish."
-        : "Pause the current duplicate search before starting another.",
-    );
+    throw new Error("Pause the current duplicate search before starting another.");
 
   starting = true;
 
@@ -1170,8 +1202,7 @@ export const startDuplicateScan = async (
     // Grouping already underway finishes its step first, so it never runs alongside the search.
     await waitForDuplicateGroupingSteps();
 
-    const scope = sourceFileId || "library";
-    let scan = await DuplicateScanModel.findOne({ scope }).lean();
+    let scan = await DuplicateScanModel.findOne({ scope: "library" }).lean();
 
     if (!scan || scan.status === "complete" || !("groupCursor" in scan)) {
       if (scan && findJob("mergeDuplicates", scan._id))
@@ -1192,9 +1223,8 @@ export const startDuplicateScan = async (
         matched: 0,
         options: { ...options },
         processed: 0,
-        scope,
+        scope: "library",
         skipped: 0,
-        sourceFileId: sourceFileId ?? null,
         status: "running",
         total: 0,
       };
@@ -1385,4 +1415,43 @@ export const updateDuplicateScanGroups = async (
   }
 
   return updated;
+};
+
+/**
+ * Marks the selected files as not duplicates of their group's keeper and removes them from the
+ * group. Later searches keep each pair apart; selected keepers stay in their groups.
+ */
+export const dismissDuplicateFiles = async (
+  scanId: string,
+  selected: { fileIds: string[]; groupId: string }[],
+) => {
+  const groups = await getDuplicateScanGroupsById(
+    scanId,
+    selected.map((group) => group.groupId),
+  );
+  const selectedIds = new Map(selected.map(({ fileIds, groupId }) => [groupId, new Set(fileIds)]));
+  const dismissalIds: string[] = [];
+  const updates: Parameters<typeof updateDuplicateScanGroups>[1] = [];
+
+  for (const group of groups) {
+    const keeper = group.files.find((file) => file.id === group.keeperId);
+    const dismissed = group.files.filter(
+      (file) => file.id !== group.keeperId && selectedIds.get(group._id).has(file.id),
+    );
+
+    if (keeper && dismissed.length) {
+      dismissalIds.push(...dismissed.map((file) => getDismissalId(keeper.hash, file.hash)));
+      updates.push({ files: group.files.filter((file) => !dismissed.includes(file)), group });
+    }
+  }
+
+  if (dismissalIds.length)
+    await DuplicateDismissalModel.bulkWrite(
+      dismissalIds.map((_id) => ({
+        updateOne: { filter: { _id }, update: { $set: { dismissedAt: new Date() } }, upsert: true },
+      })),
+      { ordered: false },
+    );
+
+  await updateDuplicateScanGroups(scanId, updates);
 };

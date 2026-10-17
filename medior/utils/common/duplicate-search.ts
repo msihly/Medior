@@ -31,7 +31,7 @@ export const DEFAULT_DUPLICATE_SEARCH_OPTIONS: DuplicateSearchOptions = {
   variationThreshold: 10,
 };
 
-export const DUPLICATE_PAGE_SIZE = 10;
+export const DUPLICATE_PAGE_SIZE = 20;
 
 export const MAX_DUPLICATE_TIME_WINDOW = 7 * 24 * 60;
 

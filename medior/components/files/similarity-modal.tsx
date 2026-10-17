@@ -37,8 +37,6 @@ export const SimilarityModal = Comp(() => {
 
   const handleRefresh = () => store.loadSimilar();
 
-  const handleScanVariants = () => stores.file.lowerResolution.open(store.activeFileId);
-
   return (
     <Modal.Container height="100%" width="100%" onClose={store.close}>
       <SearchLoadingOverlay
@@ -87,8 +85,6 @@ export const SimilarityModal = Comp(() => {
       </Modal.Content>
 
       <Modal.Footer>
-        <Button text="Find Variants" icon="ImageSearch" onClick={handleScanVariants} />
-
         {store.hasMore && (
           <Button text="Load More" icon="Add" onClick={handleLoadMore} disabled={store.isLoading} />
         )}
