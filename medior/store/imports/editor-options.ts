@@ -47,26 +47,26 @@ export class ImportEditorOptions extends Model({
     const config = getConfig();
 
     this.setDeleteOnImport(config.imports.deleteOnImport);
-    this.setFlattenTo(null);
+    this.setFlattenTo(config.imports.flattenTo);
     this.setFolderToCollectionMode(config.imports.folderToCollMode);
     this.setFolderToTagsMode(config.imports.folderToTagsMode);
     this.setIgnorePrevDeleted(config.imports.ignorePrevDeleted);
-    this.setMediaProgramLanguage(null);
-    this.setMediaProgramMedium(null);
-    this.setMediaProgramType(null);
+    this.setMediaProgramLanguage(config.imports.mediaProgramLanguage);
+    this.setMediaProgramMedium(config.imports.mediaProgramMedium);
+    this.setMediaProgramType(config.imports.mediaProgramType);
     this.setSubtitleMode(config.imports.subtitleMode);
-    this.setUseSavedConfigs(true);
+    this.setUseSavedConfigs(config.imports.useSavedConfigs);
     this.setWithDelimiters(config.imports.withDelimiters);
     this.setWithDiffusionModel(config.imports.withDiffModel);
     this.setWithDiffusionParams(config.imports.withDiffParams);
     this.setWithDiffusionRegExMaps(config.imports.withDiffRegEx);
     this.setWithDiffusionTags(config.imports.withDiffTags);
     this.setWithFileNameToTags(config.imports.withFileNameToTags);
-    this.setWithFlattenTo(false);
+    this.setWithFlattenTo(config.imports.withFlattenTo);
     this.setWithFolderNameRegEx(config.imports.withFolderNameRegEx);
-    this.setWithMediaPrograms(false);
+    this.setWithMediaPrograms(config.imports.withMediaPrograms);
     this.setWithNewTagsToRegEx(config.imports.withNewTagsToRegEx);
-    this.setWithSidecar(false);
+    this.setWithSidecar(config.imports.withSidecar);
   }
 
   @modelAction

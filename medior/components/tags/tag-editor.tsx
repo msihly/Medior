@@ -176,7 +176,11 @@ export const TagEditor = Comp(({ isSubEditor = false }: TagEditorProps) => {
             <View row align="center" spacing="0.5rem">
               <RatingButton rating={store.tag.rating} setRating={handleRating} />
 
-              <Text tooltip={store.tag.count} tooltipProps={{ flexShrink: 1 }} preset="sub-text">
+              <Text
+                tooltip={store.tag.count}
+                tooltipProps={{ flexShrink: 1 }}
+                preset="sub-text-muted"
+              >
                 {`${Fmt.commas(store.tag.count ?? 0)} files / ${Fmt.bytes(store.tag.size ?? 0)}`}
               </Text>
 

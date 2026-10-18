@@ -5,9 +5,12 @@ import { SORT_OPTIONS } from "medior/store/_generated";
 import {
   Button,
   Card,
+  CheckboxProps,
   Comp,
   ConfirmModal,
+  IconName,
   LoadingOverlay,
+  MediaProgramDropdown,
   Modal,
   Text,
   UniformList,
@@ -17,12 +20,40 @@ import { useStores } from "medior/store";
 import { colors, toast, useCancellableLoad } from "medior/utils/client";
 import { CONSTANTS, SUBTITLE_MODES } from "medior/utils/common";
 import {
+  DEV_TOOLS_MODES,
   loadConfig,
+  SIMILARITY_DEVICE_OPTIONS,
   TRANSCRIPTION_MODELS,
   TRANSCRIPTION_QUANTIZATION_OPTIONS,
   TranscriptionModel,
 } from "medior/utils/server";
 import { Settings } from ".";
+
+const FILE_CARD_FIT_OPTIONS = [
+  { label: "Contain", value: "contain" },
+  { label: "Cover", value: "cover" },
+];
+
+/** Matches the Ingester's import options. */
+const INGESTER_CHECKBOX_PROPS: Partial<CheckboxProps> = {
+  flex: "initial",
+  padding: { all: "0.5rem" },
+};
+
+const REMUX_EXTS = CONSTANTS.VIDEO.EXTS.filter((ext) => ext !== "mp4");
+
+const TABS = [
+  { icon: "Storage", label: "Database / Servers" },
+  { icon: "Hub", label: "Vectors" },
+  { icon: "Collections", label: "Collections" },
+  { icon: "InsertDriveFile", label: "Files" },
+  { icon: "GetApp", label: "Imports" },
+  { icon: "LiveTv", label: "Media Programs" },
+  { icon: "Label", label: "Tags" },
+  { icon: "Code", label: "Developer" },
+] as const satisfies readonly { icon: IconName; label: string }[];
+
+type SettingsTab = (typeof TABS)[number]["label"];
 
 export const SettingsModal = Comp(() => {
   const stores = useStores();
@@ -30,17 +61,18 @@ export const SettingsModal = Comp(() => {
 
   const load = useCancellableLoad();
 
+  const [activeTab, setActiveTab] = useState<SettingsTab>(TABS[0].label);
   const [isConfirmDiscardOpen, setIsConfirmDiscardOpen] = useState(false);
+
+  const isDiffusionParamsOff = !store.imports.withDiffParams;
+  const isDiffusionTagsOff = isDiffusionParamsOff || !store.imports.withDiffTags;
+  const isFolderToCollectionOff = store.imports.folderToCollMode === "none";
+  const isFolderToTagsOff = store.imports.folderToTagsMode === "none";
+  const isMediaProgramsOff = !store.imports.withMediaPrograms;
 
   useEffect(() => {
     handleLoadConfig();
   }, []);
-
-  const handleAddStorage = async () => {
-    const location = await selectStorageLocation();
-
-    if (location) store.addFileStorageLocation(location);
-  };
 
   const handleCancel = () => {
     if (store.hasUnsavedChanges) setIsConfirmDiscardOpen(true);
@@ -63,15 +95,20 @@ export const SettingsModal = Comp(() => {
       stores.applyConfig(config);
     });
 
-  const handleFileCardFitContain = () => store.setFileCardFit("contain");
-
-  const handleFileCardFitCover = () => store.setFileCardFit("cover");
-
   const handleFolderToCollection = (checked: boolean) =>
-    store.setFolderToCollMode(checked ? "withoutTag" : "none");
+    store.setFolderToCollMode(checked ? "withTag" : "none");
 
   const handleFoldersToTags = (checked: boolean) =>
     store.setFolderToTagsMode(checked ? "hierarchical" : "none");
+
+  const handleMediaProgramLanguage = (language: string) =>
+    store.update({ imports: { mediaProgramLanguage: language } });
+
+  const handleMediaProgramMedium = (medium: string) =>
+    store.update({ imports: { mediaProgramMedium: medium } });
+
+  const handleMediaProgramType = (type: string) =>
+    store.update({ imports: { mediaProgramType: type } });
 
   const handlePathClick = (setPath: (path: string) => void) => async (event: React.MouseEvent) => {
     event.preventDefault();
@@ -82,6 +119,12 @@ export const SettingsModal = Comp(() => {
   };
 
   const handleRepair = () => store.repair.setIsOpen(true);
+
+  const handleStorageThreshold = (percent: number) => {
+    if (percent === null) return;
+
+    store.setFileStorageThreshold(Math.min(Math.max(percent, 1), 100) / 100);
+  };
 
   const handleTranscriptionModelChange = (model?: string) => {
     if (!model) return;
@@ -141,7 +184,7 @@ export const SettingsModal = Comp(() => {
       onClose={handleCancel}
       height="100%"
       width="100%"
-      maxWidth="55rem"
+      maxWidth="70rem"
     >
       <LoadingOverlay
         isLoading={load.isLoading}
@@ -152,393 +195,740 @@ export const SettingsModal = Comp(() => {
         <Text preset="title">{"Settings"}</Text>
       </Modal.Header>
 
-      <Modal.Content spacing="1.3rem" padding={{ bottom: "3rem" }}>
-        <Settings.Section title="Database / Servers">
-          <View row align="center" spacing="0.5rem">
-            <Settings.Input
-              header="Database Path"
-              configKey="db.path"
-              onClick={handlePathClick(store.setDbPath)}
-              flex={1}
-            />
+      <Modal.Content row overflow="hidden" spacing="1rem">
+        <Card flex="none" width="14rem" spacing="0.3rem" overflow="hidden auto">
+          {TABS.map((tab) => {
+            const isActive = tab.label === activeTab;
 
-            <Settings.NumInput header="Database Port" configKey="ports.db" />
-
-            <Settings.NumInput header="Server Port" configKey="ports.server" />
-
-            <Settings.NumInput header="Socket Port" configKey="ports.socket" />
-
-            <View column spacing="0.5rem">
+            return (
               <Button
-                text="Repair Database"
-                icon="Build"
-                onClick={handleRepair}
-                color={colors.custom.black}
+                key={tab.label}
+                text={tab.label}
+                icon={tab.icon}
+                onClick={() => setActiveTab(tab.label)}
+                color={isActive ? colors.custom.grey : "transparent"}
+                colorOnHover={isActive ? colors.custom.grey : colors.foregroundCard}
+                textColor={isActive ? colors.custom.white : colors.custom.lightGrey}
+                justify="flex-start"
+                padding={{ all: "0.5rem 0.7rem" }}
               />
+            );
+          })}
+        </Card>
 
-              <Button
-                text="Add Storage"
-                icon="Add"
-                onClick={handleAddStorage}
-                colorOnHover={colors.custom.blue}
-              />
-            </View>
-          </View>
+        <Settings.Section>
+          {activeTab === "Database / Servers" && (
+            <>
+              <Settings.Group
+                title="Database"
+                rightNode={
+                  <Button
+                    text="Repair Database"
+                    icon="Build"
+                    onClick={handleRepair}
+                    color={colors.custom.black}
+                  />
+                }
+              >
+                <Settings.Grid>
+                  <Settings.Field label="Path" description="Changing it restarts the servers." wide>
+                    <Settings.Input
+                      configKey="db.path"
+                      onClick={handlePathClick(store.setDbPath)}
+                      flex={1}
+                    />
+                  </Settings.Field>
 
-          <Settings.StorageInputs selectLocation={selectStorageLocation} />
+                  <Settings.Field label="Port">
+                    <Settings.NumInput configKey="ports.db" />
+                  </Settings.Field>
+                </Settings.Grid>
+              </Settings.Group>
 
-          <Settings.ScratchInput selectLocation={selectStorageLocation} />
-        </Settings.Section>
+              <Settings.Group title="Servers">
+                <Settings.Grid>
+                  <Settings.Field label="Server Port">
+                    <Settings.NumInput configKey="ports.server" />
+                  </Settings.Field>
 
-        <Settings.Section title="Vectors">
-          <View row spacing="0.5rem" overflow="auto">
-            <Settings.Input
-              header="Vector DB Path"
-              configKey="db.vector.path"
-              onClick={handlePathClick(store.setVectorDbPath)}
-              flex={1}
-            />
+                  <Settings.Field label="Socket Port">
+                    <Settings.NumInput configKey="ports.socket" />
+                  </Settings.Field>
+                </Settings.Grid>
+              </Settings.Group>
 
-            <Settings.Input
-              header="Model Cache Path"
-              configKey="file.similarity.modelCachePath"
-              onClick={handlePathClick(store.setSimilarityModelCachePath)}
-              flex={1}
-            />
-          </View>
+              <Settings.Group title="File Storage">
+                <Settings.Grid>
+                  <Settings.Field
+                    label="Locations"
+                    description="Filled in order, top first."
+                    alignTop
+                    wide
+                  >
+                    <Settings.StorageInputs selectLocation={selectStorageLocation} />
+                  </Settings.Field>
 
-          <View row spacing="0.5rem" overflow="auto">
-            <Settings.NumInput header="Vector Port" configKey="ports.vector" />
+                  <Settings.Field
+                    label="Scratch Folder"
+                    description="Intermediate media files. Empty uses the storage locations."
+                    wide
+                  >
+                    <Settings.ScratchInput selectLocation={selectStorageLocation} />
+                  </Settings.Field>
 
-            <Settings.NumInput
-              header="Inference Batch"
-              configKey="file.similarity.visual.inferenceBatchSize"
-              minValue={1}
-              width="10rem"
-            />
+                  <Settings.Field
+                    label="Full Warning At"
+                    description="Marks a location as full in this list."
+                  >
+                    <Settings.NumInput
+                      configKey="db.fileStorage.threshold"
+                      value={Math.round(store.db.fileStorage.threshold * 100)}
+                      setValue={handleStorageThreshold}
+                      adornment="%"
+                      minValue={1}
+                      maxValue={100}
+                    />
+                  </Settings.Field>
+                </Settings.Grid>
+              </Settings.Group>
+            </>
+          )}
 
-            <Settings.NumInput
-              header="Vector CPU Threads"
-              configKey="file.similarity.cpuThreads"
-              minValue={1}
-              maxValue={navigator.hardwareConcurrency}
-              width="10rem"
-            />
-          </View>
-        </Settings.Section>
+          {activeTab === "Vectors" && (
+            <>
+              <Settings.Group title="Database">
+                <Settings.Grid>
+                  <Settings.Field
+                    label="Path"
+                    description="Restarts the servers. A folder without vectors needs a full Similarity Search Index repair."
+                    wide
+                  >
+                    <Settings.Input
+                      configKey="db.vector.path"
+                      onClick={handlePathClick(store.setVectorDbPath)}
+                      flex={1}
+                    />
+                  </Settings.Field>
 
-        <Settings.Section title="Collections">
-          <View row spacing="0.5rem" overflow="auto">
-            <Settings.NumInput
-              header="Editor - File Page Size"
-              configKey="collection.editor.fileSearch.pageSize"
-              minValue={1}
-              maxValue={200}
-              width="10rem"
-            />
+                  <Settings.Field label="Port" description="Restarts the servers.">
+                    <Settings.NumInput configKey="ports.vector" />
+                  </Settings.Field>
 
-            <Settings.SortMenu
-              header="Editor - Default Sort"
-              configKey="collection.editor.search.sort"
-              rows={SORT_OPTIONS.FileCollectionFile}
-            />
+                  <Settings.Field
+                    label="CPU Threads"
+                    description="Used for searches and index builds. Restarts the servers."
+                  >
+                    <Settings.NumInput
+                      configKey="file.similarity.cpuThreads"
+                      minValue={1}
+                      maxValue={navigator.hardwareConcurrency}
+                    />
+                  </Settings.Field>
 
-            <Settings.NumInput
-              header="Manager - Page Size"
-              configKey="collection.manager.search.pageSize"
-              minValue={25}
-              maxValue={250}
-              width="9rem"
-            />
+                  <Settings.Field label="Writer Batch" description="Vectors saved per write.">
+                    <Settings.NumInput configKey="file.similarity.writerBatchSize" minValue={1} />
+                  </Settings.Field>
+                </Settings.Grid>
+              </Settings.Group>
 
-            <Settings.SortMenu
-              header="Manager - Default Sort"
-              configKey="collection.manager.search.sort"
-              rows={SORT_OPTIONS.FileCollection}
-            />
-          </View>
-        </Settings.Section>
+              <Settings.Group title="Inference">
+                <Settings.Grid>
+                  <Settings.Field
+                    label="Model Cache Path"
+                    description="A new folder downloads the model again."
+                    wide
+                  >
+                    <Settings.Input
+                      configKey="file.similarity.modelCachePath"
+                      onClick={handlePathClick(store.setSimilarityModelCachePath)}
+                      flex={1}
+                    />
+                  </Settings.Field>
 
-        <Settings.Section title="Files">
-          <View row spacing="0.5rem" overflow="auto">
-            <Settings.NumInput
-              header="Page Size"
-              configKey="file.search.pageSize"
-              minValue={25}
-              maxValue={250}
-              width="6rem"
-            />
+                  <Settings.Field label="Device" description="Hardware that generates new vectors.">
+                    <Settings.Dropdown
+                      configKey="file.similarity.visual.device"
+                      options={SIMILARITY_DEVICE_OPTIONS}
+                      width="10rem"
+                    />
+                  </Settings.Field>
 
-            <Settings.SortMenu
-              header="Default Sort"
-              configKey="file.search.sort"
-              rows={SORT_OPTIONS.File}
-            />
+                  <Settings.Field
+                    label="Batch Size"
+                    description="Thumbnails per inference batch. Higher uses more memory."
+                  >
+                    <Settings.NumInput
+                      configKey="file.similarity.visual.inferenceBatchSize"
+                      minValue={1}
+                    />
+                  </Settings.Field>
+                </Settings.Grid>
+              </Settings.Group>
 
-            <Card
-              header="File Thumbnail Fit"
-              row
-              bgColor={colors.foregroundCard}
-              padding={{ all: "0.1rem" }}
-            >
-              <Settings.Checkbox
-                label="Contain"
-                configKey="file.fileCardFit"
-                checked={store.file.fileCardFit === "contain"}
-                setChecked={handleFileCardFitContain}
-              />
+              <Settings.Group title="Find Similar">
+                <Settings.Grid>
+                  <Settings.Field label="Results Limit" description="Results per page.">
+                    <Settings.NumInput
+                      configKey="file.similarity.defaultLimit"
+                      minValue={1}
+                      maxValue={CONSTANTS.VECTOR.MAX_SIMILAR_RESULTS}
+                    />
+                  </Settings.Field>
+                </Settings.Grid>
+              </Settings.Group>
 
-              <Settings.Checkbox
-                label="Cover"
-                configKey="file.fileCardFit"
-                checked={store.file.fileCardFit === "cover"}
-                setChecked={handleFileCardFitCover}
-              />
-            </Card>
+              <Settings.Group title="Search Index">
+                <Settings.Grid>
+                  <Settings.Field
+                    label="Probes"
+                    description="Index partitions checked per duplicate lookup. Higher is more thorough but slower."
+                  >
+                    <Settings.NumInput
+                      configKey="file.similarity.index.ivfPq.nprobes"
+                      minValue={1}
+                    />
+                  </Settings.Field>
+                </Settings.Grid>
+              </Settings.Group>
+            </>
+          )}
 
-            <Card
-              header="File Name"
-              row
-              bgColor={colors.foregroundCard}
-              padding={{ all: "0.1rem" }}
-            >
-              <Settings.Checkbox label="Show" configKey="file.showFileName" />
-            </Card>
+          {activeTab === "Collections" && (
+            <>
+              <Settings.Group title="Editor">
+                <Settings.Grid>
+                  <Settings.Field label="Page Size">
+                    <Settings.NumInput
+                      configKey="collection.editor.search.pageSize"
+                      minValue={1}
+                      maxValue={200}
+                    />
+                  </Settings.Field>
 
-            <Card
-              header="Rating Icon"
-              row
-              bgColor={colors.foregroundCard}
-              padding={{ all: "0.1rem" }}
-            >
-              <Settings.Checkbox label="Hide Unrated" configKey="file.hideUnratedIcon" />
-            </Card>
-          </View>
+                  <Settings.Field label="Default Sort">
+                    <Settings.SortMenu
+                      configKey="collection.editor.search.sort"
+                      rows={SORT_OPTIONS.FileCollectionFile}
+                    />
+                  </Settings.Field>
 
-          <View row spacing="0.5rem" overflow="auto">
-            <Card
-              header="Deleted Files"
-              row
-              bgColor={colors.foregroundCard}
-              padding={{ all: "0.1rem" }}
-            >
-              <Settings.Checkbox label="Keep Metadata" configKey="file.keepDeletedMetadata" />
-            </Card>
+                  <Settings.Field label="File Search Page Size">
+                    <Settings.NumInput
+                      configKey="collection.editor.fileSearch.pageSize"
+                      minValue={1}
+                      maxValue={200}
+                    />
+                  </Settings.Field>
+                </Settings.Grid>
+              </Settings.Group>
 
-            <Card
-              header="Audio Metadata"
-              row
-              bgColor={colors.foregroundCard}
-              padding={{ all: "0.1rem" }}
-            >
-              <Settings.Checkbox label="Waveforms" configKey="file.waveform.enabled" />
+              <Settings.Group title="Manager">
+                <Settings.Grid>
+                  <Settings.Field label="Page Size">
+                    <Settings.NumInput
+                      configKey="collection.manager.search.pageSize"
+                      minValue={25}
+                      maxValue={250}
+                    />
+                  </Settings.Field>
 
-              <Settings.Checkbox label="Transcriptions" configKey="file.transcription.enabled" />
-            </Card>
+                  <Settings.Field label="Default Sort">
+                    <Settings.SortMenu
+                      configKey="collection.manager.search.sort"
+                      rows={SORT_OPTIONS.FileCollection}
+                    />
+                  </Settings.Field>
+                </Settings.Grid>
+              </Settings.Group>
+            </>
+          )}
 
-            <Settings.Dropdown
-              configKey="file.transcription.model"
-              header="Transcription Model"
-              options={TRANSCRIPTION_MODELS}
-              setValue={handleTranscriptionModelChange}
-              value={store.file.transcription.model}
-              width="15rem"
-            />
+          {activeTab === "Files" && (
+            <>
+              <Settings.Group title="Search">
+                <Settings.Grid>
+                  <Settings.Field label="Page Size">
+                    <Settings.NumInput
+                      configKey="file.search.pageSize"
+                      minValue={25}
+                      maxValue={250}
+                    />
+                  </Settings.Field>
 
-            <Settings.Dropdown
-              configKey="file.transcription.quantization"
-              header="Quantization"
-              options={TRANSCRIPTION_QUANTIZATION_OPTIONS.filter(({ value }) =>
-                TRANSCRIPTION_MODELS.find(
-                  ({ value }) => value === store.file.transcription.model,
-                )?.quantizations.includes(value),
-              )}
-              value={store.file.transcription.quantization}
-              width="8rem"
-            />
-          </View>
+                  <Settings.Field label="Default Sort">
+                    <Settings.SortMenu configKey="file.search.sort" rows={SORT_OPTIONS.File} />
+                  </Settings.Field>
+                </Settings.Grid>
+              </Settings.Group>
 
-          <UniformList row spacing="0.5rem" height="15rem">
-            <Settings.ExtColumn
-              label="Audio Codecs"
-              options={CONSTANTS.AUDIO.CODECS}
-              configKey="file.audioCodecs"
-            />
+              <Settings.Group title="Display">
+                <Settings.Grid>
+                  <Settings.Field label="Thumbnail Fit">
+                    <Settings.Dropdown
+                      configKey="file.fileCardFit"
+                      options={FILE_CARD_FIT_OPTIONS}
+                      setValue={store.setFileCardFit}
+                      width="8rem"
+                    />
+                  </Settings.Field>
 
-            <Settings.ExtColumn
-              label="Image Exts"
-              options={CONSTANTS.IMAGE.EXTS}
-              configKey="file.imageExts"
-            />
+                  <Settings.Field label="Show File Names">
+                    <Settings.Checkbox configKey="file.showFileName" width="auto" />
+                  </Settings.Field>
 
-            <Settings.ExtColumn
-              label="Video Codecs"
-              options={CONSTANTS.VIDEO.CODECS}
-              configKey="file.videoCodecs"
-            />
+                  <Settings.Field label="Hide Unrated Icons">
+                    <Settings.Checkbox configKey="file.hideUnratedIcon" width="auto" />
+                  </Settings.Field>
+                </Settings.Grid>
+              </Settings.Group>
 
-            <Settings.ExtColumn
-              label="Video Exts"
-              options={CONSTANTS.VIDEO.EXTS}
-              configKey="file.videoExts"
-            />
-          </UniformList>
-        </Settings.Section>
+              <Settings.Group title="Audio Metadata">
+                <Settings.Grid>
+                  <Settings.Field label="Waveforms">
+                    <Settings.Checkbox configKey="file.waveform.enabled" width="auto" />
+                  </Settings.Field>
 
-        <Settings.Section title="Imports">
-          <View row spacing="0.5rem" overflow="auto">
-            <View column spacing="0.3rem">
-              <Settings.Checkbox label="Delete On Import" configKey="imports.deleteOnImport" />
+                  <Settings.Field label="Transcriptions">
+                    <Settings.Checkbox configKey="file.transcription.enabled" width="auto" />
+                  </Settings.Field>
 
-              <Settings.Checkbox
-                label="Ignore Prev. Deleted"
-                configKey="imports.ignorePrevDeleted"
-              />
+                  <Settings.Field label="Transcription Model">
+                    <Settings.Dropdown
+                      configKey="file.transcription.model"
+                      options={TRANSCRIPTION_MODELS}
+                      setValue={handleTranscriptionModelChange}
+                      value={store.file.transcription.model}
+                      width="15rem"
+                    />
+                  </Settings.Field>
 
-              <Settings.Checkbox label="New Tags to RegEx" configKey="imports.withNewTagsToRegEx" />
+                  <Settings.Field label="Quantization">
+                    <Settings.Dropdown
+                      configKey="file.transcription.quantization"
+                      options={TRANSCRIPTION_QUANTIZATION_OPTIONS.filter(({ value }) =>
+                        TRANSCRIPTION_MODELS.find(
+                          ({ value }) => value === store.file.transcription.model,
+                        )?.quantizations.includes(value),
+                      )}
+                      value={store.file.transcription.quantization}
+                      width="8rem"
+                    />
+                  </Settings.Field>
 
-              <Settings.Checkbox
-                label="File to Tags (RegEx)"
-                configKey="imports.withFileNameToTags"
-              />
+                  <Settings.Field label="Model Cache Path" wide>
+                    <Settings.Input
+                      configKey="file.transcription.modelCachePath"
+                      onClick={handlePathClick(store.setTranscriptionModelCachePath)}
+                      flex={1}
+                    />
+                  </Settings.Field>
+                </Settings.Grid>
+              </Settings.Group>
 
-              <Settings.Input
-                header="Folder Tags Delimiter"
-                configKey="imports.folderDelimiter"
-                width="10rem"
-                textAlign="center"
-              />
+              <Settings.Group title="Deleted Files">
+                <Settings.Grid>
+                  <Settings.Field label="Keep Metadata">
+                    <Settings.Checkbox configKey="file.keepDeletedMetadata" width="auto" />
+                  </Settings.Field>
+                </Settings.Grid>
+              </Settings.Group>
 
-              <Settings.Dropdown
-                configKey="imports.subtitleMode"
-                header="Subtitles"
-                options={[...SUBTITLE_MODES]}
-                width="10rem"
-              />
-            </View>
+              <Settings.Group title="Formats">
+                <UniformList row spacing="0.5rem" height="15rem">
+                  <Settings.ExtColumn
+                    label="Audio Codecs"
+                    options={CONSTANTS.AUDIO.CODECS}
+                    configKey="file.audioCodecs"
+                  />
 
-            <View column spacing="0.3rem">
-              <Settings.Checkbox
-                label="Folder to Tags"
-                configKey="imports.folderToTagsMode"
-                checked={store.imports.folderToTagsMode !== "none"}
-                setChecked={handleFoldersToTags}
-              />
+                  <Settings.ExtColumn
+                    label="Image Exts"
+                    options={CONSTANTS.IMAGE.EXTS}
+                    configKey="file.imageExts"
+                  />
 
-              <View column margins={{ left: "1rem" }} spacing="0.3rem">
-                <Settings.Checkbox
-                  label="Hierarchical"
-                  configKey="imports.folderToTagsMode"
-                  checked={store.imports.folderToTagsMode.includes("hierarchical")}
-                  setChecked={toggleFoldersToTagsHierarchical}
-                />
+                  <Settings.ExtColumn
+                    label="Video Codecs"
+                    options={CONSTANTS.VIDEO.CODECS}
+                    configKey="file.videoCodecs"
+                  />
 
-                <Settings.Checkbox
-                  label="Cascading"
-                  configKey="imports.folderToTagsMode"
-                  checked={store.imports.folderToTagsMode === "cascading"}
-                  setChecked={toggleFoldersToTagsCascading}
-                />
+                  <Settings.ExtColumn
+                    label="Video Exts"
+                    options={CONSTANTS.VIDEO.EXTS}
+                    configKey="file.videoExts"
+                  />
 
-                <Settings.Checkbox label="Delimited" configKey="imports.withDelimiters" />
+                  <Settings.ExtColumn
+                    label="Remux to MP4"
+                    options={REMUX_EXTS}
+                    configKey="file.remuxTypes.toMp4"
+                  />
+                </UniformList>
+              </Settings.Group>
 
-                <Settings.Checkbox label="With RegEx" configKey="imports.withFolderNameRegEx" />
+              <Settings.Group title="Media Transformer">
+                <Settings.Grid>
+                  <Settings.Field label="Page Size">
+                    <Settings.NumInput
+                      configKey="file.transforms.search.pageSize"
+                      minValue={1}
+                      maxValue={200}
+                    />
+                  </Settings.Field>
+
+                  <Settings.Field label="Default Sort">
+                    <Settings.SortMenu
+                      configKey="file.transforms.search.sort"
+                      rows={SORT_OPTIONS.FileTransform}
+                    />
+                  </Settings.Field>
+                </Settings.Grid>
+              </Settings.Group>
+            </>
+          )}
+
+          {activeTab === "Imports" && (
+            <View row align="flex-start" spacing="1rem">
+              <View column width="16rem" flex="none">
+                <Settings.Group title="Ingester Defaults">
+                  <View column>
+                    <Settings.Checkbox
+                      {...INGESTER_CHECKBOX_PROPS}
+                      label="Delete on Import"
+                      configKey="imports.deleteOnImport"
+                    />
+
+                    <Settings.Checkbox
+                      {...INGESTER_CHECKBOX_PROPS}
+                      label="Ignore Prev. Deleted"
+                      configKey="imports.ignorePrevDeleted"
+                    />
+
+                    <Settings.Checkbox
+                      {...INGESTER_CHECKBOX_PROPS}
+                      label="Use Saved Configs"
+                      configKey="imports.useSavedConfigs"
+                    />
+
+                    <Settings.Checkbox
+                      {...INGESTER_CHECKBOX_PROPS}
+                      label="New Tags to RegEx"
+                      configKey="imports.withNewTagsToRegEx"
+                    />
+
+                    <Settings.Checkbox
+                      {...INGESTER_CHECKBOX_PROPS}
+                      label="File to Tags (RegEx)"
+                      configKey="imports.withFileNameToTags"
+                    />
+
+                    <Settings.Checkbox
+                      {...INGESTER_CHECKBOX_PROPS}
+                      label="Folder to Tags"
+                      configKey="imports.folderToTagsMode"
+                      checked={!isFolderToTagsOff}
+                      setChecked={handleFoldersToTags}
+                    />
+
+                    <View column margins={{ left: "1rem" }}>
+                      <Settings.Checkbox
+                        {...INGESTER_CHECKBOX_PROPS}
+                        label="Hierarchical"
+                        configKey="imports.folderToTagsMode"
+                        checked={store.imports.folderToTagsMode.includes("hierarchical")}
+                        setChecked={toggleFoldersToTagsHierarchical}
+                        disabled={isFolderToTagsOff}
+                      />
+
+                      <Settings.Checkbox
+                        {...INGESTER_CHECKBOX_PROPS}
+                        label="Cascading"
+                        configKey="imports.folderToTagsMode"
+                        checked={store.imports.folderToTagsMode === "cascading"}
+                        setChecked={toggleFoldersToTagsCascading}
+                        disabled={isFolderToTagsOff}
+                      />
+
+                      <Settings.Checkbox
+                        {...INGESTER_CHECKBOX_PROPS}
+                        label="Delimited"
+                        configKey="imports.withDelimiters"
+                        disabled={isFolderToTagsOff}
+                      />
+
+                      <Settings.Checkbox
+                        {...INGESTER_CHECKBOX_PROPS}
+                        label="With RegEx"
+                        configKey="imports.withFolderNameRegEx"
+                        disabled={isFolderToTagsOff}
+                      />
+                    </View>
+
+                    <Settings.Checkbox
+                      {...INGESTER_CHECKBOX_PROPS}
+                      label="Folder to Collection"
+                      configKey="imports.folderToCollMode"
+                      checked={!isFolderToCollectionOff}
+                      setChecked={handleFolderToCollection}
+                    />
+
+                    <View column margins={{ left: "1rem" }}>
+                      <Settings.Checkbox
+                        {...INGESTER_CHECKBOX_PROPS}
+                        label="With Tag"
+                        configKey="imports.folderToCollMode"
+                        checked={store.imports.folderToCollMode === "withTag"}
+                        setChecked={store.toggleFolderToCollMode}
+                      />
+
+                      <View row align="center" spacing="0.5rem">
+                        <Settings.Checkbox
+                          {...INGESTER_CHECKBOX_PROPS}
+                          label="Flatten to"
+                          configKey="imports.withFlattenTo"
+                          disabled={isFolderToCollectionOff}
+                        />
+
+                        <Settings.NumInput
+                          placeholder="Depth"
+                          configKey="imports.flattenTo"
+                          value={store.imports.flattenTo}
+                          disabled={isFolderToCollectionOff || !store.imports.withFlattenTo}
+                          hasHelper={false}
+                          width="100%"
+                          dense
+                        />
+                      </View>
+                    </View>
+
+                    <Settings.Checkbox
+                      {...INGESTER_CHECKBOX_PROPS}
+                      label="Media Programs"
+                      configKey="imports.withMediaPrograms"
+                    />
+
+                    <View
+                      column
+                      spacing="0.3rem"
+                      margins={{ left: "1rem" }}
+                      padding={{ all: "0.5rem" }}
+                    >
+                      <MediaProgramDropdown
+                        field="types"
+                        placeholder="Type"
+                        value={store.imports.mediaProgramType}
+                        setValue={handleMediaProgramType}
+                        disabled={isMediaProgramsOff}
+                        dense
+                      />
+
+                      <MediaProgramDropdown
+                        field="mediums"
+                        placeholder="Medium"
+                        value={store.imports.mediaProgramMedium}
+                        setValue={handleMediaProgramMedium}
+                        disabled={isMediaProgramsOff}
+                        dense
+                      />
+
+                      <MediaProgramDropdown
+                        field="languages"
+                        placeholder="Language"
+                        value={store.imports.mediaProgramLanguage}
+                        setValue={handleMediaProgramLanguage}
+                        disabled={isMediaProgramsOff}
+                        dense
+                      />
+                    </View>
+
+                    <Settings.Checkbox
+                      {...INGESTER_CHECKBOX_PROPS}
+                      label="Sidecar"
+                      configKey="imports.withSidecar"
+                    />
+
+                    <Settings.Checkbox
+                      {...INGESTER_CHECKBOX_PROPS}
+                      label="Diffusion Params"
+                      configKey="imports.withDiffParams"
+                    />
+
+                    <View column margins={{ left: "1rem" }}>
+                      <Settings.Checkbox
+                        {...INGESTER_CHECKBOX_PROPS}
+                        label="With Tags"
+                        configKey="imports.withDiffTags"
+                        disabled={isDiffusionParamsOff}
+                      />
+
+                      <View column margins={{ left: "1rem" }}>
+                        <Settings.Checkbox
+                          {...INGESTER_CHECKBOX_PROPS}
+                          label="Model"
+                          configKey="imports.withDiffModel"
+                          disabled={isDiffusionTagsOff}
+                        />
+
+                        <Settings.Checkbox
+                          {...INGESTER_CHECKBOX_PROPS}
+                          label="With RegEx"
+                          configKey="imports.withDiffRegEx"
+                          disabled={isDiffusionTagsOff}
+                        />
+                      </View>
+                    </View>
+                  </View>
+                </Settings.Group>
+              </View>
+
+              <View column flex={1} minWidth={0} spacing="0.5rem">
+                <Settings.Group title="Folder Tags">
+                  <Settings.Grid pairs={1}>
+                    <Settings.Field label="Delimiter">
+                      <Settings.Input
+                        configKey="imports.folderDelimiter"
+                        width="8rem"
+                        textAlign="center"
+                      />
+                    </Settings.Field>
+                  </Settings.Grid>
+                </Settings.Group>
+
+                <Settings.Group title="Subtitles">
+                  <Settings.Grid pairs={1}>
+                    <Settings.Field label="Mode">
+                      <Settings.Dropdown
+                        configKey="imports.subtitleMode"
+                        options={[...SUBTITLE_MODES]}
+                        width="12rem"
+                      />
+                    </Settings.Field>
+                  </Settings.Grid>
+                </Settings.Group>
+
+                <Settings.Group title="Diffusion Tag Labels">
+                  <Settings.Grid pairs={1}>
+                    <Settings.Field label="Diffusion">
+                      <Settings.Input configKey="imports.labelDiff" />
+                    </Settings.Field>
+
+                    <Settings.Field label="Model">
+                      <Settings.Input configKey="imports.labelDiffModel" />
+                    </Settings.Field>
+
+                    <Settings.Field label="Original">
+                      <Settings.Input configKey="imports.labelDiffOriginal" />
+                    </Settings.Field>
+
+                    <Settings.Field label="Upscaled">
+                      <Settings.Input configKey="imports.labelDiffUpscaled" />
+                    </Settings.Field>
+                  </Settings.Grid>
+                </Settings.Group>
+
+                <Settings.Group title="Import Manager">
+                  <Settings.Grid pairs={1}>
+                    <Settings.Field label="Page Size">
+                      <Settings.NumInput
+                        configKey="imports.manager.search.pageSize"
+                        minValue={1}
+                        maxValue={200}
+                      />
+                    </Settings.Field>
+
+                    <Settings.Field label="Default Sort">
+                      <Settings.SortMenu
+                        configKey="imports.manager.search.sort"
+                        rows={SORT_OPTIONS.FileImportBatch}
+                      />
+                    </Settings.Field>
+                  </Settings.Grid>
+                </Settings.Group>
               </View>
             </View>
+          )}
 
-            <View column spacing="0.3rem">
-              <Settings.Checkbox
-                label="Folder to Collection"
-                configKey="imports.folderToCollMode"
-                checked={store.imports.folderToCollMode !== "none"}
-                setChecked={handleFolderToCollection}
-              />
+          {activeTab === "Media Programs" && (
+            <>
+              <Settings.Group title="Manager">
+                <Settings.Grid>
+                  <Settings.Field label="Page Size">
+                    <Settings.NumInput
+                      configKey="mediaPrograms.manager.search.pageSize"
+                      minValue={10}
+                      maxValue={250}
+                    />
+                  </Settings.Field>
 
-              <View column margins={{ left: "1rem" }} spacing="0.3rem">
-                <Settings.Checkbox
-                  label="With Tags"
-                  configKey="imports.folderToCollMode"
-                  checked={store.imports.folderToCollMode === "withTag"}
-                  setChecked={store.toggleFolderToCollMode}
-                />
-              </View>
+                  <Settings.Field label="Default Sort">
+                    <Settings.SortMenu
+                      configKey="mediaPrograms.manager.search.sort"
+                      rows={SORT_OPTIONS.MediaProgram}
+                    />
+                  </Settings.Field>
+                </Settings.Grid>
+              </Settings.Group>
 
-              <Settings.Checkbox label="Diffusion Params" configKey="imports.withDiffParams" />
+              <Settings.Group title="Lists">
+                <UniformList row spacing="0.5rem" height="15rem">
+                  <Settings.ListInput label="Types" configKey="mediaPrograms.types" />
 
-              <View column margins={{ left: "1rem" }} spacing="0.3rem">
-                <Settings.Checkbox label="With Tags" configKey="imports.withDiffTags" />
+                  <Settings.ListInput label="Mediums" configKey="mediaPrograms.mediums" />
 
-                <View column margins={{ left: "1rem" }} spacing="0.3rem">
-                  <Settings.Checkbox label="Model" configKey="imports.withDiffModel" />
+                  <Settings.ListInput label="Languages" configKey="mediaPrograms.languages" />
+                </UniformList>
+              </Settings.Group>
+            </>
+          )}
 
-                  <Settings.Checkbox label="With RegEx" configKey="imports.withDiffRegEx" />
-                </View>
-              </View>
-            </View>
+          {activeTab === "Tags" && (
+            <Settings.Group title="Manager">
+              <Settings.Grid>
+                <Settings.Field label="Page Size">
+                  <Settings.NumInput
+                    configKey="tags.manager.search.pageSize"
+                    minValue={1}
+                    maxValue={200}
+                  />
+                </Settings.Field>
 
-            <View column flex="1 0 auto" spacing="0.3rem">
-              <Settings.Input header="Diffusion Tag Label" configKey="imports.labelDiff" />
+                <Settings.Field label="Default Sort">
+                  <Settings.SortMenu configKey="tags.manager.search.sort" rows={SORT_OPTIONS.Tag} />
+                </Settings.Field>
+              </Settings.Grid>
+            </Settings.Group>
+          )}
 
-              <Settings.Input
-                header="Diffusion Model Tag Label"
-                configKey="imports.labelDiffModel"
-              />
+          {activeTab === "Developer" && (
+            <Settings.Group title="Dev Tools">
+              <Settings.Grid>
+                <Settings.Field label="Home Window">
+                  <Settings.Dropdown
+                    configKey="dev.devTools.home"
+                    options={DEV_TOOLS_MODES}
+                    width="10rem"
+                  />
+                </Settings.Field>
 
-              <Settings.Input
-                header="Diffusion (Original) Tag Label"
-                configKey="imports.labelDiffOriginal"
-              />
+                <Settings.Field label="Search Window">
+                  <Settings.Dropdown
+                    configKey="dev.devTools.search"
+                    options={DEV_TOOLS_MODES}
+                    width="10rem"
+                  />
+                </Settings.Field>
 
-              <Settings.Input
-                header="Diffusion (Upscaled) Tag Label"
-                configKey="imports.labelDiffUpscaled"
-              />
-            </View>
-          </View>
-        </Settings.Section>
-
-        <Settings.Section title="Media Programs">
-          <View row spacing="0.5rem" overflow="auto">
-            <Settings.NumInput
-              header="Manager - Page Size"
-              configKey="mediaPrograms.manager.search.pageSize"
-              minValue={10}
-              maxValue={250}
-              width="10rem"
-            />
-
-            <Settings.SortMenu
-              header="Manager - Default Sort"
-              configKey="mediaPrograms.manager.search.sort"
-              rows={SORT_OPTIONS.MediaProgram}
-            />
-          </View>
-
-          <UniformList row spacing="0.5rem" height="15rem">
-            <Settings.ListInput header="Types" configKey="mediaPrograms.types" />
-
-            <Settings.ListInput header="Mediums" configKey="mediaPrograms.mediums" />
-
-            <Settings.ListInput header="Languages" configKey="mediaPrograms.languages" />
-          </UniformList>
-        </Settings.Section>
-
-        <Settings.Section title="Tags">
-          <View row spacing="0.5rem">
-            <Settings.NumInput
-              header="Manager - Page Size"
-              configKey="tags.manager.search.pageSize"
-              minValue={1}
-              maxValue={200}
-              width="10rem"
-            />
-
-            <Settings.SortMenu
-              header="Manager - Default Sort"
-              configKey="tags.manager.search.sort"
-              rows={SORT_OPTIONS.Tag}
-            />
-          </View>
+                <Settings.Field label="Carousel Window">
+                  <Settings.Dropdown
+                    configKey="dev.devTools.carousel"
+                    options={DEV_TOOLS_MODES}
+                    width="10rem"
+                  />
+                </Settings.Field>
+              </Settings.Grid>
+            </Settings.Group>
+          )}
         </Settings.Section>
       </Modal.Content>
 

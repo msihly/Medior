@@ -1,4 +1,4 @@
-import { Card, Comp, IconButton, Text, View } from "medior/components";
+import { Comp, IconButton, Text, View } from "medior/components";
 import { useStores } from "medior/store";
 import { colors } from "medior/utils/client";
 import { DiskStatus } from "./disk-status";
@@ -23,13 +23,7 @@ export const ScratchInput = Comp(
     };
 
     return (
-      <Card
-        header="Scratch Folder"
-        row
-        align="center"
-        spacing="0.5rem"
-        bgColor={colors.foregroundCard}
-      >
+      <View row flex={1} align="center" minWidth={0} spacing="0.5rem">
         <Input configKey="db.fileStorage.scratchPath" onClick={handleLocationClick} flex={1} />
 
         {value ? (
@@ -46,7 +40,7 @@ export const ScratchInput = Comp(
           disabled={!value}
           tooltip="Use the storage locations"
         />
-      </Card>
+      </View>
     );
   },
 );

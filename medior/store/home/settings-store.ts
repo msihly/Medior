@@ -80,6 +80,12 @@ export class SettingsStore extends Model({
   }
 
   @modelAction
+  setFileStorageThreshold(value: Config["db"]["fileStorage"]["threshold"]) {
+    this.db.fileStorage.threshold = value;
+    this.setHasUnsavedChanges(true);
+  }
+
+  @modelAction
   setFolderToCollMode(value: Config["imports"]["folderToCollMode"]) {
     this.imports.folderToCollMode = value;
     this.setHasUnsavedChanges(true);
@@ -100,6 +106,12 @@ export class SettingsStore extends Model({
   @modelAction
   setSimilarityModelCachePath(value: Config["file"]["similarity"]["modelCachePath"]) {
     this.file.similarity.modelCachePath = value;
+    this.setHasUnsavedChanges(true);
+  }
+
+  @modelAction
+  setTranscriptionModelCachePath(value: Config["file"]["transcription"]["modelCachePath"]) {
+    this.file.transcription.modelCachePath = value;
     this.setHasUnsavedChanges(true);
   }
 

@@ -276,16 +276,16 @@ export const MediaProgramEditor = Comp(() => {
 
             <ProgressBar numerator={watchedCount} denominator={program?.fileCount} withText />
 
-            <Text preset="sub-text">
+            <Text preset="sub-text-muted">
               {`${Fmt.commas(program?.fileCount ?? 0)} episodes, ${Fmt.bytes(program?.size ?? 0)}`}
             </Text>
 
             {program?.rewatchCount > 0 && (
-              <Text preset="sub-text">{`Rewatched ${program.rewatchCount} times`}</Text>
+              <Text preset="sub-text-muted">{`Rewatched ${program.rewatchCount} times`}</Text>
             )}
 
             {program?.dateLastWatched && (
-              <Text preset="sub-text">{`Last watched ${formatDate(program.dateLastWatched)}`}</Text>
+              <Text preset="sub-text-muted">{`Last watched ${formatDate(program.dateLastWatched)}`}</Text>
             )}
           </Card>
         </Card>
@@ -345,7 +345,9 @@ export const MediaProgramEditor = Comp(() => {
             }
           >
             {!store.seasons.length && (
-              <Text preset="sub-text">{"Add collections as seasons to build this program."}</Text>
+              <Text preset="sub-text-muted">
+                {"Add collections as seasons to build this program."}
+              </Text>
             )}
 
             {store.seasons.map((season) => (

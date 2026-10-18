@@ -110,7 +110,7 @@ export const MediaProgramCard = Comp(({ program }: MediaProgramCardProps) => {
             <RatingButton rating={program.rating} setRating={handleRating} />
           </View>
 
-          <Text preset="sub-text">{details}</Text>
+          <Text preset="sub-text-muted">{details}</Text>
 
           <ProgressBar
             numerator={program.watchedIdSet.size}

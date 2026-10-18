@@ -221,7 +221,7 @@ export const CollectionTriager = Comp(() => {
         sub={<Button text="Cancel" icon="Close" onClick={close} />}
       />
 
-      <Modal.Header rightNode={<Text preset="sub-text">{`${queue.length} remaining`}</Text>}>
+      <Modal.Header rightNode={<Text preset="sub-text-muted">{`${queue.length} remaining`}</Text>}>
         <Text preset="title">{"Collection Triager"}</Text>
       </Modal.Header>
 

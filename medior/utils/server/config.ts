@@ -21,6 +21,15 @@ import { isWithinFolder } from "medior/utils/server/source-folders";
 
 type DevToolsMode = null | Electron.OpenDevToolsOptions["mode"];
 
+export const DEV_TOOLS_MODES: Array<{ label: string; value: DevToolsMode }> = [
+  { label: "Closed", value: null },
+  { label: "Bottom", value: "bottom" },
+  { label: "Detached", value: "detach" },
+  { label: "Left", value: "left" },
+  { label: "Right", value: "right" },
+  { label: "Undocked", value: "undocked" },
+];
+
 export type ReencodeCandidateType = "gif" | "image" | "video";
 
 export type TranscriptionModel =
@@ -109,6 +118,17 @@ type Search = {
   pageSize: number;
   sort: SortMenuProps["value"];
 };
+
+export const SIMILARITY_DEVICE_OPTIONS: Array<{
+  label: string;
+  value: Config["file"]["similarity"]["visual"]["device"];
+}> = [
+  { label: "CPU", value: "cpu" },
+  { label: "CUDA", value: "cuda" },
+  { label: "DirectML", value: "dml" },
+  { label: "GPU", value: "gpu" },
+  { label: "WebGPU", value: "webgpu" },
+];
 
 export interface Config {
   collection: {
@@ -247,6 +267,7 @@ export interface Config {
   hotkeys: Hotkeys;
   imports: {
     deleteOnImport: boolean;
+    flattenTo: number;
     folderDelimiter: string;
     folderToCollMode: FolderToCollMode;
     folderToTagsMode: FolderToTagsMode;
@@ -258,15 +279,22 @@ export interface Config {
     manager: {
       search: Search;
     };
+    mediaProgramLanguage: string;
+    mediaProgramMedium: string;
+    mediaProgramType: string;
     subtitleMode: SubtitleMode;
+    useSavedConfigs: boolean;
     withDelimiters: boolean;
     withDiffModel: boolean;
     withDiffParams: boolean;
     withDiffRegEx: boolean;
     withDiffTags: boolean;
     withFileNameToTags: boolean;
+    withFlattenTo: boolean;
     withFolderNameRegEx: boolean;
+    withMediaPrograms: boolean;
     withNewTagsToRegEx: boolean;
+    withSidecar: boolean;
   };
   mediaPrograms: {
     languages: string[];
@@ -434,6 +462,7 @@ export const DEFAULT_CONFIG: Config = {
   hotkeys: DEFAULT_HOTKEYS,
   imports: {
     deleteOnImport: true,
+    flattenTo: null,
     folderDelimiter: ";;",
     folderToCollMode: "none",
     folderToTagsMode: "none",
@@ -448,15 +477,22 @@ export const DEFAULT_CONFIG: Config = {
         sort: { isDesc: true, key: "dateCreated" },
       },
     },
+    mediaProgramLanguage: null,
+    mediaProgramMedium: null,
+    mediaProgramType: null,
     subtitleMode: "keep",
+    useSavedConfigs: true,
     withDelimiters: true,
     withDiffModel: true,
     withDiffParams: false,
     withDiffRegEx: true,
     withDiffTags: true,
     withFileNameToTags: false,
+    withFlattenTo: false,
     withFolderNameRegEx: true,
+    withMediaPrograms: false,
     withNewTagsToRegEx: true,
+    withSidecar: false,
   },
   mediaPrograms: {
     languages: ["English", "Korean", "Japanese", "Chinese", "French", "Spanish", "German"],
