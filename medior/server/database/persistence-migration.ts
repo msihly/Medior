@@ -1,6 +1,7 @@
 import { calculateObjectSize, EJSON } from "bson";
 import type { BackgroundOperationSchema } from "medior/_generated/server/models";
 import { setImmediate } from "timers/promises";
+import { isServerStopping } from "trabecula/utils/process";
 import { isDeepStrictEqual } from "util";
 import {
   backgroundExecution,
@@ -18,7 +19,6 @@ import {
   PERSISTENCE_MIGRATION_ID,
   PersistenceModel,
 } from "medior/server/database/persistence";
-import { isServerStopping } from "medior/server/process-lifecycle";
 import { socket } from "medior/utils/server/trpc";
 
 interface StoredRecord {

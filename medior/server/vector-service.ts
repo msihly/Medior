@@ -4,6 +4,7 @@ import { Field, FixedSizeList, Float16, Float32, Schema, Utf8 } from "apache-arr
 import { randomUUID } from "crypto";
 import * as models from "medior/_generated/server/models";
 import { availableParallelism } from "os";
+import { checkServerShutdown, isServerStopping } from "trabecula/utils/process";
 import { fileLog } from "trabecula/utils/server";
 import { storeThumbnailNtfsMetadata } from "medior/server/database/actions/files";
 import { runBackgroundExecution } from "medior/server/database/background-execution";
@@ -13,7 +14,6 @@ import {
   SimilarityBackfillModel,
 } from "medior/server/database/similarity-backfill";
 import { ThumbnailNtfsMetadata } from "medior/server/database/types";
-import { checkServerShutdown, isServerStopping } from "medior/server/process-lifecycle";
 import { chunkArray, CONSTANTS, round } from "medior/utils/common";
 import { getConfig, getIsAnimated } from "medior/utils/server/config";
 import { runImageTask } from "medior/utils/server/image-task";

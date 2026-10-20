@@ -1,5 +1,5 @@
 import { randomUUID } from "crypto";
-import { serverShutdownSignal } from "medior/server/process-lifecycle";
+import { serverShutdownSignal } from "trabecula/utils/process";
 import { socket } from "medior/utils/server";
 import { FileLockOwner, lockFiles, runAsLockOwner, unlockFiles } from "./file-locks";
 

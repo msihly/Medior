@@ -1,12 +1,12 @@
 import { initTRPC } from "@trpc/server";
 import { createHTTPServer } from "@trpc/server/adapters/standalone";
 import Mongoose from "mongoose";
-import { fileLog, setLogsPath } from "trabecula/utils/server";
 import {
   checkServerShutdown,
   closeHttpServer,
   registerProcessLifecycle,
-} from "medior/server/process-lifecycle";
+} from "trabecula/utils/process";
+import { fileLog } from "trabecula/utils/server";
 import { SimilarityVectorType, vectorSimilarityService } from "medior/server/vector-service";
 import { getConfig, loadConfig } from "medior/utils/server/config";
 
@@ -100,7 +100,6 @@ registerProcessLifecycle({
 
   start: async (message) => {
     await loadConfig(process.env.CONFIG_PATH);
-    await setLogsPath(process.env.LOGS_PATH);
     checkServerShutdown();
     Mongoose.set("strictQuery", true);
     await Mongoose.connect(message.uri, { autoIndex: false, family: 4 });

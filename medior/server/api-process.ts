@@ -1,18 +1,18 @@
 import { createHTTPServer } from "@trpc/server/adapters/standalone";
 import Mongoose from "mongoose";
-import { fileLog, setLogsPath } from "trabecula/utils/server";
+import {
+  checkServerShutdown,
+  closeHttpServer,
+  registerProcessLifecycle,
+  reportStartupProgress,
+} from "trabecula/utils/process";
+import { fileLog } from "trabecula/utils/server";
 import {
   startBackgroundQueues,
   stopBackgroundQueues,
 } from "medior/server/database/actions/background-operations";
 import { stopImporter } from "medior/server/database/actions/file-imports";
 import { stopFileTransformer } from "medior/server/database/actions/file-transforms";
-import {
-  checkServerShutdown,
-  closeHttpServer,
-  registerProcessLifecycle,
-  reportStartupProgress,
-} from "medior/server/process-lifecycle";
 import { serverRouter } from "medior/server/trpc";
 import { getConfig, loadConfig, setupTRPC, setupVectorTRPC, socket } from "medior/utils/server";
 
@@ -28,7 +28,6 @@ registerProcessLifecycle({
   },
 
   start: async (message) => {
-    await setLogsPath(process.env.LOGS_PATH);
     reportStartupProgress("Loading API configuration...");
     await loadConfig(process.env.CONFIG_PATH);
     checkServerShutdown();

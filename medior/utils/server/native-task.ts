@@ -2,9 +2,9 @@ import path from "path";
 import { ChildProcess, fork, ForkOptions } from "child_process";
 import { randomUUID } from "crypto";
 import { createInterface } from "readline";
+import { serverShutdownSignal } from "trabecula/utils/process";
 import { fileLog } from "trabecula/utils/server";
 import { stripVTControlCharacters } from "util";
-import { serverShutdownSignal } from "medior/server/process-lifecycle";
 import { workSignal } from "medior/utils/server/work-signal";
 
 const busyWorkers = new WeakSet<ChildProcess>();

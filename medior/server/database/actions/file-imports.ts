@@ -1,6 +1,7 @@
 import { promises as fs } from "fs";
 import { createHash } from "crypto";
 import * as models from "medior/_generated/server/models";
+import { isServerStopping } from "trabecula/utils/process";
 import { checkFileExists, dirToFilePaths, fileLog } from "trabecula/utils/server";
 import * as actions from "medior/server/database/actions";
 import {
@@ -35,7 +36,6 @@ import { mediaPathKey } from "medior/server/database/media-paths";
 import { metadataWriteOptions, registerMetadataWork } from "medior/server/database/metadata-work";
 import { isPersistenceReady } from "medior/server/database/persistence";
 import * as Types from "medior/server/database/types";
-import { isServerStopping } from "medior/server/process-lifecycle";
 import {
   chunkArray,
   CONSTANTS,

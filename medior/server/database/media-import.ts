@@ -2,6 +2,7 @@ import fs from "fs/promises";
 import path from "path";
 import { createHash, randomUUID } from "crypto";
 import * as models from "medior/_generated/server/models";
+import { isServerStopping, serverShutdownSignal } from "trabecula/utils/process";
 import { checkFileExists, extendFileName, fileLog } from "trabecula/utils/server";
 import * as actions from "medior/server/database/actions";
 import { checkBackgroundExecution } from "medior/server/database/background-execution";
@@ -20,7 +21,6 @@ import { queueImportCleanup } from "medior/server/database/import-cleanup";
 import { mediaPathKey } from "medior/server/database/media-paths";
 import { withMetadataMutation } from "medior/server/database/metadata-mutations";
 import { metadataWriteOptions } from "medior/server/database/metadata-work";
-import { isServerStopping, serverShutdownSignal } from "medior/server/process-lifecycle";
 import { genFileInfo, isGeneratedMediaUnreadable } from "medior/utils/client/files";
 import {
   dayjs,

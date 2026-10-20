@@ -1,5 +1,6 @@
 import { randomUUID } from "crypto";
 import * as models from "medior/_generated/server/models";
+import { isServerStopping } from "trabecula/utils/process";
 import { fileLog } from "trabecula/utils/server";
 import {
   backgroundExecution,
@@ -25,7 +26,6 @@ import {
 } from "medior/server/database/persistence-migration";
 import { pruneCompletedOperations } from "medior/server/database/persistence-retention";
 import { cancelRepair, pauseRepairs } from "medior/server/database/repair-progress";
-import { isServerStopping } from "medior/server/process-lifecycle";
 import { dayjs } from "medior/utils/common";
 import { leanModelToJson, makeAction, objectId, objectIds, socket } from "medior/utils/server";
 import { vectorTrpc } from "medior/utils/server/trpc";

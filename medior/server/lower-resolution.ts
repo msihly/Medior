@@ -1,6 +1,7 @@
 import { randomUUID } from "crypto";
 import { FileModel, FileSchema, TagSchema } from "medior/_generated/server/models";
 import { FilterQuery, Schema } from "mongoose";
+import { serverShutdownSignal } from "trabecula/utils/process";
 import * as actions from "medior/server/database/actions";
 import { findJob } from "medior/server/database/jobs";
 import { registerPersistenceModel } from "medior/server/database/persistence";
@@ -9,7 +10,6 @@ import {
   JpegCompression,
   rankDuplicateQuality,
 } from "medior/server/duplicate-quality";
-import { serverShutdownSignal } from "medior/server/process-lifecycle";
 import { chunkArray, CONSTANTS, dayjs, round } from "medior/utils/common";
 import {
   DUPLICATE_PAGE_SIZE,

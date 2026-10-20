@@ -8,7 +8,7 @@ import type {
   ResizeOptions,
   SharpOptions,
 } from "sharp";
-import { serverShutdownSignal } from "medior/server/process-lifecycle";
+import { serverShutdownSignal } from "trabecula/utils/process";
 import { runNativeTask } from "medior/utils/server/native-task";
 import { workSignal } from "medior/utils/server/work-signal";
 

@@ -1,13 +1,15 @@
 import { app, BrowserWindow, dialog, ipcMain, screen } from "electron";
 import path from "path";
-import { fileLog, setLogsPath } from "trabecula/utils/server";
+import { SERVER_STATUS_IPC, ServerProcessStatus } from "trabecula/utils/common";
 import {
   ownProcessTree,
   PROCESS_SHUTDOWN_TIMEOUT_MS,
   releaseProcessTreeForRelaunch,
-} from "medior/server/process-job";
-import type { ServerProcessMessage } from "medior/server/process-lifecycle";
-import { ServerManager, ServerProcessStatus } from "medior/server/server";
+  ServerManager,
+  ServerProcessMessage,
+} from "trabecula/utils/process";
+import { fileLog, setLogsPath } from "trabecula/utils/server";
+import { SERVER_STAGES } from "medior/server/server";
 import { dayjs } from "medior/utils/common";
 import { Config, getConfig, loadConfig, saveConfig, setupTRPC } from "medior/utils/server";
 
@@ -139,7 +141,7 @@ process.on("message", (message: ServerProcessMessage) => {
   if (message?.type === "stop") app.quit();
 });
 
-ipcMain.handle("getServerStatuses", () => servers?.getStatuses() ?? []);
+ipcMain.handle(SERVER_STATUS_IPC.get, () => servers?.getStatuses() ?? []);
 
 const broadcastConfig = (config: Config) =>
   BrowserWindow.getAllWindows().forEach((window) =>
@@ -148,7 +150,7 @@ const broadcastConfig = (config: Config) =>
 
 const broadcastServerStatuses = (statuses: ServerProcessStatus[]) =>
   BrowserWindow.getAllWindows().forEach((window) =>
-    window.webContents.send("server-status-changed", statuses),
+    window.webContents.send(SERVER_STATUS_IPC.changed, statuses),
   );
 
 ipcMain.handle("saveConfig", async (_, config: Config) => {
@@ -232,12 +234,17 @@ const createMainWindow = async () => {
   try {
     fileLog("Loading servers...");
 
-    servers = new ServerManager(
-      app.isPackaged ? path.join(process.resourcesPath, "extraResources/medior/server") : __dirname,
+    servers = new ServerManager({
+      base: isPackaged
+        ? path.join(process.resourcesPath, "extraResources/medior/server")
+        : __dirname,
       configPath,
-      process.env.LOGS_PATH,
-      broadcastServerStatuses,
-    );
+      isPackaged,
+      logsPath: process.env.LOGS_PATH,
+      onStatusChange: broadcastServerStatuses,
+      resourcesPath: process.resourcesPath,
+      stages: SERVER_STAGES,
+    });
 
     if (shutdown) return;
 

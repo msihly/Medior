@@ -1,8 +1,8 @@
 import { ChildProcess, spawn } from "child_process";
 import { createRequire } from "module";
 import type { RollupWatcher } from "rollup";
+import { ownProcessTree, PROCESS_SHUTDOWN_TIMEOUT_MS } from "trabecula/utils/process";
 import { build, createServer, ViteDevServer } from "vite";
-import { ownProcessTree, PROCESS_SHUTDOWN_TIMEOUT_MS } from "../medior/server/process-job";
 
 ownProcessTree();
 

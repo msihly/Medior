@@ -1,8 +1,8 @@
 import * as models from "medior/_generated/server/models";
+import { isServerStopping } from "trabecula/utils/process";
 import { fileLog } from "trabecula/utils/server";
 import { runBackgroundExecution } from "medior/server/database/background-execution";
 import { lockFiles, runAsLockOwner, unlockFiles } from "medior/server/database/file-locks";
-import { isServerStopping } from "medior/server/process-lifecycle";
 import { dayjs } from "medior/utils/common";
 import { leanModelToJson, socket } from "medior/utils/server";
 

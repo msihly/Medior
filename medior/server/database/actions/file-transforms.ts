@@ -2,6 +2,7 @@ import fs from "fs/promises";
 import { createHash, randomUUID } from "crypto";
 import * as models from "medior/_generated/server/models";
 import { FilterQuery, LeanDocument, Types as MongoTypes } from "mongoose";
+import { isServerStopping } from "trabecula/utils/process";
 import { deleteFile, fileLog } from "trabecula/utils/server";
 import * as actions from "medior/server/database/actions";
 import {
@@ -40,7 +41,6 @@ import {
   retireTransformPreparations,
 } from "medior/server/database/transform-metadata";
 import * as Types from "medior/server/database/types";
-import { isServerStopping } from "medior/server/process-lifecycle";
 import { isGeneratedMediaUnreadable } from "medior/utils/client/files";
 import {
   chunkArray,

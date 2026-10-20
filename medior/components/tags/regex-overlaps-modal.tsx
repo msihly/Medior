@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ListAllTagRegExOverlapsOutput } from "medior/_generated/server";
 import {
   Button,
+  Card,
   CenteredText,
   Comp,
   LoadingOverlay,
@@ -10,32 +11,72 @@ import {
   Text,
   View,
 } from "medior/components";
+import { tagToOption, useStores } from "medior/store";
 import { colors, useCancellableLoad } from "medior/utils/client";
 import { Fmt } from "medior/utils/common";
 import { trpc } from "medior/utils/server";
+
+type RegExOverlaps = Awaited<ListAllTagRegExOverlapsOutput>["data"];
 
 export interface RegExOverlapsModalProps {
   setVisible: (visible: boolean) => void;
 }
 
 export const RegExOverlapsModal = Comp(({ setVisible }: RegExOverlapsModalProps) => {
+  const stores = useStores();
+  const store = stores.tag;
+
   const load = useCancellableLoad();
 
-  const [result, setResult] = useState<Awaited<ListAllTagRegExOverlapsOutput>["data"]>(null);
+  const [result, setResult] = useState<RegExOverlaps>(null);
 
-  useEffect(() => {
+  const hasOpenedMerger = useRef(false);
+
+  const loadOverlaps = () =>
     load.run(async (signal) => {
       const res = await trpc.listAllTagRegExOverlaps.mutate(undefined, { signal });
       if (!res.success) throw new Error(res.error);
 
       setResult(res.data);
     });
+
+  useEffect(() => {
+    loadOverlaps();
   }, []);
+
+  useEffect(() => {
+    if (hasOpenedMerger.current && !store.merger.isOpen) {
+      hasOpenedMerger.current = false;
+      loadOverlaps();
+    }
+  }, [store.merger.isOpen]);
 
   const handleClose = () => {
     load.cancel();
     setVisible(false);
   };
+
+  const handleMerge = (overlap: RegExOverlaps["overlaps"][number]) =>
+    load.run(async (signal) => {
+      const res = await trpc.listTag.mutate({ filter: { id: overlap.matchedTag.id } }, { signal });
+      if (!res.success) throw new Error(res.error);
+
+      const mergeTag = res.data[0];
+      if (!mergeTag) throw new Error("Tag no longer exists");
+
+      store.editor.setIsOpen(true);
+
+      const editorRes = await store.editor.loadTag({ id: overlap.regExTag.id });
+      if (!editorRes.success) throw new Error(editorRes.error);
+
+      signal.throwIfAborted();
+
+      if (store.editor.tag?.id === overlap.regExTag.id) {
+        hasOpenedMerger.current = true;
+        store.merger.setMergeTag(tagToOption(mergeTag));
+        store.merger.setIsOpen(true);
+      }
+    });
 
   return (
     <Modal.Container onClose={handleClose} height="80%" width="50rem">
@@ -57,22 +98,36 @@ export const RegExOverlapsModal = Comp(({ setVisible }: RegExOverlapsModalProps)
         )}
 
         {result?.overlaps.map((overlap) => (
-          <View
+          <Card
             key={`${overlap.regExTag.id}:${overlap.matchedTag.id}`}
             row
             align="center"
+            flex="none"
             spacing="0.5rem"
           >
-            <TagChip tag={overlap.regExTag} hasEditor />
+            <View row flex={1} align="center" minWidth={0} spacing="0.5rem">
+              <TagChip tag={overlap.regExTag} hasEditor />
 
-            <Text color={colors.custom.lightGrey}>{"matches"}</Text>
+              <Text color={colors.custom.lightGrey}>{"matches"}</Text>
 
-            <TagChip tag={overlap.matchedTag} hasEditor />
+              <TagChip tag={overlap.matchedTag} hasEditor />
 
-            <Text color={colors.custom.lightGrey} tooltip={overlap.matchedTag.term}>
-              {`via "${overlap.matchedTag.term}"`}
-            </Text>
-          </View>
+              <Text
+                color={colors.custom.lightGrey}
+                tooltip={overlap.matchedTag.term}
+                tooltipProps={{ flexShrink: 1 }}
+              >
+                {`via "${overlap.matchedTag.term}"`}
+              </Text>
+            </View>
+
+            <Button
+              text="Merge"
+              icon="Merge"
+              onClick={() => handleMerge(overlap)}
+              colorOnHover={colors.custom.purple}
+            />
+          </Card>
         ))}
 
         {result?.total === 0 && <CenteredText text="No overlapping RegEx found" />}

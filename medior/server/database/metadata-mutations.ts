@@ -1,5 +1,5 @@
 import { AsyncLocalStorage } from "async_hooks";
-import { serverShutdownSignal } from "medior/server/process-lifecycle";
+import { serverShutdownSignal } from "trabecula/utils/process";
 import { waitForWork, workSignal } from "medior/utils/server/work-signal";
 import { checkBackgroundExecution } from "./background-execution";
 

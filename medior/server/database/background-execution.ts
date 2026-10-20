@@ -1,6 +1,6 @@
 import { AsyncLocalStorage } from "async_hooks";
 import mongoose, { ClientSession } from "mongoose";
-import { serverShutdownSignal } from "medior/server/process-lifecycle";
+import { serverShutdownSignal } from "trabecula/utils/process";
 import { workSignal } from "medior/utils/server/work-signal";
 
 interface BackgroundExecution {

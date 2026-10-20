@@ -16,7 +16,7 @@ import {
   View,
 } from "medior/components";
 import { TagOption, tagToOption, useStores } from "medior/store";
-import { colors, makeClasses, toast, useCancellableLoad } from "medior/utils/client";
+import { colors, derefMobx, makeClasses, toast, useCancellableLoad } from "medior/utils/client";
 import { trpc } from "medior/utils/server";
 
 export const TagMerger = Comp(() => {
@@ -34,7 +34,9 @@ export const TagMerger = Comp(() => {
   const [label, setLabel] = useState<string>("");
   const [parentTags, setParentTags] = useState<TagOption[]>([]);
   const [regEx, setRegEx] = useState<string>("");
-  const [selectedTagValue, setSelectedTagValue] = useState<TagOption[]>([]);
+  const [selectedTagValue, setSelectedTagValue] = useState<TagOption[]>(() =>
+    store.merger.mergeTag ? [derefMobx(store.merger.mergeTag)] : [],
+  );
   const [tagIdToKeep, setTagIdToKeep] = useState<string>("");
   const [tagIdToMerge, setTagIdToMerge] = useState<string>("");
   const [tagLabelToKeep, setTagLabelToKeep] = useState<null | "base" | "merge">(null);
@@ -122,6 +124,7 @@ export const TagMerger = Comp(() => {
 
     load.cancel();
     store.merger.setIsOpen(false);
+    store.merger.setMergeTag(null);
     store.subEditor.setIsOpen(false);
     store.editor.setIsOpen(false);
 
@@ -151,6 +154,7 @@ export const TagMerger = Comp(() => {
       setIsSaving(false);
 
       store.merger.setIsOpen(false);
+      store.merger.setMergeTag(null);
       store.merger.setTagId(tagIdToKeep);
       store.editor.setIsOpen(true);
 

@@ -10,6 +10,7 @@ import {
 } from "medior/_generated/server/models";
 import { Schema } from "mongoose";
 import { addAbortSignal } from "stream";
+import { isServerStopping, serverShutdownSignal } from "trabecula/utils/process";
 import { deleteFile, extendFileName, removeEmptyFolders } from "trabecula/utils/server";
 import { backgroundExecutionPlugin } from "medior/server/database/database-context";
 import { withIndexHint } from "medior/server/database/index-hints";
@@ -20,7 +21,6 @@ import {
   mediaPathPlugin,
 } from "medior/server/database/media-paths";
 import { registerPersistenceModel } from "medior/server/database/persistence";
-import { isServerStopping, serverShutdownSignal } from "medior/server/process-lifecycle";
 import { Fmt } from "medior/utils/common";
 import { isWithinFolder } from "medior/utils/server/source-folders";
 import { workSignal } from "medior/utils/server/work-signal";

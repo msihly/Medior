@@ -6,6 +6,7 @@ import * as models from "medior/_generated/server/models";
 import { AnyBulkWriteOperation } from "mongodb";
 import mongoose from "mongoose";
 import os from "os";
+import { isServerStopping } from "trabecula/utils/process";
 import {
   checkFileExists,
   dirToFilePaths,
@@ -56,7 +57,6 @@ import {
 import { makeRepairReporter } from "medior/server/database/repair-progress";
 import { repairThumbnail } from "medior/server/database/thumbnail-repair";
 import { ThumbnailNtfsMetadata } from "medior/server/database/types";
-import { isServerStopping } from "medior/server/process-lifecycle";
 import {
   chunkArray,
   CONSTANTS,
