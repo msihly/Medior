@@ -69,20 +69,37 @@ import {
   hasTranscription,
 } from "medior/utils/common";
 import {
-  analyzeAudio,
+  analyzeDecodedAudio,
+  assertAudioSimilarityModel,
+  AudioAnalysis,
+  AudioAnalysisOptions,
+  AudioVectorWindow,
+  DecodedAudio,
   getConfig,
+  getMaxAudioWindowCount,
   getNtfsFileIdentity,
   leanModelToJson,
   makeAction,
+  makeOrderedAudioDecoder,
   objectId,
   objectIds,
   releaseTranscriptionModel,
   retainTranscriptionModel,
   socket,
   sortByStoredNtfsIdentity,
+  vectorTrpc,
 } from "medior/utils/server";
 import { getMediaInfo, getVideoInfo } from "medior/utils/server/videos";
 import { workSignal } from "medior/utils/server/work-signal";
+
+/** Videos decoded ahead of the one being analyzed, so drive reads continue during its analysis. */
+const AUDIO_DECODE_LOOKAHEAD = 8;
+/** Seconds of audio past the similarity limit decoded to tell when a stored duration is wrong. */
+const AUDIO_DURATION_MARGIN = 1;
+/** Videos sent to the vector server per write, which bounds batches of silent videos too. */
+const AUDIO_VECTOR_FLUSH_FILE_COUNT = 500;
+/** Audio windows sent to the vector server per write, about 20 MB of CED-Mini float64 vectors. */
+const AUDIO_VECTOR_FLUSH_WINDOW_COUNT = 10_000;
 
 const gzipAsync = promisify(gzip);
 
@@ -1311,12 +1328,16 @@ export const repairFilesWithMissingInfo = makeAction(async ({ repairId }: { repa
 
 export const repairMissingAudioAnalysis = makeAction(
   async ({
+    maxAudioVectorDuration,
     maxTranscriptionDuration,
+    repairAudioVectors,
     repairId,
     repairTranscriptions,
     repairWaveforms,
   }: {
+    maxAudioVectorDuration: number;
     maxTranscriptionDuration: number;
+    repairAudioVectors: boolean;
     repairId: string;
     repairTranscriptions: boolean;
     repairWaveforms: boolean;
@@ -1333,6 +1354,15 @@ export const repairMissingAudioAnalysis = makeAction(
       )
         throw new Error("Maximum transcription duration must be greater than zero.");
 
+      if (
+        repairAudioVectors &&
+        (!Number.isFinite(maxAudioVectorDuration) || maxAudioVectorDuration <= 0)
+      )
+        throw new Error("Maximum audio similarity duration must be greater than zero.");
+
+      // Every stale video needs the exported model, so a missing one stops the repair up front.
+      if (repairAudioVectors) await assertAudioSimilarityModel();
+
       const missingFilters: mongoose.FilterQuery<models.FileSchema>[] = [];
 
       if (repairTranscriptions)
@@ -1343,29 +1373,84 @@ export const repairMissingAudioAnalysis = makeAction(
 
       if (repairWaveforms) missingFilters.push({ "waveformPeaks.0": { $exists: false } });
 
-      if (!missingFilters.length) return { repairedTranscriptions: 0, repairedWaveforms: 0 };
+      if (!missingFilters.length && !repairAudioVectors)
+        return { repairedAudioVectors: 0, repairedTranscriptions: 0, repairedWaveforms: 0 };
 
       report(
-        `Searching for videos with audio and missing analysis data.${
+        [
+          "Searching for videos with audio and missing analysis data.",
           repairTranscriptions
-            ? ` Transcriptions are limited to ${Fmt.duration(maxTranscriptionDuration)}.`
-            : ""
-        }`,
+            ? `Transcriptions are limited to ${Fmt.duration(maxTranscriptionDuration)}.`
+            : null,
+          repairAudioVectors
+            ? `Audio similarity is limited to ${Fmt.duration(maxAudioVectorDuration)}.`
+            : null,
+          repairWaveforms ? "Missing waveforms are regenerated for videos of any length." : null,
+        ]
+          .filter(Boolean)
+          .join(" "),
       );
 
-      const fileFilter: mongoose.FilterQuery<models.FileSchema> = {
-        $or: missingFilters,
-        audioCodec: { $exists: true, $nin: ["", "None", null] },
-        ext: { $in: CONSTANTS.VIDEO.EXTS },
-        // Archived files are never analyzed, so they also stay free to delete during the repair.
-        isArchived: { $ne: true },
-      };
+      const findCandidates = (filter: mongoose.FilterQuery<models.FileSchema>) =>
+        models.FileModel.find({
+          ...filter,
+          audioCodec: { $exists: true, $nin: ["", "None", null] },
+          ext: { $in: CONSTANTS.VIDEO.EXTS },
+          // Archived files are never analyzed, so they also stay free to delete during the repair.
+          isArchived: { $ne: true },
+        })
+          .allowDiskUse(true)
+          .select({
+            _id: 1,
+            duration: 1,
+            hash: 1,
+            "thumb.ntfsFileId": 1,
+            "thumb.ntfsVolumeId": 1,
+          })
+          .sort({ _id: 1 })
+          .lean();
 
-      const candidates = await models.FileModel.find(fileFilter)
-        .allowDiskUse(true)
-        .select({ _id: 1, "thumb.ntfsFileId": 1, "thumb.ntfsVolumeId": 1 })
-        .sort({ _id: 1 })
-        .lean();
+      const candidates = missingFilters.length ? await findCandidates({ $or: missingFilters }) : [];
+      const staleAudioVectorIds = new Set<string>();
+
+      // Audio vectors are stored with the other vectors, which say which files are already current.
+      if (repairAudioVectors) {
+        const vectorCandidates = await findCandidates({
+          duration: { $lte: maxAudioVectorDuration },
+        });
+
+        const candidateIds = new Set(candidates.map((file) => String(file._id)));
+
+        checkCancelled();
+
+        // One request, since the vector server scans its whole state table for each. Outdated
+        // vectors are deleted with it, so the repair's writes only append. Vectors with more
+        // windows than the stored duration allows are redone, as those decoded past the audio's
+        // timestamps before the decode followed them have.
+        const { currentFileIds, overLimitCount } = await vectorTrpc.pruneAudioVectors.mutate({
+          files: vectorCandidates.map((file) => ({
+            fileId: String(file._id),
+            hash: file.hash,
+            maxWindowCount: getMaxAudioWindowCount(file.duration + AUDIO_DURATION_MARGIN),
+          })),
+        });
+
+        const currentIds = new Set(currentFileIds);
+
+        if (overLimitCount)
+          report(
+            `Cleared the audio vectors of ${Fmt.commas(overLimitCount)} videos stored with more windows than their duration allows, to vectorize them again.`,
+          );
+
+        for (const file of vectorCandidates) {
+          if (currentIds.has(String(file._id))) continue;
+
+          staleAudioVectorIds.add(String(file._id));
+
+          if (!candidateIds.has(String(file._id))) candidates.push(file);
+        }
+      }
+
       const fileCount = candidates.length;
       const unorderedCount = candidates.filter(
         (file) => !file.thumb?.ntfsFileId || !file.thumb?.ntfsVolumeId,
@@ -1389,24 +1474,117 @@ export const repairMissingAudioAnalysis = makeAction(
       })).map((file) => file._id);
 
       const modelOwnerId = `repair:${repairId}`;
+      const pendingAudioVectors: {
+        fileId: string;
+        sourceHash: string;
+        windows: AudioVectorWindow[];
+      }[] = [];
       const startedAt = Date.now();
+      /**
+       * Totals shown per video beside the overall average. A video's drive read and extraction
+       * overlap earlier videos' inference and writes, so the steps can add up to more.
+       */
+      const totals = {
+        audioSeconds: 0,
+        extractMs: 0,
+        inferenceMs: 0,
+        readBytes: 0,
+        readFirstByteMs: 0,
+        readMs: 0,
+        readOpenMs: 0,
+        writeMs: 0,
+        writeWaitMs: 0,
+      };
+      let cachedCount = 0;
       let completedCount = 0;
+      let longestAudioSeconds = 0;
+      let pendingAudioWindowCount = 0;
       let processedCount = 0;
+      let repairedAudioVectors = 0;
       let repairedTranscriptions = 0;
       let repairedWaveforms = 0;
+      let skippedCount = 0;
+      /** The vector write in progress; writes run behind the analysis, one at a time. */
+      let vectorWrite: Promise<void> = Promise.resolve();
+      /** A failed write, thrown at the next video so the repair stops rather than analyzing on. */
+      let vectorWriteError: Error = null;
+
+      /** Never rejects, since it runs detached; a failure is kept for the repair to throw. */
+      const writeAudioVectors = async (files: typeof pendingAudioVectors) => {
+        const writeStart = Date.now();
+        const windows = files.flatMap((file) => file.windows);
+        const vectors = new Float64Array(
+          windows.reduce((count, { vector }) => count + vector.length, 0),
+        );
+        let offset = 0;
+
+        for (const { vector } of windows) {
+          vectors.set(vector, offset);
+          offset += vector.length;
+        }
+
+        try {
+          await vectorTrpc.storeAudioVectors.mutate({
+            files: files.map((file) => ({
+              fileId: file.fileId,
+              sourceHash: file.sourceHash,
+              windows: file.windows.map(({ end, start }) => ({ end, start })),
+            })),
+            vectors: Buffer.from(vectors.buffer).toString("base64"),
+          });
+        } catch (error) {
+          vectorWriteError ??= error;
+        }
+
+        totals.writeMs += Date.now() - writeStart;
+      };
 
       /**
        * Each video's steps update one progress line, sent once a second; separate lines for every
        * step of every video arrive faster than the log can show them.
        */
       const showProgress = (step: string) => {
+        const formatAverage = (ms: number, count = completedCount) =>
+          `${(ms / count / 1000).toFixed(2)}s`;
+
+        const transferMs = totals.readMs - totals.readFirstByteMs;
+        const ffmpegReadCount = completedCount - cachedCount;
+
+        const driveReads = cachedCount
+          ? `drive reads ${formatAverage(totals.readMs, cachedCount)} (opening ${formatAverage(totals.readOpenMs, cachedCount)}, seeking ${formatAverage(totals.readFirstByteMs - totals.readOpenMs, cachedCount)}, ${Math.round(totals.readBytes / 1000 / Math.max(1, transferMs))} MB/s), `
+          : "";
+
+        const ffmpegReads = ffmpegReadCount
+          ? `; ${Fmt.commas(ffmpegReadCount)} large or high-bitrate videos read by ffmpeg itself`
+          : "";
+
+        const skipped = skippedCount
+          ? `; ${Fmt.commas(skippedCount)} unreadable videos skipped`
+          : "";
+
         const average = completedCount
-          ? `, averaging ${((Date.now() - startedAt) / completedCount / 1000).toFixed(2)}s each`
+          ? `, averaging ${formatAverage(Date.now() - startedAt)} each: ${driveReads}extraction ${formatAverage(totals.extractMs)}, inference ${formatAverage(totals.inferenceMs)}, vector writes ${formatAverage(totals.writeMs)} (waited on ${formatAverage(totals.writeWaitMs)}); ${(totals.audioSeconds / completedCount).toFixed(1)}s of audio per video, the longest ${longestAudioSeconds.toFixed(1)}s${ffmpegReads}${skipped}`
           : "";
 
         progress(
           `Audio analysis: video ${Fmt.commas(processedCount)} / ${Fmt.commas(fileCount)}; ${Fmt.commas(completedCount)} completed${average}. ${step}`,
         );
+      };
+
+      /** Starts writing the pending vectors once the previous write is done, so analysis carries on. */
+      const flushAudioVectors = async () => {
+        const files = pendingAudioVectors.splice(0);
+        pendingAudioWindowCount = 0;
+
+        const waitStart = Date.now();
+
+        showProgress("Waiting for the previous vector write.");
+        await vectorWrite;
+        totals.writeWaitMs += Date.now() - waitStart;
+
+        if (vectorWriteError) throw vectorWriteError;
+
+        vectorWrite = writeAudioVectors(files);
       };
 
       const reportAnalysisProgress = (message: string, percent?: number) => {
@@ -1430,70 +1608,136 @@ export const repairMissingAudioAnalysis = makeAction(
             duration: 1,
             hash: 1,
             path: 1,
-            transcription: 1,
-            waveformPeaks: 1,
+            // Loaded only for the repairs that check them; a waveform holds a thousand values.
+            ...(repairTranscriptions ? { transcription: 1 } : {}),
+            ...(repairWaveforms ? { waveformPeaks: 1 } : {}),
           })
           .lean();
 
-      const analyzeFile = async (file: Awaited<ReturnType<typeof loadFiles>>[number]) => {
-        checkCancelled();
+      // Decodes running ahead stop whenever the repair ends early, whether cancelled or failed.
+      const decodeController = new AbortController();
+      const abortDecodes = () => decodeController.abort(signal.reason);
+      const decodeInDiskOrder = makeOrderedAudioDecoder(decodeController.signal);
+      /** Videos whose audio decodes while an earlier one is analyzed, in disk order. */
+      const decodingFiles: {
+        audio: Promise<DecodedAudio>;
+        file: Awaited<ReturnType<typeof loadFiles>>[number];
+        maxDuration?: number;
+        options: AudioAnalysisOptions;
+      }[] = [];
+
+      const analyzeNextFile = async () => {
+        const { audio, file, maxDuration, options } = decodingFiles.shift();
+
+        if (vectorWriteError) throw vectorWriteError;
+
         processedCount++;
+        showProgress("Extracting audio.");
 
-        const withTranscription =
-          repairTranscriptions &&
-          file.duration <= maxTranscriptionDuration &&
-          !hasTranscription(file.transcription);
+        let decoded: DecodedAudio;
 
-        const withWaveform = repairWaveforms && !file.waveformPeaks?.length;
+        try {
+          decoded = await audio;
+        } catch (error) {
+          // ffmpeg failing to start, or the repair ending, stops everything.
+          if (decodeController.signal.aborted || error.syscall?.startsWith("spawn")) throw error;
 
-        if (!withTranscription && !withWaveform) {
+          // A video that can't be read or decoded stays stale for a later repair.
+          skippedCount++;
+          report(`Skipped ${file.path}: ${error.message}`, "error");
           unlock([String(file._id)]);
           return;
         }
 
-        const analysis = await analyzeAudio(file.path, reportAnalysisProgress, signal, {
-          withTranscription,
-          withWaveform,
-        });
+        let analysis: AudioAnalysis;
+
+        try {
+          analysis = await analyzeDecodedAudio(decoded, reportAnalysisProgress, signal, options);
+        } finally {
+          await decoded.close();
+        }
 
         checkCancelled();
 
-        const updates: Partial<models.FileSchema> = {};
+        totals.audioSeconds += decoded.duration;
+        totals.extractMs += decoded.extractMs;
+        totals.inferenceMs += analysis.inferenceMs;
+        totals.readBytes += decoded.readBytes;
+        totals.readFirstByteMs += decoded.readFirstByteMs;
+        totals.readMs += decoded.readMs;
+        totals.readOpenMs += decoded.readOpenMs;
+        longestAudioSeconds = Math.max(longestAudioSeconds, decoded.duration);
 
-        if (withTranscription) {
-          updates.hasTranscript = hasTranscription(analysis.transcription);
-          updates.transcription = analysis.transcription;
-          repairedTranscriptions++;
+        if (decoded.readBytes) cachedCount++;
+
+        if (maxDuration && decoded.duration > maxDuration - AUDIO_DURATION_MARGIN / 2)
+          report(
+            `Only the first ${Fmt.duration(maxDuration)} of ${file.path} was vectorized, since its audio's timestamps run past its stored ${Fmt.duration(file.duration)} duration.`,
+          );
+
+        if (options.withAudioVectors) {
+          if (analysis.invalidAudioWindowCount)
+            report(
+              `Left out ${Fmt.commas(analysis.invalidAudioWindowCount)} audio windows of ${file.path} whose samples or embeddings held NaN or infinity.`,
+            );
+
+          pendingAudioVectors.push({
+            fileId: String(file._id),
+            sourceHash: file.hash,
+            windows: analysis.audioWindows,
+          });
+
+          pendingAudioWindowCount += analysis.audioWindows.length;
+          repairedAudioVectors++;
+
+          if (
+            pendingAudioVectors.length >= AUDIO_VECTOR_FLUSH_FILE_COUNT ||
+            pendingAudioWindowCount >= AUDIO_VECTOR_FLUSH_WINDOW_COUNT
+          )
+            await flushAudioVectors();
         }
 
-        if (withWaveform) {
-          updates.waveformPeaks = analysis.waveformPeaks;
-          repairedWaveforms++;
+        if (options.withTranscription || options.withWaveform) {
+          const updates: Partial<models.FileSchema> = {};
+
+          if (options.withTranscription) {
+            updates.hasTranscript = hasTranscription(analysis.transcription);
+            updates.transcription = analysis.transcription;
+            repairedTranscriptions++;
+          }
+
+          if (options.withWaveform) {
+            updates.waveformPeaks = analysis.waveformPeaks;
+            repairedWaveforms++;
+          }
+
+          updates.dateModified = dayjs().toISOString();
+
+          const updateRes = await models.FileModel.updateOne(
+            {
+              _id: file._id,
+              dateModified: file.dateModified,
+              hash: file.hash,
+              path: file.path,
+            },
+            { $set: updates },
+            metadataWriteOptions(),
+          );
+
+          if (!updateRes.matchedCount)
+            throw new Error("File changed during audio analysis; retry repair");
+
+          socket.emit("onFileUpdated", { id: file._id.toString(), updates });
         }
 
-        updates.dateModified = dayjs().toISOString();
-
-        const updateRes = await models.FileModel.updateOne(
-          {
-            _id: file._id,
-            dateModified: file.dateModified,
-            hash: file.hash,
-            path: file.path,
-          },
-          { $set: updates },
-          metadataWriteOptions(),
-        );
-
-        if (!updateRes.matchedCount)
-          throw new Error("File changed during audio analysis; retry repair");
-
-        socket.emit("onFileUpdated", { id: file._id.toString(), updates });
         unlock([file._id.toString()]);
 
         completedCount++;
       };
 
       if (repairTranscriptions) retainTranscriptionModel(modelOwnerId, signal);
+
+      signal.addEventListener("abort", abortDecodes, { once: true });
 
       try {
         for (const ids of chunkArray(orderedIds, 100)) {
@@ -1502,19 +1746,77 @@ export const repairMissingAudioAnalysis = makeAction(
           // Records load in any order, so each batch follows the disk order of its IDs.
           for (const id of ids) {
             const file = filesById.get(String(id));
-            if (file) await analyzeFile(file);
+            if (!file) continue;
+
+            checkCancelled();
+
+            // The repair stores no peak volume, so it isn't measured.
+            const options: AudioAnalysisOptions = {
+              withAudioVectors: staleAudioVectorIds.has(String(file._id)),
+              withPeakVolume: false,
+              withTranscription:
+                repairTranscriptions &&
+                file.duration <= maxTranscriptionDuration &&
+                !hasTranscription(file.transcription),
+              withWaveform: repairWaveforms && !file.waveformPeaks?.length,
+            };
+
+            if (!options.withAudioVectors && !options.withTranscription && !options.withWaveform) {
+              processedCount++;
+              unlock([String(file._id)]);
+            } else {
+              // Videos needing only vectors decode at most a second past the limit, even with a wrong
+              // stored duration; waveforms and transcriptions need all of the audio.
+              const maxDuration =
+                options.withTranscription || options.withWaveform
+                  ? undefined
+                  : maxAudioVectorDuration + AUDIO_DURATION_MARGIN;
+
+              const audio = decodeInDiskOrder(file.path, { duration: file.duration, maxDuration });
+
+              // A failed decode is thrown when its video is analyzed; until then it stays handled.
+              audio.catch(() => null);
+              decodingFiles.push({ audio, file, maxDuration, options });
+
+              if (decodingFiles.length > AUDIO_DECODE_LOOKAHEAD) await analyzeNextFile();
+            }
           }
         }
+
+        while (decodingFiles.length) await analyzeNextFile();
+
+        if (pendingAudioVectors.length) await flushAudioVectors();
+
+        await vectorWrite;
+
+        if (vectorWriteError) throw vectorWriteError;
       } finally {
+        signal.removeEventListener("abort", abortDecodes);
+        decodeController.abort();
+
+        // A write still running finishes before the repair ends, so no other one overlaps it, and
+        // videos analyzed before a cancel or failure still keep their vectors.
+        await vectorWrite;
+
+        if (pendingAudioVectors.length && !vectorWriteError)
+          await writeAudioVectors(pendingAudioVectors.splice(0));
+
         if (repairTranscriptions) await releaseTranscriptionModel(modelOwnerId);
+
+        // An ended repair still deletes the audio decoded ahead of it, without letting a cleanup
+        // failure hide the repair's own error.
+        for (const { audio } of decodingFiles.splice(0)) {
+          const decoded = await audio.catch(() => null);
+          await decoded?.close().catch(() => null);
+        }
       }
 
       report(
-        `Audio analysis repair completed successfully: regenerated ${repairedWaveforms} waveforms and ${repairedTranscriptions} transcriptions.`,
+        `Audio analysis repair completed successfully: regenerated ${repairedWaveforms} waveforms, ${repairedTranscriptions} transcriptions, and audio similarity vectors for ${repairedAudioVectors} videos.${skippedCount ? ` Skipped ${Fmt.commas(skippedCount)} unreadable videos, listed above.` : ""}`,
         "success",
       );
 
-      return { repairedTranscriptions, repairedWaveforms };
+      return { repairedAudioVectors, repairedTranscriptions, repairedWaveforms };
     });
   },
 );

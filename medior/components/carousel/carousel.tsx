@@ -37,6 +37,8 @@ export const Carousel = Comp((_, videoRef: MutableRefObject<ReactPlayer>) => {
 
   const panZoomRef = useContext(ZoomContext);
 
+  /** A start time waiting for directly played video to load before seeking to it. */
+  const pendingSeekTime = useRef<number>(null);
   const zoomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -67,11 +69,15 @@ export const Carousel = Comp((_, videoRef: MutableRefObject<ReactPlayer>) => {
   }, [activeFile?.isVideo]);
 
   useEffect(() => {
+    const startTime = store.startTimes[activeFile?.id] ?? 0;
+
+    pendingSeekTime.current = startTime && !store.requiresTranscoding ? startTime : null;
     store.setSeekOffset(0);
 
-    if (activeFile?.isVideo) store.setCurFrame(0, activeFile.frameRate);
+    if (activeFile?.isVideo)
+      store.setCurFrame(round(startTime * activeFile.frameRate, 0), activeFile.frameRate);
 
-    store.transcodeVideo();
+    store.transcodeVideo({ seekTime: startTime });
     store.loadSubtitleTracks();
 
     return () => videoTranscoder.dispose();
@@ -104,6 +110,8 @@ export const Carousel = Comp((_, videoRef: MutableRefObject<ReactPlayer>) => {
     if (playbackError.name === "AbortError") return;
 
     if (!store.requiresTranscoding) {
+      // The transcoded stream starts at the current time, so it needs no seek of its own.
+      pendingSeekTime.current = null;
       store.transcodeVideo({ force: true, seekTime: store.curTime });
     } else {
       console.error("[Transcode] Browser playback failed:", playbackError);
@@ -118,6 +126,11 @@ export const Carousel = Comp((_, videoRef: MutableRefObject<ReactPlayer>) => {
     store.setIsWaitingForFrames(false);
 
     if (store.mediaSourceUrl) videoTranscoder.markReady(store.mediaSourceUrl);
+
+    if (pendingSeekTime.current !== null) {
+      videoRef.current?.seekTo(pendingSeekTime.current, "seconds");
+      pendingSeekTime.current = null;
+    }
   };
 
   const handleVideoEnd = () => {

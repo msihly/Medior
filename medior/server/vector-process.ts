@@ -7,7 +7,11 @@ import {
   registerProcessLifecycle,
 } from "trabecula/utils/process";
 import { fileLog } from "trabecula/utils/server";
-import { SimilarityVectorType, vectorSimilarityService } from "medior/server/vector-service";
+import {
+  SimilarityVectorType,
+  VectorSimilarityService,
+  vectorSimilarityService,
+} from "medior/server/vector-service";
 import { getConfig, loadConfig } from "medior/utils/server/config";
 
 const trpc = initTRPC.create();
@@ -24,6 +28,9 @@ export const vectorRouter = trpc.router({
   findDuplicateCandidates: trpc.procedure
     .input((input: { files: { fileId: string; hash: string }[]; minSimilarity: number }) => input)
     .mutation(({ input }) => vectorSimilarityService.findDuplicateCandidates(input)),
+  findSimilarAudio: trpc.procedure
+    .input((input: Parameters<VectorSimilarityService["findSimilarAudio"]>[0]) => input)
+    .mutation(({ input }) => vectorSimilarityService.findSimilarAudio(input)),
   findSimilarVectorCandidates: trpc.procedure
     .input(
       (input: {
@@ -58,6 +65,9 @@ export const vectorRouter = trpc.router({
   pauseSimilarityBackfills: trpc.procedure.mutation(() =>
     vectorSimilarityService.pauseSimilarityBackfills(),
   ),
+  pruneAudioVectors: trpc.procedure
+    .input((input: Parameters<VectorSimilarityService["pruneAudioVectors"]>[0]) => input)
+    .mutation(({ input }) => vectorSimilarityService.pruneAudioVectors(input)),
   scoreFileSimilarities: trpc.procedure
     .input((input: { groups: { fileIds: string[]; referenceId: string }[] }) => input)
     .mutation(({ input }) => vectorSimilarityService.scoreFileSimilarities(input)),
@@ -70,6 +80,9 @@ export const vectorRouter = trpc.router({
         input,
     )
     .mutation(({ input }) => vectorSimilarityService.startSimilarityBackfill(input)),
+  storeAudioVectors: trpc.procedure
+    .input((input: Parameters<VectorSimilarityService["storeAudioVectors"]>[0]) => input)
+    .mutation(({ input }) => vectorSimilarityService.storeAudioVectors(input)),
 });
 
 export type VectorRouter = typeof vectorRouter;

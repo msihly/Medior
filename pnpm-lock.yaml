@@ -60,6 +60,9 @@ dependencies:
   mongoose:
     specifier: ^6.2.8
     version: 6.13.0(@aws-sdk/client-sso-oidc@3.632.0)
+  onnxruntime-node:
+    specifier: 1.21.0
+    version: 1.21.0
   react-player:
     specifier: ^2.16.0
     version: 2.16.0(react@17.0.2)
@@ -5846,7 +5849,7 @@ packages:
       es6-error: 4.1.1
       matcher: 3.0.0
       roarr: 2.15.4
-      semver: 7.7.1
+      semver: 7.8.5
       serialize-error: 7.0.1
 
   /global-prefix@4.0.0:
@@ -8180,12 +8183,6 @@ packages:
     resolution: {integrity: sha512-oVekP1cKtI+CTDvHWYFUcMtsK/00wmAEfyqKfNdARm8u1wNVhSgaX7A8d4UuIlUI5e84iEwOhs7ZPYRmzU9U6A==}
     engines: {node: '>=10'}
     hasBin: true
-
-  /semver@7.7.1:
-    resolution: {integrity: sha512-hlq8tAfn0m/61p4BVRcPzIGr6LKiMwo4VM6dGi6pt4qcRkmNzTcWq6eCEjEh+qXjkMDvPlOFFSGwQjoEa6gyMA==}
-    engines: {node: '>=10'}
-    hasBin: true
-    requiresBuild: true
 
   /semver@7.8.5:
     resolution: {integrity: sha512-Y7/KDsb8LjooZpwaqGyulO6DQlksgCncchHGk+sZIY4SBvUocMBEFH5Ur1fI4dV+Jvl0w6cjvucaIi40puRioA==}

@@ -8,6 +8,7 @@ import path from "path";
     entryPoints: [
       "medior/_generated/server/index.ts",
       "medior/server/api-process.ts",
+      "medior/server/audio-process.ts",
       "medior/server/db-process.ts",
       "medior/server/image-process.ts",
       "medior/server/main.ts",
@@ -27,6 +28,7 @@ import path from "path";
       "electron",
       "fdir",
       "fluent-ffmpeg",
+      "onnxruntime-node",
       "sharp-bmp",
       "sharp",
       "trash",

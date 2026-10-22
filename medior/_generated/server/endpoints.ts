@@ -117,6 +117,7 @@ export const serverRouter = trpc.router({
   editMultiTagRelations: serverEndpoint(db.editMultiTagRelations),
   editTag: serverEndpoint(db.editTag),
   findRelatedCollectionGroups: serverEndpoint(db.findRelatedCollectionGroups),
+  findSimilarAudio: serverEndpoint(db.findSimilarAudio),
   findSimilarFiles: serverEndpoint(db.findSimilarFiles),
   finishImportBatchUpload: serverEndpoint(db.finishImportBatchUpload),
   finishRepair: serverEndpoint(db.finishRepair),

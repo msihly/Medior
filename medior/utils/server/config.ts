@@ -21,6 +21,35 @@ import { isWithinFolder } from "medior/utils/server/source-folders";
 
 type DevToolsMode = null | Electron.OpenDevToolsOptions["mode"];
 
+export type AudioSimilarityModel = "ced-base" | "ced-mini" | "ced-small" | "ced-tiny";
+
+export const AUDIO_SIMILARITY_DEVICE_OPTIONS: Array<{
+  label: string;
+  value: Config["file"]["similarity"]["audio"]["device"];
+}> = [
+  { label: "CPU", value: "cpu" },
+  { label: "DirectML", value: "dml" },
+];
+
+export const AUDIO_SIMILARITY_LAYER_OPTIONS: Array<{
+  label: string;
+  value: Config["file"]["similarity"]["audio"]["layer"];
+}> = [
+  { label: "Final", value: "final" },
+  { label: "Middle", value: "middle" },
+];
+
+export const AUDIO_SIMILARITY_MODELS: Array<{
+  dimensions: number;
+  label: string;
+  value: AudioSimilarityModel;
+}> = [
+  { dimensions: 192, label: "CED-Tiny", value: "ced-tiny" },
+  { dimensions: 256, label: "CED-Mini", value: "ced-mini" },
+  { dimensions: 384, label: "CED-Small", value: "ced-small" },
+  { dimensions: 768, label: "CED-Base", value: "ced-base" },
+];
+
 export const DEV_TOOLS_MODES: Array<{ label: string; value: DevToolsMode }> = [
   { label: "Closed", value: null },
   { label: "Bottom", value: "bottom" },
@@ -208,6 +237,20 @@ export interface Config {
     search: Search;
     showFileName: boolean;
     similarity: {
+      audio: {
+        /** Ten-second chunks per inference batch. */
+        batchSize: number;
+        device: "cpu" | "dml";
+        /** Milliseconds between window starts, rounded to the model's 160 ms steps. */
+        hopMs: number;
+        /** Model layer whose embeddings are stored; each layer has its own table. */
+        layer: "final" | "middle";
+        model: AudioSimilarityModel;
+        /** Windows quieter than this RMS level, in dB below full scale, are not stored. */
+        silenceThresholdDb: number;
+        /** Milliseconds each window covers, rounded to the model's 160 ms steps. */
+        windowMs: number;
+      };
       batchSize?: number;
       /** Threads LanceDB may use for vector search and search index builds. */
       cpuThreads: number;
@@ -404,6 +447,15 @@ export const DEFAULT_CONFIG: Config = {
     },
     showFileName: false,
     similarity: {
+      audio: {
+        batchSize: 8,
+        device: "dml",
+        hopMs: 1000,
+        layer: "final",
+        model: "ced-mini",
+        silenceThresholdDb: -50,
+        windowMs: 2000,
+      },
       cpuThreads: Math.max(1, Math.floor(availableParallelism() / 4)),
       defaultLimit: 100,
       index: {
@@ -586,6 +638,13 @@ export const getConfig = () => {
   return config;
 };
 
+export const getAudioSimilarityModel = () => {
+  const { model } = getConfig().file.similarity.audio;
+  const modelDef = AUDIO_SIMILARITY_MODELS.find(({ value }) => value === model);
+  if (!modelDef) throw new Error(`Unknown audio similarity model: ${model}.`);
+  return modelDef;
+};
+
 export const getIsAnimated = (ext?: string | null) =>
   Boolean(ext && ["gif", ...getConfig().file.videoExts].includes(ext.toLowerCase()));
 
@@ -642,6 +701,11 @@ export const loadConfig = async (filePath: string) => {
     config.collection.editor.search.pageSize = +config.collection.editor.search.pageSize;
     config.collection.manager.search.pageSize = +config.collection.manager.search.pageSize;
     config.db.fileStorage.threshold = +config.db.fileStorage.threshold;
+    config.file.similarity.audio.batchSize = +config.file.similarity.audio.batchSize;
+    config.file.similarity.audio.hopMs = +config.file.similarity.audio.hopMs;
+    config.file.similarity.audio.silenceThresholdDb =
+      +config.file.similarity.audio.silenceThresholdDb;
+    config.file.similarity.audio.windowMs = +config.file.similarity.audio.windowMs;
     config.file.similarity.defaultLimit = +config.file.similarity.defaultLimit;
     config.file.similarity.index.ivfPq.maxIterations =
       +config.file.similarity.index.ivfPq.maxIterations;

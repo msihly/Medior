@@ -106,13 +106,18 @@ export const CarouselWindow = Comp(({ embedded = false }: CarouselWindowProps) =
 
     const initialize = (
       _,
-      { fileId, selectedFileIds }: { fileId: string; selectedFileIds: string[] },
+      {
+        fileId,
+        selectedFileIds,
+        startTimes,
+      }: { fileId: string; selectedFileIds: string[]; startTimes: Record<string, number> },
     ) => {
       store.setSelectedFileIds([
         ...new Set(
           selectedFileIds.includes(fileId) ? selectedFileIds : [fileId, ...selectedFileIds],
         ),
       ]);
+      store.setStartTimes(startTimes ?? {});
       store.setVisibleFileIds([]);
       store.setActiveFileId(fileId);
       stores.file.setActiveFileId(fileId);

@@ -1,6 +1,6 @@
 import fs from "fs/promises";
 import path from "path";
-import { Field, FixedSizeList, Float16, Float32, Schema, Utf8 } from "apache-arrow";
+import { Field, FixedSizeList, Float16, Float32, Int32, Schema, Utf8 } from "apache-arrow";
 import { randomUUID } from "crypto";
 import * as models from "medior/_generated/server/models";
 import { availableParallelism } from "os";
@@ -15,7 +15,8 @@ import {
 } from "medior/server/database/similarity-backfill";
 import { ThumbnailNtfsMetadata } from "medior/server/database/types";
 import { chunkArray, CONSTANTS, round } from "medior/utils/common";
-import { getConfig, getIsAnimated } from "medior/utils/server/config";
+import { AudioVectorWindow, getAudioWindowTokens } from "medior/utils/server/audio-analysis";
+import { getAudioSimilarityModel, getConfig, getIsAnimated } from "medior/utils/server/config";
 import { runImageTask } from "medior/utils/server/image-task";
 import { runNativeTask } from "medior/utils/server/native-task";
 import { getNtfsFileIdentity } from "medior/utils/server/ntfs";
@@ -172,6 +173,13 @@ interface SimilarityBackfillJob {
   reportedErrorCount?: number;
 }
 
+interface AudioCandidate {
+  end: number;
+  fileId: string;
+  score: number;
+  start: number;
+}
+
 interface DuplicateMatch {
   fileId: string;
   hash: string;
@@ -193,10 +201,42 @@ interface SimilaritySearchIndexBuild {
   status: "cancelled" | "complete" | "error" | "running";
 }
 
+// Windows fetched per wanted file, since results keep only each file's first window returned.
+const AUDIO_CANDIDATE_WINDOWS_PER_FILE = 8;
+
+const AUDIO_REQUIRED_FIELDS = [
+  "end",
+  "entityId",
+  "fileId",
+  "indexedAt",
+  "modelId",
+  "sourceHash",
+  "start",
+  "vector",
+  "vectorVersion",
+] as const;
+
+/** One row per file whose audio was vectorized, including files whose windows were all silent. */
+const AUDIO_STATE_SCHEMA = new Schema([
+  new Field("fileId", new Utf8(), false),
+  new Field("sourceHash", new Utf8(), false),
+  new Field("vectorVersion", new Utf8(), false),
+  new Field("windowCount", new Int32(), false),
+  new Field("indexedAt", new Utf8(), false),
+]);
+
+const AUDIO_VECTOR_TYPE: SimilarityVectorType = "audio";
 const DEFAULT_SCAN_WINDOW_SIZE = 50_000;
 // Percentage points below the threshold at which quantized index distances are re-scored exactly.
 const DUPLICATE_QUANTIZATION_MARGIN = 5;
+/**
+ * Float16 rounds smaller magnitudes to zero, but Arrow's float16 encoder shifts them by a negative
+ * count and can return NaN or infinity instead, so vectors are given those zeros before encoding.
+ */
+const FLOAT16_ZERO_THRESHOLD = 2 ** -25;
 const MANIFEST_FILE_NAME = "manifest.json";
+// Windows one audio search may return; later searches leave out the files already found.
+const MAX_AUDIO_CANDIDATE_WINDOWS = 50_000;
 const MAX_CONCURRENT_VECTOR_ROW_QUERIES = 10;
 const MAX_DUPLICATE_CANDIDATES = 32;
 const MAX_FILE_ID_QUERY_SIZE = 500;
@@ -306,6 +346,13 @@ const getIsFreshVectorRow = (row: any, sourceHash: string) => row?.sourceHash ==
 
 const getIsTerminalStatus = (status: SimilarityBackfillStatus) =>
   ["cancelled", "complete", "error"].includes(status);
+
+const getRequiredFields = (tableDef: VectorTableManifestEntry): readonly string[] =>
+  tableDef.vectorType === AUDIO_VECTOR_TYPE
+    ? AUDIO_REQUIRED_FIELDS
+    : tableDef.vectorType === VISUAL_VECTOR_TYPE
+      ? VISUAL_REQUIRED_FIELDS
+      : [];
 
 const normalizeVector = (values: number[]) => {
   const norm = Math.sqrt(values.reduce((acc, val) => acc + val * val, 0));
@@ -507,6 +554,265 @@ export class VectorSimilarityService {
       hasMore: candidates.length > limit,
       nextOffset: offset + Math.min(limit, candidates.length),
     };
+  }
+
+  /**
+   * The files whose audio windows best match a query embedding, each with its closest window. Given
+   * files are searched exactly; the whole library uses the search index once it is built.
+   */
+  async findSimilarAudio(args: {
+    exclude?: { end: number; fileId: string; start: number };
+    fileIds?: string[];
+    limit: number;
+    offset: number;
+    vector: number[];
+  }) {
+    if (
+      !Number.isSafeInteger(args.limit) ||
+      !Number.isSafeInteger(args.offset) ||
+      args.limit < 1 ||
+      args.offset < 0
+    )
+      throw new Error("Invalid similarity result range.");
+
+    await this.init();
+
+    const tableDef = await this.getAudioTableDef();
+    const table = await this.openValidTableIfExists(tableDef);
+
+    if (!table)
+      throw new Error(
+        "No audio similarity vectors are stored yet. Generate them with Audio Analysis in Settings → Repair.",
+      );
+
+    const config = getConfig().file.similarity.index.ivfPq;
+    const isExact = !!args.fileIds || !(await this.getVectorIndex(table));
+    const wantedCount = args.offset + args.limit + 1;
+
+    // The query's own stretch of audio would always match itself.
+    const exclusion = args.exclude
+      ? `NOT (${makeFileIdPredicate(args.exclude.fileId)} AND \`start\` < ${args.exclude.end} AND \`end\` > ${args.exclude.start})`
+      : null;
+
+    /**
+     * Each file's closest window, for enough files to fill the page. LanceDB returns windows nearest
+     * first, as its documented plans sort flat searches by distance and refined searches are
+     * reordered by true distance, so a file's first window is its closest. Found files are left out
+     * of later searches.
+     */
+    const findClosestWindows = async (fileIds: string[] | null) => {
+      const candidates = new Map<string, AudioCandidate>();
+      let windowCount = Math.min(
+        MAX_AUDIO_CANDIDATE_WINDOWS,
+        wantedCount * AUDIO_CANDIDATE_WINDOWS_PER_FILE,
+      );
+
+      while (candidates.size < wantedCount) {
+        const predicate = [
+          fileIds ? makeFileIdsPredicate(fileIds) : null,
+          candidates.size ? `NOT (${makeFileIdsPredicate([...candidates.keys()])})` : null,
+          exclusion,
+        ]
+          .filter(Boolean)
+          .join(" AND ");
+
+        const query = table
+          .vectorSearch(args.vector)
+          .column("vector")
+          .distanceType(tableDef.distanceType)
+          .select(["_distance", "end", "fileId", "start"])
+          .limit(windowCount);
+
+        const search = isExact
+          ? query.bypassVectorIndex()
+          : query.nprobes(config.nprobes).refineFactor(config.refineFactor);
+
+        const rows = await (predicate ? search.where(predicate) : search).toArray();
+
+        for (const row of rows) {
+          if (!candidates.has(String(row.fileId)))
+            candidates.set(String(row.fileId), {
+              end: Number(row.end),
+              fileId: String(row.fileId),
+              score: Math.max(0, Math.min(1, 1 - Number(row._distance ?? 1))),
+              start: Number(row.start),
+            });
+        }
+
+        // A search returning fewer windows than asked for has returned all of its matches.
+        if (rows.length < windowCount) break;
+
+        windowCount = Math.min(MAX_AUDIO_CANDIDATE_WINDOWS, windowCount * 2);
+      }
+
+      return [...candidates.values()];
+    };
+
+    // Every batch of chosen files keeps enough of its own closest files to fill the page alone.
+    const ranked = (
+      args.fileIds
+        ? await this.mapFileIdBatches(args.fileIds, findClosestWindows)
+        : [await findClosestWindows(null)]
+    )
+      .flat()
+      .sort((a, b) => b.score - a.score)
+      .slice(args.offset, wantedCount);
+
+    return {
+      candidates: ranked.slice(0, args.limit).map((candidate, index) => ({
+        ...candidate,
+        rank: args.offset + index + 1,
+      })),
+      hasMore: ranked.length > args.limit,
+      nextOffset: args.offset + Math.min(args.limit, ranked.length),
+    };
+  }
+
+  /**
+   * Deletes the stored audio vectors made with other window settings, and those of the given files
+   * whose checksum changed or that hold more windows than their audio can, then returns the given
+   * files whose vectors are current with a count of those over their window limit. Clearing them up
+   * front lets every later write only append. The state table is read in one query.
+   */
+  async pruneAudioVectors(args: {
+    files: { fileId: string; hash: string; maxWindowCount: number }[];
+  }) {
+    const result = { currentFileIds: [] as string[], overLimitCount: 0 };
+
+    if (!args.files.length) return result;
+
+    await this.init();
+
+    const tableDef = await this.getAudioTableDef();
+    const stateTable = await this.getAudioStateTable(tableDef, false);
+
+    if (!stateTable) return result;
+
+    const files = new Map(args.files.map((file) => [file.fileId, file]));
+    const rows = await stateTable
+      .query()
+      .select(["fileId", "sourceHash", "vectorVersion", "windowCount"])
+      .toArray();
+
+    const changedFileIds: string[] = [];
+    let hasOtherSettings = false;
+
+    for (const row of rows) {
+      const fileId = String(row.fileId);
+      const file = files.get(fileId);
+
+      if (row.vectorVersion !== tableDef.vectorVersion) hasOtherSettings = true;
+      else if (file && row.sourceHash !== file.hash) changedFileIds.push(fileId);
+      else if (file && row.windowCount > file.maxWindowCount) {
+        changedFileIds.push(fileId);
+        result.overLimitCount++;
+      } else if (file) result.currentFileIds.push(fileId);
+    }
+
+    if (!hasOtherSettings && !changedFileIds.length) return result;
+
+    if (this.searchIndexBuild?.status === "running")
+      throw new Error(
+        "Wait for the similarity search index build to finish before indexing audio.",
+      );
+
+    const table = await this.openValidTableIfExists(tableDef);
+
+    // Vectors of other window settings are all outdated, so one delete clears them.
+    if (hasOtherSettings) {
+      const predicate = `vectorVersion != '${escapeSqlString(tableDef.vectorVersion)}'`;
+
+      await table?.delete(predicate);
+      await stateTable.delete(predicate);
+    }
+
+    for (const fileIds of chunkArray(changedFileIds, MAX_FILE_ID_QUERY_SIZE)) {
+      await table?.delete(makeFileIdsPredicate(fileIds));
+      await stateTable.delete(makeFileIdsPredicate(fileIds));
+    }
+
+    return result;
+  }
+
+  /**
+   * Appends each file's audio windows, then records them as current for its checksum. Outdated
+   * vectors are pruned before a repair, so writes never delete.
+   */
+  async storeAudioVectors(args: {
+    files: {
+      fileId: string;
+      sourceHash: string;
+      windows: Omit<AudioVectorWindow, "vector">[];
+    }[];
+    /** Every window's vector in order, as base64 float64 values. */
+    vectors: string;
+  }) {
+    if (!args.files.length) return;
+
+    await this.init();
+
+    if (this.searchIndexBuild?.status === "running")
+      throw new Error(
+        "Wait for the similarity search index build to finish before indexing audio.",
+      );
+
+    const tableDef = await this.getAudioTableDef();
+    const { table } = await this.getOrCreateTable(tableDef);
+    const stateTable = await this.getAudioStateTable(tableDef, true);
+    const indexedAt = new Date().toISOString();
+
+    // Copied out of the decoded buffer, whose byte offset may not suit a Float64Array.
+    const vectorBytes = Buffer.from(args.vectors, "base64");
+    const vectors = new Float64Array(
+      vectorBytes.buffer.slice(vectorBytes.byteOffset, vectorBytes.byteOffset + vectorBytes.length),
+    );
+    const windowCount = args.files.reduce((count, file) => count + file.windows.length, 0);
+    if (vectors.length !== windowCount * tableDef.dimensions)
+      throw new Error(
+        `Received ${vectors.length} audio vector values for ${windowCount} windows of ${tableDef.dimensions} dimensions.`,
+      );
+
+    let vectorOffset = 0;
+
+    const rows = args.files.flatMap((file) =>
+      file.windows.map((window) => {
+        const vector = Array.from(
+          vectors.subarray(vectorOffset, vectorOffset + tableDef.dimensions),
+        );
+
+        vectorOffset += tableDef.dimensions;
+
+        return {
+          end: window.end,
+          entityId: `${file.fileId}:${Math.round(window.start * 1000)}`,
+          fileId: file.fileId,
+          indexedAt,
+          modelId: tableDef.modelId,
+          sourceHash: file.sourceHash,
+          start: window.start,
+          vector,
+          vectorVersion: tableDef.vectorVersion,
+        };
+      }),
+    );
+
+    // The state is written last, so an interrupted write leaves these files stale rather than
+    // current. Their windows may then be stored twice, which searches absorb by keeping each file's
+    // closest.
+    if (rows.length) await table.add(this.makeArrowTable(tableDef, rows));
+
+    await stateTable.add(
+      this.lancedb.makeArrowTable(
+        args.files.map((file) => ({
+          fileId: file.fileId,
+          indexedAt,
+          sourceHash: file.sourceHash,
+          vectorVersion: tableDef.vectorVersion,
+          windowCount: file.windows.length,
+        })),
+        { schema: AUDIO_STATE_SCHEMA },
+      ),
+    );
   }
 
   async indexFileSimilarity(args: { fileId: string; vectorTypes?: SimilarityVectorType[] }) {
@@ -780,30 +1086,31 @@ export class VectorSimilarityService {
     return { optimizedTables };
   }
 
+  /** The visual index serves duplicate scans; the audio index only adds its indexed window count. */
   async getSearchIndexStatus() {
     await this.init();
 
-    const tableDef = this.getActiveTableDef(VISUAL_VECTOR_TYPE);
-    const table = tableDef ? await this.openValidTableIfExists(tableDef) : null;
-    const index = table ? await this.getVectorIndex(table) : null;
-    const stats = index ? await table.indexStats(index.name) : null;
+    const visual = await this.getSearchIndexStats(this.getActiveTableDef(VISUAL_VECTOR_TYPE));
+    const audio = await this.getSearchIndexStats(this.getActiveTableDef(AUDIO_VECTOR_TYPE));
 
     return {
+      audioIndexedRowCount: audio.indexedRowCount,
       error: this.searchIndexBuild?.error ?? "",
-      hasIndex: !!index,
-      indexedRowCount: stats?.numIndexedRows ?? 0,
+      hasIndex: visual.hasIndex,
+      indexedRowCount: visual.indexedRowCount,
       isUpdate: this.searchIndexBuild?.isUpdate ?? false,
       message: this.searchIndexBuild?.message ?? "",
       percent: this.searchIndexBuild?.percent ?? null,
       startedAt: this.searchIndexBuild?.startedAt ?? null,
-      status: this.searchIndexBuild?.status ?? (index ? "complete" : "idle"),
-      unindexedRowCount: stats?.numUnindexedRows ?? 0,
+      status:
+        this.searchIndexBuild?.status ?? (visual.hasIndex || audio.hasIndex ? "complete" : "idle"),
+      unindexedRowCount: visual.unindexedRowCount,
     };
   }
 
   /**
-   * Builds the opt-in index used by library-wide duplicate scans, or appends rows vectorized since
-   * the last run without retraining. Only Repair starts it; vectors themselves are never changed.
+   * Builds the opt-in indexes used by library-wide duplicate scans and audio lookups, or appends rows
+   * vectorized since the last run without retraining. Only Repair starts it; vectors never change.
    */
   async startSearchIndexBuild() {
     await this.init();
@@ -823,10 +1130,10 @@ export class VectorSimilarityService {
 
     this.searchIndexBuild = build;
 
-    let target: Awaited<ReturnType<VectorSimilarityService["getSearchIndexTarget"]>>;
+    let targets: Awaited<ReturnType<VectorSimilarityService["getSearchIndexTargets"]>>;
 
     try {
-      target = await this.getSearchIndexTarget();
+      targets = await this.getSearchIndexTargets();
     } catch (error) {
       build.error = error.message;
       build.status = "error";
@@ -834,10 +1141,9 @@ export class VectorSimilarityService {
       throw error;
     }
 
-    build.isUpdate = target.isUpdate;
-    fileLog(
-      `[VECTOR] ${target.isUpdate ? "Updating" : "Building"} the similarity search index over ${target.rowCount.toLocaleString()} vectors.`,
-    );
+    build.isUpdate = targets.every((target) => target.isUpdate);
+
+    let vectorType: SimilarityVectorType;
 
     // The worker only logs Lance's index builders below warn, as "[timestamp LEVEL target] message".
     const handleOutput = (line: string) => {
@@ -846,33 +1152,49 @@ export class VectorSimilarityService {
       if (/^lance(::dataset::optimize|::index|_index)/.test(target ?? "")) {
         const [, done, total] = message.match(SEARCH_INDEX_COUNT_REGEX) ?? [];
 
-        build.message = message;
+        build.message = `${vectorType} vectors: ${message}`;
         build.percent = +total ? Math.min(100, (+done / +total) * 100) : null;
       }
     };
 
     (async () => {
       try {
-        // A separate process makes the build cancellable; Lance commits the index atomically, so a
-        // cancelled build leaves no partial index behind.
-        await runNativeTask(
-          "search-index",
-          {
-            config: target.config,
-            dbPath: getConfig().db.vector.path,
-            distanceType: target.tableDef.distanceType,
-            isUpdate: target.isUpdate,
-            tableName: target.tableDef.tableName,
-          },
-          build.controller.signal,
-          undefined,
-          handleOutput,
-        );
+        for (const target of targets) {
+          vectorType = target.tableDef.vectorType;
+          build.message = "";
+          build.percent = null;
+          fileLog(
+            `[VECTOR] ${target.isUpdate ? "Updating" : "Building"} the ${vectorType} similarity search index over ${target.rowCount.toLocaleString()} vectors.`,
+          );
 
-        await target.table.checkoutLatest();
+          // A separate process makes the build cancellable.
+          await runNativeTask(
+            "search-index",
+            {
+              config: target.config,
+              dbPath: getConfig().db.vector.path,
+              distanceType: target.tableDef.distanceType,
+              isUpdate: target.isUpdate,
+              tableName: target.tableDef.tableName,
+            },
+            build.controller.signal,
+            undefined,
+            handleOutput,
+          );
 
-        if (!(await this.getVectorIndex(target.table)))
-          throw new Error("LanceDB did not report the search index after building it.");
+          await target.table.checkoutLatest();
+
+          if (!(await this.getVectorIndex(target.table)))
+            throw new Error("LanceDB did not report the search index after building it.");
+
+          // Every audio vector write also records file state, so that table is compacted too.
+          const stateTable =
+            vectorType === AUDIO_VECTOR_TYPE
+              ? await this.getAudioStateTable(target.tableDef, false)
+              : null;
+
+          await stateTable?.optimize({ cleanupOlderThan: new Date(), deleteUnverified: false });
+        }
 
         build.status = "complete";
         fileLog(
@@ -1546,22 +1868,48 @@ export class VectorSimilarityService {
     });
   }
 
-  private async getSearchIndexTarget() {
+  /** The visual and audio tables with enough vectors to train an index. */
+  private async getSearchIndexTargets() {
     // Compaction during an update would conflict with backfill writes to the same rows.
     if ([...this.jobs.values()].some((job) => !getIsTerminalStatus(job.progress.status)))
       throw new Error("Wait for similarity indexing to finish before building the search index.");
 
-    const tableDef = this.getActiveTableDef(VISUAL_VECTOR_TYPE);
-    const table = tableDef ? await this.openValidTableIfExists(tableDef) : null;
-    const rowCount = table ? await table.countRows() : 0;
     const config = getConfig().file.similarity.index.ivfPq;
+    const tableDefs = [this.getActiveTableDef(VISUAL_VECTOR_TYPE), await this.getAudioTableDef()];
+    const targets = [];
 
-    if (rowCount < 2 ** config.numBits)
+    for (const tableDef of tableDefs) {
+      const table = tableDef ? await this.openValidTableIfExists(tableDef) : null;
+      const rowCount = table ? await table.countRows() : 0;
+
+      if (rowCount >= 2 ** config.numBits)
+        targets.push({
+          config,
+          isUpdate: !!(await this.getVectorIndex(table)),
+          rowCount,
+          table,
+          tableDef,
+        });
+    }
+
+    if (!targets.length)
       throw new Error(
         `At least ${2 ** config.numBits} similarity vectors are needed to build the search index.`,
       );
 
-    return { config, isUpdate: !!(await this.getVectorIndex(table)), rowCount, table, tableDef };
+    return targets;
+  }
+
+  private async getSearchIndexStats(tableDef: VectorTableManifestEntry | null) {
+    const table = tableDef ? await this.openValidTableIfExists(tableDef) : null;
+    const index = table ? await this.getVectorIndex(table) : null;
+    const stats = index ? await table.indexStats(index.name) : null;
+
+    return {
+      hasIndex: !!index,
+      indexedRowCount: stats?.numIndexedRows ?? 0,
+      unindexedRowCount: stats?.numUnindexedRows ?? 0,
+    };
   }
 
   /**
@@ -1636,6 +1984,62 @@ export class VectorSimilarityService {
     if (!tableDef || tableDef.status !== "active") return null;
 
     return tableDef;
+  }
+
+  /**
+   * The audio table for the configured model and layer, made active in the manifest. Each keeps its
+   * vectors, so switching back needs no re-index; window setting changes re-index files instead.
+   */
+  private async getAudioTableDef() {
+    const { layer, model, silenceThresholdDb } = getConfig().file.similarity.audio;
+    const { hopTokens, windowTokens } = getAudioWindowTokens();
+    const tableName = `file_audio_${model.replace("-", "_")}_${layer}_v1`;
+    const previousTableName = this.manifest.activeTables[AUDIO_VECTOR_TYPE];
+
+    const tableDef: VectorTableManifestEntry = {
+      dimensions: getAudioSimilarityModel().dimensions,
+      distanceType: "cosine",
+      indexType: "ivf_pq",
+      modelId: `mispeech/${model}`,
+      scope: "segment",
+      sourceKind: "audioSegmentHash",
+      status: "active",
+      tableName,
+      vectorDType: "float16",
+      vectorType: AUDIO_VECTOR_TYPE,
+      vectorVersion: `${model}:${layer}:w${windowTokens}:h${hopTokens}:${silenceThresholdDb}db:v1`,
+    };
+
+    if (
+      previousTableName !== tableName ||
+      JSON.stringify(this.manifest.tables[tableName]) !== JSON.stringify(tableDef)
+    ) {
+      if (previousTableName !== tableName && this.manifest.tables[previousTableName])
+        this.manifest.tables[previousTableName].status = "deprecated";
+
+      this.manifest.activeTables[AUDIO_VECTOR_TYPE] = tableName;
+      this.manifest.tables[tableName] = tableDef;
+      await this.writeManifest(this.manifest);
+    }
+
+    return tableDef;
+  }
+
+  private async getAudioStateTable(tableDef: VectorTableManifestEntry, create: boolean) {
+    const tableName = `${tableDef.tableName}_state`;
+    const existing = await this.openTableIfExists(tableName);
+
+    if (existing || !create) return existing;
+
+    const table = await this.db.createEmptyTable(tableName, AUDIO_STATE_SCHEMA, {
+      existOk: true,
+      mode: "create",
+    });
+
+    await this.ensureScalarIndexes(table, ["fileId"]);
+    this.tables.set(tableName, table);
+
+    return table;
   }
 
   private async getExistingRow(tableDef: VectorTableManifestEntry, fileId: string) {
@@ -1801,25 +2205,25 @@ export class VectorSimilarityService {
     return rowsByVectorType;
   }
 
-  private async queryRowsByFileIds(table: LanceTable, fileIds: string[], columns: string[]) {
-    const rows: any[] = [];
+  /** Runs a query for each batch of file IDs short enough for one predicate, a few at a time. */
+  private async mapFileIdBatches<T>(fileIds: string[], query: (fileIds: string[]) => Promise<T>) {
+    const results: T[] = [];
 
     for (const queryBatch of chunkArray(
       chunkArray(fileIds, MAX_FILE_ID_QUERY_SIZE),
       MAX_CONCURRENT_VECTOR_ROW_QUERIES,
-    )) {
-      rows.push(
-        ...(
-          await Promise.all(
-            queryBatch.map((fileIdBatch) =>
-              table.query().select(columns).where(makeFileIdsPredicate(fileIdBatch)).toArray(),
-            ),
-          )
-        ).flat(),
-      );
-    }
+    ))
+      results.push(...(await Promise.all(queryBatch.map(query))));
 
-    return rows;
+    return results;
+  }
+
+  private async queryRowsByFileIds(table: LanceTable, fileIds: string[], columns: string[]) {
+    return (
+      await this.mapFileIdBatches(fileIds, (fileIdBatch) =>
+        table.query().select(columns).where(makeFileIdsPredicate(fileIdBatch)).toArray(),
+      )
+    ).flat();
   }
 
   private async openTableIfExists(tableName: string): Promise<LanceTable | null> {
@@ -1861,10 +2265,9 @@ export class VectorSimilarityService {
       const schema = await table.schema();
       const fieldNames = new Set(schema.fields.map((field) => field.name));
 
-      const missingFields =
-        tableDef.vectorType === VISUAL_VECTOR_TYPE
-          ? VISUAL_REQUIRED_FIELDS.filter((fieldName) => !fieldNames.has(fieldName))
-          : [];
+      const missingFields = getRequiredFields(tableDef).filter(
+        (fieldName) => !fieldNames.has(fieldName),
+      );
 
       return {
         isValid: !missingFields.length,
@@ -1873,7 +2276,7 @@ export class VectorSimilarityService {
     } catch {
       return {
         isValid: false,
-        missingFields: [...VISUAL_REQUIRED_FIELDS],
+        missingFields: [...getRequiredFields(tableDef)],
       };
     }
   }
@@ -1914,6 +2317,9 @@ export class VectorSimilarityService {
     return new Schema([
       new Field("entityId", new Utf8(), false),
       new Field("fileId", new Utf8(), false),
+      ...(tableDef.scope === "segment"
+        ? [new Field("start", new Float32(), false), new Field("end", new Float32(), false)]
+        : []),
       new Field("sourceHash", new Utf8(), false),
       new Field("modelId", new Utf8(), false),
       new Field("vectorVersion", new Utf8(), false),
@@ -1927,7 +2333,17 @@ export class VectorSimilarityService {
   }
 
   private makeArrowTable(tableDef: VectorTableManifestEntry, rows: Record<string, any>[]) {
-    return this.lancedb.makeArrowTable(rows, { schema: this.makeVectorSchema(tableDef) });
+    const encodableRows =
+      tableDef.vectorDType === "float16"
+        ? rows.map((row) => ({
+            ...row,
+            vector: row.vector.map((value: number) =>
+              Math.abs(value) < FLOAT16_ZERO_THRESHOLD ? 0 : value,
+            ),
+          }))
+        : rows;
+
+    return this.lancedb.makeArrowTable(encodableRows, { schema: this.makeVectorSchema(tableDef) });
   }
 
   private async mergeInsertRows(
@@ -1954,8 +2370,11 @@ export class VectorSimilarityService {
     );
   }
 
-  private async ensureScalarIndexes(table: LanceTable) {
-    for (const column of ["entityId", "fileId", "sourceHash"]) {
+  private async ensureScalarIndexes(
+    table: LanceTable,
+    columns = ["entityId", "fileId", "sourceHash"],
+  ) {
+    for (const column of columns) {
       try {
         await table.createIndex(column, { replace: false });
       } catch (err) {

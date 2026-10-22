@@ -15,11 +15,15 @@ interface SimilarityCandidateMeta {
   fileId: string;
   rank: number;
   score: number;
+  /** Where the closest window of an audio match begins. */
+  start?: number;
 }
 
 @model("medior/FileSimilarityStore")
 export class FileSimilarityStore extends Model({
   activeFileId: prop<string | null>(null).withSetter(),
+  /** The stretch of the active file's audio an audio lookup compares; null compares visuals. */
+  audioRange: prop<{ end: number; start: number } | null>(null).withSetter(),
   candidates: prop<SimilarityCandidateMeta[]>(() => []).withSetter(),
   error: prop<string>("").withSetter(),
   /** JSON of the filter last searched in the filter menu, which every match must pass. */
@@ -58,6 +62,7 @@ export class FileSimilarityStore extends Model({
     this.cancelLoad();
     this.setIsOpen(false);
     this.setActiveFileId(null);
+    this.setAudioRange(null);
     this.setCandidates([]);
     this.setError("");
     this.setFilter(null);
@@ -97,9 +102,10 @@ export class FileSimilarityStore extends Model({
   }
 
   @modelAction
-  private prepare(fileId: string) {
+  private prepare(fileId: string, audioRange: { end: number; start: number } = null) {
     this.cancelLoad();
     this.setActiveFileId(fileId);
+    this.setAudioRange(audioRange);
     this.setCandidates([]);
     this.setError("");
     this.setFilter(null);
@@ -128,14 +134,22 @@ export class FileSimilarityStore extends Model({
     this.setLoadId(loadId);
 
     try {
-      const res = await trpc.findSimilarFiles.mutate({
+      const args = {
         fileId: this.activeFileId,
         filter: this.filter,
         limit:
           limit ??
           Math.min(CONSTANTS.VECTOR.MAX_SIMILAR_RESULTS, Math.max(100, this.search.pageSize)),
         offset: append ? this.nextOffset : 0,
-      });
+      };
+
+      const res = this.audioRange
+        ? await trpc.findSimilarAudio.mutate({
+            ...args,
+            end: this.audioRange.end,
+            start: this.audioRange.start,
+          })
+        : await trpc.findSimilarFiles.mutate(args);
 
       if (loadId !== this.loadId) return;
 
@@ -192,10 +206,26 @@ export class FileSimilarityStore extends Model({
     await this.loadSimilar();
   });
 
+  @modelFlow
+  openAudio = asyncAction(async (args: { end: number; fileId: string; start: number }) => {
+    this.prepare(args.fileId, { end: args.end, start: args.start });
+    await this.loadSimilar();
+  });
+
   /* --------------------------------- GETTERS -------------------------------- */
   @computed
   get candidatesById() {
     return new Map(this.candidates.map((candidate) => [candidate.fileId, candidate]));
+  }
+
+  /** Opens audio matches in the carousel at the moment they matched. */
+  @computed
+  get carouselStartTimes() {
+    return Object.fromEntries(
+      this.candidates
+        .filter((candidate) => candidate.start !== undefined)
+        .map((candidate) => [candidate.fileId, candidate.start]),
+    );
   }
 
   get resultIds() {

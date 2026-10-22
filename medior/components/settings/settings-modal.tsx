@@ -20,6 +20,9 @@ import { useStores } from "medior/store";
 import { colors, toast, useCancellableLoad } from "medior/utils/client";
 import { CONSTANTS, SUBTITLE_MODES } from "medior/utils/common";
 import {
+  AUDIO_SIMILARITY_DEVICE_OPTIONS,
+  AUDIO_SIMILARITY_LAYER_OPTIONS,
+  AUDIO_SIMILARITY_MODELS,
   DEV_TOOLS_MODES,
   loadConfig,
   SIMILARITY_DEVICE_OPTIONS,
@@ -360,6 +363,72 @@ export const SettingsModal = Comp(() => {
                     <Settings.NumInput
                       configKey="file.similarity.visual.inferenceBatchSize"
                       minValue={1}
+                    />
+                  </Settings.Field>
+                </Settings.Grid>
+              </Settings.Group>
+
+              <Settings.Group title="Audio">
+                <Settings.Grid>
+                  <Settings.Field
+                    label="Model"
+                    description="Exported to the model cache by scripts/export-ced-onnx.py. Each model and layer keeps its own vectors."
+                  >
+                    <Settings.Dropdown
+                      configKey="file.similarity.audio.model"
+                      options={AUDIO_SIMILARITY_MODELS}
+                      width="10rem"
+                    />
+                  </Settings.Field>
+
+                  <Settings.Field
+                    label="Layer"
+                    description="Final groups sounds by type; Middle may keep finer acoustic detail."
+                  >
+                    <Settings.Dropdown
+                      configKey="file.similarity.audio.layer"
+                      options={AUDIO_SIMILARITY_LAYER_OPTIONS}
+                      width="8rem"
+                    />
+                  </Settings.Field>
+
+                  <Settings.Field
+                    label="Device"
+                    description="Hardware that generates audio vectors."
+                  >
+                    <Settings.Dropdown
+                      configKey="file.similarity.audio.device"
+                      options={AUDIO_SIMILARITY_DEVICE_OPTIONS}
+                      width="10rem"
+                    />
+                  </Settings.Field>
+
+                  <Settings.Field
+                    label="Batch Size"
+                    description="Ten-second chunks per inference batch. Higher uses more memory."
+                  >
+                    <Settings.NumInput configKey="file.similarity.audio.batchSize" minValue={1} />
+                  </Settings.Field>
+
+                  <Settings.Field
+                    label="Window"
+                    description="Audio each stored vector covers. Changing it regenerates audio vectors."
+                  >
+                    <Settings.NumInput
+                      configKey="file.similarity.audio.windowMs"
+                      adornment="ms"
+                      minValue={160}
+                    />
+                  </Settings.Field>
+
+                  <Settings.Field
+                    label="Hop"
+                    description="Time between window starts. Changing it regenerates audio vectors."
+                  >
+                    <Settings.NumInput
+                      configKey="file.similarity.audio.hopMs"
+                      adornment="ms"
+                      minValue={160}
                     />
                   </Settings.Field>
                 </Settings.Grid>

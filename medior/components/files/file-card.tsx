@@ -2,24 +2,36 @@ import { Comp, Icon, LoadingOverlay, Text, View } from "medior/components";
 import { useFileDrag } from "medior/components/files/hooks";
 import { File, FileSearch, FileTransformSearch, useStores } from "medior/store";
 import { colors, CSS, openCarouselWindow, toast } from "medior/utils/client";
-import { round } from "medior/utils/common";
+import { Fmt, round } from "medior/utils/common";
 import { FileBase } from ".";
 
 interface FileCardProps {
   carouselFileIds?: string[];
+  /** Seconds each carousel video starts playing at, by file ID. */
+  carouselStartTimes?: Record<string, number>;
   disabled?: boolean;
   file?: File;
   height?: CSS["height"];
   similarity?: {
     rank: number;
     score: number;
+    start?: number;
   };
   store: FileSearch | FileTransformSearch;
   width?: CSS["width"];
 }
 
 export const FileCard = Comp(
-  ({ carouselFileIds, disabled, file, height, similarity, store, width }: FileCardProps) => {
+  ({
+    carouselFileIds,
+    carouselStartTimes,
+    disabled,
+    file,
+    height,
+    similarity,
+    store,
+    width,
+  }: FileCardProps) => {
     const stores = useStores();
 
     const fileDragProps = useFileDrag(file, store.selectedIds);
@@ -42,7 +54,12 @@ export const FileCard = Comp(
 
     const handleDoubleClick = async () => {
       if (!disabled) {
-        if (carouselFileIds?.length) openCarouselWindow({ file, selectedFileIds: carouselFileIds });
+        if (carouselFileIds?.length)
+          openCarouselWindow({
+            file,
+            selectedFileIds: carouselFileIds,
+            startTimes: carouselStartTimes,
+          });
         else {
           const res = await store.listIdsForCarousel();
 
@@ -105,7 +122,9 @@ export const FileCard = Comp(
                       {`#${similarity.rank}`}
                     </Text>
                   }
-                  label={`${round(similarity.score * 100, 1)}%`}
+                  label={`${round(similarity.score * 100, 1)}%${
+                    similarity.start === undefined ? "" : ` @ ${Fmt.duration(similarity.start)}`
+                  }`}
                 />
               ) : (
                 <FileBase.RatingChip position="top-left" rating={file.rating} />

@@ -28,3 +28,4 @@ ModelCache/
 npm-debug.log*
 plugins/
 scripts/update-trabecula.branch.txt
+scripts/__pycache__

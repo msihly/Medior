@@ -54,7 +54,9 @@ export const SimilarityModal = Comp(() => {
           />
         }
       >
-        <Text preset="title">{"Similarity Lookup"}</Text>
+        <Text preset="title">
+          {store.audioRange ? "Similar Audio Lookup" : "Similarity Lookup"}
+        </Text>
       </Modal.Header>
 
       <Modal.Content dividers={false} overflow="hidden" padding={{ all: 0 }} spacing={0}>
@@ -69,6 +71,7 @@ export const SimilarityModal = Comp(() => {
               file={file}
               store={store.search}
               carouselFileIds={store.resultIds}
+              carouselStartTimes={store.carouselStartTimes}
               similarity={store.getCandidate(file.id)}
             />
           ))}

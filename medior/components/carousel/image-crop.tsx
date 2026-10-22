@@ -36,8 +36,9 @@ export const ImageCrop = Comp(({ expectedHash, fileId, onClose }: ImageCropProps
   const imageRef = useRef<HTMLImageElement>(null);
   const surfaceRef = useRef<HTMLDivElement>(null);
 
-  const imageDims = useElementResize(imageRef, preview);
-  const surfaceDims = useElementResize(surfaceRef, preview);
+  // The surface mounts once the preview and crop are both set, in separate React 17 renders.
+  const imageDims = useElementResize(imageRef, crop && preview);
+  const surfaceDims = useElementResize(surfaceRef, crop && preview);
 
   const { css } = useClasses({
     crop,

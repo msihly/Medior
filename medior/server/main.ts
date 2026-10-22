@@ -394,7 +394,7 @@ const registerDevToolsShortcuts = (window: BrowserWindow) => {
   });
 };
 
-const createCarouselWindow = async ({ fileId, height, selectedFileIds, width }) => {
+const createCarouselWindow = async ({ fileId, height, selectedFileIds, startTimes, width }) => {
   if (shutdown) return;
 
   try {
@@ -447,7 +447,7 @@ const createCarouselWindow = async ({ fileId, height, selectedFileIds, width }) 
 
     setTimeout(() => {
       if (!carouselWindow.isDestroyed() && !carouselWindow.webContents.isDestroyed())
-        carouselWindow.webContents.send("init", { fileId, selectedFileIds });
+        carouselWindow.webContents.send("init", { fileId, selectedFileIds, startTimes });
     }, 500);
 
     return carouselWindow;

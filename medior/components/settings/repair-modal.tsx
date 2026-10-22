@@ -312,7 +312,11 @@ export const RepairModal = Comp(() => {
 
       if (res.data.status === "complete") {
         store.log(
-          `Similarity search index ready: ${Fmt.commas(res.data.indexedRowCount)} vectors indexed.`,
+          `Similarity search index ready: ${Fmt.commas(res.data.indexedRowCount)} visual vectors${
+            res.data.audioIndexedRowCount
+              ? ` and ${Fmt.commas(res.data.audioIndexedRowCount)} audio windows`
+              : ""
+          } indexed.`,
           colors.custom.green,
         );
         break;
@@ -483,7 +487,9 @@ export const RepairModal = Comp(() => {
         store.log("[INFO] Starting missing audio analysis repair.");
 
         const res = await trpc.repairMissingAudioAnalysis.mutate({
+          maxAudioVectorDuration: store.audio.similarityMaxDuration,
           maxTranscriptionDuration: store.audio.maxDuration,
+          repairAudioVectors: store.audio.similarity,
           repairId,
           repairTranscriptions: store.audio.transcriptions,
           repairWaveforms: store.audio.waveforms,
@@ -628,14 +634,36 @@ export const RepairModal = Comp(() => {
 
             <RepairCheckbox
               label="Audio Analysis"
-              description="Missing waveform and transcription data for videos with audio."
+              description="Missing waveform, transcription, and audio similarity data for videos with audio."
               checked={store.audio.enabled}
               setChecked={store.audio.setEnabled}
               disabled={store.isRunning}
             />
 
             <View {...checkboxColumnProps}>
-              <View row height="35px">
+              <View row align="center">
+                <RepairCheckbox
+                  label="Generate Missing Audio Similarity Vectors"
+                  description="Vectorizes the audio of videos without current vectors for Find Similar Audio. Needs the exported audio model."
+                  checked={store.audio.similarity}
+                  setChecked={store.audio.setSimilarity}
+                  disabled={store.isRunning || !store.audio.enabled}
+                />
+
+                <NumInput
+                  header="Max Length"
+                  adornment="hms"
+                  value={store.audio.similarityMaxDuration}
+                  valueDisplay={store.audio.similarityMaxDurationDisplay}
+                  setValueDisplay={store.audio.setSimilarityMaxDurationDisplay}
+                  disabled={store.isRunning || !store.audio.enabled || !store.audio.similarity}
+                  minValue={1}
+                  width="6.5rem"
+                  dense
+                />
+              </View>
+
+              <View row align="center">
                 <RepairCheckbox
                   label="Regenerate Missing Transcriptions"
                   description="Transcribes videos with audio that do not have a transcription."
@@ -652,7 +680,7 @@ export const RepairModal = Comp(() => {
                   setValueDisplay={store.audio.setMaxDurationDisplay}
                   disabled={store.isRunning || !store.audio.enabled || !store.audio.transcriptions}
                   minValue={1}
-                  width="8rem"
+                  width="6.5rem"
                   dense
                 />
               </View>
@@ -786,7 +814,7 @@ export const RepairModal = Comp(() => {
 
             <RepairCheckbox
               label="Similarity Search Index"
-              description="Builds the index used to find duplicates across the whole library, or compacts stored vectors and adds newly vectorized files to it."
+              description="Builds the indexes used to find duplicates and similar audio across the whole library, or compacts stored vectors and adds newly vectorized files to them."
               checked={store.similarity.enabled}
               setChecked={store.similarity.setEnabled}
               disabled={store.isRunning}

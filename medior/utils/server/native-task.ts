@@ -22,7 +22,7 @@ const workerEnv: Partial<Record<keyof typeof workerLimits, NodeJS.ProcessEnv>> =
     LANCEDB_LOG_STYLE: "never",
   },
 };
-const workerLimits = { image: 4, "search-index": 1, transcription: 1, visual: 1 };
+const workerLimits = { audio: 1, image: 4, "search-index": 1, transcription: 1, visual: 1 };
 const workerPools = new Map<string, Set<ChildProcess>>();
 const workers = new WeakMap<AbortSignal, Map<string, Set<ChildProcess>>>();
 const workerWaiters = new Map<string, Set<() => void>>();

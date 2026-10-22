@@ -22,6 +22,7 @@ export const VideoControls = Comp(() => {
 
   const activeFile = store.getActiveFile();
 
+  const hasAudio = Boolean(activeFile?.audioCodec) && activeFile.audioCodec !== "None";
   const hasTranscript = Boolean(activeFile?.transcription?.segments?.length);
   const hasCaptions = hasTranscript || store.subtitleTracks.length > 0;
   const isCaptionsActive = store.isCaptionsVisible && hasCaptions;
@@ -46,6 +47,13 @@ export const VideoControls = Comp(() => {
   const goToNextFrame = () => goToFrame(Math.min(store.curFrame + 1, activeFile?.totalFrames));
 
   const goToPrevFrame = () => goToFrame(Math.max(store.curFrame - 1, 1));
+
+  const handleFindSimilarAudio = () =>
+    stores.file.similarity.openAudio({
+      end: Fmt.frameToSec(store.markOut, activeFile.frameRate),
+      fileId: activeFile.id,
+      start: Fmt.frameToSec(store.markIn, activeFile.frameRate),
+    });
 
   const handleFrameSeek = (frame: number) => {
     if (store.isPlaying) {
@@ -190,6 +198,13 @@ export const VideoControls = Comp(() => {
                 : colors.custom.orange
               : colors.custom.lightGrey
           }
+        />
+
+        <IconButton
+          name="Hearing"
+          onClick={handleFindSimilarAudio}
+          disabled={!hasAudio || store.markIn === null || store.markOut === null}
+          tooltip="Find Similar Audio (A to B)"
         />
       </View>
 

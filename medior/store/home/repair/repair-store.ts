@@ -96,6 +96,7 @@ export class RepairStore extends Model({
     return (
       !this.isRunning &&
       !(this.audio.enabled && this.audio.transcriptions && !this.audio.maxDuration) &&
+      !(this.audio.enabled && this.audio.similarity && !this.audio.similarityMaxDuration) &&
       (this.audio.isSelected ||
         this.collections.isSelected ||
         this.files.isSelected ||

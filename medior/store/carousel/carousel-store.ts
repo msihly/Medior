@@ -53,6 +53,8 @@ export class CarouselStore extends Model({
   seekOffset: prop<number>(0).withSetter(),
   selectedFileIds: prop<string[]>(() => []).withSetter(),
   splicer: prop<Splicer>(() => new Splicer({})),
+  /** Seconds each video starts playing at, by file ID, such as where an audio lookup matched. */
+  startTimes: prop<Record<string, number>>(() => ({})).withSetter(),
   subtitleSegments: prop<SubtitleSegment[]>(() => []).withSetter(),
   subtitleTrackId: prop<string>("").withSetter(),
   subtitleTracks: prop<SubtitleTrack[]>(() => []).withSetter(),

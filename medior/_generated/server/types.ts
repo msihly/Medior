@@ -579,6 +579,9 @@ export type SetMediaProgramEpisodesWatchedOutput = ReturnType<
 export type UpdateMediaProgramInput = Parameters<typeof db.updateMediaProgram>[0];
 export type UpdateMediaProgramOutput = ReturnType<typeof db.updateMediaProgram>;
 
+export type FindSimilarAudioInput = Parameters<typeof db.findSimilarAudio>[0];
+export type FindSimilarAudioOutput = ReturnType<typeof db.findSimilarAudio>;
+
 export type FindSimilarFilesInput = Parameters<typeof db.findSimilarFiles>[0];
 export type FindSimilarFilesOutput = ReturnType<typeof db.findSimilarFiles>;
 

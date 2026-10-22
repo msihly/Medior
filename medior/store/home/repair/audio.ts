@@ -6,6 +6,8 @@ import { durationToSeconds } from "medior/utils/common";
 export class RepairAudioStore extends Model({
   enabled: prop<boolean>(false).withSetter(),
   maxDurationDisplay: prop<string>("20m").withSetter(),
+  similarity: prop<boolean>(false).withSetter(),
+  similarityMaxDurationDisplay: prop<string>("20m").withSetter(),
   transcriptions: prop<boolean>(true).withSetter(),
   waveforms: prop<boolean>(true).withSetter(),
 }) {
@@ -15,10 +17,14 @@ export class RepairAudioStore extends Model({
 
   /* ----------------------------- DYNAMIC GETTERS ---------------------------- */
   get isSelected() {
-    return this.enabled && (this.transcriptions || this.waveforms);
+    return this.enabled && (this.similarity || this.transcriptions || this.waveforms);
   }
 
   get maxDuration() {
     return durationToSeconds(this.maxDurationDisplay ?? "");
+  }
+
+  get similarityMaxDuration() {
+    return durationToSeconds(this.similarityMaxDurationDisplay ?? "");
   }
 }
