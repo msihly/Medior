@@ -38,4 +38,9 @@ model.addProp("isCompleted", "boolean", "false", {
   objValue: "args.isCompleted",
 });
 
+model.addProp("statuses", "string[]", "() => []", {
+  objPath: ["imports", "$elemMatch", "status", "$in"],
+  objValue: "args.statuses",
+});
+
 export const MODEL_SEARCH_STORE_FILE_IMPORT_BATCH = model.getModel();

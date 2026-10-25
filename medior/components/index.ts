@@ -6,6 +6,7 @@ export * from "./drawer";
 export * from "./face-recognition";
 export * from "./file-collections";
 export * from "./files";
+export * from "./filter-checklist";
 export * from "./imports";
 export * from "./jobs";
 export * from "./media-programs";

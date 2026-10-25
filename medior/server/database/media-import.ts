@@ -683,7 +683,8 @@ export const importMedia = async (args: MediaImportInput, operationId?: string) 
     const keptCopyPaths = getSubtitleFilePaths(storedSubtitles);
     const keptSourcePaths = getSubtitleFilePaths(copiedKept);
 
-    if (args.deleteOnImport) {
+    // Ignored files besides leftover scratch were previously deleted and are skipped, not discarded.
+    if (args.deleteOnImport && (!ignored || isScratch)) {
       for (const sourcePath of [
         args.originalPath,
         extendFileName(args.originalPath, "json"),

@@ -661,6 +661,7 @@ export class _FileImportBatchSearch extends Model({
   startedAtEnd: prop<string>("").withSetter(),
   startedAtMode: prop<"optional" | "required">("required").withSetter(),
   startedAtStart: prop<string>("").withSetter(),
+  statuses: prop<string[]>(() => []).withSetter(),
   tags: prop<Stores.TagOption[]>(() => []).withSetter(),
 }) {
   onInit() {
@@ -744,6 +745,7 @@ export class _FileImportBatchSearch extends Model({
     this.startedAtEnd = "";
     this.startedAtMode = "required";
     this.startedAtStart = "";
+    this.statuses = [];
     this.tags = [];
   }
 
@@ -1130,6 +1132,7 @@ export class _FileImportBatchSearch extends Model({
       (!isDeepEqual(this.sortValue, getConfig().imports.manager.search.sort) ? 1 : 0) +
       (!isDeepEqual(this.startedAtEnd, "") ? 1 : 0) +
       (!isDeepEqual(this.startedAtStart, "") ? 1 : 0) +
+      (!isDeepEqual(this.statuses, []) ? 1 : 0) +
       (!isDeepEqual(this.tags, []) ? 1 : 0)
     );
   }
@@ -1171,6 +1174,7 @@ export class _FileImportBatchSearch extends Model({
       startedAtEnd: this.startedAtEnd,
       startedAtMode: this.startedAtMode,
       startedAtStart: this.startedAtStart,
+      statuses: this.statuses,
       ...getRootStore<Stores.RootStore>(this)?.tag?.tagSearchOptsToIds(this.tags),
     };
   }
@@ -1203,6 +1207,7 @@ export class _FileImportBatchSearch extends Model({
       startedAtEnd: this.startedAtEnd,
       startedAtMode: this.startedAtMode,
       startedAtStart: this.startedAtStart,
+      statuses: this.statuses,
       tags: this.tags,
     });
   }

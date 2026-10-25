@@ -634,7 +634,7 @@ export const RepairModal = Comp(() => {
 
             <RepairCheckbox
               label="Audio Analysis"
-              description="Missing waveform, transcription, and audio similarity data for videos with audio."
+              description="Missing waveform, transcription, and audio similarity data for videos with audio. Marks videos whose audio cannot be decoded as corrupted."
               checked={store.audio.enabled}
               setChecked={store.audio.setEnabled}
               disabled={store.isRunning}

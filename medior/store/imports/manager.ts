@@ -91,15 +91,17 @@ export class ImportManager extends Model({
   );
 
   @modelFlow
-  deleteBatch = asyncAction(async (args: { id: string }) => {
+  deleteBatches = asyncAction(async (ids: string[]) => {
     await this.pauseImporter();
 
-    const deleteRes = await trpc.deleteImportBatches.mutate({ ids: [args.id] });
+    const deleteRes = await trpc.deleteImportBatches.mutate({ ids });
 
     if (!deleteRes.success) throw new Error(deleteRes.error);
 
-    this.search._deleteResults([args.id]);
+    this.search._deleteResults(ids);
+    this.search.toggleSelected(ids.map((id) => ({ id, isSelected: false })));
     await this.loadActiveBatch();
+    await this.search.loadFiltered({ withFullCount: true });
     await this.getImporterStatus();
   });
 

@@ -3,6 +3,7 @@ import path from "path";
 import { useEffect, useRef, useState } from "react";
 import { FixedSizeList } from "react-window";
 import Color from "color";
+import type { ImportStatus } from "medior/server/database";
 import {
   Card,
   Chip,
@@ -10,9 +11,11 @@ import {
   ConfirmModal,
   FlatFolder,
   IconButton,
+  IMPORT_STATUSES,
   Pagination,
   TagRow,
   Text,
+  TooltipWrapper,
   View,
 } from "medior/components";
 import { FileImportBatch, useStores } from "medior/store";
@@ -49,6 +52,7 @@ export const ImportFolderList = Comp(
     const stores = useStores();
 
     const [collapsed, setCollapsed] = useState(!withListItems);
+    const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
     const [isReprocessConfirmOpen, setIsReprocessConfirmOpen] = useState(false);
 
     const listRef = useRef<FixedSizeList>(null);
@@ -78,9 +82,23 @@ export const ImportFolderList = Comp(
 
     const { css, cx } = useClasses({ collapsed, collapsible, hasCollection, hasTags });
 
-    const deleteBatch = () => stores.import.manager.deleteBatch({ id: batch.id });
+    const deleteBatch = async () => {
+      const res = await stores.import.manager.deleteBatches([batch.id]);
+      if (!res.success) toast.error(res.error);
+
+      return res.success;
+    };
 
     const handlePageChange = (page: number) => batch.loadPage(page);
+
+    /** Status chips filter the batch's files, expanding it to show them. */
+    const handleStatusClick = (status: ImportStatus) => {
+      batch.toggleStatus(status);
+      batch.setPage(1);
+
+      if (collapsed) setCollapsed(false);
+      else batch.loadPage(1);
+    };
 
     const openFolder = async () => {
       if (!folderPath) return;
@@ -89,6 +107,8 @@ export const ImportFolderList = Comp(
 
       if (error) toast.error(error);
     };
+
+    const openDeleteConfirm = () => setIsDeleteConfirmOpen(true);
 
     const openReprocessConfirm = () => setIsReprocessConfirmOpen(true);
 
@@ -108,6 +128,10 @@ export const ImportFolderList = Comp(
     useEffect(() => {
       if (batch && !collapsed) batch.loadPage();
     }, [batch, collapsed]);
+
+    useEffect(() => {
+      batch?.loadStatusCounts();
+    }, [batch]);
 
     useEffect(() => {
       listRef.current?.scrollTo(0);
@@ -165,6 +189,28 @@ export const ImportFolderList = Comp(
               <Chip label={`${Fmt.commas(subtitleCount)} subtitles`} className={css.chip} />
             )}
 
+            {batch &&
+              (Object.keys(IMPORT_STATUSES) as ImportStatus[]).map(
+                (status) =>
+                  batch.statusCounts[status] > 0 && (
+                    <TooltipWrapper key={status} tooltip={IMPORT_STATUSES[status].label}>
+                      <Chip
+                        size="small"
+                        icon={IMPORT_STATUSES[status].icon}
+                        label={Fmt.commas(batch.statusCounts[status])}
+                        bgColor={IMPORT_STATUSES[status].color}
+                        onClick={() => handleStatusClick(status)}
+                        className={cx(
+                          css.statusChip,
+                          batch.statuses.length > 0 &&
+                            !batch.statuses.includes(status) &&
+                            css.unfilteredStatusChip,
+                        )}
+                      />
+                    </TooltipWrapper>
+                  ),
+              )}
+
             {batch && !batch.isReady && <Chip label="Upload incomplete" className={css.chip} />}
 
             {batch?.isReady && (
@@ -178,7 +224,8 @@ export const ImportFolderList = Comp(
             {batch ? (
               <IconButton
                 name="Delete"
-                onClick={deleteBatch}
+                tooltip="Delete Batch"
+                onClick={openDeleteConfirm}
                 iconProps={{ color: colors.custom.red }}
               />
             ) : null}
@@ -234,6 +281,15 @@ export const ImportFolderList = Comp(
               />
             )}
           </View>
+        )}
+
+        {isDeleteConfirmOpen && (
+          <ConfirmModal
+            headerText="Delete Import Batch"
+            subText={`Delete this batch of ${Fmt.commas(batch.fileCount)} files from import history? Unfinished imports are abandoned. Library files and import sources are kept.`}
+            setVisible={setIsDeleteConfirmOpen}
+            onConfirm={deleteBatch}
+          />
         )}
 
         {isReprocessConfirmOpen && (
@@ -326,6 +382,9 @@ const useClasses = makeClasses((props: ClassesProps) => ({
     minHeight: 0,
     overflow: "hidden",
   },
+  statusChip: {
+    flexShrink: 0,
+  },
   tags: {
     alignItems: "center",
     borderBottom: !props.collapsed ? `1px solid ${colors.custom.grey}` : undefined,
@@ -334,5 +393,8 @@ const useClasses = makeClasses((props: ClassesProps) => ({
     height: TAGS_HEIGHT,
     overflowX: "auto",
     padding: "0 0.3rem 0 0.5rem",
+  },
+  unfilteredStatusChip: {
+    opacity: 0.4,
   },
 }));

@@ -4,9 +4,12 @@ import {
   Checkbox,
   Comp,
   DateRange,
+  FilterChecklist,
   FilterHeader,
   FilterMenu,
+  IMPORT_STATUSES,
   Input,
+  LogOpsInput,
   TagInput,
   View,
 } from "medior/components";
@@ -20,9 +23,14 @@ export interface ImportsFilterMenuProps {
 
 export const ImportsFilterMenu = Comp(
   ({ color = colors.foreground, store }: ImportsFilterMenuProps) => {
+    const statusOptions = Object.entries(IMPORT_STATUSES).map(([value, { label }]) => ({
+      label,
+      value,
+    }));
+
     return (
       <FilterMenu store={store} color={color} sortOptions={SORT_OPTIONS.FileImportBatch}>
-        <View row height="20rem" spacing="0.5rem">
+        <View row spacing="0.5rem">
           <Card>
             <TagInput
               header="Tags"
@@ -70,6 +78,21 @@ export const ImportsFilterMenu = Comp(
                 setValue={store.setCollectionTitle}
               />
 
+              <LogOpsInput
+                header={
+                  <FilterHeader
+                    label="File Count"
+                    mode={store.fileCountMode}
+                    setMode={store.setFileCountMode}
+                  />
+                }
+                logOpValue={store.fileCount.logOp}
+                numValue={store.fileCount.value}
+                setLogOpValue={store.setFileCountOp}
+                setNumValue={store.setFileCountValue}
+                numInputProps={{ minValue: 0 }}
+              />
+
               <DateRange
                 header={
                   <FilterHeader
@@ -87,6 +110,20 @@ export const ImportsFilterMenu = Comp(
               <DateRange
                 header={
                   <FilterHeader
+                    label="Date Imported"
+                    mode={store.startedAtMode}
+                    setMode={store.setStartedAtMode}
+                  />
+                }
+                startDate={store.startedAtStart}
+                setStartDate={store.setStartedAtStart}
+                endDate={store.startedAtEnd}
+                setEndDate={store.setStartedAtEnd}
+              />
+
+              <DateRange
+                header={
+                  <FilterHeader
                     label="Date Completed"
                     mode={store.completedAtMode}
                     setMode={store.setCompletedAtMode}
@@ -99,6 +136,15 @@ export const ImportsFilterMenu = Comp(
               />
             </Card>
           </View>
+
+          <Card>
+            <FilterChecklist
+              label="Has Files With Status"
+              options={statusOptions}
+              selected={store.statuses}
+              setSelected={store.setStatuses}
+            />
+          </Card>
         </View>
       </FilterMenu>
     );

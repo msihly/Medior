@@ -71,6 +71,7 @@ import {
 import {
   analyzeDecodedAudio,
   assertAudioSimilarityModel,
+  AUDIO_DECODE_ERROR,
   AudioAnalysis,
   AudioAnalysisOptions,
   AudioVectorWindow,
@@ -1398,6 +1399,8 @@ export const repairMissingAudioAnalysis = makeAction(
           ext: { $in: CONSTANTS.VIDEO.EXTS },
           // Archived files are never analyzed, so they also stay free to delete during the repair.
           isArchived: { $ne: true },
+          // Corrupted files include those whose audio a previous repair could not decode.
+          isCorrupted: { $ne: true },
         })
           .allowDiskUse(true)
           .select({
@@ -1497,6 +1500,7 @@ export const repairMissingAudioAnalysis = makeAction(
       };
       let cachedCount = 0;
       let completedCount = 0;
+      let corruptedCount = 0;
       let longestAudioSeconds = 0;
       let pendingAudioWindowCount = 0;
       let processedCount = 0;
@@ -1558,12 +1562,16 @@ export const repairMissingAudioAnalysis = makeAction(
           ? `; ${Fmt.commas(ffmpegReadCount)} large or high-bitrate videos read by ffmpeg itself`
           : "";
 
+        const corrupted = corruptedCount
+          ? `; ${Fmt.commas(corruptedCount)} videos with undecodable audio marked corrupted`
+          : "";
+
         const skipped = skippedCount
           ? `; ${Fmt.commas(skippedCount)} unreadable videos skipped`
           : "";
 
         const average = completedCount
-          ? `, averaging ${formatAverage(Date.now() - startedAt)} each: ${driveReads}extraction ${formatAverage(totals.extractMs)}, inference ${formatAverage(totals.inferenceMs)}, vector writes ${formatAverage(totals.writeMs)} (waited on ${formatAverage(totals.writeWaitMs)}); ${(totals.audioSeconds / completedCount).toFixed(1)}s of audio per video, the longest ${longestAudioSeconds.toFixed(1)}s${ffmpegReads}${skipped}`
+          ? `, averaging ${formatAverage(Date.now() - startedAt)} each: ${driveReads}extraction ${formatAverage(totals.extractMs)}, inference ${formatAverage(totals.inferenceMs)}, vector writes ${formatAverage(totals.writeMs)} (waited on ${formatAverage(totals.writeWaitMs)}); ${(totals.audioSeconds / completedCount).toFixed(1)}s of audio per video, the longest ${longestAudioSeconds.toFixed(1)}s${ffmpegReads}${corrupted}${skipped}`
           : "";
 
         progress(
@@ -1642,9 +1650,27 @@ export const repairMissingAudioAnalysis = makeAction(
           // ffmpeg failing to start, or the repair ending, stops everything.
           if (decodeController.signal.aborted || error.syscall?.startsWith("spawn")) throw error;
 
-          // A video that can't be read or decoded stays stale for a later repair.
-          skippedCount++;
-          report(`Skipped ${file.path}: ${error.message}`, "error");
+          // Audio too corrupted to decode marks its video corrupted, which later repairs leave out.
+          // A video that couldn't be read for another reason stays stale for a later repair.
+          if (error.name === AUDIO_DECODE_ERROR) {
+            const current = await models.FileModel.findById(file._id)
+              .select({ hash: 1, path: 1 })
+              .lean();
+
+            if (current && current.hash === file.hash && current.path === file.path) {
+              const result = await actions.updateFile({
+                args: { id: String(file._id), updates: { isCorrupted: true } },
+              });
+              if (!result.success) throw new Error(result.error);
+            }
+
+            corruptedCount++;
+            report(`Marked ${file.path} corrupted: ${error.message}`, "error");
+          } else {
+            skippedCount++;
+            report(`Skipped ${file.path}: ${error.message}`, "error");
+          }
+
           unlock([String(file._id)]);
           return;
         }
@@ -1812,7 +1838,7 @@ export const repairMissingAudioAnalysis = makeAction(
       }
 
       report(
-        `Audio analysis repair completed successfully: regenerated ${repairedWaveforms} waveforms, ${repairedTranscriptions} transcriptions, and audio similarity vectors for ${repairedAudioVectors} videos.${skippedCount ? ` Skipped ${Fmt.commas(skippedCount)} unreadable videos, listed above.` : ""}`,
+        `Audio analysis repair completed successfully: regenerated ${repairedWaveforms} waveforms, ${repairedTranscriptions} transcriptions, and audio similarity vectors for ${repairedAudioVectors} videos.${corruptedCount ? ` Marked ${Fmt.commas(corruptedCount)} videos with undecodable audio corrupted, listed above.` : ""}${skippedCount ? ` Skipped ${Fmt.commas(skippedCount)} unreadable videos, listed above.` : ""}`,
         "success",
       );
 

@@ -11,6 +11,7 @@ import {
   prop,
 } from "mobx-keystone";
 import { _FileImportBatch } from "medior/store/_generated";
+import type { ImportStatus } from "medior/server/database";
 import type { TagToUpsert } from "medior/components";
 import { asyncAction } from "medior/utils/client";
 import { IMPORT_PAGE_SIZE } from "medior/utils/common";
@@ -25,13 +26,34 @@ export class FileImportBatch extends ExtendedModel(_FileImportBatch, {
   isLoadingEntries: prop<boolean>(false).withSetter(),
   loadError: prop<string>(null).withSetter(),
   page: prop<number>(1).withSetter(),
+  statusCounts: prop<Partial<Record<ImportStatus, number>>>(() => ({})).withSetter(),
+  statuses: prop<ImportStatus[]>(() => []).withSetter(),
   tags: prop<TagToUpsert[]>(() => []).withSetter(),
 }) {
   private loadRevision = 0;
   private pendingUpdates = new Map<string, ImportUpdate>();
+  private statusCountsRevision = 0;
+  private statusCountsTimer: ReturnType<typeof setTimeout> = null;
 
   onInit() {
     autoBind(this);
+  }
+
+  /** Imports in progress refresh the counts at most once per second. */
+  queueStatusCounts() {
+    if (this.statusCountsTimer) return;
+
+    this.statusCountsTimer = setTimeout(() => {
+      this.statusCountsTimer = null;
+      this.loadStatusCounts();
+    }, 1000);
+  }
+
+  @modelAction
+  toggleStatus(status: ImportStatus) {
+    this.statuses = this.statuses.includes(status)
+      ? this.statuses.filter((cur) => cur !== status)
+      : [...this.statuses, status];
   }
 
   @modelAction
@@ -47,6 +69,8 @@ export class FileImportBatch extends ExtendedModel(_FileImportBatch, {
           }
         : {}),
     });
+
+    this.queueStatusCounts();
   }
 
   @modelAction
@@ -56,6 +80,8 @@ export class FileImportBatch extends ExtendedModel(_FileImportBatch, {
       this.processedSize = update.processedSize;
       this.progressRevision = update.progressRevision;
     }
+
+    if (update.status !== undefined) this.queueStatusCounts();
 
     if (
       this.isLoadingEntries &&
@@ -84,7 +110,11 @@ export class FileImportBatch extends ExtendedModel(_FileImportBatch, {
     this.setLoadError(null);
 
     try {
-      const result = await trpc.getImportBatchEntries.mutate({ id: this.id, page });
+      const result = await trpc.getImportBatchEntries.mutate({
+        id: this.id,
+        page,
+        statuses: this.statuses,
+      });
 
       if (!result.success) throw new Error(result.error);
 
@@ -106,6 +136,16 @@ export class FileImportBatch extends ExtendedModel(_FileImportBatch, {
     }
   });
 
+  @modelFlow
+  loadStatusCounts = asyncAction(async () => {
+    const revision = ++this.statusCountsRevision;
+
+    const result = await trpc.getImportBatchStatusCounts.mutate({ id: this.id });
+    if (!result.success) throw new Error(result.error);
+
+    if (revision === this.statusCountsRevision) this.setStatusCounts(result.data);
+  });
+
   @computed
   get entriesByPath() {
     const entries = new Map<string, FileImport[]>();
@@ -122,6 +162,10 @@ export class FileImportBatch extends ExtendedModel(_FileImportBatch, {
 
   @computed
   get pageCount() {
-    return Math.max(1, Math.ceil(this.fileCount / IMPORT_PAGE_SIZE));
+    const count = this.statuses.length
+      ? this.statuses.reduce((total, status) => total + (this.statusCounts[status] ?? 0), 0)
+      : this.fileCount;
+
+    return Math.max(1, Math.ceil(count / IMPORT_PAGE_SIZE));
   }
 }

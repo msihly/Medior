@@ -3,11 +3,14 @@ import {
   Button,
   Card,
   CenteredText,
+  Chip,
   Comp,
+  ConfirmModal,
   IconButton,
   ImportEditor,
   ImportsFilterMenu,
   Modal,
+  MultiActionButton,
   Pagination,
   ProgressBar,
   SavedImportConfigsModal,
@@ -25,9 +28,11 @@ export const ImportManager = Comp(() => {
   const store = stores.import.manager;
 
   const [isConfigsModalOpen, setIsConfigsModalOpen] = useState(false);
+  const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
 
   const batchesRef = useRef<HTMLDivElement>(null);
 
+  const hasNoSelection = store.search.selectedIds.length === 0;
   const statusColor = store.isPaused
     ? colors.custom.orange
     : store.isImporting
@@ -35,6 +40,15 @@ export const ImportManager = Comp(() => {
       : colors.custom.grey;
 
   const handleClose = () => store.setIsOpen(false);
+
+  const handleConfirmDelete = async () => {
+    const res = await store.deleteBatches([...store.search.selectedIds]);
+    if (!res.success) toast.error(res.error);
+
+    return res.success;
+  };
+
+  const handleDelete = () => setIsDeleteConfirmOpen(true);
 
   const handleFullPageLoad = () => store.search.loadFiltered({ toLastPage: true });
 
@@ -48,6 +62,18 @@ export const ImportManager = Comp(() => {
       folderPaths: getImportConfigRootPaths(stores.import.savedConfigs),
       store: stores.import.ingester,
     });
+  };
+
+  const handleSelectAllInQuery = async () => {
+    const res = await store.search.selectAllInQuery();
+
+    if (!res.success) toast.error("Failed to select all batches");
+    else if (res.data !== null) toast.info(`Selected ${res.data} batches`);
+  };
+
+  const handleSelectNone = () => {
+    store.search.toggleSelected(store.search.selectedIds.map((id) => ({ id, isSelected: false })));
+    toast.info("Deselected all batches");
   };
 
   useEffect(() => {
@@ -146,7 +172,42 @@ export const ImportManager = Comp(() => {
                   minHeight={0}
                   overflow="hidden"
                   padding={{ all: 0 }}
-                  header={<ImportsFilterMenu store={store.search} />}
+                  header={
+                    <View row flex={1} justify="space-between">
+                      <View row align="center" spacing="0.5rem">
+                        <ImportsFilterMenu store={store.search} />
+
+                        {!hasNoSelection && (
+                          <Chip label={`${store.search.selectedIds.length} Selected`} />
+                        )}
+                      </View>
+
+                      <View row justify="flex-end" spacing="0.5rem">
+                        <MultiActionButton
+                          name="Delete"
+                          tooltip="Delete Selected Batches"
+                          onClick={handleDelete}
+                          disabled={hasNoSelection}
+                          iconProps={{
+                            color: hasNoSelection ? colors.custom.grey : colors.custom.red,
+                          }}
+                        />
+
+                        <MultiActionButton
+                          name="Deselect"
+                          tooltip="Deselect All Batches"
+                          onClick={handleSelectNone}
+                          disabled={hasNoSelection}
+                        />
+
+                        <MultiActionButton
+                          name="LibraryAddCheck"
+                          tooltip="Select All Batches in Query"
+                          onClick={handleSelectAllInQuery}
+                        />
+                      </View>
+                    </View>
+                  }
                   headerProps={{ justify: "flex-start", padding: { all: "0.3rem" } }}
                 >
                   <SearchLoadingOverlay store={store.search} />
@@ -211,6 +272,15 @@ export const ImportManager = Comp(() => {
 
       {isConfigsModalOpen && (
         <SavedImportConfigsModal onClose={() => setIsConfigsModalOpen(false)} />
+      )}
+
+      {isDeleteConfirmOpen && (
+        <ConfirmModal
+          headerText="Delete Import Batches"
+          subText={`Delete ${Fmt.commas(store.search.selectedIds.length)} selected batches from import history? Unfinished imports are abandoned. Library files and import sources are kept.`}
+          setVisible={setIsDeleteConfirmOpen}
+          onConfirm={handleConfirmDelete}
+        />
       )}
     </>
   );

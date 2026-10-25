@@ -523,18 +523,39 @@ export const discardImportBatchUpload = makeAction(
   }),
 );
 
-export const getImportBatchEntries = makeAction(async (args: { id: string; page: number }) => {
-  if (!Number.isSafeInteger(args.page) || args.page < 1) throw new Error("Invalid import page");
+export const getImportBatchEntries = makeAction(
+  async (args: { id: string; page: number; statuses?: Types.ImportStatus[] }) => {
+    if (!Number.isSafeInteger(args.page) || args.page < 1) throw new Error("Invalid import page");
 
-  const offset = (args.page - 1) * IMPORT_PAGE_SIZE;
-  const entries = await models.FileImportModel.find({
-    batchId: args.id,
-    index: { $gte: offset, $lt: offset + IMPORT_PAGE_SIZE },
-  })
-    .sort({ index: 1 })
-    .lean();
+    const isFiltered = args.statuses?.length > 0;
+    const offset = (args.page - 1) * IMPORT_PAGE_SIZE;
 
-  return entries.map(leanModelToJson<models.FileImportSchema>);
+    // Unfiltered pages are index ranges; filtered pages skip through the batch's status index.
+    const entries = await models.FileImportModel.find(
+      isFiltered
+        ? { batchId: args.id, status: { $in: args.statuses } }
+        : { batchId: args.id, index: { $gte: offset, $lt: offset + IMPORT_PAGE_SIZE } },
+    )
+      .sort({ index: 1 })
+      .skip(isFiltered ? offset : 0)
+      .limit(IMPORT_PAGE_SIZE)
+      .lean();
+
+    return entries.map(leanModelToJson<models.FileImportSchema>);
+  },
+);
+
+export const getImportBatchStatusCounts = makeAction(async (args: { id: string }) => {
+  const counts = await models.FileImportModel.aggregate<{ _id: Types.ImportStatus; count: number }>(
+    [
+      { $match: { batchId: objectId(args.id) } },
+      { $group: { _id: "$status", count: { $sum: 1 } } },
+    ],
+  );
+
+  return Object.fromEntries(counts.map(({ _id, count }) => [_id, count])) as Partial<
+    Record<Types.ImportStatus, number>
+  >;
 });
 
 export const deleteImportBatches = makeAction(

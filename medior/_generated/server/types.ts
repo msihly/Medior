@@ -260,6 +260,9 @@ export type DiscardImportBatchUploadOutput = ReturnType<typeof db.discardImportB
 export type GetImportBatchEntriesInput = Parameters<typeof db.getImportBatchEntries>[0];
 export type GetImportBatchEntriesOutput = ReturnType<typeof db.getImportBatchEntries>;
 
+export type GetImportBatchStatusCountsInput = Parameters<typeof db.getImportBatchStatusCounts>[0];
+export type GetImportBatchStatusCountsOutput = ReturnType<typeof db.getImportBatchStatusCounts>;
+
 export type DeleteImportBatchesInput = Parameters<typeof db.deleteImportBatches>[0];
 export type DeleteImportBatchesOutput = ReturnType<typeof db.deleteImportBatches>;
 

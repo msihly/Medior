@@ -1,6 +1,6 @@
 import fs, { FileHandle } from "fs/promises";
 import path from "path";
-import { spawn } from "child_process";
+import { execFile, spawn } from "child_process";
 import os from "os";
 import { checkFileExists } from "trabecula/utils/server";
 import { Fmt, round } from "medior/utils/common";
@@ -8,6 +8,8 @@ import { getAudioSimilarityModel, getConfig } from "medior/utils/server/config";
 import { runNativeTask, stopNativeTask } from "medior/utils/server/native-task";
 import { workSignal } from "medior/utils/server/work-signal";
 
+/** The name of errors for audio too corrupted to decode, past ffmpeg's decode error limit. */
+export const AUDIO_DECODE_ERROR = "AudioDecodeError";
 const AUDIO_SAMPLE_RATE = 16_000;
 /** The exported model returns one embedding token per 0.16 seconds, 2,560 samples at 16 kHz. */
 const AUDIO_TOKEN_SAMPLES = 2_560;
@@ -23,6 +25,8 @@ const MAX_CACHED_MEDIA_BYTES = 512 * 1024 * 1024;
 const MAX_CACHED_MEDIA_BYTES_PER_SECOND = 2 * 1024 * 1024;
 /** Cached bytes that ffmpeg may still be decoding, past which the drive waits before reading on. */
 const MAX_DECODING_CACHE_BYTES = 1024 * 1024 * 1024;
+/** Distinct ffmpeg messages kept for an error message, past which the rest are only counted. */
+const MAX_FFMPEG_MESSAGES = 20;
 /** Decoded audio past this size, about nine minutes, moves from memory to a temporary file. */
 const MAX_IN_MEMORY_AUDIO_BYTES = 32 * 1024 * 1024;
 const MEDIA_CACHE_READ_BYTES = 8 * 1024 * 1024;
@@ -94,6 +98,15 @@ export interface DecodedAudio {
   sampleCount: number;
 }
 
+interface ProbedAudioStream {
+  channel_layout?: string;
+  channels?: number;
+  codec_name?: string;
+  index: number;
+  profile?: string;
+  sample_rate?: string;
+}
+
 interface DecodeOptions {
   /** Seconds of audio to decode at most. */
   maxDuration?: number;
@@ -153,6 +166,129 @@ const readSamples = async (audio: FileHandle, start: number, end: number) => {
 };
 
 /**
+ * Collects ffmpeg's error output as distinct messages in the order they first appeared, without the
+ * memory addresses in their prefixes, so errors repeated for every packet can't push out the first.
+ * The decode error rate is kept apart, since ffmpeg reports it last.
+ */
+const makeFfmpegLog = () => {
+  const messages = new Map<string, number>();
+  let errorRate: { limit: number; rate: number } = null;
+  let lastMessage: string = null;
+  let otherCount = 0;
+  let pending = "";
+  let streamId: string = null;
+
+  const countMessage = (message: string, times: number) => {
+    if (messages.has(message)) messages.set(message, messages.get(message) + times);
+    else if (messages.size < MAX_FFMPEG_MESSAGES) messages.set(message, times);
+    else otherCount += times;
+  };
+
+  const addLine = (line: string) => {
+    streamId ??= line.match(/\[aist#(\d+:\d+)\//)?.[1] ?? null;
+
+    const message = line
+      .replace(/\[[^\]]* @ [0-9a-f]+\]\s*/gi, "")
+      .trim()
+      .replace(/\.$/, "");
+    if (!message) return;
+
+    const rate = message.match(/^Decode error rate ([\d.]+) exceeds maximum ([\d.]+)/);
+    const repeated = message.match(/^Last message repeated (\d+) times/);
+
+    if (rate) errorRate = { limit: Number(rate[2]), rate: Number(rate[1]) };
+    else if (repeated && lastMessage) countMessage(lastMessage, Number(repeated[1]));
+    else {
+      // Messages differing only in their numbers, such as band counts, are counted together.
+      lastMessage = message.replace(/\d+/g, "#");
+      countMessage(lastMessage, 1);
+    }
+  };
+
+  return {
+    finish: () => {
+      addLine(pending);
+      pending = "";
+
+      return { errorRate, messages, otherCount, streamId };
+    },
+    write: (data: Buffer) => {
+      const lines = (pending + data).split(/\r?\n/);
+      pending = lines.pop();
+
+      for (const line of lines) addLine(line);
+    },
+  };
+};
+
+/** The file's audio streams for an error message, or none when ffprobe can't read them. */
+const probeAudioStreams = (filePath: string) =>
+  new Promise<ProbedAudioStream[]>((resolve) => {
+    execFile(
+      process.env.FFPROBE_PATH || "ffprobe",
+      [
+        "-v",
+        "quiet",
+        "-print_format",
+        "json",
+        "-select_streams",
+        "a",
+        "-show_entries",
+        "stream=channel_layout,channels,codec_name,index,profile,sample_rate",
+        filePath,
+      ],
+      { windowsHide: true },
+      (error, stdout) => {
+        try {
+          resolve(error ? [] : (JSON.parse(stdout).streams ?? []));
+        } catch {
+          resolve([]);
+        }
+      },
+    );
+  });
+
+/** Names the stream that failed, how much of it failed, and what ffmpeg reported, first to last. */
+const describeDecodeFailure = async (
+  filePath: string,
+  {
+    errorRate,
+    messages,
+    otherCount,
+    streamId,
+  }: ReturnType<ReturnType<typeof makeFfmpegLog>["finish"]>,
+  code: number,
+) => {
+  if (!messages.size && !errorRate) return `FFmpeg exited with code ${code}.`;
+
+  const audioStreams = await probeAudioStreams(filePath);
+  const stream = audioStreams.find(({ index }) => `0:${index}` === streamId);
+
+  const streamDetails = stream
+    ? ` (${[
+        [stream.codec_name, stream.profile].filter(Boolean).join(" "),
+        stream.channel_layout ?? (stream.channels ? `${stream.channels} channels` : null),
+        stream.sample_rate ? `${Fmt.commas(Number(stream.sample_rate))} Hz` : null,
+        audioStreams.length > 1 ? `one of ${audioStreams.length} audio streams` : null,
+      ]
+        .filter(Boolean)
+        .join(", ")})`
+    : "";
+
+  const failedShare = errorRate
+    ? ` ${Math.round(errorRate.rate * 100)}% of its frames failed, over ffmpeg's ${Math.round(errorRate.limit * 100)}% limit.`
+    : "";
+
+  const reported = [...messages].map(([message, count]) =>
+    count > 1 ? `${message} (×${Fmt.commas(count)})` : message,
+  );
+
+  if (otherCount) reported.push(`${Fmt.commas(otherCount)} more messages`);
+
+  return `Could not decode ${streamId ? `audio stream ${streamId}` : "the audio"}${streamDetails}.${failedShare}${reported.length ? ` FFmpeg reported: ${reported.join("; ")}.` : ""}`;
+};
+
+/**
  * Decodes a file's audio to 16 kHz mono samples piped straight from ffmpeg. Long audio moves to a
  * temporary file once it outgrows memory.
  */
@@ -205,20 +341,17 @@ const decodeAudio = async (
   });
 
   const chunks: Buffer[] = [];
+  const log = makeFfmpegLog();
   let byteCount = 0;
   let lastProgressAt = startedAt;
   let spill: { directory: string; file?: FileHandle } = null;
-  let stderr = "";
 
   const removeSpill = async () => {
     await spill?.file?.close();
     if (spill) await fs.rm(spill.directory, { force: true, recursive: true });
   };
 
-  // Only the end of ffmpeg's error output is kept for the error message.
-  ffmpeg.stderr.on("data", (data) => {
-    stderr = (stderr + data).slice(-2000);
-  });
+  ffmpeg.stderr.on("data", log.write);
 
   try {
     for await (const chunk of ffmpeg.stdout) {
@@ -246,7 +379,17 @@ const decodeAudio = async (
     const { code, error } = await exit;
     signal?.throwIfAborted();
     if (error) throw error;
-    if (code !== 0) throw new Error(stderr.trim() || `FFmpeg exited with code ${code}.`);
+
+    if (code !== 0) {
+      const ffmpegLog = log.finish();
+      const decodeError = new Error(await describeDecodeFailure(filePath, ffmpegLog, code));
+
+      // Audio ffmpeg read but gave up decoding is corrupted, unlike a file it couldn't open.
+      if (ffmpegLog.errorRate) decodeError.name = AUDIO_DECODE_ERROR;
+
+      throw decodeError;
+    }
+
     if (byteCount % Float32Array.BYTES_PER_ELEMENT)
       throw new Error("FFmpeg returned incomplete audio samples.");
   } catch (error) {

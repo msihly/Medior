@@ -348,6 +348,7 @@ export type CreateFileImportBatchFilterPipelineInput = {
   startedAtEnd?: string;
   startedAtMode?: "optional" | "required";
   startedAtStart?: string;
+  statuses?: string[];
 };
 
 export const createFileImportBatchFilterPipeline = async (
@@ -357,6 +358,9 @@ export const createFileImportBatchFilterPipeline = async (
 
   if (args.ids != null && !isDeepEqual(args.ids, []))
     ($match.$and ??= []).push(setObj({}, ["_id", "$in"], objectIds(args.ids)));
+
+  if (args.statuses != null && !isDeepEqual(args.statuses, []))
+    setObj($match, ["imports", "$elemMatch", "status", "$in"], args.statuses);
 
   setObj($match, ["isCompleted"], args.isCompleted);
 

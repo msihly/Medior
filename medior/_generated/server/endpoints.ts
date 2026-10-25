@@ -129,6 +129,7 @@ export const serverRouter = trpc.router({
   getFileTransformerStatus: serverEndpoint(db.getFileTransformerStatus),
   getImportBatch: serverEndpoint(db.getImportBatch),
   getImportBatchEntries: serverEndpoint(db.getImportBatchEntries),
+  getImportBatchStatusCounts: serverEndpoint(db.getImportBatchStatusCounts),
   getImporterStatus: serverEndpoint(db.getImporterStatus),
   getLowerResolutionScan: serverEndpoint(db.getLowerResolutionScan),
   getNextImportBatch: serverEndpoint(db.getNextImportBatch),
