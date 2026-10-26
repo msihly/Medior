@@ -93,12 +93,14 @@ export const TransformSearch = Comp(() => {
       >
         <SearchLoadingOverlay
           store={store.search}
-          isLoading={store.search.isLoading && !store.isQueueRefreshing}
+          isLoading={
+            (store.search.isLoading || store.search.isSelecting) && !store.isQueueRefreshing
+          }
         />
 
         <CardGrid
-          cards={store.search.results.map((transform) => (
-            <FileDetails key={transform.id} transform={transform} />
+          cards={store.search.results.map((transform, index) => (
+            <FileDetails key={transform.id} index={index} transform={transform} />
           ))}
           maxCards={3}
           noResultsText="No files found"

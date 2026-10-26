@@ -14,17 +14,24 @@ export const SearchWindow = Comp(() => {
   useSockets({ view: "search" });
 
   useEffect(() => {
-    ipcRenderer.on("init", async (_, { tagIds }: { tagIds: string[] }) => {
+    const initialize = async (_, { tagIds }: { tagIds: string[] }) => {
       try {
-        const tags = (await trpc.listTag.mutate({ filter: { id: tagIds } })).data;
+        const res = await trpc.listTag.mutate({ filter: { id: tagIds } });
+        if (!res.success) throw new Error(res.error);
 
-        stores.file.search.setTags(tags.map(tagToOption));
+        stores.file.search.setTags(res.data.map(tagToOption));
 
         await stores.file.search.loadFiltered({ noCache: true, page: 1 });
       } catch (err) {
         console.error(err);
       }
-    });
+    };
+
+    ipcRenderer.on("init", initialize);
+
+    return () => {
+      ipcRenderer.removeListener("init", initialize);
+    };
   }, []);
 
   return (

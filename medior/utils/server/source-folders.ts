@@ -47,9 +47,3 @@ export const mergeSourceFolders = (current: string | null | undefined, next: str
     : current && next
       ? getCommonSourceFolder([current, next], true)
       : null;
-
-export const isWithinFolder = (parent: string, child: string) => {
-  const relative = path.relative(parent, child);
-
-  return !path.isAbsolute(relative) && relative !== ".." && !relative.startsWith(`..${path.sep}`);
-};

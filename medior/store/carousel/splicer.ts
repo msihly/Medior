@@ -72,7 +72,7 @@ export class Splicer extends Model({
 
   @modelAction
   removeTimestampPair(id: string) {
-    this.timestampPairs = this.timestampPairs
+    this.timestampPairs = derefMobx(this.timestampPairs)
       .filter((p) => p.id !== id)
       .map((p, i) => ({ ...p, order: i + 1 }));
   }
@@ -97,7 +97,7 @@ export class Splicer extends Model({
 
     if (!current || !other) throw new Error("Timestamp pair not found");
 
-    this.timestampPairs = this.timestampPairs
+    this.timestampPairs = derefMobx(this.timestampPairs)
       .map((p) =>
         p.id === id ? { ...p, order } : p.id === other.id ? { ...p, order: current.order } : p,
       )
@@ -106,7 +106,9 @@ export class Splicer extends Model({
 
   @modelAction
   setTimestampPairVal(id: string, key: "endDuration" | "startDuration", val: string) {
-    this.timestampPairs = this.timestampPairs.map((p) => (p.id === id ? { ...p, [key]: val } : p));
+    this.timestampPairs = derefMobx(this.timestampPairs).map((p) =>
+      p.id === id ? { ...p, [key]: val } : p,
+    );
   }
 
   @modelAction
@@ -126,7 +128,9 @@ export class Splicer extends Model({
     this.setIsLoading(true);
 
     try {
-      const timestamps = file.timestamps.filter((timestamp) => timestamp.id !== this.timestampId);
+      const timestamps = derefMobx(file.timestamps).filter(
+        (timestamp: FileTimestamp) => timestamp.id !== this.timestampId,
+      );
       const res = await trpc.updateFile.mutate({
         args: {
           id: file.id,
@@ -157,16 +161,17 @@ export class Splicer extends Model({
     parseTimestampPairs(this.timestampPairs, file.duration);
 
     const id = this.timestampId || uuid();
+    const fileTimestamps: FileTimestamp[] = derefMobx(file.timestamps);
     const newTimestamp = {
       id,
       label: this.timestampLabel.trim(),
       pairs: normalizeTimestampPairs<FileTimestampPair>(derefMobx(this.timestampPairs)),
     };
     const timestamps = this.timestampId
-      ? file.timestamps.map((timestamp) =>
+      ? fileTimestamps.map((timestamp) =>
           timestamp.id === this.timestampId ? newTimestamp : timestamp,
         )
-      : [...(file.timestamps ?? []), newTimestamp];
+      : [...(fileTimestamps ?? []), newTimestamp];
 
     this.setIsLoading(true);
 

@@ -27,12 +27,11 @@ export class TagManagerStore extends Model({
   private followJob(jobId: string, tagIds: string[]) {
     const stores = getRootStore<RootStore>(this);
 
-    if (stores.home.isFollowingJob(jobId)) return;
-
-    this.jobTagIds.set(jobId, tagIds);
-    this.setIsMinimized(false);
-    this.setJobId(jobId);
-    stores.home.followJob(jobId, this.finishJob);
+    stores.home.followJob(jobId, this.finishJob, () => {
+      this.jobTagIds.set(jobId, tagIds);
+      this.setIsMinimized(false);
+      this.setJobId(jobId);
+    });
   }
 
   /* ---------------------------- STANDARD ACTIONS ---------------------------- */
@@ -129,6 +128,6 @@ export class TagManagerStore extends Model({
 
   /* ----------------------------- DYNAMIC GETTERS ---------------------------- */
   get job() {
-    return getRootStore<RootStore>(this).home.jobs.find((job) => job.id === this.jobId);
+    return getRootStore<RootStore>(this).home.getJobById(this.jobId);
   }
 }

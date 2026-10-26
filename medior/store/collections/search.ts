@@ -1,4 +1,3 @@
-import autoBind from "auto-bind";
 import { reaction } from "mobx";
 import {
   ExtendedModel,
@@ -21,18 +20,24 @@ export class FileCollectionSearch extends ExtendedModel(_FileCollectionSearch, {
     .withTransform(objectToMapTransform<File>())
     .withSetter(),
 }) {
+  private fileLoadRevision = 0;
+  /** The page load during which a file load set `isLoading`, which the latest file load clears. */
+  private pendingFileLoadId: number = null;
+
   onInit() {
-    autoBind(this);
+    super.onInit();
 
     reaction(
-      () => this.getFilterProps(),
-      () => this.setHasChanges(true),
-    );
-
-    reaction(
-      () => this.results,
+      () => [this.results, getRootStore<RootStore>(this)?.collection.manager.currentCollections],
       () => this.loadFiles(),
     );
+  }
+
+  private endFileLoad() {
+    // A page load started since then owns `isLoading` and clears it itself.
+    if (this.pendingFileLoadId === this.loadId) this.setIsLoading(false);
+
+    this.pendingFileLoadId = null;
   }
 
   /* ---------------------------- STANDARD ACTIONS ---------------------------- */
@@ -68,7 +73,7 @@ export class FileCollectionSearch extends ExtendedModel(_FileCollectionSearch, {
     const stores = getRootStore<RootStore>(this);
 
     const loadId = this.loadId;
-    const results = this.results;
+    const revision = ++this.fileLoadRevision;
     const fileIds = [
       ...new Set(
         [...this.results, ...stores.collection.manager.currentCollections]
@@ -77,29 +82,30 @@ export class FileCollectionSearch extends ExtendedModel(_FileCollectionSearch, {
       ),
     ];
 
-    // Removing collections, or updating them in place, keeps the previews already loaded.
-    if (this.results.length && fileIds.every((fileId) => this.files.has(fileId))) return;
+    if (!fileIds.length) {
+      this.setFiles(new Map());
+      this.endFileLoad();
+    } else if (fileIds.every((fileId) => this.files.has(fileId))) {
+      // Removing collections, or updating them in place, keeps the previews already loaded.
+      this.endFileLoad();
+    } else {
+      this.pendingFileLoadId = loadId;
+      this.setIsLoading(true);
 
-    this.setIsLoading(true);
-
-    try {
-      if (!this.results.length) {
-        this.setFiles(new Map());
-        this.setIsLoading(false);
-      } else {
+      try {
         const files = await loadFilesWithTags(fileIds);
 
-        if (loadId !== this.loadId || results !== this.results) return;
+        if (loadId === this.loadId && revision === this.fileLoadRevision) {
+          this.setFiles(new Map(files.map((file) => [file.id, new File(file)])));
+          this.endFileLoad();
+        }
+      } catch (error) {
+        if (loadId === this.loadId && revision === this.fileLoadRevision) {
+          this.endFileLoad();
 
-        this.setFiles(new Map(files.map((file) => [file.id, new File(file)])));
-        this.setIsLoading(false);
+          throw error;
+        }
       }
-    } catch (error) {
-      if (loadId !== this.loadId || results !== this.results) return;
-
-      this.setIsLoading(false);
-
-      throw error;
     }
   });
 }

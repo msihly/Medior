@@ -2,6 +2,7 @@ import fs from "fs/promises";
 import path from "path";
 import { execFile } from "child_process";
 import { parseWebVtt, SubtitleSource } from "medior/utils/common";
+import { getFfmpegPath, getFfprobePath } from "medior/utils/server/ffmpeg";
 
 export interface SubtitleStream {
   codec: string;
@@ -86,7 +87,7 @@ export const muxSubtitles = async ({
   // Bit-exact muxing lets an interrupted import recreate the same output and checksum.
   args.push("-fflags", "+bitexact", partialPath);
 
-  await runCommand(process.env.FFMPEG_PATH || "ffmpeg", args, signal, true);
+  await runCommand(getFfmpegPath(), args, signal, true);
 
   // Every added subtitle must be a track before its source can be deleted with the import.
   const [inputStreams, outputStreams] = await Promise.all([
@@ -109,7 +110,7 @@ export const probeSubtitleStreams = async (
   signal?: AbortSignal,
 ): Promise<SubtitleStream[]> => {
   const output = await runCommand(
-    process.env.FFPROBE_PATH || "ffprobe",
+    getFfprobePath(),
     ["-v", "quiet", "-print_format", "json", "-show_streams", "-select_streams", "s", filePath],
     signal,
   );
@@ -137,7 +138,7 @@ export const readSubtitleSegments = async ({
 }) =>
   parseWebVtt(
     await runCommand(
-      process.env.FFMPEG_PATH || "ffmpeg",
+      getFfmpegPath(),
       [
         "-v",
         "error",

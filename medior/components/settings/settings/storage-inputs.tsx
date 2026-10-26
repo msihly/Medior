@@ -17,11 +17,7 @@ export const StorageInputs = Comp(
     return (
       <View column flex={1} minWidth={0} spacing="0.5rem">
         {store.db.fileStorage.locations.map((_, index) => (
-          <StorageInput
-            {...{ index, selectLocation }}
-            key={index}
-            configKey="db.fileStorage.locations"
-          />
+          <StorageInput {...{ index, selectLocation }} key={index} />
         ))}
 
         <View row>

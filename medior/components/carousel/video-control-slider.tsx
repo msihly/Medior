@@ -25,7 +25,9 @@ export const CustomSlider = (props: CustomSliderProps) => {
 
   const handleMouseEnter = () => setIsVisible(true);
 
-  const handleMouseLeave = () => !isDragging && setIsVisible(false);
+  const handleMouseLeave = () => {
+    if (!isDragging) setIsVisible(false);
+  };
 
   useEffect(() => {
     if (!isDragging) return;

@@ -1,5 +1,6 @@
 import path from "path";
 import type { Config, TranscriptionQuantization } from "medior/utils/server/config";
+import { registerNativeWorker } from "medior/utils/server/native-worker";
 
 const AUDIO_SAMPLE_RATE = 16_000;
 const TRANSCRIPTION_CHUNK_LENGTH = 29;
@@ -104,7 +105,6 @@ const getTranscriber = async (onProgress?: ProgressReporter) => {
     transformers.pipeline("automatic-speech-recognition", config.model, {
       device,
       dtype: config.quantization,
-
       progress_callback: ({ file, progress, status }) => {
         if (status === "ready") {
           onProgress?.(`Transcription model loaded on ${device === "dml" ? "GPU" : "CPU"}.`);
@@ -179,7 +179,6 @@ const transcribe = async (samples: Float32Array, onProgress?: ProgressReporter) 
 
   const streamer = new transformers.WhisperTextStreamer(_transcribe.tokenizer, {
     callback_function: () => undefined,
-
     on_chunk_end: (time) => {
       currentChunkProgress = Math.max(
         currentChunkProgress,
@@ -197,16 +196,13 @@ const transcribe = async (samples: Float32Array, onProgress?: ProgressReporter) 
 
       reportTranscriptionProgress();
     },
-
     on_finalize: () => {
       completedChunkCount++;
       currentChunkProgress = 0;
       generatedTokenCount = 0;
       reportTranscriptionProgress();
     },
-
     skip_prompt: true,
-
     token_callback_function: (tokens) => {
       generatedTokenCount += tokens.length;
       reportTranscriptionProgress();
@@ -218,7 +214,6 @@ const transcribe = async (samples: Float32Array, onProgress?: ProgressReporter) 
     return_timestamps: true,
     streamer: {
       end: () => streamer.end(),
-
       put: (value) => {
         if (value[0]?.length) streamer.put(value);
       },
@@ -236,27 +231,10 @@ const transcribe = async (samples: Float32Array, onProgress?: ProgressReporter) 
   };
 };
 
-process.on("disconnect", () => process.exit(1));
+registerNativeWorker(
+  async (input: { config: Config["file"]["transcription"]; samples: Float32Array }, onProgress) => {
+    transcriptionConfig = input.config;
 
-process.on(
-  "message",
-  async ({
-    id,
-    input,
-  }: {
-    id: string;
-    input: { config: Config["file"]["transcription"]; samples: Float32Array };
-  }) => {
-    try {
-      transcriptionConfig = input.config;
-
-      const data = await transcribe(input.samples, (message, percent) =>
-        process.send({ id, progress: { message, percent } }),
-      );
-
-      process.send({ data, id });
-    } catch (error) {
-      process.send({ error: error.message, id });
-    }
+    return transcribe(input.samples, onProgress);
   },
 );

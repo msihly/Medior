@@ -62,6 +62,9 @@ model.addProp("height", "number", { required: true, sort: { icon: "Height", labe
 model.addIndex({ isArchived: 1 }, { unique: false });
 model.addProp("isArchived", "boolean");
 
+/** Audio that Audio Analysis could not decode, which later analysis repairs leave out. */
+model.addProp("isAudioCorrupted", "boolean");
+
 model.addIndex({ isCorrupted: 1 }, { unique: false });
 model.addProp("isCorrupted", "boolean");
 

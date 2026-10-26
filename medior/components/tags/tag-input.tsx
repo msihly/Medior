@@ -97,16 +97,16 @@ export const TagInput = Comp(
 
     const { css, cx } = useClasses({ center, margins, width });
 
-    const isMaxTags = maxTags > -1 && value.length >= maxTags;
-
-    disabled = disabled || isMaxTags;
-
     const [inputValue, setInputValue] = useState((inputProps?.value ?? "") as string);
     const [isLoading, setIsLoading] = useState(false);
     const [isOpen, setIsOpen] = useState(false);
     const [options, setOptions] = useState<TagOption[]>([]);
 
     const searchController = useRef<AbortController>(null);
+
+    const isMaxTags = maxTags > -1 && value.length >= maxTags;
+
+    disabled = disabled || isMaxTags;
 
     const searchParams = useDeepMemo({
       excludedIds: [...new Set([...excludedIds, ...value.map((tag) => tag.id).filter(Boolean)])],

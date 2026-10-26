@@ -1,9 +1,10 @@
-import { useEffect } from "react";
+import { ReactNode, useEffect } from "react";
 import {
   BackgroundActivityModal,
   Comp,
   Icon,
   IconButton,
+  IconButtonProps,
   ProgressCircle,
   Text,
   TooltipProps,
@@ -12,6 +13,8 @@ import {
 import { useStores } from "medior/store";
 import { colors, makeClasses, openSearchWindow } from "medior/utils/client";
 import { CONSTANTS } from "medior/utils/common";
+
+const TOOLTIP_PROPS: Partial<TooltipProps> = { placement: "right" };
 
 export interface DrawerProps {
   hasDuplicates?: boolean;
@@ -29,8 +32,6 @@ export const Drawer = Comp(
     const activeOperationCount = stores.home.backgroundOperations.filter(
       ({ status }) => status === "PENDING" || status === "RUNNING",
     ).length;
-
-    const tooltipProps: Partial<TooltipProps> = { placement: "right" };
 
     const handleActivity = () => stores.home.setIsActivityOpen(true);
 
@@ -74,85 +75,79 @@ export const Drawer = Comp(
               name="Settings"
               tooltip="Open Settings"
               onClick={handleSettings}
-              {...{ tooltipProps }}
+              tooltipProps={TOOLTIP_PROPS}
             />
           )}
 
           {hasImports && (
-            <View display="inline-flex" position="relative" flex="none">
-              <IconButton
-                name="GetApp"
-                tooltip="Open Import Manager"
-                onClick={handleImport}
-                {...{ tooltipProps }}
-              />
-
-              <ActivityBadge
-                isPaused={stores.import.manager.isPaused}
-                isRunning={stores.import.manager.isImporting}
-              />
-            </View>
+            <DrawerButton
+              name="GetApp"
+              tooltip="Open Import Manager"
+              onClick={handleImport}
+              badge={
+                <ActivityBadge
+                  isPaused={stores.import.manager.isPaused}
+                  isRunning={stores.import.manager.isImporting}
+                />
+              }
+            />
           )}
 
           <IconButton
             name="Label"
             tooltip="Open Tag Manager"
             onClick={handleManageTags}
-            {...{ tooltipProps }}
+            tooltipProps={TOOLTIP_PROPS}
           />
 
           <IconButton
-            {...{ tooltipProps }}
             name="Collections"
             tooltip="Open Collection Manager"
             onClick={handleCollections}
+            tooltipProps={TOOLTIP_PROPS}
           />
 
           <IconButton
             name="LiveTv"
             tooltip="Open Media Programs"
             onClick={handleMediaPrograms}
-            {...{ tooltipProps }}
+            tooltipProps={TOOLTIP_PROPS}
           />
 
           <IconButton
             name="Search"
             tooltip="Open New Search Window"
             onClick={handleSearchWindow}
-            {...{ tooltipProps }}
+            tooltipProps={TOOLTIP_PROPS}
           />
 
-          <View display="inline-flex" position="relative" flex="none">
-            <IconButton
-              name="MovieFilter"
-              tooltip="Open Media Transformer"
-              onClick={handleVideoTransformer}
-              {...{ tooltipProps }}
-            />
-
-            <ActivityBadge
-              isPaused={stores.file.videoTransformer.hasPausedQueue}
-              isRunning={stores.file.videoTransformer.isTransforming}
-            />
-          </View>
+          <DrawerButton
+            name="MovieFilter"
+            tooltip="Open Media Transformer"
+            onClick={handleVideoTransformer}
+            badge={
+              <ActivityBadge
+                isPaused={stores.file.videoTransformer.hasPausedQueue}
+                isRunning={stores.file.videoTransformer.isTransforming}
+              />
+            }
+          />
 
           {hasDuplicates && (
-            <View display="inline-flex" position="relative" flex="none">
-              <IconButton
-                name="ImageSearch"
-                tooltip="Find Duplicates"
-                onClick={handleFindDuplicates}
-                {...{ tooltipProps }}
-              />
-
-              <ActivityBadge
-                isPaused={
-                  lowerResolution.displayStatus === "paused" ||
-                  lowerResolution.displayStatus === "groupingPaused"
-                }
-                isRunning={lowerResolution.isScanning || lowerResolution.isGrouping}
-              />
-            </View>
+            <DrawerButton
+              name="ImageSearch"
+              tooltip="Find Duplicates"
+              onClick={handleFindDuplicates}
+              badge={
+                <ActivityBadge
+                  isPaused={
+                    lowerResolution.displayStatus === "paused" ||
+                    lowerResolution.displayStatus === "groupingPaused"
+                  }
+                  isRunning={lowerResolution.isScanning || lowerResolution.isGrouping}
+                />
+              }
+            />
           )}
 
           <IconButton
@@ -160,35 +155,33 @@ export const Drawer = Comp(
             tooltip="Delete Archived Files"
             onClick={stores.file.confirmDeleteArchivedFiles}
             disabled={!stores.file.hasArchivedFiles}
-            {...{ tooltipProps }}
+            tooltipProps={TOOLTIP_PROPS}
           />
         </View>
 
         <View column flex={1} justify="flex-end">
-          <View display="inline-flex" position="relative" flex="none">
-            <IconButton
-              name={
-                stores.home.hasUnreadErrors
-                  ? "NotificationImportant"
-                  : stores.home.hasRunningBackgroundOperations
-                    ? "NotificationsActive"
-                    : stores.home.hasUnreadNotifications
-                      ? "Notifications"
-                      : "NotificationsNone"
-              }
-              tooltip="Open Activity"
-              onClick={handleActivity}
-              {...{ tooltipProps }}
-            />
-
-            {activeOperationCount > 0 && (
-              <View className={cx(css.badge, css.count)}>
-                <Text color="inherit" fontSize="0.75rem" fontWeight={500} lineHeight={1}>
-                  {activeOperationCount > 99 ? "99+" : activeOperationCount}
-                </Text>
-              </View>
-            )}
-          </View>
+          <DrawerButton
+            name={
+              stores.home.hasUnreadErrors
+                ? "NotificationImportant"
+                : stores.home.hasRunningBackgroundOperations
+                  ? "NotificationsActive"
+                  : stores.home.hasUnreadNotifications
+                    ? "Notifications"
+                    : "NotificationsNone"
+            }
+            tooltip="Open Activity"
+            onClick={handleActivity}
+            badge={
+              activeOperationCount > 0 && (
+                <View className={cx(css.badge, css.count)}>
+                  <Text color="inherit" fontSize="0.75rem" fontWeight={500} lineHeight={1}>
+                    {activeOperationCount > 99 ? "99+" : activeOperationCount}
+                  </Text>
+                </View>
+              )
+            }
+          />
         </View>
 
         {stores.home.isActivityOpen && <BackgroundActivityModal />}
@@ -217,6 +210,18 @@ export const ActivityBadge = Comp(({ isPaused, isRunning }: ActivityBadgeProps) 
     </View>
   );
 });
+
+interface DrawerButtonProps extends Omit<IconButtonProps, "tooltipProps"> {
+  badge: ReactNode;
+}
+
+const DrawerButton = Comp(({ badge, ...props }: DrawerButtonProps) => (
+  <View display="inline-flex" position="relative" flex="none">
+    <IconButton {...props} tooltipProps={TOOLTIP_PROPS} />
+
+    {badge}
+  </View>
+));
 
 const useClasses = makeClasses((_, theme) => ({
   drawer: {

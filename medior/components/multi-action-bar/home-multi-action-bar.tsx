@@ -1,10 +1,19 @@
 import { useState } from "react";
 import { SortValue } from "medior/store/_generated";
-import { Chip, Comp, FileFilter, MultiActionButton, View } from "medior/components";
+import {
+  Chip,
+  Comp,
+  DeselectAllButton,
+  FileFilter,
+  MultiActionButton,
+  SelectAllButton,
+  SelectAllInQueryButton,
+  View,
+} from "medior/components";
 import { FileSearch, handleReingest, useStores } from "medior/store";
 import { colors, makeClasses, toast } from "medior/utils/client";
 import { CONSTANTS } from "medior/utils/common";
-import { SelectedFilesInfo, SelectFilesModal } from ".";
+import { SelectedFilesTooltip, SelectFilesModal } from ".";
 
 interface HomeMultiActionBarProps {
   isHome?: boolean;
@@ -30,18 +39,12 @@ export const HomeMultiActionBar = Comp(
 
     const handleDelete = () => stores.file.confirmDeleteFiles(selectedIds);
 
-    const handleDeselectAll = () => {
-      store.toggleSelected(selectedIds.map((id) => ({ id, isSelected: false })));
-      toast.info("Deselected all files");
-    };
-
     const handleEditCollections = () => {
       stores.collection.manager.setSelectedFileIds(selectedIds);
       stores.collection.manager.setIsOpen(true);
     };
 
     const handleEditTags = () => {
-      stores.file.tagsEditor.setBatchId(null);
       stores.file.tagsEditor.setFileIds(selectedIds);
       stores.file.tagsEditor.setIsOpen(true);
     };
@@ -55,18 +58,6 @@ export const HomeMultiActionBar = Comp(
 
     const handleRemux = () =>
       stores.file.openVideoTransformer(selectedIds, "remux", sourceSortValue);
-
-    const handleSelectAll = () => {
-      store.toggleSelected(store.results.map(({ id }) => ({ id, isSelected: true })));
-      toast.info(`Added ${store.results.length} files to selection`);
-    };
-
-    const handleSelectAllInQuery = async () => {
-      const res = await store.selectAllInQuery();
-
-      if (!res.success) toast.error("Failed to select all files");
-      else if (res.data !== null) toast.info(`Selected ${res.data} files`);
-    };
 
     // Without shared timestamps, each selected video is spliced by its own single timeline.
     const handleSplice = () => {
@@ -88,7 +79,7 @@ export const HomeMultiActionBar = Comp(
 
               {store.isArchiveOpen && <Chip label="Archived" bgColor={colors.custom.red} />}
 
-              {store.selectedIds.length > 0 && <SelectedFilesInfo store={store} />}
+              {store.selectedIds.length > 0 && <SelectedFilesTooltip store={store} />}
             </View>
 
             <View row align="center" spacing="0.5rem">
@@ -175,18 +166,9 @@ export const HomeMultiActionBar = Comp(
                 disabled={hasNoSelection}
               />
 
-              <MultiActionButton
-                name="Deselect"
-                tooltip="Deselect All Files"
-                onClick={handleDeselectAll}
-                disabled={hasNoSelection}
-              />
+              <DeselectAllButton itemLabel="files" store={store} toast={toast} />
 
-              <MultiActionButton
-                name="SelectAll"
-                tooltip="Select All Files in View"
-                onClick={handleSelectAll}
-              />
+              <SelectAllButton itemLabel="files" store={store} toast={toast} />
 
               <MultiActionButton
                 name="Checklist"
@@ -195,11 +177,11 @@ export const HomeMultiActionBar = Comp(
                 onClick={() => setIsSelectModalOpen(true)}
               />
 
-              <MultiActionButton
-                name="LibraryAddCheck"
-                tooltip="Select All Files in Query"
+              <SelectAllInQueryButton
+                itemLabel="files"
+                store={store}
+                toast={toast}
                 disabled={!!suppliedStore && !store.results.length}
-                onClick={handleSelectAllInQuery}
               />
             </View>
           </View>

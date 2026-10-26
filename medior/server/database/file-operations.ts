@@ -1,7 +1,6 @@
-import { createReadStream } from "fs";
 import fs from "fs/promises";
 import nodePath from "path";
-import { createHash, randomUUID } from "crypto";
+import { randomUUID } from "crypto";
 import {
   FileModel,
   FileSchema,
@@ -9,9 +8,13 @@ import {
   TagModel,
 } from "medior/_generated/server/models";
 import { Schema } from "mongoose";
-import { addAbortSignal } from "stream";
 import { isServerStopping, serverShutdownSignal } from "trabecula/utils/process";
-import { deleteFile, extendFileName, removeEmptyFolders } from "trabecula/utils/server";
+import {
+  deleteFile,
+  extendFileName,
+  isWithinFolder,
+  removeEmptyFolders,
+} from "trabecula/utils/server";
 import { backgroundExecutionPlugin } from "medior/server/database/database-context";
 import { withIndexHint } from "medior/server/database/index-hints";
 import type { MediaImportInput } from "medior/server/database/media-import";
@@ -22,7 +25,7 @@ import {
 } from "medior/server/database/media-paths";
 import { registerPersistenceModel } from "medior/server/database/persistence";
 import { Fmt } from "medior/utils/common";
-import { isWithinFolder } from "medior/utils/server/source-folders";
+import { hashMediaFile } from "medior/utils/server/media-output";
 import { workSignal } from "medior/utils/server/work-signal";
 
 export interface FileCleanup {
@@ -58,19 +61,13 @@ const checkCleanupCancelled = (canContinue: () => boolean) => {
 const hashCleanupFile = async (path: string, canContinue: () => boolean = () => true) => {
   checkCleanupCancelled(canContinue);
 
-  const hash = createHash("md5");
-  const stream = createReadStream(path);
-
-  if (workSignal.getStore()) addAbortSignal(workSignal.getStore(), stream);
-
-  for await (const chunk of stream) {
-    checkCleanupCancelled(canContinue);
-    hash.update(chunk);
-  }
+  const hash = await hashMediaFile(path, workSignal.getStore(), () =>
+    checkCleanupCancelled(canContinue),
+  );
 
   checkCleanupCancelled(canContinue);
 
-  return hash.digest("hex");
+  return hash;
 };
 
 /**
@@ -439,11 +436,11 @@ export const isMediaPathReferenced = async (
   );
 };
 
-/** Removes folders emptied by deleted sources, walking up from each source to the import root. */
+/** Removes folders emptied by deleted sources, walking up from their folders to the import root. */
 const removeEmptySourceFolders = async (filePaths: string[], rootPath: string) => {
-  for (const filePath of filePaths) {
+  for (const sourceFolder of new Set(filePaths.map((filePath) => nodePath.dirname(filePath)))) {
     for (
-      let folderPath = nodePath.dirname(filePath);
+      let folderPath = sourceFolder;
       isWithinFolder(rootPath, folderPath);
       folderPath = nodePath.dirname(folderPath)
     ) {

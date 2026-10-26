@@ -54,6 +54,18 @@ export type ListDeletedFileInput = {
 };
 export type UpdateDeletedFileInput = { id: string; updates: Partial<db.DeletedFileSchema> };
 
+/* ------------------------------------ File ----------------------------------- */
+export type CreateFileInput = Omit<db.FileSchema, "id">;
+export type DeleteFileInput = { ids: string[] };
+export type ListFileInput = {
+  filter?: _FilterQuery<db.FileSchema>;
+  page?: number;
+  pageSize?: number;
+  sort?: Record<string, SortOrder>;
+  withOverwrite?: boolean;
+};
+export type UpdateFileInput = { id: string; updates: Partial<db.FileSchema> };
+
 /* ------------------------------------ FileCollection ----------------------------------- */
 export type CreateFileCollectionInput = Omit<db.FileCollectionSchema, "id">;
 export type DeleteFileCollectionInput = { ids: string[] };
@@ -89,18 +101,6 @@ export type ListFileTransformInput = {
   withOverwrite?: boolean;
 };
 export type UpdateFileTransformInput = { id: string; updates: Partial<db.FileTransformSchema> };
-
-/* ------------------------------------ File ----------------------------------- */
-export type CreateFileInput = Omit<db.FileSchema, "id">;
-export type DeleteFileInput = { ids: string[] };
-export type ListFileInput = {
-  filter?: _FilterQuery<db.FileSchema>;
-  page?: number;
-  pageSize?: number;
-  sort?: Record<string, SortOrder>;
-  withOverwrite?: boolean;
-};
-export type UpdateFileInput = { id: string; updates: Partial<db.FileSchema> };
 
 /* ------------------------------------ MediaProgram ----------------------------------- */
 export type _CreateMediaProgramInput = Omit<db.MediaProgramSchema, "id">;

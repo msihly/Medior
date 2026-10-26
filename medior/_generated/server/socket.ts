@@ -60,7 +60,10 @@ export interface SocketEmitEvents {
     },
     options?: SocketEventOptions,
   ) => void;
-  onFileImportStarted: (args: { filePath: string }, options?: SocketEventOptions) => void;
+  onFileImportStarted: (
+    args: { batchId?: string; filePath: string },
+    options?: SocketEventOptions,
+  ) => void;
   onFileImportUpdated: (
     args: {
       batchId: string;
@@ -185,6 +188,9 @@ export const socketEvents: SocketEmitEvent[] = [
   "onDeletedFileCreated",
   "onDeletedFileDeleted",
   "onDeletedFileUpdated",
+  "onFileCreated",
+  "onFileDeleted",
+  "onFileUpdated",
   "onFileCollectionCreated",
   "onFileCollectionDeleted",
   "onFileCollectionUpdated",
@@ -194,9 +200,6 @@ export const socketEvents: SocketEmitEvent[] = [
   "onFileTransformCreated",
   "onFileTransformDeleted",
   "onFileTransformUpdated",
-  "onFileCreated",
-  "onFileDeleted",
-  "onFileUpdated",
   "onMediaProgramCreated",
   "onMediaProgramDeleted",
   "onMediaProgramUpdated",

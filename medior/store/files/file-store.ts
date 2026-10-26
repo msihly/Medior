@@ -65,19 +65,13 @@ export class FileStore extends ExtendedModel(_FileStore, {
   private followAction(jobId: string) {
     const stores = getRootStore<RootStore>(this);
 
-    if (stores.home.isFollowingJob(jobId)) return;
-
-    this.setActionJobId(jobId);
-    stores.home.followJob(jobId, this.finishAction);
+    stores.home.followJob(jobId, this.finishAction, () => this.setActionJobId(jobId));
   }
 
   private followRefresh(jobId: string) {
     const stores = getRootStore<RootStore>(this);
 
-    if (stores.home.isFollowingJob(jobId)) return;
-
-    this.setRefreshJobId(jobId);
-    stores.home.followJob(jobId, this.finishRefresh);
+    stores.home.followJob(jobId, this.finishRefresh, () => this.setRefreshJobId(jobId));
   }
 
   /* ---------------------------- STANDARD ACTIONS ---------------------------- */
@@ -164,9 +158,7 @@ export class FileStore extends ExtendedModel(_FileStore, {
       Omit<ModelCreationData<File>, "faceModels"> & { faceModels?: ModelCreationData<FaceModel>[] }
     >,
   ) {
-    const filesById = new Map(this.search.results.map((file) => [file.id, file]));
-
-    fileIds.forEach((id) => filesById.get(id)?.update?.(updates));
+    fileIds.forEach((id) => this.search.getResult(id)?.update(updates));
   }
 
   @modelAction
@@ -458,7 +450,7 @@ export class FileStore extends ExtendedModel(_FileStore, {
 
   /* --------------------------------- DYNAMIC GETTERS -------------------------------- */
   get actionJob() {
-    return getRootStore<RootStore>(this).home.jobs.find((job) => job.id === this.actionJobId);
+    return getRootStore<RootStore>(this).home.getJobById(this.actionJobId);
   }
 
   get hasArchivedFiles() {
@@ -470,11 +462,11 @@ export class FileStore extends ExtendedModel(_FileStore, {
   }
 
   get refreshJob() {
-    return getRootStore<RootStore>(this).home.jobs.find((job) => job.id === this.refreshJobId);
+    return getRootStore<RootStore>(this).home.getJobById(this.refreshJobId);
   }
 
   getById(id: string) {
-    return this.search.results.find((f) => f.id === id);
+    return this.search.getResult(id);
   }
 
   /** The label of the operation locking a file, if any. */

@@ -336,7 +336,10 @@ export const MediaProgramEditor = Comp(() => {
                   <MultiActionButton
                     name="LinkOff"
                     tooltip="Remove Season From Program"
-                    iconProps={{ color: colors.custom.red }}
+                    iconProps={{
+                      color:
+                        isBusy || activeSeasonIndex < 0 ? colors.custom.grey : colors.custom.red,
+                    }}
                     onClick={handleRemoveSeason}
                     disabled={isBusy || activeSeasonIndex < 0}
                   />

@@ -20,22 +20,19 @@ export const VideoControls = Comp(() => {
   const stores = useStores();
   const store = stores.carousel;
 
-  const activeFile = store.getActiveFile();
-
-  const hasAudio = Boolean(activeFile?.audioCodec) && activeFile.audioCodec !== "None";
-  const hasTranscript = Boolean(activeFile?.transcription?.segments?.length);
-  const hasCaptions = hasTranscript || store.subtitleTracks.length > 0;
-  const isCaptionsActive = store.isCaptionsVisible && hasCaptions;
-
-  const isWaveformActive = store.isWaveformVisible && Boolean(activeFile?.waveformPeaks?.length);
+  const { css } = useClasses(null);
 
   const videoContext = useContext(VideoContext);
 
   const [lastPlayingState, setLastPlayingState] = useState(false);
+  const [toaster] = useState(() => new Toaster());
 
-  const { css } = useClasses(null);
-
-  const toaster = new Toaster();
+  const activeFile = store.getActiveFile();
+  const hasAudio = Boolean(activeFile?.audioCodec) && activeFile.audioCodec !== "None";
+  const hasTranscript = Boolean(activeFile?.transcription?.segments?.length);
+  const hasCaptions = hasTranscript || store.subtitleTracks.length > 0;
+  const isCaptionsActive = store.isCaptionsVisible && hasCaptions;
+  const isWaveformActive = store.isWaveformVisible && Boolean(activeFile?.waveformPeaks?.length);
 
   const goToFrame = (frame: number) => {
     store.setIsPlaying(false);
@@ -125,8 +122,9 @@ export const VideoControls = Comp(() => {
     if (!res.success) toast.error(res.error);
   };
 
-  const handleTranscodeBitrateCommit = () =>
-    store.requiresTranscoding && seekVideoPlayer(store.curFrame);
+  const handleTranscodeBitrateCommit = () => {
+    if (store.requiresTranscoding) seekVideoPlayer(store.curFrame);
+  };
 
   const resetPlaybackRate = () => store.setPlaybackRate(1);
 

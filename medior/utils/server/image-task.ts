@@ -9,6 +9,7 @@ import type {
   SharpOptions,
 } from "sharp";
 import { serverShutdownSignal } from "trabecula/utils/process";
+import { getFfmpegPath } from "medior/utils/server/ffmpeg";
 import { runNativeTask } from "medior/utils/server/native-task";
 import { workSignal } from "medior/utils/server/work-signal";
 
@@ -56,7 +57,7 @@ export const runImageTask = async (
 
     const input = await new Promise<Buffer>((resolve, reject) => {
       execFile(
-        process.env.FFMPEG_PATH || "ffmpeg",
+        getFfmpegPath(),
         [
           "-v",
           "error",

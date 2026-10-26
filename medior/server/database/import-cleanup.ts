@@ -6,7 +6,7 @@ import {
   canRunBackgroundQueues,
   completeBackgroundOperationTargets,
   completeEmptyBackgroundOperation,
-  emitBackgroundOperation,
+  failBackgroundOperation,
   makeBackgroundOperationRunner,
   queueBackgroundOperation,
   setBackgroundOperationStatus,
@@ -18,31 +18,8 @@ import {
 } from "medior/server/database/background-execution";
 import { FileOperationModel, finishFileOperation } from "medior/server/database/file-operations";
 import { metadataWriteOptions } from "medior/server/database/metadata-work";
-import { dayjs } from "medior/utils/common";
 import { leanModelToJson } from "medior/utils/server";
 import { runConcurrent, workSignal } from "medior/utils/server/work-signal";
-
-const failImportCleanup = async (id: string, failedIds: string[]) => {
-  await BackgroundOperationModel.updateOne(
-    {
-      _id: id,
-      status: { $in: ["PENDING", "RUNNING"] },
-      targetIds: { $not: { $elemMatch: { $nin: failedIds } } },
-    },
-    {
-      $set: {
-        completedAt: dayjs().toISOString(),
-        dateModified: dayjs().toISOString(),
-        error: `${failedIds.length} imports could not be cleaned up. See the individual failures below.`,
-        status: "ERROR",
-      },
-      $unset: { queueKey: 1 },
-    },
-    metadataWriteOptions(),
-  );
-
-  await emitBackgroundOperation(id);
-};
 
 const processImportCleanup = async () => {
   while (canRunBackgroundQueues()) {
@@ -67,7 +44,12 @@ const processImportCleanup = async () => {
       const ids = operation.targetIds.filter((id) => !failedIds.has(id)).slice(0, 32);
 
       if (!ids.length) {
-        if (failedIds.size) await failImportCleanup(operation.id, [...failedIds]);
+        if (failedIds.size)
+          await failBackgroundOperation(
+            operation.id,
+            [...failedIds],
+            `${failedIds.size} imports could not be cleaned up. See the individual failures below.`,
+          );
         else await completeEmptyBackgroundOperation(operation.id, "Import cleanup completed.");
 
         continue;

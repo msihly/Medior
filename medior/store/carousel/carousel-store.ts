@@ -107,6 +107,14 @@ export class CarouselStore extends Model({
     if (!this.isSavingFrame) this.frameAbortController?.abort();
   }
 
+  /** Empties the carousel, such as between collections in the triager. */
+  @modelAction
+  clearFiles() {
+    this.setActiveFileId("");
+    this.setSelectedFileIds([]);
+    this.setVisibleFileIds([]);
+  }
+
   @modelAction
   handleTranscodeError(error: unknown) {
     this.setIsWaitingForFrames(false);
@@ -270,7 +278,7 @@ export class CarouselStore extends Model({
 
       if (!res.success) throw new Error(res.error);
 
-      await openCarouselWindow({ file: res.data.file, selectedFileIds: [res.data.file.id] });
+      openCarouselWindow({ file: res.data.file, selectedFileIds: [res.data.file.id] });
       toast.success("Frame extracted");
     } catch (error) {
       if (!controller.signal.aborted) toast.error(error);

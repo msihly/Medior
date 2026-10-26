@@ -12,7 +12,6 @@ interface BackgroundExecution {
   operationId?: string;
   resumeQueue?: () => Promise<void>;
   session?: ClientSession;
-  sessions: Set<ClientSession>;
 }
 
 export const backgroundExecution = new AsyncLocalStorage<BackgroundExecution>();
@@ -36,7 +35,6 @@ export const runBackgroundExecution = async <T>(
     controller: new AbortController(),
     isQueue,
     label: backgroundExecution.getStore()?.label,
-    sessions: new Set(),
   };
 
   const cancel = () => {
@@ -58,7 +56,6 @@ export const runBackgroundExecution = async <T>(
     return await backgroundExecution.run(execution, async () => {
       checkBackgroundExecution();
       execution.session = await mongoose.startSession();
-      execution.sessions.add(execution.session);
       checkBackgroundExecution();
 
       return workSignal.run(execution.controller.signal, run);
@@ -82,9 +79,7 @@ const cancelExecutions = async (active: BackgroundExecution[]) => {
     execution.controller.abort(new Error("Background work interrupted; pending work retained."));
   }
 
-  const sessions = pending.flatMap((execution) =>
-    [...execution.sessions].map((session) => session.id),
-  );
+  const sessions = pending.flatMap((execution) => execution.session?.id ?? []);
 
   // An empty killSessions list means ALL sessions. Only interrupt sessions owned by these runners.
   if (sessions.length) {

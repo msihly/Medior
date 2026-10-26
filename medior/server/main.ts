@@ -1,16 +1,7 @@
-import { app, BrowserWindow, dialog, ipcMain, screen } from "electron";
-import path from "path";
-import { SERVER_STATUS_IPC, ServerProcessStatus } from "trabecula/utils/common";
-import {
-  ownProcessTree,
-  PROCESS_SHUTDOWN_TIMEOUT_MS,
-  releaseProcessTreeForRelaunch,
-  ServerManager,
-  ServerProcessMessage,
-} from "trabecula/utils/process";
-import { fileLog, setLogsPath } from "trabecula/utils/server";
+import { app, BrowserWindow, ipcMain, screen } from "electron";
+import { registerMainProcess } from "trabecula/utils/electron";
+import { fileLog } from "trabecula/utils/server";
 import { SERVER_STAGES } from "medior/server/server";
-import { dayjs } from "medior/utils/common";
 import { Config, getConfig, loadConfig, saveConfig, setupTRPC } from "medior/utils/server";
 
 const remoteMain = require("@electron/remote/main");
@@ -38,12 +29,21 @@ app.on("browser-window-created", (_, window) => {
   });
 });
 
-try {
-  ownProcessTree();
-} catch (error) {
-  console.error("Process ownership could not be established:", error);
-  app.exit(1);
-}
+const {
+  baseUrl,
+  configPath,
+  getServers,
+  isBundled,
+  isPackaged,
+  isShuttingDown,
+  relaunch,
+  startServers,
+} = registerMainProcess({
+  appName: "Medior",
+  devPort: 3333,
+  mainDir: __dirname,
+  resourcesFolder: "medior",
+});
 
 type WindowType = "carousel" | "home" | "search";
 
@@ -65,97 +65,14 @@ const trackWindowDisplay = (window: BrowserWindow, windowType: WindowType) => {
 /* -------------------------------------------------------------------------- */
 /*                                   CONFIG                                   */
 /* -------------------------------------------------------------------------- */
-const isPackaged = app.isPackaged;
-const isBundled = isPackaged || !!process.env.BUILD_DEV;
-
-const rootDir = path.resolve(__dirname, "..", "..");
-
-const baseUrl = isBundled
-  ? `file://${path.resolve(rootDir, "..", isPackaged ? "" : "build", "index.html")}`
-  : `http://localhost:3333${!!process.env.HMR ? "/index.hmr.html" : ""}`;
-
-const folderPath = isPackaged ? process.resourcesPath : rootDir;
-const configPath = path.resolve(folderPath, "..", "config.json");
-
-ipcMain.handle("getConfigPath", () => configPath);
-
-let relaunchAfterShutdown = false;
-let servers: ServerManager = null;
-let shutdown: Promise<void> = null;
-let shutdownComplete = false;
-
-if (!app.requestSingleInstanceLock()) {
-  console.error(
-    "Medior is already running or still shutting down. This launch cannot start services.",
-  );
-
-  dialog.showErrorBox(
-    "Medior is already running",
-    "Another Medior instance still holds the application lock. It may be waiting for active work to finish shutting down. This launch has not started any services.",
-  );
-
-  app.exit(1);
-}
-
-app.on("before-quit", (event) => {
-  if (shutdownComplete) return;
-
-  event.preventDefault();
-
-  shutdown ??= (async () => {
-    const deadline = setTimeout(() => {
-      fileLog("Shutdown deadline exceeded; terminating the owned process tree.", { type: "error" });
-      app.exit(1);
-    }, PROCESS_SHUTDOWN_TIMEOUT_MS);
-
-    try {
-      await servers?.stop();
-
-      if (relaunchAfterShutdown) {
-        if (process.connected)
-          await new Promise<void>((resolve, reject) =>
-            process.send({ type: "relaunch" }, (error) => (error ? reject(error) : resolve())),
-          );
-        else {
-          releaseProcessTreeForRelaunch();
-          app.relaunch();
-        }
-      }
-
-      shutdownComplete = true;
-      app.exit(0);
-    } finally {
-      clearTimeout(deadline);
-    }
-  })().catch((error) => {
-    fileLog(`Shutdown failed: ${error.message}`, { type: "error" });
-    app.exit(1);
-  });
-});
-
-process.on("SIGINT", () => app.quit());
-process.on("SIGTERM", () => app.quit());
-process.on("disconnect", () => app.quit());
-
-process.on("message", (message: ServerProcessMessage) => {
-  if (message?.type === "stop") app.quit();
-});
-
-ipcMain.handle(SERVER_STATUS_IPC.get, () => servers?.getStatuses() ?? []);
-
 const broadcastConfig = (config: Config) =>
   BrowserWindow.getAllWindows().forEach((window) =>
     window.webContents.send("config-updated", config),
   );
 
-const broadcastServerStatuses = (statuses: ServerProcessStatus[]) =>
-  BrowserWindow.getAllWindows().forEach((window) =>
-    window.webContents.send(SERVER_STATUS_IPC.changed, statuses),
-  );
-
 ipcMain.handle("saveConfig", async (_, config: Config) => {
   try {
-    if (shutdown) throw new Error("Medior is shutting down.");
+    if (isShuttingDown()) throw new Error("Medior is shutting down.");
 
     const previousConfig = getConfig();
 
@@ -170,13 +87,13 @@ ipcMain.handle("saveConfig", async (_, config: Config) => {
 
     await saveConfig(configPath, config);
 
-    if (shutdown) throw new Error("Medior is shutting down.");
+    if (isShuttingDown()) throw new Error("Medior is shutting down.");
 
     setupTRPC();
 
     try {
-      if (restartedServers) await servers.restart();
-      else await servers.reloadConfig();
+      if (restartedServers) await getServers().restart();
+      else await getServers().reloadConfig();
 
       broadcastConfig(config);
 
@@ -184,11 +101,11 @@ ipcMain.handle("saveConfig", async (_, config: Config) => {
     } catch (error) {
       fileLog(`Failed to apply server config: ${error.message}`, { type: "error" });
 
-      if (!restartedServers && !shutdown) {
+      if (!restartedServers && !isShuttingDown()) {
         restartedServers = true;
 
         try {
-          await servers.restart();
+          await getServers().restart();
           broadcastConfig(config);
 
           return { restartedServers, success: true };
@@ -211,42 +128,16 @@ ipcMain.handle("saveConfig", async (_, config: Config) => {
   }
 });
 
-const logsDir = path.resolve(folderPath, "..", "logs", dayjs().format("YYYY-MM-DD"));
-
-process.env.LOGS_PATH = path.resolve(logsDir, `${dayjs().format("HH[h]mm[m]ss[s]")}.log`);
-setLogsPath(process.env.LOGS_PATH);
-
-app.setAppLogsPath(logsDir);
-app.setPath("appData", folderPath);
-app.setPath("userData", path.resolve(folderPath, "userData"));
-
 /* -------------------------------------------------------------------------- */
 /*                                 MAIN WINDOW                                */
 /* -------------------------------------------------------------------------- */
-ipcMain.handle("reload", () => {
-  relaunchAfterShutdown = true;
-  app.quit();
-});
+ipcMain.handle("reload", relaunch);
 
 let mainWindow: BrowserWindow = null;
 
 const createMainWindow = async () => {
   try {
-    fileLog("Loading servers...");
-
-    servers = new ServerManager({
-      base: isPackaged
-        ? path.join(process.resourcesPath, "extraResources/medior/server")
-        : __dirname,
-      configPath,
-      isPackaged,
-      logsPath: process.env.LOGS_PATH,
-      onStatusChange: broadcastServerStatuses,
-      resourcesPath: process.resourcesPath,
-      stages: SERVER_STAGES,
-    });
-
-    if (shutdown) return;
+    if (isShuttingDown()) return;
 
     fileLog("Creating main window...");
 
@@ -256,10 +147,10 @@ const createMainWindow = async () => {
       autoHideMenuBar: true,
       backgroundColor: "#111",
       frame: false,
-      x: display.workArea.x,
-      y: display.workArea.y,
       show: false,
       webPreferences: { contextIsolation: false, nodeIntegration: true, webSecurity: false },
+      x: display.workArea.x,
+      y: display.workArea.y,
     });
 
     mainWindow.on("closed", () => app.quit());
@@ -283,11 +174,10 @@ const createMainWindow = async () => {
       if (mode) mainWindow.webContents.openDevTools({ mode });
     }
 
-    fileLog("Loading main window...");
-    servers.start().catch((error) => {
-      fileLog(`Server startup failed: ${error.message}`, { type: "error" });
-    });
+    fileLog("Loading servers...");
+    startServers({ stages: SERVER_STAGES });
 
+    fileLog("Loading main window...");
     await mainWindow.loadURL(baseUrl);
     fileLog("Main window loaded.");
   } catch (err) {
@@ -300,11 +190,11 @@ const createMainWindow = async () => {
   try {
     await app.whenReady();
 
-    if (shutdown) return;
+    if (isShuttingDown()) return;
 
     await loadConfig(configPath);
 
-    if (shutdown) return;
+    if (isShuttingDown()) return;
 
     setupTRPC();
     await createMainWindow();
@@ -322,7 +212,7 @@ app.on("window-all-closed", app.quit);
 let searchWindows: BrowserWindow[] = [];
 
 const createSearchWindow = async ({ tagIds }) => {
-  if (shutdown) return;
+  if (isShuttingDown()) return;
 
   try {
     const display = getLastDisplay("search");
@@ -331,8 +221,6 @@ const createSearchWindow = async ({ tagIds }) => {
       autoHideMenuBar: true,
       backgroundColor: "#111",
       frame: false,
-      x: display.workArea.x,
-      y: display.workArea.y,
       show: false,
       webPreferences: {
         contextIsolation: false,
@@ -340,6 +228,8 @@ const createSearchWindow = async ({ tagIds }) => {
         nodeIntegrationInSubFrames: true,
         webSecurity: false,
       },
+      x: display.workArea.x,
+      y: display.workArea.y,
     });
 
     searchWindows.push(searchWindow);
@@ -395,13 +285,13 @@ const registerDevToolsShortcuts = (window: BrowserWindow) => {
 };
 
 const createCarouselWindow = async ({ fileId, height, selectedFileIds, startTimes, width }) => {
-  if (shutdown) return;
+  if (isShuttingDown()) return;
 
   try {
     fileLog("Creating carousel window...");
 
     const display = getLastDisplay("carousel");
-    const { width: screenWidth, height: screenHeight } = display.workAreaSize;
+    const { height: screenHeight, width: screenWidth } = display.workAreaSize;
 
     const winWidth = Math.min(width, screenWidth);
     const winHeight = Math.min(height, screenHeight);
@@ -410,9 +300,6 @@ const createCarouselWindow = async ({ fileId, height, selectedFileIds, startTime
       autoHideMenuBar: true,
       backgroundColor: "#111",
       frame: false,
-      x: display.workArea.x,
-      y: display.workArea.y,
-      width: winWidth,
       height: winHeight,
       show: false,
       useContentSize: true,
@@ -422,6 +309,9 @@ const createCarouselWindow = async ({ fileId, height, selectedFileIds, startTime
         nodeIntegrationInSubFrames: true,
         webSecurity: false,
       },
+      width: winWidth,
+      x: display.workArea.x,
+      y: display.workArea.y,
     });
 
     carouselWindows.push(carouselWindow);

@@ -1,7 +1,8 @@
 import fs from "fs/promises";
 import path from "path";
+import { randomUUID } from "crypto";
 import { availableParallelism } from "os";
-import { checkFileExists, fileLog } from "trabecula/utils/server";
+import { checkFileExists, fileLog, isWithinFolder } from "trabecula/utils/server";
 import type { FolderToCollMode, FolderToTagsMode, SortMenuProps } from "medior/components";
 import {
   AudioCodec,
@@ -17,7 +18,6 @@ import {
   VideoCodec,
   VideoExt,
 } from "medior/utils/common";
-import { isWithinFolder } from "medior/utils/server/source-folders";
 
 type DevToolsMode = null | Electron.OpenDevToolsOptions["mode"];
 
@@ -57,6 +57,17 @@ export const DEV_TOOLS_MODES: Array<{ label: string; value: DevToolsMode }> = [
   { label: "Left", value: "left" },
   { label: "Right", value: "right" },
   { label: "Undocked", value: "undocked" },
+];
+
+export const SIMILARITY_DEVICE_OPTIONS: Array<{
+  label: string;
+  value: Config["file"]["similarity"]["visual"]["device"];
+}> = [
+  { label: "CPU", value: "cpu" },
+  { label: "CUDA", value: "cuda" },
+  { label: "DirectML", value: "dml" },
+  { label: "GPU", value: "gpu" },
+  { label: "WebGPU", value: "webgpu" },
 ];
 
 export type ReencodeCandidateType = "gif" | "image" | "video";
@@ -147,17 +158,6 @@ type Search = {
   pageSize: number;
   sort: SortMenuProps["value"];
 };
-
-export const SIMILARITY_DEVICE_OPTIONS: Array<{
-  label: string;
-  value: Config["file"]["similarity"]["visual"]["device"];
-}> = [
-  { label: "CPU", value: "cpu" },
-  { label: "CUDA", value: "cuda" },
-  { label: "DirectML", value: "dml" },
-  { label: "GPU", value: "gpu" },
-  { label: "WebGPU", value: "webgpu" },
-];
 
 export interface Config {
   collection: {
@@ -583,8 +583,19 @@ export const setConfig = (value: Config) => {
   return config;
 };
 
-const writeConfig = (filePath: string, value: Config) =>
-  fs.writeFile(filePath, JSON.stringify(value, null, 2));
+/** Writes a temporary file and renames it over the config, so readers never see a partial file. */
+const writeConfig = async (filePath: string, value: Config) => {
+  const tempPath = `${filePath}.${randomUUID()}.tmp`;
+
+  try {
+    await fs.writeFile(tempPath, JSON.stringify(value, null, 2));
+    await fs.rename(tempPath, filePath);
+  } catch (error) {
+    await fs.rm(tempPath, { force: true });
+
+    throw error;
+  }
+};
 
 export const getAvailableFileStorage = (bytesNeeded: number) =>
   handleErrors(async () => {
@@ -671,7 +682,21 @@ export const loadConfig = async (filePath: string) => {
       return config;
     }
 
-    const loadedConfig = JSON.parse(await fs.readFile(filePath, "utf-8")) as Config;
+    const fileText = await fs.readFile(filePath, "utf-8");
+    let loadedConfig: Config;
+
+    try {
+      loadedConfig = JSON.parse(fileText);
+    } catch (error) {
+      // The unreadable file is set aside, since saving settings would replace it with defaults.
+      const backupPath = `${filePath}.invalid-${Date.now()}`;
+
+      await fs.rename(filePath, backupPath);
+      fileLog(`Config file could not be parsed and was moved to ${backupPath}.`, { type: "error" });
+
+      throw error;
+    }
+
     const migratedDimensions = migrateReencodeDimensions(loadedConfig);
 
     setConfig(loadedConfig);

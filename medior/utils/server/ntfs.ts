@@ -11,6 +11,16 @@ export const getNtfsFileIdentity = async (filePath: string): Promise<NtfsFileIde
   return { fileId: stats.ino.toString(), volumeId: stats.dev.toString() };
 };
 
+/** The NTFS identity stored for a file's thumbnail, which orders files for disk-order reads. */
+export const getThumbNtfsIdentity = <
+  File extends { thumb?: { ntfsFileId?: string; ntfsVolumeId?: string } },
+>(
+  file?: File,
+): Partial<NtfsFileIdentity> => ({
+  fileId: file?.thumb?.ntfsFileId,
+  volumeId: file?.thumb?.ntfsVolumeId,
+});
+
 const parseNtfsId = (value?: string) => {
   if (!value) return null;
 

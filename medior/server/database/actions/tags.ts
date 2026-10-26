@@ -111,7 +111,7 @@ const emitTagUpdates = async (
       .lean()
   ).map((r) => leanModelToJson<models.TagSchema>(r));
 
-  socket.emit("onTagsUpdated", {
+  socket.emitVolatile("onTagsUpdated", {
     tags: updatedTags.map((tag) => ({ tagId: tag.id, updates: { ...tag } })),
     withFileReload: !!(
       changedChildIds.added.length ||
@@ -305,7 +305,7 @@ const processTagRegenQueue = async () => {
             if (!refreshed.success) throw new Error(refreshed.error);
           }
 
-          socket.emit("onTagsUpdated", {
+          socket.emitVolatile("onTagsUpdated", {
             tags: tagIds.map((tagId) => ({ tagId, updates: {} })),
             withFileReload: true,
           });
@@ -459,7 +459,7 @@ export const createTag = makeAction(
 
       const created = leanModelToJson<models.TagSchema>(await models.TagModel.findById(id).lean());
 
-      if (withRegen || withSub) socket.emit("onTagCreated", created);
+      if (withRegen || withSub) socket.emitVolatile("onTagCreated", created);
 
       return created;
     },
@@ -513,7 +513,7 @@ export const deleteTag = makeAction(
 
       if (!queued.success) throw new Error(queued.error);
 
-      socket.emit("onTagDeleted", { ids: [id] });
+      socket.emitVolatile("onTagDeleted", { ids: [id] });
     },
     { persistInBackground: true },
   ),
@@ -759,7 +759,9 @@ export const getTagWithRelations = makeAction(async ({ id }: { id: string }) => 
 export const listRegExMaps = makeAction(async () => {
   const tags = await models.TagModel.find({
     $and: [{ regEx: { $exists: true } }, { regEx: { $ne: null } }, { regEx: { $ne: "" } }],
-  }).select({ _id: 1, regEx: 1 });
+  })
+    .select({ _id: 1, regEx: 1 })
+    .lean();
 
   return tags.map((t) => ({ id: t._id.toString(), regEx: t.regEx }));
 });
@@ -864,7 +866,7 @@ export const listTagAncestry = makeAction(async ({ ids }: { ids: string[] }) => 
 });
 
 export const listTagAncestorLabels = makeAction(async ({ id }: { id: string }) => {
-  const tag = await models.TagModel.findById(id).select({ ancestorIds: 1 });
+  const tag = await models.TagModel.findById(id).select({ ancestorIds: 1 }).lean();
 
   if (!tag) return [];
 
@@ -872,8 +874,9 @@ export const listTagAncestorLabels = makeAction(async ({ id }: { id: string }) =
     await models.TagModel.find({
       _id: { $in: objectIds(tag.ancestorIds.map((a) => a.toString()).filter((a) => a !== id)) },
     })
-      .select({ label: 1, count: 1 })
+      .select({ count: 1, label: 1 })
       .sort({ count: -1 })
+      .lean()
   ).map((a) => a.label);
 });
 
@@ -987,14 +990,12 @@ export const mergeTags = makeAction(
           [args.tagIdToMerge],
         );
 
-        const ratingSource =
-          [tagToKeep, tagToMerge].find(({ ratingIsManual }) => ratingIsManual) ??
-          [tagToKeep, tagToMerge].find(({ rating }) => rating > 0);
+        const ratingSource = actions.getMergeRatingSource([tagToKeep, tagToMerge]);
 
         type Collections =
-          | models.FileSchema
+          | models.FileCollectionSchema
           | models.FileImportBatchSchema
-          | models.FileCollectionSchema;
+          | models.FileSchema;
 
         const updateManyAddToSet: UpdateQuery<Collections> = {
           $addToSet: { tagIds: _tagIdToKeep },
@@ -1112,9 +1113,12 @@ export const mergeTags = makeAction(
         }
 
         if (args.withSub) {
-          socket.emit("onTagMerged", { newTagId: args.tagIdToKeep, oldTagId: args.tagIdToMerge });
+          socket.emitVolatile("onTagMerged", {
+            newTagId: args.tagIdToKeep,
+            oldTagId: args.tagIdToMerge,
+          });
 
-          socket.emit("onTagsUpdated", {
+          socket.emitVolatile("onTagsUpdated", {
             tags: [{ tagId: args.tagIdToKeep, updates: tagToKeepUpdates }],
             withFileReload: true,
           });
@@ -1132,7 +1136,7 @@ export const mergeTags = makeAction(
               "onReloadImportBatches",
               "onReloadTags",
             ] as SocketEmitEvent[]
-          ).forEach((event) => socket.emit(event));
+          ).forEach((event) => socket.emitVolatile(event));
         }
       }
     },
@@ -1370,7 +1374,7 @@ export const regenTags = makeAction(
       await queueTagMetadataRegen(args.withDescendantMetadata === false ? args.tagIds : tagIds);
 
       if (args.withDescendantMetadata === false && args.withSub !== false)
-        socket.emit("onTagsUpdated", {
+        socket.emitVolatile("onTagsUpdated", {
           tags: tagIds.map((tagId) => ({ tagId, updates: {} })),
           withFileReload: true,
         });
@@ -1416,7 +1420,7 @@ export const regenTagAncestors = makeAction(
       { ...metadataWriteOptions(), session: getBackgroundSession() },
     );
 
-    if (withSub) socket.emit("onTagsUpdated", { tags: updates, withFileReload: true });
+    if (withSub) socket.emitVolatile("onTagsUpdated", { tags: updates, withFileReload: true });
 
     return updates;
   },
@@ -1566,7 +1570,7 @@ export const repairTags = makeAction(
               } else {
                 await models.TagModel.updateOne({ _id: tag._id }, { $set: { label } });
 
-                socket.emit("onTagsUpdated", {
+                socket.emitVolatile("onTagsUpdated", {
                   tags: [{ tagId: String(tag._id), updates: { label } }],
                   withFileReload: false,
                 });
@@ -1620,7 +1624,7 @@ export const repairTags = makeAction(
             } else {
               if (label !== tag.label || !isDeepEqual(aliases, tag.aliases)) {
                 await models.TagModel.updateOne({ _id: tag._id }, { $set: { aliases, label } });
-                socket.emit("onTagsUpdated", {
+                socket.emitVolatile("onTagsUpdated", {
                   tags: [{ tagId: String(tag._id), updates: { aliases, label } }],
                   withFileReload: false,
                 });
@@ -1797,7 +1801,7 @@ export const repairTags = makeAction(
                 },
               );
 
-              socket.emit("onTagsUpdated", {
+              socket.emitVolatile("onTagsUpdated", {
                 tags: [{ tagId: String(tag._id), updates: { ancestorIds, descendantIds } }],
                 withFileReload: true,
               });
@@ -1873,7 +1877,7 @@ export const repairTags = makeAction(
               { $set: { "category.color": category.color } },
             );
 
-            socket.emit("onTagsUpdated", {
+            socket.emitVolatile("onTagsUpdated", {
               tags: [{ tagId: String(tag._id), updates: { category } }],
               withFileReload: false,
             });
@@ -2029,20 +2033,20 @@ export const upsertTag = makeAction(
       }
 
       return { id: tagId, label, parentIds };
+    } else {
+      const res = await createTag({
+        aliases: aliases?.length ? aliases : [],
+        category,
+        label,
+        parentIds,
+        regEx: regEx ?? (withRegEx ? tagsToRegEx([{ aliases, label }]) : null),
+        withSub: false,
+      });
+
+      if (!res.success) throw new Error(res.error);
+
+      return { id: res.data.id, label: res.data.label, parentIds };
     }
-
-    const res = await createTag({
-      aliases: aliases?.length ? aliases : [],
-      category,
-      label,
-      parentIds,
-      regEx: regEx ?? (withRegEx ? tagsToRegEx([{ aliases, label }]) : null),
-      withSub: false,
-    });
-
-    if (!res.success) throw new Error(res.error);
-
-    return { id: res.data.id, label: res.data.label, parentIds };
   },
 );
 
@@ -2108,24 +2112,22 @@ export const upsertImportTags = makeAction(
           existingTag.label = preferred;
           modified = true;
         }
+      } else {
+        const definition = definitions.get(key);
 
-        continue;
+        const created = await createTag({
+          aliases: definition?.aliases ?? [],
+          category: definition?.category,
+          label,
+          regEx: definition?.regEx ?? (definition?.withRegEx ? tagsToRegEx([definition]) : null),
+          withRegen: false,
+          withSub: true,
+        });
+
+        if (!created.success) throw new Error(created.error);
+
+        byLabel.set(key, created.data);
       }
-
-      const definition = definitions.get(key);
-
-      const created = await createTag({
-        aliases: definition?.aliases ?? [],
-        category: definition?.category,
-        label,
-        regEx: definition?.regEx ?? (definition?.withRegEx ? tagsToRegEx([definition]) : null),
-        withRegen: false,
-        withSub: true,
-      });
-
-      if (!created.success) throw new Error(created.error);
-
-      byLabel.set(key, created.data);
     }
 
     for (const definition of tags) {
@@ -2176,7 +2178,7 @@ export const upsertImportTags = makeAction(
       if (!queued.success) throw new Error(queued.error);
     }
 
-    if (modified) socket.emit("onReloadTags");
+    if (modified) socket.emitVolatile("onReloadTags");
 
     return results;
   }),

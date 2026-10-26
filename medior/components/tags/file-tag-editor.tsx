@@ -21,11 +21,10 @@ import { CONSTANTS } from "medior/utils/common";
 import { trpc } from "medior/utils/server";
 
 interface FileTagEditorProps {
-  batchId?: string;
   fileIds: string[];
 }
 
-export const FileTagEditor = Comp(({ batchId, fileIds }: FileTagEditorProps) => {
+export const FileTagEditor = Comp(({ fileIds }: FileTagEditorProps) => {
   const stores = useStores();
   const store = stores.file;
 
@@ -90,12 +89,7 @@ export const FileTagEditor = Comp(({ batchId, fileIds }: FileTagEditorProps) => 
 
       const addedTagIds = addedTags.map((t) => t.id);
       const removedTagIds = removedTags.map((t) => t.id);
-      const res = await store.editFileTags({
-        addedTagIds,
-        batchId,
-        fileIds,
-        removedTagIds,
-      });
+      const res = await store.editFileTags({ addedTagIds, fileIds, removedTagIds });
 
       if (!res?.success) throw new Error(res.error);
 

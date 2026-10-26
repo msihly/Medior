@@ -69,7 +69,7 @@ export const ImportListItem = Comp(
 
         if (!res.data.items.length) return toast.warn("File no longer exists in the library");
 
-        await openCarouselWindow({
+        openCarouselWindow({
           file: res.data.items[0],
           selectedFileIds: Array.from(
             new Set(

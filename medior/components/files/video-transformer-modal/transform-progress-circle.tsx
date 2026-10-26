@@ -1,15 +1,15 @@
-import { CenteredText, Comp, ProgressCircle as ProgressCircleBase } from "medior/components";
+import { CenteredText, Comp, ProgressCircle } from "medior/components";
 import { FileTransform } from "medior/store";
 import { colors } from "medior/utils/client";
 import { dayjs } from "medior/utils/common";
 import { getTransformStatusDisplay } from "./file-details";
 
-export const ProgressCircle = Comp(({ transform }: { transform: FileTransform }) => {
+export const TransformProgressCircle = Comp(({ transform }: { transform: FileTransform }) => {
   const isRunning = transform.status === "RUNNING";
   const status = isRunning ? null : getTransformStatusDisplay(transform);
 
   return (
-    <ProgressCircleBase
+    <ProgressCircle
       percent={transform.progress.percent}
       color={colors.custom.blue}
       bgColor={colors.custom.grey}
@@ -48,6 +48,6 @@ export const ProgressCircle = Comp(({ transform }: { transform: FileTransform })
           />
         </>
       )}
-    </ProgressCircleBase>
+    </ProgressCircle>
   );
 });

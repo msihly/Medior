@@ -13,12 +13,12 @@ export interface TagSelectorProps {
 }
 
 export const TagSelector = Comp(({ options, store }: TagSelectorProps) => {
-  const columnWidths = useRef(new Map<string, number>());
-  const listRef = useRef<VariableSizeList>(null);
-
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
   const [viewport, setViewport] = useState<HTMLDivElement>(null);
   const [viewportSize, setViewportSize] = useState({ height: 0, scrollbar: 0 });
+
+  const columnWidths = useRef(new Map<string, number>());
+  const listRef = useRef<VariableSizeList>(null);
 
   const hierarchy = useMemo(
     () => createImportTagHierarchy(store.flatTagsToUpsert),

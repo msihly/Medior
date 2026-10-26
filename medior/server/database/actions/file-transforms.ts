@@ -41,7 +41,6 @@ import {
   retireTransformPreparations,
 } from "medior/server/database/transform-metadata";
 import * as Types from "medior/server/database/types";
-import { isGeneratedMediaUnreadable } from "medior/utils/client/files";
 import {
   chunkArray,
   CONSTANTS,
@@ -59,6 +58,7 @@ import {
   getIsImage,
   ReencodeCandidateType,
 } from "medior/utils/server/config";
+import { isGeneratedMediaUnreadable } from "medior/utils/server/files";
 import { hashMediaFile, recoverMediaOutput, syncMediaFile } from "medior/utils/server/media-output";
 import { getMediaInfo, MediaInfo, reencode, remux, spliceVideo } from "medior/utils/server/videos";
 
@@ -116,7 +116,7 @@ class FileTransformerStatus {
       return;
 
     this.lastPreviewAt = Date.now();
-    socket.emitReliable("onFileTransformLoaded", { file, transform });
+    socket.emit("onFileTransformLoaded", { file, transform });
   }
 
   setActiveFileId(fileId: string, transformId: string) {
@@ -126,7 +126,7 @@ class FileTransformerStatus {
 
   setIsAuto(isAuto: boolean) {
     this.isAuto = isAuto;
-    socket.emitReliable("onFileTransformerStatusUpdated");
+    socket.emit("onFileTransformerStatusUpdated");
   }
 
   setIsPaused(isPaused: boolean) {
@@ -136,7 +136,7 @@ class FileTransformerStatus {
 
     if (isPaused) this.abortController?.abort();
 
-    socket.emitReliable("onFileTransformerStatusUpdated");
+    socket.emit("onFileTransformerStatusUpdated");
   }
 
   setIsTransforming(isTransforming: boolean) {
@@ -148,7 +148,7 @@ class FileTransformerStatus {
       this.activeType = null;
     }
 
-    socket.emitReliable("onFileTransformerStatusUpdated");
+    socket.emit("onFileTransformerStatusUpdated");
   }
 
   tryRun(type: Types.FileTransformType) {
@@ -159,7 +159,7 @@ class FileTransformerStatus {
     this.isPaused = false;
     this.isTransforming = true;
     this.lastPreviewAt = 0;
-    socket.emitReliable("onFileTransformerStatusUpdated");
+    socket.emit("onFileTransformerStatusUpdated");
 
     return this.abortController.signal;
   }
@@ -288,8 +288,8 @@ const updateFileTransform = async (id: string, updates: Partial<models.FileTrans
     }
   }
 
-  if (isProgress) socket.emit("onFileTransformUpdated", { id, updates });
-  else socket.emitReliable("onFileTransformUpdated", { id, updates });
+  if (isProgress) socket.emitVolatile("onFileTransformUpdated", { id, updates });
+  else socket.emit("onFileTransformUpdated", { id, updates });
 };
 
 const recordDuplicateTransform = async (
@@ -332,7 +332,7 @@ const resetStaleRunningTransforms = async () => {
     },
   );
 
-  if (res.modifiedCount) socket.emit("onReloadFileTransforms", { reason: "reset" });
+  if (res.modifiedCount) socket.emitVolatile("onReloadFileTransforms", { reason: "reset" });
 };
 
 const getQueueTransform = async (
@@ -558,7 +558,7 @@ const runTransformQueueCreation = makeBackgroundOperationRunner(
 
         await actions.emitBackgroundOperation(operation._id.toString());
 
-        if (completed) socket.emit("onReloadFileTransforms", { reason: "created" });
+        if (completed) socket.emitVolatile("onReloadFileTransforms", { reason: "created" });
       } catch (error) {
         checkBackgroundExecution();
         await actions.setBackgroundOperationStatus(operation._id.toString(), "ERROR", {
@@ -853,7 +853,7 @@ export const deleteFileTransforms = makeAction(
           );
         }
 
-        socket.emitReliable("onFileTransformDeleted", { ids: args.ids });
+        socket.emit("onFileTransformDeleted", { ids: args.ids });
 
         return result;
       } else {
@@ -895,7 +895,7 @@ export const deleteFileTransforms = makeAction(
 
         runFileCleanupQueue();
 
-        socket.emitReliable("onFileTransformDeleted", { ids: args.ids });
+        socket.emit("onFileTransformDeleted", { ids: args.ids });
 
         return result;
       }
@@ -1008,7 +1008,9 @@ const resolveDuplicateOutput = async (
   const duplicate = await models.FileModel.findOne({
     _id: { $ne: fileId },
     hash: output.hash,
-  }).lean();
+  })
+    .select({ _id: 1, path: 1 })
+    .lean();
 
   if (!duplicate) return null;
 
@@ -1075,7 +1077,7 @@ const completeDuplicateMerge = async (id: string) => {
   };
 
   await models.FileTransformModel.updateOne({ _id: id }, updates);
-  socket.emit("onFileTransformUpdated", { id, updates });
+  socket.emitVolatile("onFileTransformUpdated", { id, updates });
 };
 
 const verifyDuplicateTransform = async (args: { id: string }) => {
@@ -1113,7 +1115,9 @@ const mergeDuplicateTransform = async (
       if (transform.regenerationPending) {
         const files = await models.FileModel.find({
           _id: { $in: [transform.fileId, transform.duplicateFileId] },
-        }).lean();
+        })
+          .select({ _id: 1, tagIds: 1 })
+          .lean();
 
         await actions.queueTagMetadataRegen([
           ...files.flatMap((file) => file.tagIds.map(String)),
@@ -1201,14 +1205,14 @@ const mergeDuplicateTransform = async (
 
       await completeDuplicateMerge(args.id);
 
-      socket.emit("onFileTransformUpdated", {
+      socket.emitVolatile("onFileTransformUpdated", {
         id: args.id,
         updates: { errorMsg: null, regenerationPending: false, status: "MERGED" },
       });
 
-      socket.emit("onFilesArchived", { fileIds: [verified.fileId.toString()] });
+      socket.emitVolatile("onFilesArchived", { fileIds: [verified.fileId.toString()] });
 
-      socket.emit("onFilesUpdated", {
+      socket.emitVolatile("onFilesUpdated", {
         fileIds: [verified.fileId.toString()],
         updates: { isArchived: true },
       });
@@ -1258,7 +1262,9 @@ const processDuplicateMergeQueue = async (operationId?: string, batchId?: string
       for (const id of ids) {
         try {
           const verified = await verifyDuplicateTransform({ id });
-          const current = await models.BackgroundOperationModel.findById(operation.id).lean();
+          const current = await models.BackgroundOperationModel.findById(operation.id)
+            .select({ processedCount: 1, status: 1, targetIds: 1, totalCount: 1 })
+            .lean();
 
           if (!current || !["PENDING", "RUNNING"].includes(current.status)) return;
 
@@ -1280,9 +1286,11 @@ const processDuplicateMergeQueue = async (operationId?: string, batchId?: string
         }
 
         if (batchId) {
-          const current = await models.BackgroundOperationModel.findById(operation.id).lean();
+          const current = await models.BackgroundOperationModel.findById(operation.id)
+            .select({ failures: 1, processedCount: 1 })
+            .lean();
 
-          socket.emit("onDuplicateMergeProgress", {
+          socket.emitVolatile("onDuplicateMergeProgress", {
             batchId,
             completed: current.processedCount,
             failed: current.failures?.length ?? 0,
@@ -1357,7 +1365,7 @@ export const mergeFileTransformDuplicate = makeAction(
 
       if ("id" in args && failures.length) throw new Error(failures.join("\n"));
 
-      socket.emit("onDuplicateMergeProgress", {
+      socket.emitVolatile("onDuplicateMergeProgress", {
         batchId: ids[0],
         completed: result.processedCount,
         failed: failures.length,
@@ -1392,7 +1400,7 @@ const retainTransformRecoveryFailure = async (id: string, error: Error) => {
     };
 
     await models.FileTransformModel.updateOne({ _id: id }, updates);
-    socket.emitReliable("onFileTransformUpdated", { id, updates });
+    socket.emit("onFileTransformUpdated", { id, updates });
   } else {
     await updateFileTransform(id, { errorMsg: `Recovery pending: ${error.message}` });
     console.error("Transform recovery retained for retry:", error);
@@ -1597,7 +1605,9 @@ const replaceTransformOutput = async (args: { id: string }, outputInfo?: MediaIn
       const duplicate = await models.FileModel.findOne({
         _id: { $ne: original._id },
         hash: transform.afterHash,
-      }).lean();
+      })
+        .select({ _id: 1, path: 1 })
+        .lean();
 
       if (duplicate) {
         const duplicateResult = await recordDuplicateTransform(
@@ -1656,13 +1666,13 @@ const replaceTransformOutput = async (args: { id: string }, outputInfo?: MediaIn
     })();
 
     if (result.status === "REPLACED") {
-      socket.emitReliable("onFileUpdated", {
+      socket.emit("onFileUpdated", {
         id: transform.fileId.toString(),
         updates: fileUpdates,
       });
     }
 
-    socket.emit("onFileTransformUpdated", { id: args.id, updates: result });
+    socket.emitVolatile("onFileTransformUpdated", { id: args.id, updates: result });
 
     if (Date.now() - startedAt >= 1000)
       fileLog(
@@ -1997,7 +2007,9 @@ const executeFileTransform = async (args: { id: string }, signal: AbortSignal) =
       const duplicate = await models.FileModel.findOne({
         _id: { $ne: file._id },
         hash: output.hash,
-      }).lean();
+      })
+        .select({ _id: 1, path: 1 })
+        .lean();
 
       if (duplicate) {
         setStage("finalizing duplicate output");
@@ -2341,7 +2353,7 @@ const saveTransformCopy = async (args: { id: string }) => {
 
     return leanModelToJson<models.FileSchema>(saved);
   } else {
-    const file = await models.FileModel.findById(transform.fileId).lean();
+    const file = await models.FileModel.findById(transform.fileId).select({ _id: 1 }).lean();
 
     if (!file) throw new Error("Original file not found");
 
@@ -2408,7 +2420,7 @@ const saveTransformCopy = async (args: { id: string }) => {
       retainOutput: saved.thumb?.path === info.thumb?.path,
     });
 
-    socket.emit("onFileTransformUpdated", { id: args.id, updates: { status: "SAVED" } });
+    socket.emitVolatile("onFileTransformUpdated", { id: args.id, updates: { status: "SAVED" } });
 
     return saved;
   }

@@ -4,6 +4,7 @@ const model = new ModelStore("MediaProgram", {
   defaultPageSize: "() => getConfig().mediaPrograms.manager.search.pageSize",
   defaultSort: "() => getConfig().mediaPrograms.manager.search.sort",
   tagFields: [{ idsName: "genreIds", name: "genres" }],
+  withChangeTracking: true,
   withTags: true,
 });
 

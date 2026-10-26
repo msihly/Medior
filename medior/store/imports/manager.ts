@@ -1,7 +1,8 @@
 import autoBind from "auto-bind";
 import { ObjectId } from "bson";
 import { computed, reaction } from "mobx";
-import { Model, model, modelFlow, prop } from "mobx-keystone";
+import { Model, model, modelAction, modelFlow, prop } from "mobx-keystone";
+import type { ImportStatus } from "medior/server/database";
 import { asyncAction } from "medior/utils/client";
 import {
   IMPORT_UPLOAD_BYTES,
@@ -29,6 +30,10 @@ export class ImportManager extends Model({
   search: prop<FileImportBatchSearch>(() => new FileImportBatchSearch({})),
 }) {
   private activeBatchLoadRevision = 0;
+  private queuedStatusCountIds = new Set<string>();
+  private statusCountsRevision = 0;
+  private statusCountsRevisions = new Map<string, number>();
+  private statusCountsTimer: ReturnType<typeof setTimeout> = null;
 
   onInit() {
     autoBind(this);
@@ -37,6 +42,10 @@ export class ImportManager extends Model({
       () => this.isOpen,
       () => {
         if (!this.isOpen) {
+          clearTimeout(this.statusCountsTimer);
+          this.statusCountsTimer = null;
+          this.queuedStatusCountIds.clear();
+          this.statusCountsRevisions.clear();
           this.setIsLoading(true);
           this.search.reset();
         } else {
@@ -46,6 +55,47 @@ export class ImportManager extends Model({
         }
       },
     );
+
+    // Each loaded page of batches fetches its counts together.
+    reaction(
+      () => this.search.results,
+      (results, previousResults) => {
+        const previousBatches = new Set(previousResults);
+        const ids = results.filter((batch) => !previousBatches.has(batch)).map((batch) => batch.id);
+
+        if (this.isOpen && ids.length) this.loadStatusCounts(ids);
+      },
+    );
+  }
+
+  /* ---------------------------- STANDARD ACTIONS ---------------------------- */
+  @modelAction
+  applyStatusCounts(counts: Record<string, Partial<Record<ImportStatus, number>>>) {
+    if (this.activeBatch && counts[this.activeBatch.id])
+      this.activeBatch.setStatusCounts({ ...counts[this.activeBatch.id] });
+
+    for (const batch of this.search.results) {
+      if (counts[batch.id]) batch.setStatusCounts({ ...counts[batch.id] });
+    }
+  }
+
+  /** Imports in progress refresh each loaded batch's counts at most once per second. */
+  queueStatusCounts(id: string) {
+    if (!this.isOpen) return;
+
+    this.queuedStatusCountIds.add(id);
+
+    if (!this.statusCountsTimer)
+      this.statusCountsTimer = setTimeout(() => {
+        const ids = [...this.queuedStatusCountIds].filter(
+          (queuedId) => this.activeBatch?.id === queuedId || this.search.getResult(queuedId),
+        );
+
+        this.statusCountsTimer = null;
+        this.queuedStatusCountIds.clear();
+
+        if (ids.length) this.loadStatusCounts(ids);
+      }, 1000);
   }
 
   /* ------------------------------ ASYNC ACTIONS ----------------------------- */
@@ -141,6 +191,8 @@ export class ImportManager extends Model({
 
       if (!batch) {
         this.setActiveBatch(null);
+        this.setActiveFilePath(null);
+        this.setActiveFileProgress(null);
       } else if (this.activeBatch?.id === batch.id) {
         this.activeBatch.updateHeader(batch);
 
@@ -148,6 +200,8 @@ export class ImportManager extends Model({
       } else {
         this.setActiveBatch(new FileImportBatch(batch));
       }
+
+      if (batch && this.isOpen) this.loadStatusCounts([batch.id]);
 
       const tagIds = batch?.tagIds ?? [];
       const tagRes = tagIds.length
@@ -163,6 +217,25 @@ export class ImportManager extends Model({
     } finally {
       if (revision === this.activeBatchLoadRevision) this.setIsLoading(false);
     }
+  });
+
+  @modelFlow
+  loadStatusCounts = asyncAction(async (ids: string[]) => {
+    const revision = ++this.statusCountsRevision;
+
+    for (const id of ids) this.statusCountsRevisions.set(id, revision);
+
+    const res = await trpc.getImportBatchStatusCounts.mutate({ ids });
+    if (!res.success) throw new Error(res.error);
+
+    // Counts apply only from each batch's latest request.
+    const counts = Object.fromEntries(
+      Object.entries(res.data).filter(([id]) => this.statusCountsRevisions.get(id) === revision),
+    );
+
+    for (const id of Object.keys(counts)) this.statusCountsRevisions.delete(id);
+
+    this.applyStatusCounts(counts);
   });
 
   @modelFlow

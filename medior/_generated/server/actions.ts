@@ -54,859 +54,6 @@ import {
 /*                               SEARCH ACTIONS
 /* --------------------------------------------------------------------------- */
 
-export type CreateFileCollectionFilterPipelineInput = {
-  dateCreatedEnd?: string;
-  dateCreatedMode?: "optional" | "required";
-  dateCreatedStart?: string;
-  dateModifiedEnd?: string;
-  dateModifiedMode?: "optional" | "required";
-  dateModifiedStart?: string;
-  excludedDescTagIds?: string[];
-  excludedTagIds?: string[];
-  fileCount?: { logOp: LogicalOp | ""; value: number };
-  fileCountMode?: "optional" | "required";
-  ids?: string[];
-  maxSize?: number;
-  minSize?: number;
-  optionalTagIds?: string[];
-  rating?: { logOp: LogicalOp | ""; value: number };
-  ratingMode?: "optional" | "required";
-  requiredDescTagIds?: string[];
-  requiredTagIds?: string[];
-  sizeMode?: "optional" | "required";
-  sortValue?: SortMenuProps["value"];
-  title?: string;
-  titleMode?: "optional" | "required";
-};
-
-export const createFileCollectionFilterPipeline = async (
-  args: CreateFileCollectionFilterPipelineInput,
-) => {
-  const $match: FilterQuery<models.FileCollectionSchema> = {};
-
-  if (args.ids != null && !isDeepEqual(args.ids, []))
-    ($match.$and ??= []).push(setObj({}, ["_id", "$in"], objectIds(args.ids)));
-
-  if (args.excludedDescTagIds?.length)
-    setObj($match, ["tagIdsWithAncestors", "$nin"], objectIds(args.excludedDescTagIds));
-
-  if (args.excludedTagIds?.length)
-    setObj($match, ["tagIds", "$nin"], objectIds(args.excludedTagIds));
-
-  if (args.optionalTagIds?.length)
-    setObj($match, ["tagIds", "$in"], objectIds(args.optionalTagIds));
-
-  if (args.requiredDescTagIds?.length)
-    setObj($match, ["tagIdsWithAncestors", "$all"], objectIds(args.requiredDescTagIds));
-
-  if (args.requiredTagIds?.length)
-    setObj($match, ["tagIds", "$all"], objectIds(args.requiredTagIds));
-
-  {
-    const filter: FilterQuery<models.FileCollectionSchema> = {};
-
-    if (
-      args.dateCreatedEnd != null &&
-      args.dateCreatedEnd !== "" &&
-      !isDeepEqual(args.dateCreatedEnd, "")
-    )
-      setObj(filter, ["dateCreated", "$lte"], args.dateCreatedEnd);
-
-    if (
-      args.dateCreatedStart != null &&
-      args.dateCreatedStart !== "" &&
-      !isDeepEqual(args.dateCreatedStart, "")
-    )
-      setObj(filter, ["dateCreated", "$gte"], args.dateCreatedStart);
-
-    if (Object.keys(filter).length) {
-      const operator = args.dateCreatedMode === "optional" ? "$or" : "$and";
-
-      ($match[operator] ??= []).push(filter);
-    }
-  }
-
-  {
-    const filter: FilterQuery<models.FileCollectionSchema> = {};
-
-    if (
-      args.dateModifiedEnd != null &&
-      args.dateModifiedEnd !== "" &&
-      !isDeepEqual(args.dateModifiedEnd, "")
-    )
-      setObj(filter, ["dateModified", "$lte"], args.dateModifiedEnd);
-
-    if (
-      args.dateModifiedStart != null &&
-      args.dateModifiedStart !== "" &&
-      !isDeepEqual(args.dateModifiedStart, "")
-    )
-      setObj(filter, ["dateModified", "$gte"], args.dateModifiedStart);
-
-    if (Object.keys(filter).length) {
-      const operator = args.dateModifiedMode === "optional" ? "$or" : "$and";
-
-      ($match[operator] ??= []).push(filter);
-    }
-  }
-
-  {
-    const filter: FilterQuery<models.FileCollectionSchema> = {};
-
-    if (args.fileCount?.logOp && args.fileCount?.value != null)
-      setObj(filter, ["fileCount", logicOpsToMongo(args.fileCount.logOp)], args.fileCount.value);
-
-    if (Object.keys(filter).length) {
-      const operator = args.fileCountMode === "optional" ? "$or" : "$and";
-
-      ($match[operator] ??= []).push(filter);
-    }
-  }
-
-  {
-    const filter: FilterQuery<models.FileCollectionSchema> = {};
-
-    if (args.rating?.logOp && args.rating?.value != null)
-      setObj(filter, ["rating", logicOpsToMongo(args.rating.logOp)], args.rating.value);
-
-    if (Object.keys(filter).length) {
-      const operator = args.ratingMode === "optional" ? "$or" : "$and";
-
-      ($match[operator] ??= []).push(filter);
-    }
-  }
-
-  {
-    const filter: FilterQuery<models.FileCollectionSchema> = {};
-
-    if (args.maxSize != null && !isDeepEqual(args.maxSize, null))
-      setObj(filter, ["size", "$lte"], args.maxSize);
-
-    if (args.minSize != null && !isDeepEqual(args.minSize, null))
-      setObj(filter, ["size", "$gte"], args.minSize);
-
-    if (Object.keys(filter).length) {
-      const operator = args.sizeMode === "optional" ? "$or" : "$and";
-
-      ($match[operator] ??= []).push(filter);
-    }
-  }
-
-  {
-    const filter: FilterQuery<models.FileCollectionSchema> = {};
-
-    if (args.title != null && args.title !== "" && !isDeepEqual(args.title, ""))
-      addRegexSearchFilter(filter, ["title", "$regex"], args.title);
-
-    if (Object.keys(filter).length) {
-      const operator = args.titleMode === "optional" ? "$or" : "$and";
-
-      ($match[operator] ??= []).push(filter);
-    }
-  }
-
-  // Callers that only need the match, like duplicate grouping, pass no sort value.
-  const sortValue = args.sortValue ?? { isDesc: false, key: "_id" };
-  const sortDir = sortValue.isDesc ? -1 : 1;
-
-  return {
-    $match,
-    $sort: { [sortValue.key]: sortDir, _id: sortDir } as { [key: string]: 1 | -1 },
-  };
-};
-
-export type GetShiftSelectedFileCollectionInput = CreateFileCollectionFilterPipelineInput & {
-  clickedId: string;
-  selectedIds: string[];
-};
-
-export const getShiftSelectedFileCollection = makeAction(
-  async ({ clickedId, selectedIds, ...filterParams }: GetShiftSelectedFileCollectionInput) => {
-    const filterPipeline = await createFileCollectionFilterPipeline(filterParams);
-
-    return getShiftSelectedItems({
-      clickedId,
-      filterPipeline,
-      ids: filterParams.ids,
-      model: models.FileCollectionModel,
-      selectedIds,
-    });
-  },
-);
-
-export type GetFilteredFileCollectionCountInput = CreateFileCollectionFilterPipelineInput & {
-  curMaxPage: number;
-  forcePages?: boolean;
-  page: number;
-  pageSize: number;
-  withFull: boolean;
-};
-
-export const getFilteredFileCollectionCount = makeAction(
-  async ({
-    curMaxPage,
-    forcePages,
-    pageSize,
-    withFull,
-    ...filterParams
-  }: GetFilteredFileCollectionCountInput) => {
-    const filterPipeline = await createFileCollectionFilterPipeline(filterParams);
-    let count: number;
-    let pageCount: number;
-
-    if (forcePages || filterParams.ids?.length) {
-      const items = await listItemsByIds({
-        ids: filterParams.ids ?? [],
-        model: models.FileCollectionModel,
-        select: { _id: 1 },
-      });
-
-      count = items.length;
-      pageCount = Math.ceil(count / pageSize);
-    } else if (withFull) {
-      count = await models.FileCollectionModel.countDocuments(filterPipeline.$match).allowDiskUse(
-        true,
-      );
-
-      pageCount = Math.ceil(count / pageSize);
-    } else {
-      const targetPage = Math.max(1, filterParams.page ?? 1);
-      const targetMaxPage = targetPage >= (curMaxPage ?? 0) ? targetPage + 1000 : curMaxPage;
-      const probeLimit = targetMaxPage * pageSize;
-
-      count = await models.FileCollectionModel.countDocuments(filterPipeline.$match, {
-        limit: probeLimit,
-      }).allowDiskUse(true);
-
-      pageCount = count < probeLimit ? Math.ceil(count / pageSize) : targetMaxPage;
-    }
-
-    return { count, pageCount };
-  },
-);
-
-export type ListFilteredFileCollectionInput = CreateFileCollectionFilterPipelineInput & {
-  forcePages?: boolean;
-  page: number;
-  pageSize: number;
-  select?: Record<string, 1 | -1>;
-};
-
-export const listFilteredFileCollection = makeAction(
-  async ({
-    forcePages,
-    page,
-    pageSize,
-    select,
-    ...filterParams
-  }: ListFilteredFileCollectionInput) => {
-    const filterPipeline = await createFileCollectionFilterPipeline(filterParams);
-    const hasIds = forcePages || filterParams.ids?.length > 0;
-
-    const items = await (hasIds
-      ? listItemsByIds({
-          ids: filterParams.ids ?? [],
-          model: models.FileCollectionModel,
-          ...(forcePages ? { page, pageSize } : {}),
-          select,
-        })
-      : models.FileCollectionModel.find(filterPipeline.$match)
-          .sort(filterPipeline.$sort)
-          .select(select)
-          .skip(Math.max(0, page - 1) * pageSize)
-          .limit(pageSize)
-          .allowDiskUse(true)
-          .lean());
-
-    if (!items) throw new Error("Failed to load filtered FileCollection");
-
-    return items.map((i) => leanModelToJson<models.FileCollectionSchema>(i));
-  },
-);
-
-export type CreateFileImportBatchFilterPipelineInput = {
-  collectionTitle?: string;
-  collectionTitleMode?: "optional" | "required";
-  completedAtEnd?: string;
-  completedAtMode?: "optional" | "required";
-  completedAtStart?: string;
-  dateCreatedEnd?: string;
-  dateCreatedMode?: "optional" | "required";
-  dateCreatedStart?: string;
-  excludedDescTagIds?: string[];
-  excludedTagIds?: string[];
-  fileCount?: { logOp: LogicalOp | ""; value: number };
-  fileCountMode?: "optional" | "required";
-  filePath?: string;
-  filePathMode?: "optional" | "required";
-  ids?: string[];
-  isCompleted?: boolean;
-  optionalTagIds?: string[];
-  requiredDescTagIds?: string[];
-  requiredTagIds?: string[];
-  sortValue?: SortMenuProps["value"];
-  startedAtEnd?: string;
-  startedAtMode?: "optional" | "required";
-  startedAtStart?: string;
-  statuses?: string[];
-};
-
-export const createFileImportBatchFilterPipeline = async (
-  args: CreateFileImportBatchFilterPipelineInput,
-) => {
-  const $match: FilterQuery<models.FileImportBatchSchema> = {};
-
-  if (args.ids != null && !isDeepEqual(args.ids, []))
-    ($match.$and ??= []).push(setObj({}, ["_id", "$in"], objectIds(args.ids)));
-
-  if (args.statuses != null && !isDeepEqual(args.statuses, []))
-    setObj($match, ["imports", "$elemMatch", "status", "$in"], args.statuses);
-
-  setObj($match, ["isCompleted"], args.isCompleted);
-
-  if (args.excludedDescTagIds?.length)
-    setObj($match, ["tagIdsWithAncestors", "$nin"], objectIds(args.excludedDescTagIds));
-
-  if (args.excludedTagIds?.length)
-    setObj($match, ["tagIds", "$nin"], objectIds(args.excludedTagIds));
-
-  if (args.optionalTagIds?.length)
-    setObj($match, ["tagIds", "$in"], objectIds(args.optionalTagIds));
-
-  if (args.requiredDescTagIds?.length)
-    setObj($match, ["tagIdsWithAncestors", "$all"], objectIds(args.requiredDescTagIds));
-
-  if (args.requiredTagIds?.length)
-    setObj($match, ["tagIds", "$all"], objectIds(args.requiredTagIds));
-
-  {
-    const filter: FilterQuery<models.FileImportBatchSchema> = {};
-
-    if (
-      args.collectionTitle != null &&
-      args.collectionTitle !== "" &&
-      !isDeepEqual(args.collectionTitle, "")
-    )
-      addRegexSearchFilter(filter, ["collectionTitle", "$regex"], args.collectionTitle);
-
-    if (Object.keys(filter).length) {
-      const operator = args.collectionTitleMode === "optional" ? "$or" : "$and";
-
-      ($match[operator] ??= []).push(filter);
-    }
-  }
-
-  {
-    const filter: FilterQuery<models.FileImportBatchSchema> = {};
-
-    if (
-      args.completedAtEnd != null &&
-      args.completedAtEnd !== "" &&
-      !isDeepEqual(args.completedAtEnd, "")
-    )
-      setObj(filter, ["completedAt", "$lte"], args.completedAtEnd);
-
-    if (
-      args.completedAtStart != null &&
-      args.completedAtStart !== "" &&
-      !isDeepEqual(args.completedAtStart, "")
-    )
-      setObj(filter, ["completedAt", "$gte"], args.completedAtStart);
-
-    if (Object.keys(filter).length) {
-      const operator = args.completedAtMode === "optional" ? "$or" : "$and";
-
-      ($match[operator] ??= []).push(filter);
-    }
-  }
-
-  {
-    const filter: FilterQuery<models.FileImportBatchSchema> = {};
-
-    if (
-      args.dateCreatedEnd != null &&
-      args.dateCreatedEnd !== "" &&
-      !isDeepEqual(args.dateCreatedEnd, "")
-    )
-      setObj(filter, ["dateCreated", "$lte"], args.dateCreatedEnd);
-
-    if (
-      args.dateCreatedStart != null &&
-      args.dateCreatedStart !== "" &&
-      !isDeepEqual(args.dateCreatedStart, "")
-    )
-      setObj(filter, ["dateCreated", "$gte"], args.dateCreatedStart);
-
-    if (Object.keys(filter).length) {
-      const operator = args.dateCreatedMode === "optional" ? "$or" : "$and";
-
-      ($match[operator] ??= []).push(filter);
-    }
-  }
-
-  {
-    const filter: FilterQuery<models.FileImportBatchSchema> = {};
-
-    if (args.fileCount?.logOp && args.fileCount?.value != null)
-      setObj(filter, ["fileCount", logicOpsToMongo(args.fileCount.logOp)], args.fileCount.value);
-
-    if (Object.keys(filter).length) {
-      const operator = args.fileCountMode === "optional" ? "$or" : "$and";
-
-      ($match[operator] ??= []).push(filter);
-    }
-  }
-
-  {
-    const filter: FilterQuery<models.FileImportBatchSchema> = {};
-
-    if (args.filePath != null && args.filePath !== "" && !isDeepEqual(args.filePath, null))
-      addRegexSearchFilter(filter, ["imports", "$elemMatch", "path", "$regex"], args.filePath);
-
-    if (Object.keys(filter).length) {
-      const operator = args.filePathMode === "optional" ? "$or" : "$and";
-
-      ($match[operator] ??= []).push(filter);
-    }
-  }
-
-  {
-    const filter: FilterQuery<models.FileImportBatchSchema> = {};
-
-    if (
-      args.startedAtEnd != null &&
-      args.startedAtEnd !== "" &&
-      !isDeepEqual(args.startedAtEnd, "")
-    )
-      setObj(filter, ["startedAt", "$lte"], args.startedAtEnd);
-
-    if (
-      args.startedAtStart != null &&
-      args.startedAtStart !== "" &&
-      !isDeepEqual(args.startedAtStart, "")
-    )
-      setObj(filter, ["startedAt", "$gte"], args.startedAtStart);
-
-    if (Object.keys(filter).length) {
-      const operator = args.startedAtMode === "optional" ? "$or" : "$and";
-
-      ($match[operator] ??= []).push(filter);
-    }
-  }
-
-  // Callers that only need the match, like duplicate grouping, pass no sort value.
-  const sortValue = args.sortValue ?? { isDesc: false, key: "_id" };
-  const sortDir = sortValue.isDesc ? -1 : 1;
-
-  return {
-    $match,
-    $sort: { [sortValue.key]: sortDir, _id: sortDir } as { [key: string]: 1 | -1 },
-  };
-};
-
-export type GetShiftSelectedFileImportBatchInput = CreateFileImportBatchFilterPipelineInput & {
-  clickedId: string;
-  selectedIds: string[];
-};
-
-export const getShiftSelectedFileImportBatch = makeAction(
-  async ({ clickedId, selectedIds, ...filterParams }: GetShiftSelectedFileImportBatchInput) => {
-    const filterPipeline = await createFileImportBatchFilterPipeline(filterParams);
-
-    return getShiftSelectedItems({
-      clickedId,
-      filterPipeline,
-      ids: filterParams.ids,
-      model: models.FileImportBatchModel,
-      searchPlan: {
-        options: {},
-        pipeline: [
-          ...createImportBatchSearchPipeline(filterPipeline.$match),
-          { $sort: filterPipeline.$sort },
-        ],
-      },
-      selectedIds,
-    });
-  },
-);
-
-export type GetFilteredFileImportBatchCountInput = CreateFileImportBatchFilterPipelineInput & {
-  curMaxPage: number;
-  forcePages?: boolean;
-  page: number;
-  pageSize: number;
-  withFull: boolean;
-};
-
-export const getFilteredFileImportBatchCount = makeAction(
-  async ({
-    curMaxPage,
-    forcePages,
-    pageSize,
-    withFull,
-    ...filterParams
-  }: GetFilteredFileImportBatchCountInput) => {
-    const filterPipeline = await createFileImportBatchFilterPipeline(filterParams);
-    let count: number;
-    let pageCount: number;
-
-    if (forcePages || filterParams.ids?.length) {
-      const items = await listItemsByIds({
-        ids: filterParams.ids ?? [],
-        model: models.FileImportBatchModel,
-        select: { _id: 1 },
-      });
-
-      count = items.length;
-      pageCount = Math.ceil(count / pageSize);
-    } else if (withFull) {
-      count = await countImportBatchSearchResults(filterPipeline.$match);
-
-      pageCount = Math.ceil(count / pageSize);
-    } else {
-      const targetPage = Math.max(1, filterParams.page ?? 1);
-      const targetMaxPage = targetPage >= (curMaxPage ?? 0) ? targetPage + 1000 : curMaxPage;
-      const probeLimit = targetMaxPage * pageSize;
-
-      count = await countImportBatchSearchResults(filterPipeline.$match, probeLimit);
-
-      pageCount = count < probeLimit ? Math.ceil(count / pageSize) : targetMaxPage;
-    }
-
-    return { count, pageCount };
-  },
-);
-
-export type ListFilteredFileImportBatchInput = CreateFileImportBatchFilterPipelineInput & {
-  forcePages?: boolean;
-  page: number;
-  pageSize: number;
-  select?: Record<string, 1 | -1>;
-};
-
-export const listFilteredFileImportBatch = makeAction(
-  async ({
-    forcePages,
-    page,
-    pageSize,
-    select,
-    ...filterParams
-  }: ListFilteredFileImportBatchInput) => {
-    const filterPipeline = await createFileImportBatchFilterPipeline(filterParams);
-    const hasIds = forcePages || filterParams.ids?.length > 0;
-
-    const items = await (hasIds
-      ? listItemsByIds({
-          ids: filterParams.ids ?? [],
-          model: models.FileImportBatchModel,
-          ...(forcePages ? { page, pageSize } : {}),
-          select,
-        })
-      : models.FileImportBatchModel.aggregate([
-          ...createImportBatchSearchPipeline(filterPipeline.$match),
-          { $sort: filterPipeline.$sort },
-          { $skip: Math.max(0, page - 1) * pageSize },
-          { $limit: pageSize },
-          ...(select ? [{ $project: select }] : []),
-        ]).allowDiskUse(true));
-
-    if (!items) throw new Error("Failed to load filtered FileImportBatch");
-
-    return items.map((i) => leanModelToJson<models.FileImportBatchSchema>(i));
-  },
-);
-
-export type CreateFileTransformFilterPipelineInput = {
-  afterSize?: { logOp: LogicalOp | ""; value: number };
-  afterSizeMode?: "optional" | "required";
-  beforePath?: string;
-  beforePathMode?: "optional" | "required";
-  beforeSize?: { logOp: LogicalOp | ""; value: number };
-  beforeSizeMode?: "optional" | "required";
-  completedAtEnd?: string;
-  completedAtMode?: "optional" | "required";
-  completedAtStart?: string;
-  dateCreatedEnd?: string;
-  dateCreatedMode?: "optional" | "required";
-  dateCreatedStart?: string;
-  ids?: string[];
-  isCompleted?: boolean;
-  sortValue?: SortMenuProps["value"];
-  startedAtEnd?: string;
-  startedAtMode?: "optional" | "required";
-  startedAtStart?: string;
-  status?: string;
-  statusMode?: "optional" | "required";
-  type?: string;
-  typeMode?: "optional" | "required";
-};
-
-export const createFileTransformFilterPipeline = async (
-  args: CreateFileTransformFilterPipelineInput,
-) => {
-  const $match: FilterQuery<models.FileTransformSchema> = {};
-
-  if (args.ids != null && !isDeepEqual(args.ids, []))
-    ($match.$and ??= []).push(setObj({}, ["_id", "$in"], objectIds(args.ids)));
-
-  setObj($match, ["isCompleted"], args.isCompleted);
-
-  {
-    const filter: FilterQuery<models.FileTransformSchema> = {};
-
-    if (args.afterSize?.logOp && args.afterSize?.value != null)
-      setObj(filter, ["afterSize", logicOpsToMongo(args.afterSize.logOp)], args.afterSize.value);
-
-    if (Object.keys(filter).length) {
-      const operator = args.afterSizeMode === "optional" ? "$or" : "$and";
-
-      ($match[operator] ??= []).push(filter);
-    }
-  }
-
-  {
-    const filter: FilterQuery<models.FileTransformSchema> = {};
-
-    if (args.beforePath != null && args.beforePath !== "" && !isDeepEqual(args.beforePath, null))
-      addRegexSearchFilter(filter, ["beforePath", "$regex"], args.beforePath);
-
-    if (Object.keys(filter).length) {
-      const operator = args.beforePathMode === "optional" ? "$or" : "$and";
-
-      ($match[operator] ??= []).push(filter);
-    }
-  }
-
-  {
-    const filter: FilterQuery<models.FileTransformSchema> = {};
-
-    if (args.beforeSize?.logOp && args.beforeSize?.value != null)
-      setObj(filter, ["beforeSize", logicOpsToMongo(args.beforeSize.logOp)], args.beforeSize.value);
-
-    if (Object.keys(filter).length) {
-      const operator = args.beforeSizeMode === "optional" ? "$or" : "$and";
-
-      ($match[operator] ??= []).push(filter);
-    }
-  }
-
-  {
-    const filter: FilterQuery<models.FileTransformSchema> = {};
-
-    if (
-      args.completedAtEnd != null &&
-      args.completedAtEnd !== "" &&
-      !isDeepEqual(args.completedAtEnd, "")
-    )
-      setObj(filter, ["completedAt", "$lte"], args.completedAtEnd);
-
-    if (
-      args.completedAtStart != null &&
-      args.completedAtStart !== "" &&
-      !isDeepEqual(args.completedAtStart, "")
-    )
-      setObj(filter, ["completedAt", "$gte"], args.completedAtStart);
-
-    if (Object.keys(filter).length) {
-      const operator = args.completedAtMode === "optional" ? "$or" : "$and";
-
-      ($match[operator] ??= []).push(filter);
-    }
-  }
-
-  {
-    const filter: FilterQuery<models.FileTransformSchema> = {};
-
-    if (
-      args.dateCreatedEnd != null &&
-      args.dateCreatedEnd !== "" &&
-      !isDeepEqual(args.dateCreatedEnd, "")
-    )
-      setObj(filter, ["dateCreated", "$lte"], args.dateCreatedEnd);
-
-    if (
-      args.dateCreatedStart != null &&
-      args.dateCreatedStart !== "" &&
-      !isDeepEqual(args.dateCreatedStart, "")
-    )
-      setObj(filter, ["dateCreated", "$gte"], args.dateCreatedStart);
-
-    if (Object.keys(filter).length) {
-      const operator = args.dateCreatedMode === "optional" ? "$or" : "$and";
-
-      ($match[operator] ??= []).push(filter);
-    }
-  }
-
-  {
-    const filter: FilterQuery<models.FileTransformSchema> = {};
-
-    if (
-      args.startedAtEnd != null &&
-      args.startedAtEnd !== "" &&
-      !isDeepEqual(args.startedAtEnd, "")
-    )
-      setObj(filter, ["startedAt", "$lte"], args.startedAtEnd);
-
-    if (
-      args.startedAtStart != null &&
-      args.startedAtStart !== "" &&
-      !isDeepEqual(args.startedAtStart, "")
-    )
-      setObj(filter, ["startedAt", "$gte"], args.startedAtStart);
-
-    if (Object.keys(filter).length) {
-      const operator = args.startedAtMode === "optional" ? "$or" : "$and";
-
-      ($match[operator] ??= []).push(filter);
-    }
-  }
-
-  {
-    const filter: FilterQuery<models.FileTransformSchema> = {};
-
-    if (args.status != null && args.status !== "" && !isDeepEqual(args.status, ""))
-      setObj(filter, ["status"], args.status);
-
-    if (Object.keys(filter).length) {
-      const operator = args.statusMode === "optional" ? "$or" : "$and";
-
-      ($match[operator] ??= []).push(filter);
-    }
-  }
-
-  {
-    const filter: FilterQuery<models.FileTransformSchema> = {};
-
-    if (args.type != null && args.type !== "" && !isDeepEqual(args.type, ""))
-      setObj(filter, ["type"], args.type);
-
-    if (Object.keys(filter).length) {
-      const operator = args.typeMode === "optional" ? "$or" : "$and";
-
-      ($match[operator] ??= []).push(filter);
-    }
-  }
-
-  // Callers that only need the match, like duplicate grouping, pass no sort value.
-  const sortValue = args.sortValue ?? { isDesc: false, key: "_id" };
-  const sortDir = sortValue.isDesc ? -1 : 1;
-
-  return {
-    $match,
-    $sort: { [sortValue.key]: sortDir, _id: sortDir } as { [key: string]: 1 | -1 },
-  };
-};
-
-export type GetShiftSelectedFileTransformInput = CreateFileTransformFilterPipelineInput & {
-  clickedId: string;
-  selectedIds: string[];
-};
-
-export const getShiftSelectedFileTransform = makeAction(
-  async ({ clickedId, selectedIds, ...filterParams }: GetShiftSelectedFileTransformInput) => {
-    const filterPipeline = await createFileTransformFilterPipeline(filterParams);
-
-    return getShiftSelectedItems({
-      clickedId,
-      filterPipeline,
-      ids: filterParams.ids,
-      model: models.FileTransformModel,
-      selectedIds,
-    });
-  },
-);
-
-export type GetFilteredFileTransformCountInput = CreateFileTransformFilterPipelineInput & {
-  curMaxPage: number;
-  forcePages?: boolean;
-  page: number;
-  pageSize: number;
-  withFull: boolean;
-};
-
-export const getFilteredFileTransformCount = makeAction(
-  async ({
-    curMaxPage,
-    forcePages,
-    pageSize,
-    withFull,
-    ...filterParams
-  }: GetFilteredFileTransformCountInput) => {
-    const filterPipeline = await createFileTransformFilterPipeline(filterParams);
-    let count: number;
-    let pageCount: number;
-
-    if (forcePages || filterParams.ids?.length) {
-      const items = await listItemsByIds({
-        ids: filterParams.ids ?? [],
-        model: models.FileTransformModel,
-        select: { _id: 1 },
-      });
-
-      count = items.length;
-      pageCount = Math.ceil(count / pageSize);
-    } else if (withFull) {
-      count = await models.FileTransformModel.countDocuments(filterPipeline.$match).allowDiskUse(
-        true,
-      );
-
-      pageCount = Math.ceil(count / pageSize);
-    } else {
-      const targetPage = Math.max(1, filterParams.page ?? 1);
-      const targetMaxPage = targetPage >= (curMaxPage ?? 0) ? targetPage + 1000 : curMaxPage;
-      const probeLimit = targetMaxPage * pageSize;
-
-      count = await models.FileTransformModel.countDocuments(filterPipeline.$match, {
-        limit: probeLimit,
-      }).allowDiskUse(true);
-
-      pageCount = count < probeLimit ? Math.ceil(count / pageSize) : targetMaxPage;
-    }
-
-    return { count, pageCount };
-  },
-);
-
-export type ListFilteredFileTransformInput = CreateFileTransformFilterPipelineInput & {
-  forcePages?: boolean;
-  page: number;
-  pageSize: number;
-  select?: Record<string, 1 | -1>;
-};
-
-export const listFilteredFileTransform = makeAction(
-  async ({
-    forcePages,
-    page,
-    pageSize,
-    select,
-    ...filterParams
-  }: ListFilteredFileTransformInput) => {
-    const filterPipeline = await createFileTransformFilterPipeline(filterParams);
-    const hasIds = forcePages || filterParams.ids?.length > 0;
-
-    const items = await (hasIds
-      ? listItemsByIds({
-          ids: filterParams.ids ?? [],
-          model: models.FileTransformModel,
-          ...(forcePages ? { page, pageSize } : {}),
-          select,
-        })
-      : models.FileTransformModel.find(filterPipeline.$match)
-          .sort(filterPipeline.$sort)
-          .select(select)
-          .skip(Math.max(0, page - 1) * pageSize)
-          .limit(pageSize)
-          .allowDiskUse(true)
-          .lean());
-
-    if (!items) throw new Error("Failed to load filtered FileTransform");
-
-    return items.map((i) => leanModelToJson<models.FileTransformSchema>(i));
-  },
-);
-
 export type CreateFileFilterPipelineInput = {
   bitrate?: { logOp: LogicalOp | ""; value: number };
   bitrateMode?: "optional" | "required";
@@ -1540,6 +687,859 @@ export const listFilteredFile = makeAction(
   },
 );
 
+export type CreateFileCollectionFilterPipelineInput = {
+  dateCreatedEnd?: string;
+  dateCreatedMode?: "optional" | "required";
+  dateCreatedStart?: string;
+  dateModifiedEnd?: string;
+  dateModifiedMode?: "optional" | "required";
+  dateModifiedStart?: string;
+  excludedDescTagIds?: string[];
+  excludedTagIds?: string[];
+  fileCount?: { logOp: LogicalOp | ""; value: number };
+  fileCountMode?: "optional" | "required";
+  ids?: string[];
+  maxSize?: number;
+  minSize?: number;
+  optionalTagIds?: string[];
+  rating?: { logOp: LogicalOp | ""; value: number };
+  ratingMode?: "optional" | "required";
+  requiredDescTagIds?: string[];
+  requiredTagIds?: string[];
+  sizeMode?: "optional" | "required";
+  sortValue?: SortMenuProps["value"];
+  title?: string;
+  titleMode?: "optional" | "required";
+};
+
+export const createFileCollectionFilterPipeline = async (
+  args: CreateFileCollectionFilterPipelineInput,
+) => {
+  const $match: FilterQuery<models.FileCollectionSchema> = {};
+
+  if (args.ids != null && !isDeepEqual(args.ids, []))
+    ($match.$and ??= []).push(setObj({}, ["_id", "$in"], objectIds(args.ids)));
+
+  if (args.excludedDescTagIds?.length)
+    setObj($match, ["tagIdsWithAncestors", "$nin"], objectIds(args.excludedDescTagIds));
+
+  if (args.excludedTagIds?.length)
+    setObj($match, ["tagIds", "$nin"], objectIds(args.excludedTagIds));
+
+  if (args.optionalTagIds?.length)
+    setObj($match, ["tagIds", "$in"], objectIds(args.optionalTagIds));
+
+  if (args.requiredDescTagIds?.length)
+    setObj($match, ["tagIdsWithAncestors", "$all"], objectIds(args.requiredDescTagIds));
+
+  if (args.requiredTagIds?.length)
+    setObj($match, ["tagIds", "$all"], objectIds(args.requiredTagIds));
+
+  {
+    const filter: FilterQuery<models.FileCollectionSchema> = {};
+
+    if (
+      args.dateCreatedEnd != null &&
+      args.dateCreatedEnd !== "" &&
+      !isDeepEqual(args.dateCreatedEnd, "")
+    )
+      setObj(filter, ["dateCreated", "$lte"], args.dateCreatedEnd);
+
+    if (
+      args.dateCreatedStart != null &&
+      args.dateCreatedStart !== "" &&
+      !isDeepEqual(args.dateCreatedStart, "")
+    )
+      setObj(filter, ["dateCreated", "$gte"], args.dateCreatedStart);
+
+    if (Object.keys(filter).length) {
+      const operator = args.dateCreatedMode === "optional" ? "$or" : "$and";
+
+      ($match[operator] ??= []).push(filter);
+    }
+  }
+
+  {
+    const filter: FilterQuery<models.FileCollectionSchema> = {};
+
+    if (
+      args.dateModifiedEnd != null &&
+      args.dateModifiedEnd !== "" &&
+      !isDeepEqual(args.dateModifiedEnd, "")
+    )
+      setObj(filter, ["dateModified", "$lte"], args.dateModifiedEnd);
+
+    if (
+      args.dateModifiedStart != null &&
+      args.dateModifiedStart !== "" &&
+      !isDeepEqual(args.dateModifiedStart, "")
+    )
+      setObj(filter, ["dateModified", "$gte"], args.dateModifiedStart);
+
+    if (Object.keys(filter).length) {
+      const operator = args.dateModifiedMode === "optional" ? "$or" : "$and";
+
+      ($match[operator] ??= []).push(filter);
+    }
+  }
+
+  {
+    const filter: FilterQuery<models.FileCollectionSchema> = {};
+
+    if (args.fileCount?.logOp && args.fileCount?.value != null)
+      setObj(filter, ["fileCount", logicOpsToMongo(args.fileCount.logOp)], args.fileCount.value);
+
+    if (Object.keys(filter).length) {
+      const operator = args.fileCountMode === "optional" ? "$or" : "$and";
+
+      ($match[operator] ??= []).push(filter);
+    }
+  }
+
+  {
+    const filter: FilterQuery<models.FileCollectionSchema> = {};
+
+    if (args.rating?.logOp && args.rating?.value != null)
+      setObj(filter, ["rating", logicOpsToMongo(args.rating.logOp)], args.rating.value);
+
+    if (Object.keys(filter).length) {
+      const operator = args.ratingMode === "optional" ? "$or" : "$and";
+
+      ($match[operator] ??= []).push(filter);
+    }
+  }
+
+  {
+    const filter: FilterQuery<models.FileCollectionSchema> = {};
+
+    if (args.maxSize != null && !isDeepEqual(args.maxSize, null))
+      setObj(filter, ["size", "$lte"], args.maxSize);
+
+    if (args.minSize != null && !isDeepEqual(args.minSize, null))
+      setObj(filter, ["size", "$gte"], args.minSize);
+
+    if (Object.keys(filter).length) {
+      const operator = args.sizeMode === "optional" ? "$or" : "$and";
+
+      ($match[operator] ??= []).push(filter);
+    }
+  }
+
+  {
+    const filter: FilterQuery<models.FileCollectionSchema> = {};
+
+    if (args.title != null && args.title !== "" && !isDeepEqual(args.title, ""))
+      addRegexSearchFilter(filter, ["title", "$regex"], args.title);
+
+    if (Object.keys(filter).length) {
+      const operator = args.titleMode === "optional" ? "$or" : "$and";
+
+      ($match[operator] ??= []).push(filter);
+    }
+  }
+
+  // Callers that only need the match, like duplicate grouping, pass no sort value.
+  const sortValue = args.sortValue ?? { isDesc: false, key: "_id" };
+  const sortDir = sortValue.isDesc ? -1 : 1;
+
+  return {
+    $match,
+    $sort: { [sortValue.key]: sortDir, _id: sortDir } as { [key: string]: 1 | -1 },
+  };
+};
+
+export type GetShiftSelectedFileCollectionInput = CreateFileCollectionFilterPipelineInput & {
+  clickedId: string;
+  selectedIds: string[];
+};
+
+export const getShiftSelectedFileCollection = makeAction(
+  async ({ clickedId, selectedIds, ...filterParams }: GetShiftSelectedFileCollectionInput) => {
+    const filterPipeline = await createFileCollectionFilterPipeline(filterParams);
+
+    return getShiftSelectedItems({
+      clickedId,
+      filterPipeline,
+      ids: filterParams.ids,
+      model: models.FileCollectionModel,
+      selectedIds,
+    });
+  },
+);
+
+export type GetFilteredFileCollectionCountInput = CreateFileCollectionFilterPipelineInput & {
+  curMaxPage: number;
+  forcePages?: boolean;
+  page: number;
+  pageSize: number;
+  withFull: boolean;
+};
+
+export const getFilteredFileCollectionCount = makeAction(
+  async ({
+    curMaxPage,
+    forcePages,
+    pageSize,
+    withFull,
+    ...filterParams
+  }: GetFilteredFileCollectionCountInput) => {
+    const filterPipeline = await createFileCollectionFilterPipeline(filterParams);
+    let count: number;
+    let pageCount: number;
+
+    if (forcePages || filterParams.ids?.length) {
+      const items = await listItemsByIds({
+        ids: filterParams.ids ?? [],
+        model: models.FileCollectionModel,
+        select: { _id: 1 },
+      });
+
+      count = items.length;
+      pageCount = Math.ceil(count / pageSize);
+    } else if (withFull) {
+      count = await models.FileCollectionModel.countDocuments(filterPipeline.$match).allowDiskUse(
+        true,
+      );
+
+      pageCount = Math.ceil(count / pageSize);
+    } else {
+      const targetPage = Math.max(1, filterParams.page ?? 1);
+      const targetMaxPage = targetPage >= (curMaxPage ?? 0) ? targetPage + 1000 : curMaxPage;
+      const probeLimit = targetMaxPage * pageSize;
+
+      count = await models.FileCollectionModel.countDocuments(filterPipeline.$match, {
+        limit: probeLimit,
+      }).allowDiskUse(true);
+
+      pageCount = count < probeLimit ? Math.ceil(count / pageSize) : targetMaxPage;
+    }
+
+    return { count, pageCount };
+  },
+);
+
+export type ListFilteredFileCollectionInput = CreateFileCollectionFilterPipelineInput & {
+  forcePages?: boolean;
+  page: number;
+  pageSize: number;
+  select?: Record<string, 1 | -1>;
+};
+
+export const listFilteredFileCollection = makeAction(
+  async ({
+    forcePages,
+    page,
+    pageSize,
+    select,
+    ...filterParams
+  }: ListFilteredFileCollectionInput) => {
+    const filterPipeline = await createFileCollectionFilterPipeline(filterParams);
+    const hasIds = forcePages || filterParams.ids?.length > 0;
+
+    const items = await (hasIds
+      ? listItemsByIds({
+          ids: filterParams.ids ?? [],
+          model: models.FileCollectionModel,
+          ...(forcePages ? { page, pageSize } : {}),
+          select,
+        })
+      : models.FileCollectionModel.find(filterPipeline.$match)
+          .sort(filterPipeline.$sort)
+          .select(select)
+          .skip(Math.max(0, page - 1) * pageSize)
+          .limit(pageSize)
+          .allowDiskUse(true)
+          .lean());
+
+    if (!items) throw new Error("Failed to load filtered FileCollection");
+
+    return items.map((i) => leanModelToJson<models.FileCollectionSchema>(i));
+  },
+);
+
+export type CreateFileImportBatchFilterPipelineInput = {
+  collectionTitle?: string;
+  collectionTitleMode?: "optional" | "required";
+  completedAtEnd?: string;
+  completedAtMode?: "optional" | "required";
+  completedAtStart?: string;
+  dateCreatedEnd?: string;
+  dateCreatedMode?: "optional" | "required";
+  dateCreatedStart?: string;
+  excludedDescTagIds?: string[];
+  excludedTagIds?: string[];
+  fileCount?: { logOp: LogicalOp | ""; value: number };
+  fileCountMode?: "optional" | "required";
+  filePath?: string;
+  filePathMode?: "optional" | "required";
+  ids?: string[];
+  isCompleted?: boolean;
+  optionalTagIds?: string[];
+  requiredDescTagIds?: string[];
+  requiredTagIds?: string[];
+  sortValue?: SortMenuProps["value"];
+  startedAtEnd?: string;
+  startedAtMode?: "optional" | "required";
+  startedAtStart?: string;
+  statuses?: Types.ImportStatus[];
+};
+
+export const createFileImportBatchFilterPipeline = async (
+  args: CreateFileImportBatchFilterPipelineInput,
+) => {
+  const $match: FilterQuery<models.FileImportBatchSchema> = {};
+
+  if (args.ids != null && !isDeepEqual(args.ids, []))
+    ($match.$and ??= []).push(setObj({}, ["_id", "$in"], objectIds(args.ids)));
+
+  if (args.statuses != null && !isDeepEqual(args.statuses, []))
+    setObj($match, ["imports", "$elemMatch", "status", "$in"], args.statuses);
+
+  setObj($match, ["isCompleted"], args.isCompleted);
+
+  if (args.excludedDescTagIds?.length)
+    setObj($match, ["tagIdsWithAncestors", "$nin"], objectIds(args.excludedDescTagIds));
+
+  if (args.excludedTagIds?.length)
+    setObj($match, ["tagIds", "$nin"], objectIds(args.excludedTagIds));
+
+  if (args.optionalTagIds?.length)
+    setObj($match, ["tagIds", "$in"], objectIds(args.optionalTagIds));
+
+  if (args.requiredDescTagIds?.length)
+    setObj($match, ["tagIdsWithAncestors", "$all"], objectIds(args.requiredDescTagIds));
+
+  if (args.requiredTagIds?.length)
+    setObj($match, ["tagIds", "$all"], objectIds(args.requiredTagIds));
+
+  {
+    const filter: FilterQuery<models.FileImportBatchSchema> = {};
+
+    if (
+      args.collectionTitle != null &&
+      args.collectionTitle !== "" &&
+      !isDeepEqual(args.collectionTitle, "")
+    )
+      addRegexSearchFilter(filter, ["collectionTitle", "$regex"], args.collectionTitle);
+
+    if (Object.keys(filter).length) {
+      const operator = args.collectionTitleMode === "optional" ? "$or" : "$and";
+
+      ($match[operator] ??= []).push(filter);
+    }
+  }
+
+  {
+    const filter: FilterQuery<models.FileImportBatchSchema> = {};
+
+    if (
+      args.completedAtEnd != null &&
+      args.completedAtEnd !== "" &&
+      !isDeepEqual(args.completedAtEnd, "")
+    )
+      setObj(filter, ["completedAt", "$lte"], args.completedAtEnd);
+
+    if (
+      args.completedAtStart != null &&
+      args.completedAtStart !== "" &&
+      !isDeepEqual(args.completedAtStart, "")
+    )
+      setObj(filter, ["completedAt", "$gte"], args.completedAtStart);
+
+    if (Object.keys(filter).length) {
+      const operator = args.completedAtMode === "optional" ? "$or" : "$and";
+
+      ($match[operator] ??= []).push(filter);
+    }
+  }
+
+  {
+    const filter: FilterQuery<models.FileImportBatchSchema> = {};
+
+    if (
+      args.dateCreatedEnd != null &&
+      args.dateCreatedEnd !== "" &&
+      !isDeepEqual(args.dateCreatedEnd, "")
+    )
+      setObj(filter, ["dateCreated", "$lte"], args.dateCreatedEnd);
+
+    if (
+      args.dateCreatedStart != null &&
+      args.dateCreatedStart !== "" &&
+      !isDeepEqual(args.dateCreatedStart, "")
+    )
+      setObj(filter, ["dateCreated", "$gte"], args.dateCreatedStart);
+
+    if (Object.keys(filter).length) {
+      const operator = args.dateCreatedMode === "optional" ? "$or" : "$and";
+
+      ($match[operator] ??= []).push(filter);
+    }
+  }
+
+  {
+    const filter: FilterQuery<models.FileImportBatchSchema> = {};
+
+    if (args.fileCount?.logOp && args.fileCount?.value != null)
+      setObj(filter, ["fileCount", logicOpsToMongo(args.fileCount.logOp)], args.fileCount.value);
+
+    if (Object.keys(filter).length) {
+      const operator = args.fileCountMode === "optional" ? "$or" : "$and";
+
+      ($match[operator] ??= []).push(filter);
+    }
+  }
+
+  {
+    const filter: FilterQuery<models.FileImportBatchSchema> = {};
+
+    if (args.filePath != null && args.filePath !== "" && !isDeepEqual(args.filePath, null))
+      addRegexSearchFilter(filter, ["imports", "$elemMatch", "path", "$regex"], args.filePath);
+
+    if (Object.keys(filter).length) {
+      const operator = args.filePathMode === "optional" ? "$or" : "$and";
+
+      ($match[operator] ??= []).push(filter);
+    }
+  }
+
+  {
+    const filter: FilterQuery<models.FileImportBatchSchema> = {};
+
+    if (
+      args.startedAtEnd != null &&
+      args.startedAtEnd !== "" &&
+      !isDeepEqual(args.startedAtEnd, "")
+    )
+      setObj(filter, ["startedAt", "$lte"], args.startedAtEnd);
+
+    if (
+      args.startedAtStart != null &&
+      args.startedAtStart !== "" &&
+      !isDeepEqual(args.startedAtStart, "")
+    )
+      setObj(filter, ["startedAt", "$gte"], args.startedAtStart);
+
+    if (Object.keys(filter).length) {
+      const operator = args.startedAtMode === "optional" ? "$or" : "$and";
+
+      ($match[operator] ??= []).push(filter);
+    }
+  }
+
+  // Callers that only need the match, like duplicate grouping, pass no sort value.
+  const sortValue = args.sortValue ?? { isDesc: false, key: "_id" };
+  const sortDir = sortValue.isDesc ? -1 : 1;
+
+  return {
+    $match,
+    $sort: { [sortValue.key]: sortDir, _id: sortDir } as { [key: string]: 1 | -1 },
+  };
+};
+
+export type GetShiftSelectedFileImportBatchInput = CreateFileImportBatchFilterPipelineInput & {
+  clickedId: string;
+  selectedIds: string[];
+};
+
+export const getShiftSelectedFileImportBatch = makeAction(
+  async ({ clickedId, selectedIds, ...filterParams }: GetShiftSelectedFileImportBatchInput) => {
+    const filterPipeline = await createFileImportBatchFilterPipeline(filterParams);
+
+    return getShiftSelectedItems({
+      clickedId,
+      filterPipeline,
+      ids: filterParams.ids,
+      model: models.FileImportBatchModel,
+      searchPlan: {
+        options: {},
+        pipeline: [
+          ...createImportBatchSearchPipeline(filterPipeline.$match),
+          { $sort: filterPipeline.$sort },
+        ],
+      },
+      selectedIds,
+    });
+  },
+);
+
+export type GetFilteredFileImportBatchCountInput = CreateFileImportBatchFilterPipelineInput & {
+  curMaxPage: number;
+  forcePages?: boolean;
+  page: number;
+  pageSize: number;
+  withFull: boolean;
+};
+
+export const getFilteredFileImportBatchCount = makeAction(
+  async ({
+    curMaxPage,
+    forcePages,
+    pageSize,
+    withFull,
+    ...filterParams
+  }: GetFilteredFileImportBatchCountInput) => {
+    const filterPipeline = await createFileImportBatchFilterPipeline(filterParams);
+    let count: number;
+    let pageCount: number;
+
+    if (forcePages || filterParams.ids?.length) {
+      const items = await listItemsByIds({
+        ids: filterParams.ids ?? [],
+        model: models.FileImportBatchModel,
+        select: { _id: 1 },
+      });
+
+      count = items.length;
+      pageCount = Math.ceil(count / pageSize);
+    } else if (withFull) {
+      count = await countImportBatchSearchResults(filterPipeline.$match);
+
+      pageCount = Math.ceil(count / pageSize);
+    } else {
+      const targetPage = Math.max(1, filterParams.page ?? 1);
+      const targetMaxPage = targetPage >= (curMaxPage ?? 0) ? targetPage + 1000 : curMaxPage;
+      const probeLimit = targetMaxPage * pageSize;
+
+      count = await countImportBatchSearchResults(filterPipeline.$match, probeLimit);
+
+      pageCount = count < probeLimit ? Math.ceil(count / pageSize) : targetMaxPage;
+    }
+
+    return { count, pageCount };
+  },
+);
+
+export type ListFilteredFileImportBatchInput = CreateFileImportBatchFilterPipelineInput & {
+  forcePages?: boolean;
+  page: number;
+  pageSize: number;
+  select?: Record<string, 1 | -1>;
+};
+
+export const listFilteredFileImportBatch = makeAction(
+  async ({
+    forcePages,
+    page,
+    pageSize,
+    select,
+    ...filterParams
+  }: ListFilteredFileImportBatchInput) => {
+    const filterPipeline = await createFileImportBatchFilterPipeline(filterParams);
+    const hasIds = forcePages || filterParams.ids?.length > 0;
+
+    const items = await (hasIds
+      ? listItemsByIds({
+          ids: filterParams.ids ?? [],
+          model: models.FileImportBatchModel,
+          ...(forcePages ? { page, pageSize } : {}),
+          select,
+        })
+      : models.FileImportBatchModel.aggregate([
+          ...createImportBatchSearchPipeline(filterPipeline.$match),
+          { $sort: filterPipeline.$sort },
+          { $skip: Math.max(0, page - 1) * pageSize },
+          { $limit: pageSize },
+          ...(select ? [{ $project: select }] : []),
+        ]).allowDiskUse(true));
+
+    if (!items) throw new Error("Failed to load filtered FileImportBatch");
+
+    return items.map((i) => leanModelToJson<models.FileImportBatchSchema>(i));
+  },
+);
+
+export type CreateFileTransformFilterPipelineInput = {
+  afterSize?: { logOp: LogicalOp | ""; value: number };
+  afterSizeMode?: "optional" | "required";
+  beforePath?: string;
+  beforePathMode?: "optional" | "required";
+  beforeSize?: { logOp: LogicalOp | ""; value: number };
+  beforeSizeMode?: "optional" | "required";
+  completedAtEnd?: string;
+  completedAtMode?: "optional" | "required";
+  completedAtStart?: string;
+  dateCreatedEnd?: string;
+  dateCreatedMode?: "optional" | "required";
+  dateCreatedStart?: string;
+  ids?: string[];
+  isCompleted?: boolean;
+  sortValue?: SortMenuProps["value"];
+  startedAtEnd?: string;
+  startedAtMode?: "optional" | "required";
+  startedAtStart?: string;
+  status?: string;
+  statusMode?: "optional" | "required";
+  type?: string;
+  typeMode?: "optional" | "required";
+};
+
+export const createFileTransformFilterPipeline = async (
+  args: CreateFileTransformFilterPipelineInput,
+) => {
+  const $match: FilterQuery<models.FileTransformSchema> = {};
+
+  if (args.ids != null && !isDeepEqual(args.ids, []))
+    ($match.$and ??= []).push(setObj({}, ["_id", "$in"], objectIds(args.ids)));
+
+  setObj($match, ["isCompleted"], args.isCompleted);
+
+  {
+    const filter: FilterQuery<models.FileTransformSchema> = {};
+
+    if (args.afterSize?.logOp && args.afterSize?.value != null)
+      setObj(filter, ["afterSize", logicOpsToMongo(args.afterSize.logOp)], args.afterSize.value);
+
+    if (Object.keys(filter).length) {
+      const operator = args.afterSizeMode === "optional" ? "$or" : "$and";
+
+      ($match[operator] ??= []).push(filter);
+    }
+  }
+
+  {
+    const filter: FilterQuery<models.FileTransformSchema> = {};
+
+    if (args.beforePath != null && args.beforePath !== "" && !isDeepEqual(args.beforePath, null))
+      addRegexSearchFilter(filter, ["beforePath", "$regex"], args.beforePath);
+
+    if (Object.keys(filter).length) {
+      const operator = args.beforePathMode === "optional" ? "$or" : "$and";
+
+      ($match[operator] ??= []).push(filter);
+    }
+  }
+
+  {
+    const filter: FilterQuery<models.FileTransformSchema> = {};
+
+    if (args.beforeSize?.logOp && args.beforeSize?.value != null)
+      setObj(filter, ["beforeSize", logicOpsToMongo(args.beforeSize.logOp)], args.beforeSize.value);
+
+    if (Object.keys(filter).length) {
+      const operator = args.beforeSizeMode === "optional" ? "$or" : "$and";
+
+      ($match[operator] ??= []).push(filter);
+    }
+  }
+
+  {
+    const filter: FilterQuery<models.FileTransformSchema> = {};
+
+    if (
+      args.completedAtEnd != null &&
+      args.completedAtEnd !== "" &&
+      !isDeepEqual(args.completedAtEnd, "")
+    )
+      setObj(filter, ["completedAt", "$lte"], args.completedAtEnd);
+
+    if (
+      args.completedAtStart != null &&
+      args.completedAtStart !== "" &&
+      !isDeepEqual(args.completedAtStart, "")
+    )
+      setObj(filter, ["completedAt", "$gte"], args.completedAtStart);
+
+    if (Object.keys(filter).length) {
+      const operator = args.completedAtMode === "optional" ? "$or" : "$and";
+
+      ($match[operator] ??= []).push(filter);
+    }
+  }
+
+  {
+    const filter: FilterQuery<models.FileTransformSchema> = {};
+
+    if (
+      args.dateCreatedEnd != null &&
+      args.dateCreatedEnd !== "" &&
+      !isDeepEqual(args.dateCreatedEnd, "")
+    )
+      setObj(filter, ["dateCreated", "$lte"], args.dateCreatedEnd);
+
+    if (
+      args.dateCreatedStart != null &&
+      args.dateCreatedStart !== "" &&
+      !isDeepEqual(args.dateCreatedStart, "")
+    )
+      setObj(filter, ["dateCreated", "$gte"], args.dateCreatedStart);
+
+    if (Object.keys(filter).length) {
+      const operator = args.dateCreatedMode === "optional" ? "$or" : "$and";
+
+      ($match[operator] ??= []).push(filter);
+    }
+  }
+
+  {
+    const filter: FilterQuery<models.FileTransformSchema> = {};
+
+    if (
+      args.startedAtEnd != null &&
+      args.startedAtEnd !== "" &&
+      !isDeepEqual(args.startedAtEnd, "")
+    )
+      setObj(filter, ["startedAt", "$lte"], args.startedAtEnd);
+
+    if (
+      args.startedAtStart != null &&
+      args.startedAtStart !== "" &&
+      !isDeepEqual(args.startedAtStart, "")
+    )
+      setObj(filter, ["startedAt", "$gte"], args.startedAtStart);
+
+    if (Object.keys(filter).length) {
+      const operator = args.startedAtMode === "optional" ? "$or" : "$and";
+
+      ($match[operator] ??= []).push(filter);
+    }
+  }
+
+  {
+    const filter: FilterQuery<models.FileTransformSchema> = {};
+
+    if (args.status != null && args.status !== "" && !isDeepEqual(args.status, ""))
+      setObj(filter, ["status"], args.status);
+
+    if (Object.keys(filter).length) {
+      const operator = args.statusMode === "optional" ? "$or" : "$and";
+
+      ($match[operator] ??= []).push(filter);
+    }
+  }
+
+  {
+    const filter: FilterQuery<models.FileTransformSchema> = {};
+
+    if (args.type != null && args.type !== "" && !isDeepEqual(args.type, ""))
+      setObj(filter, ["type"], args.type);
+
+    if (Object.keys(filter).length) {
+      const operator = args.typeMode === "optional" ? "$or" : "$and";
+
+      ($match[operator] ??= []).push(filter);
+    }
+  }
+
+  // Callers that only need the match, like duplicate grouping, pass no sort value.
+  const sortValue = args.sortValue ?? { isDesc: false, key: "_id" };
+  const sortDir = sortValue.isDesc ? -1 : 1;
+
+  return {
+    $match,
+    $sort: { [sortValue.key]: sortDir, _id: sortDir } as { [key: string]: 1 | -1 },
+  };
+};
+
+export type GetShiftSelectedFileTransformInput = CreateFileTransformFilterPipelineInput & {
+  clickedId: string;
+  selectedIds: string[];
+};
+
+export const getShiftSelectedFileTransform = makeAction(
+  async ({ clickedId, selectedIds, ...filterParams }: GetShiftSelectedFileTransformInput) => {
+    const filterPipeline = await createFileTransformFilterPipeline(filterParams);
+
+    return getShiftSelectedItems({
+      clickedId,
+      filterPipeline,
+      ids: filterParams.ids,
+      model: models.FileTransformModel,
+      selectedIds,
+    });
+  },
+);
+
+export type GetFilteredFileTransformCountInput = CreateFileTransformFilterPipelineInput & {
+  curMaxPage: number;
+  forcePages?: boolean;
+  page: number;
+  pageSize: number;
+  withFull: boolean;
+};
+
+export const getFilteredFileTransformCount = makeAction(
+  async ({
+    curMaxPage,
+    forcePages,
+    pageSize,
+    withFull,
+    ...filterParams
+  }: GetFilteredFileTransformCountInput) => {
+    const filterPipeline = await createFileTransformFilterPipeline(filterParams);
+    let count: number;
+    let pageCount: number;
+
+    if (forcePages || filterParams.ids?.length) {
+      const items = await listItemsByIds({
+        ids: filterParams.ids ?? [],
+        model: models.FileTransformModel,
+        select: { _id: 1 },
+      });
+
+      count = items.length;
+      pageCount = Math.ceil(count / pageSize);
+    } else if (withFull) {
+      count = await models.FileTransformModel.countDocuments(filterPipeline.$match).allowDiskUse(
+        true,
+      );
+
+      pageCount = Math.ceil(count / pageSize);
+    } else {
+      const targetPage = Math.max(1, filterParams.page ?? 1);
+      const targetMaxPage = targetPage >= (curMaxPage ?? 0) ? targetPage + 1000 : curMaxPage;
+      const probeLimit = targetMaxPage * pageSize;
+
+      count = await models.FileTransformModel.countDocuments(filterPipeline.$match, {
+        limit: probeLimit,
+      }).allowDiskUse(true);
+
+      pageCount = count < probeLimit ? Math.ceil(count / pageSize) : targetMaxPage;
+    }
+
+    return { count, pageCount };
+  },
+);
+
+export type ListFilteredFileTransformInput = CreateFileTransformFilterPipelineInput & {
+  forcePages?: boolean;
+  page: number;
+  pageSize: number;
+  select?: Record<string, 1 | -1>;
+};
+
+export const listFilteredFileTransform = makeAction(
+  async ({
+    forcePages,
+    page,
+    pageSize,
+    select,
+    ...filterParams
+  }: ListFilteredFileTransformInput) => {
+    const filterPipeline = await createFileTransformFilterPipeline(filterParams);
+    const hasIds = forcePages || filterParams.ids?.length > 0;
+
+    const items = await (hasIds
+      ? listItemsByIds({
+          ids: filterParams.ids ?? [],
+          model: models.FileTransformModel,
+          ...(forcePages ? { page, pageSize } : {}),
+          select,
+        })
+      : models.FileTransformModel.find(filterPipeline.$match)
+          .sort(filterPipeline.$sort)
+          .select(select)
+          .skip(Math.max(0, page - 1) * pageSize)
+          .limit(pageSize)
+          .allowDiskUse(true)
+          .lean());
+
+    if (!items) throw new Error("Failed to load filtered FileTransform");
+
+    return items.map((i) => leanModelToJson<models.FileTransformSchema>(i));
+  },
+);
+
 export type CreateMediaProgramFilterPipelineInput = {
   dateCreatedEnd?: string;
   dateCreatedMode?: "optional" | "required";
@@ -2077,8 +2077,6 @@ export type CreateTagFilterPipelineInput = {
   size?: { logOp: LogicalOp | ""; value: number };
   sizeMode?: "optional" | "required";
   sortValue?: SortMenuProps["value"];
-  title?: string;
-  titleMode?: "optional" | "required";
 };
 
 export const createTagFilterPipeline = async (args: CreateTagFilterPipelineInput) => {
@@ -2292,19 +2290,6 @@ export const createTagFilterPipeline = async (args: CreateTagFilterPipelineInput
     }
   }
 
-  {
-    const filter: FilterQuery<models.TagSchema> = {};
-
-    if (args.title != null && args.title !== "" && !isDeepEqual(args.title, ""))
-      addRegexSearchFilter(filter, ["title", "$regex"], args.title);
-
-    if (Object.keys(filter).length) {
-      const operator = args.titleMode === "optional" ? "$or" : "$and";
-
-      ($match[operator] ??= []).push(filter);
-    }
-  }
-
   // Callers that only need the match, like duplicate grouping, pass no sort value.
   const sortValue = args.sortValue ?? { isDesc: false, key: "_id" };
   const sortDir = sortValue.isDesc ? -1 : 1;
@@ -2442,7 +2427,7 @@ export const createBackgroundOperation = makeAction(
     const res = await new models.BackgroundOperationModel(model).save(metadataWriteOptions());
     const created = { ...model, id: res._id.toString() };
 
-    socket.emit("onBackgroundOperationCreated", created, socketOpts);
+    socket.emitVolatile("onBackgroundOperationCreated", created, socketOpts);
 
     return created;
   },
@@ -2461,7 +2446,7 @@ export const deleteBackgroundOperation = makeAction(
       metadataWriteOptions(),
     );
 
-    socket.emit("onBackgroundOperationDeleted", args, socketOpts);
+    socket.emitVolatile("onBackgroundOperationDeleted", args, socketOpts);
   },
 );
 
@@ -2521,7 +2506,7 @@ export const updateBackgroundOperation = makeAction(
       }).lean(),
     );
 
-    socket.emit("onBackgroundOperationUpdated", { id: args.id, updates }, socketOpts);
+    socket.emitVolatile("onBackgroundOperationUpdated", { id: args.id, updates }, socketOpts);
 
     return updated;
   },
@@ -2540,7 +2525,7 @@ export const createDeletedFile = makeAction(
     const res = await new models.DeletedFileModel(model).save(metadataWriteOptions());
     const created = { ...model, id: res._id.toString() };
 
-    socket.emit("onDeletedFileCreated", created, socketOpts);
+    socket.emitVolatile("onDeletedFileCreated", created, socketOpts);
 
     return created;
   },
@@ -2556,7 +2541,7 @@ export const deleteDeletedFile = makeAction(
   }) => {
     await models.DeletedFileModel.deleteMany({ _id: { $in: args.ids } }, metadataWriteOptions());
 
-    socket.emit("onDeletedFileDeleted", args, socketOpts);
+    socket.emitVolatile("onDeletedFileDeleted", args, socketOpts);
   },
 );
 
@@ -2615,354 +2600,7 @@ export const updateDeletedFile = makeAction(
       }).lean(),
     );
 
-    socket.emit("onDeletedFileUpdated", { id: args.id, updates }, socketOpts);
-
-    return updated;
-  },
-);
-/* ------------------------------------ FileCollection ----------------------------------- */
-export const createFileCollection = makeAction(
-  registerMetadataWork(
-    "generated:createFileCollection",
-    async ({
-      args,
-      socketOpts,
-    }: {
-      args: Types.CreateFileCollectionInput;
-      socketOpts?: SocketEventOptions;
-    }) => {
-      const model = {
-        ...args,
-        dateCreated: dayjs().toISOString(),
-        dateModified: null,
-        fileCount: 0,
-        rating: 0,
-        sourceFolderKeys: [],
-        sourceFolderPaths: [],
-        tagIds: [],
-        tagIdsWithAncestors: [],
-      };
-
-      const res = await models.FileCollectionModel.findOneAndUpdate(
-        { _id: getMetadataCreateId("generated:createFileCollection") },
-        { $setOnInsert: model },
-        { ...metadataWriteOptions(), new: true, upsert: true },
-      );
-
-      const id = res._id.toString();
-
-      await syncCollectionFileIds(
-        id,
-        model.fileIdIndexes.map(({ fileId }) => String(fileId)),
-      );
-
-      const created = { ...model, id };
-
-      socket.emit("onFileCollectionCreated", created, socketOpts);
-
-      return created;
-    },
-  ),
-);
-
-export const deleteFileCollection = makeAction(
-  registerMetadataWork(
-    "generated:deleteFileCollection",
-    async ({
-      args,
-      socketOpts,
-    }: {
-      args: Types.DeleteFileCollectionInput;
-      socketOpts?: SocketEventOptions;
-    }) => {
-      await models.FileCollectionModel.deleteMany({ _id: { $in: args.ids } });
-
-      await removeFileCollectionIds(args.ids);
-
-      socket.emit("onFileCollectionDeleted", args, socketOpts);
-    },
-  ),
-);
-
-export const listFileCollection = makeAction(
-  async ({
-    args,
-  }: {
-    args?: Types.ListFileCollectionInput;
-  } = {}) => {
-    args ??= {};
-
-    const filter = { ...args.filter };
-
-    if (args.filter?.id) {
-      filter._id = Array.isArray(args.filter.id)
-        ? { $in: args.filter.id }
-        : typeof args.filter.id === "string"
-          ? { $in: [args.filter.id] }
-          : args.filter.id;
-
-      delete filter.id;
-    }
-
-    const items = await models.FileCollectionModel.find(filter)
-      .sort(args.sort ?? { dateCreated: "desc" })
-      .skip(Math.max(0, (args.page ?? 1) - 1) * (args.pageSize ?? 0))
-      .limit(args.pageSize ?? 0)
-      .allowDiskUse(true)
-      .lean();
-
-    const totalCount = await models.FileCollectionModel.countDocuments(filter);
-
-    if (!items || !(totalCount > -1)) throw new Error("Failed to load filtered FileCollection");
-
-    return {
-      items: items.map((item) => leanModelToJson<models.FileCollectionSchema>(item)),
-      pageCount: args.pageSize > 0 ? Math.ceil(totalCount / args.pageSize) : Number(totalCount > 0),
-    };
-  },
-);
-
-export const updateFileCollection = makeAction(
-  registerMetadataWork(
-    "generated:updateFileCollection",
-    async ({
-      args,
-      socketOpts,
-    }: {
-      args: Types.UpdateFileCollectionInput;
-      socketOpts?: SocketEventOptions;
-    }) => {
-      const updates = { ...args.updates, dateModified: dayjs().toISOString() };
-
-      const updated = leanModelToJson<models.FileCollectionSchema>(
-        await models.FileCollectionModel.findByIdAndUpdate(
-          args.id,
-          { $inc: { __v: 1 }, $set: updates },
-          { new: true, ...metadataWriteOptions() },
-        ).lean(),
-      );
-
-      if (updated && args.updates.fileIdIndexes)
-        await syncCollectionFileIds(
-          args.id,
-          updated.fileIdIndexes.map(({ fileId }) => String(fileId)),
-        );
-
-      socket.emit("onFileCollectionUpdated", { ...args, updates }, socketOpts);
-
-      return updated;
-    },
-  ),
-);
-/* ------------------------------------ FileImportBatch ----------------------------------- */
-export const createFileImportBatch = makeAction(
-  async ({
-    args,
-    socketOpts,
-  }: {
-    args: Types.CreateFileImportBatchInput;
-    socketOpts?: SocketEventOptions;
-  }) => {
-    const model = {
-      ...args,
-      dateCreated: dayjs().toISOString(),
-      fileCount: 0,
-      isCompleted: false,
-      isReady: false,
-      processedCount: 0,
-      processedSize: 0,
-      progressRevision: 0,
-      tagIds: [],
-      tagIdsWithAncestors: [],
-    };
-
-    const res = await new models.FileImportBatchModel(model).save(metadataWriteOptions());
-    const created = { ...model, id: res._id.toString() };
-
-    socket.emit("onFileImportBatchCreated", created, socketOpts);
-
-    return created;
-  },
-);
-
-export const deleteFileImportBatch = makeAction(
-  async ({
-    args,
-    socketOpts,
-  }: {
-    args: Types.DeleteFileImportBatchInput;
-    socketOpts?: SocketEventOptions;
-  }) => {
-    const deleted = await deleteImportBatches(args);
-
-    if (!deleted.success) throw new Error(deleted.error);
-
-    socket.emit("onFileImportBatchDeleted", args, socketOpts);
-  },
-);
-
-export const listFileImportBatch = makeAction(
-  async ({
-    args,
-  }: {
-    args?: Types.ListFileImportBatchInput;
-  } = {}) => {
-    args ??= {};
-
-    const filter = { ...args.filter };
-
-    if (args.filter?.id) {
-      filter._id = Array.isArray(args.filter.id)
-        ? { $in: args.filter.id }
-        : typeof args.filter.id === "string"
-          ? { $in: [args.filter.id] }
-          : args.filter.id;
-
-      delete filter.id;
-    }
-
-    const items = await models.FileImportBatchModel.find(filter)
-      .sort(args.sort ?? { dateCreated: "desc" })
-      .skip(Math.max(0, (args.page ?? 1) - 1) * (args.pageSize ?? 0))
-      .limit(args.pageSize ?? 0)
-      .allowDiskUse(true)
-      .lean();
-
-    const totalCount = await models.FileImportBatchModel.countDocuments(filter);
-
-    if (!items || !(totalCount > -1)) throw new Error("Failed to load filtered FileImportBatch");
-
-    return {
-      items: items.map((item) => leanModelToJson<models.FileImportBatchSchema>(item)),
-      pageCount: args.pageSize > 0 ? Math.ceil(totalCount / args.pageSize) : Number(totalCount > 0),
-    };
-  },
-);
-
-export const updateFileImportBatch = makeAction(
-  async ({
-    args,
-    socketOpts,
-  }: {
-    args: Types.UpdateFileImportBatchInput;
-    socketOpts?: SocketEventOptions;
-  }) => {
-    const updates = { ...args.updates };
-
-    const updated = leanModelToJson<models.FileImportBatchSchema>(
-      await models.FileImportBatchModel.findByIdAndUpdate(args.id, updates, {
-        new: true,
-        ...metadataWriteOptions(),
-      }).lean(),
-    );
-
-    socket.emit("onFileImportBatchUpdated", { id: args.id, updates }, socketOpts);
-
-    return updated;
-  },
-);
-/* ------------------------------------ FileTransform ----------------------------------- */
-export const createFileTransform = makeAction(
-  async ({
-    args,
-    socketOpts,
-  }: {
-    args: Types.CreateFileTransformInput;
-    socketOpts?: SocketEventOptions;
-  }) => {
-    const model = {
-      ...args,
-      dateCreated: dayjs().toISOString(),
-      cleanupPending: false,
-      configOverride: [],
-      finalizationPending: false,
-      isCompleted: false,
-      regenerationPending: false,
-      regenerationTagIds: [],
-      timestampPairs: [],
-    };
-
-    const res = await new models.FileTransformModel(model).save(metadataWriteOptions());
-    const created = { ...model, id: res._id.toString() };
-
-    socket.emit("onFileTransformCreated", created, socketOpts);
-
-    return created;
-  },
-);
-
-export const deleteFileTransform = makeAction(
-  async ({
-    args,
-    socketOpts,
-  }: {
-    args: Types.DeleteFileTransformInput;
-    socketOpts?: SocketEventOptions;
-  }) => {
-    const deleted = await deleteFileTransforms(args);
-
-    if (!deleted.success) throw new Error(deleted.error);
-
-    socket.emit("onFileTransformDeleted", args, socketOpts);
-  },
-);
-
-export const listFileTransform = makeAction(
-  async ({
-    args,
-  }: {
-    args?: Types.ListFileTransformInput;
-  } = {}) => {
-    args ??= {};
-
-    const filter = { ...args.filter };
-
-    if (args.filter?.id) {
-      filter._id = Array.isArray(args.filter.id)
-        ? { $in: args.filter.id }
-        : typeof args.filter.id === "string"
-          ? { $in: [args.filter.id] }
-          : args.filter.id;
-
-      delete filter.id;
-    }
-
-    const items = await models.FileTransformModel.find(filter)
-      .sort(args.sort ?? { dateCreated: "desc" })
-      .skip(Math.max(0, (args.page ?? 1) - 1) * (args.pageSize ?? 0))
-      .limit(args.pageSize ?? 0)
-      .allowDiskUse(true)
-      .lean();
-
-    const totalCount = await models.FileTransformModel.countDocuments(filter);
-
-    if (!items || !(totalCount > -1)) throw new Error("Failed to load filtered FileTransform");
-
-    return {
-      items: items.map((item) => leanModelToJson<models.FileTransformSchema>(item)),
-      pageCount: args.pageSize > 0 ? Math.ceil(totalCount / args.pageSize) : Number(totalCount > 0),
-    };
-  },
-);
-
-export const updateFileTransform = makeAction(
-  async ({
-    args,
-    socketOpts,
-  }: {
-    args: Types.UpdateFileTransformInput;
-    socketOpts?: SocketEventOptions;
-  }) => {
-    const updates = { ...args.updates };
-
-    const updated = leanModelToJson<models.FileTransformSchema>(
-      await models.FileTransformModel.findByIdAndUpdate(args.id, updates, {
-        new: true,
-        ...metadataWriteOptions(),
-      }).lean(),
-    );
-
-    socket.emit("onFileTransformUpdated", { id: args.id, updates }, socketOpts);
+    socket.emitVolatile("onDeletedFileUpdated", { id: args.id, updates }, socketOpts);
 
     return updated;
   },
@@ -2992,7 +2630,7 @@ export const createFile = makeAction(
 
       const created = { ...model, id };
 
-      socket.emit("onFileCreated", created, socketOpts);
+      socket.emitVolatile("onFileCreated", created, socketOpts);
 
       return created;
     },
@@ -3011,7 +2649,7 @@ export const deleteFile = makeAction(
 
     if (!deleted.success) throw new Error(deleted.error);
 
-    socket.emit("onFileDeleted", args, socketOpts);
+    socket.emitVolatile("onFileDeleted", args, socketOpts);
   },
 );
 
@@ -3089,12 +2727,359 @@ export const updateFile = makeAction(
         }).lean(),
       );
 
-      socket.emit("onFileUpdated", { ...args, updates }, socketOpts);
+      socket.emitVolatile("onFileUpdated", { ...args, updates }, socketOpts);
 
       return updated;
     },
     { getFileIds: ({ args }) => [args.id] },
   ),
+);
+/* ------------------------------------ FileCollection ----------------------------------- */
+export const createFileCollection = makeAction(
+  registerMetadataWork(
+    "generated:createFileCollection",
+    async ({
+      args,
+      socketOpts,
+    }: {
+      args: Types.CreateFileCollectionInput;
+      socketOpts?: SocketEventOptions;
+    }) => {
+      const model = {
+        ...args,
+        dateCreated: dayjs().toISOString(),
+        dateModified: null,
+        fileCount: 0,
+        rating: 0,
+        sourceFolderKeys: [],
+        sourceFolderPaths: [],
+        tagIds: [],
+        tagIdsWithAncestors: [],
+      };
+
+      const res = await models.FileCollectionModel.findOneAndUpdate(
+        { _id: getMetadataCreateId("generated:createFileCollection") },
+        { $setOnInsert: model },
+        { ...metadataWriteOptions(), new: true, upsert: true },
+      );
+
+      const id = res._id.toString();
+
+      await syncCollectionFileIds(
+        id,
+        model.fileIdIndexes.map(({ fileId }) => String(fileId)),
+      );
+
+      const created = { ...model, id };
+
+      socket.emitVolatile("onFileCollectionCreated", created, socketOpts);
+
+      return created;
+    },
+  ),
+);
+
+export const deleteFileCollection = makeAction(
+  registerMetadataWork(
+    "generated:deleteFileCollection",
+    async ({
+      args,
+      socketOpts,
+    }: {
+      args: Types.DeleteFileCollectionInput;
+      socketOpts?: SocketEventOptions;
+    }) => {
+      await models.FileCollectionModel.deleteMany({ _id: { $in: args.ids } });
+
+      await removeFileCollectionIds(args.ids);
+
+      socket.emitVolatile("onFileCollectionDeleted", args, socketOpts);
+    },
+  ),
+);
+
+export const listFileCollection = makeAction(
+  async ({
+    args,
+  }: {
+    args?: Types.ListFileCollectionInput;
+  } = {}) => {
+    args ??= {};
+
+    const filter = { ...args.filter };
+
+    if (args.filter?.id) {
+      filter._id = Array.isArray(args.filter.id)
+        ? { $in: args.filter.id }
+        : typeof args.filter.id === "string"
+          ? { $in: [args.filter.id] }
+          : args.filter.id;
+
+      delete filter.id;
+    }
+
+    const items = await models.FileCollectionModel.find(filter)
+      .sort(args.sort ?? { dateCreated: "desc" })
+      .skip(Math.max(0, (args.page ?? 1) - 1) * (args.pageSize ?? 0))
+      .limit(args.pageSize ?? 0)
+      .allowDiskUse(true)
+      .lean();
+
+    const totalCount = await models.FileCollectionModel.countDocuments(filter);
+
+    if (!items || !(totalCount > -1)) throw new Error("Failed to load filtered FileCollection");
+
+    return {
+      items: items.map((item) => leanModelToJson<models.FileCollectionSchema>(item)),
+      pageCount: args.pageSize > 0 ? Math.ceil(totalCount / args.pageSize) : Number(totalCount > 0),
+    };
+  },
+);
+
+export const updateFileCollection = makeAction(
+  registerMetadataWork(
+    "generated:updateFileCollection",
+    async ({
+      args,
+      socketOpts,
+    }: {
+      args: Types.UpdateFileCollectionInput;
+      socketOpts?: SocketEventOptions;
+    }) => {
+      const updates = { ...args.updates, dateModified: dayjs().toISOString() };
+
+      const updated = leanModelToJson<models.FileCollectionSchema>(
+        await models.FileCollectionModel.findByIdAndUpdate(
+          args.id,
+          { $inc: { __v: 1 }, $set: updates },
+          { new: true, ...metadataWriteOptions() },
+        ).lean(),
+      );
+
+      if (updated && args.updates.fileIdIndexes)
+        await syncCollectionFileIds(
+          args.id,
+          updated.fileIdIndexes.map(({ fileId }) => String(fileId)),
+        );
+
+      socket.emitVolatile("onFileCollectionUpdated", { ...args, updates }, socketOpts);
+
+      return updated;
+    },
+  ),
+);
+/* ------------------------------------ FileImportBatch ----------------------------------- */
+export const createFileImportBatch = makeAction(
+  async ({
+    args,
+    socketOpts,
+  }: {
+    args: Types.CreateFileImportBatchInput;
+    socketOpts?: SocketEventOptions;
+  }) => {
+    const model = {
+      ...args,
+      dateCreated: dayjs().toISOString(),
+      fileCount: 0,
+      isCompleted: false,
+      isReady: false,
+      processedCount: 0,
+      processedSize: 0,
+      progressRevision: 0,
+      tagIds: [],
+      tagIdsWithAncestors: [],
+    };
+
+    const res = await new models.FileImportBatchModel(model).save(metadataWriteOptions());
+    const created = { ...model, id: res._id.toString() };
+
+    socket.emitVolatile("onFileImportBatchCreated", created, socketOpts);
+
+    return created;
+  },
+);
+
+export const deleteFileImportBatch = makeAction(
+  async ({
+    args,
+    socketOpts,
+  }: {
+    args: Types.DeleteFileImportBatchInput;
+    socketOpts?: SocketEventOptions;
+  }) => {
+    const deleted = await deleteImportBatches(args);
+
+    if (!deleted.success) throw new Error(deleted.error);
+
+    socket.emitVolatile("onFileImportBatchDeleted", args, socketOpts);
+  },
+);
+
+export const listFileImportBatch = makeAction(
+  async ({
+    args,
+  }: {
+    args?: Types.ListFileImportBatchInput;
+  } = {}) => {
+    args ??= {};
+
+    const filter = { ...args.filter };
+
+    if (args.filter?.id) {
+      filter._id = Array.isArray(args.filter.id)
+        ? { $in: args.filter.id }
+        : typeof args.filter.id === "string"
+          ? { $in: [args.filter.id] }
+          : args.filter.id;
+
+      delete filter.id;
+    }
+
+    const items = await models.FileImportBatchModel.find(filter)
+      .sort(args.sort ?? { dateCreated: "desc" })
+      .skip(Math.max(0, (args.page ?? 1) - 1) * (args.pageSize ?? 0))
+      .limit(args.pageSize ?? 0)
+      .allowDiskUse(true)
+      .lean();
+
+    const totalCount = await models.FileImportBatchModel.countDocuments(filter);
+
+    if (!items || !(totalCount > -1)) throw new Error("Failed to load filtered FileImportBatch");
+
+    return {
+      items: items.map((item) => leanModelToJson<models.FileImportBatchSchema>(item)),
+      pageCount: args.pageSize > 0 ? Math.ceil(totalCount / args.pageSize) : Number(totalCount > 0),
+    };
+  },
+);
+
+export const updateFileImportBatch = makeAction(
+  async ({
+    args,
+    socketOpts,
+  }: {
+    args: Types.UpdateFileImportBatchInput;
+    socketOpts?: SocketEventOptions;
+  }) => {
+    const updates = { ...args.updates };
+
+    const updated = leanModelToJson<models.FileImportBatchSchema>(
+      await models.FileImportBatchModel.findByIdAndUpdate(args.id, updates, {
+        new: true,
+        ...metadataWriteOptions(),
+      }).lean(),
+    );
+
+    socket.emitVolatile("onFileImportBatchUpdated", { id: args.id, updates }, socketOpts);
+
+    return updated;
+  },
+);
+/* ------------------------------------ FileTransform ----------------------------------- */
+export const createFileTransform = makeAction(
+  async ({
+    args,
+    socketOpts,
+  }: {
+    args: Types.CreateFileTransformInput;
+    socketOpts?: SocketEventOptions;
+  }) => {
+    const model = {
+      ...args,
+      dateCreated: dayjs().toISOString(),
+      cleanupPending: false,
+      configOverride: [],
+      finalizationPending: false,
+      isCompleted: false,
+      regenerationPending: false,
+      regenerationTagIds: [],
+      timestampPairs: [],
+    };
+
+    const res = await new models.FileTransformModel(model).save(metadataWriteOptions());
+    const created = { ...model, id: res._id.toString() };
+
+    socket.emitVolatile("onFileTransformCreated", created, socketOpts);
+
+    return created;
+  },
+);
+
+export const deleteFileTransform = makeAction(
+  async ({
+    args,
+    socketOpts,
+  }: {
+    args: Types.DeleteFileTransformInput;
+    socketOpts?: SocketEventOptions;
+  }) => {
+    const deleted = await deleteFileTransforms(args);
+
+    if (!deleted.success) throw new Error(deleted.error);
+
+    socket.emitVolatile("onFileTransformDeleted", args, socketOpts);
+  },
+);
+
+export const listFileTransform = makeAction(
+  async ({
+    args,
+  }: {
+    args?: Types.ListFileTransformInput;
+  } = {}) => {
+    args ??= {};
+
+    const filter = { ...args.filter };
+
+    if (args.filter?.id) {
+      filter._id = Array.isArray(args.filter.id)
+        ? { $in: args.filter.id }
+        : typeof args.filter.id === "string"
+          ? { $in: [args.filter.id] }
+          : args.filter.id;
+
+      delete filter.id;
+    }
+
+    const items = await models.FileTransformModel.find(filter)
+      .sort(args.sort ?? { dateCreated: "desc" })
+      .skip(Math.max(0, (args.page ?? 1) - 1) * (args.pageSize ?? 0))
+      .limit(args.pageSize ?? 0)
+      .allowDiskUse(true)
+      .lean();
+
+    const totalCount = await models.FileTransformModel.countDocuments(filter);
+
+    if (!items || !(totalCount > -1)) throw new Error("Failed to load filtered FileTransform");
+
+    return {
+      items: items.map((item) => leanModelToJson<models.FileTransformSchema>(item)),
+      pageCount: args.pageSize > 0 ? Math.ceil(totalCount / args.pageSize) : Number(totalCount > 0),
+    };
+  },
+);
+
+export const updateFileTransform = makeAction(
+  async ({
+    args,
+    socketOpts,
+  }: {
+    args: Types.UpdateFileTransformInput;
+    socketOpts?: SocketEventOptions;
+  }) => {
+    const updates = { ...args.updates };
+
+    const updated = leanModelToJson<models.FileTransformSchema>(
+      await models.FileTransformModel.findByIdAndUpdate(args.id, updates, {
+        new: true,
+        ...metadataWriteOptions(),
+      }).lean(),
+    );
+
+    socket.emitVolatile("onFileTransformUpdated", { id: args.id, updates }, socketOpts);
+
+    return updated;
+  },
 );
 /* ------------------------------------ MediaProgram ----------------------------------- */
 export const _createMediaProgram = makeAction(
@@ -3126,7 +3111,7 @@ export const _createMediaProgram = makeAction(
     const res = await new models.MediaProgramModel(model).save(metadataWriteOptions());
     const created = { ...model, id: res._id.toString() };
 
-    socket.emit("onMediaProgramCreated", created, socketOpts);
+    socket.emitVolatile("onMediaProgramCreated", created, socketOpts);
 
     return created;
   },
@@ -3142,7 +3127,7 @@ export const deleteMediaProgram = makeAction(
   }) => {
     await models.MediaProgramModel.deleteMany({ _id: { $in: args.ids } }, metadataWriteOptions());
 
-    socket.emit("onMediaProgramDeleted", args, socketOpts);
+    socket.emitVolatile("onMediaProgramDeleted", args, socketOpts);
   },
 );
 
@@ -3201,7 +3186,7 @@ export const _updateMediaProgram = makeAction(
       }).lean(),
     );
 
-    socket.emit("onMediaProgramUpdated", { id: args.id, updates }, socketOpts);
+    socket.emitVolatile("onMediaProgramUpdated", { id: args.id, updates }, socketOpts);
 
     return updated;
   },
@@ -3220,7 +3205,7 @@ export const createNotification = makeAction(
     const res = await new models.NotificationModel(model).save(metadataWriteOptions());
     const created = { ...model, id: res._id.toString() };
 
-    socket.emit("onNotificationCreated", created, socketOpts);
+    socket.emitVolatile("onNotificationCreated", created, socketOpts);
 
     return created;
   },
@@ -3236,7 +3221,7 @@ export const deleteNotification = makeAction(
   }) => {
     await models.NotificationModel.deleteMany({ _id: { $in: args.ids } }, metadataWriteOptions());
 
-    socket.emit("onNotificationDeleted", args, socketOpts);
+    socket.emitVolatile("onNotificationDeleted", args, socketOpts);
   },
 );
 
@@ -3295,7 +3280,7 @@ export const updateNotification = makeAction(
       }).lean(),
     );
 
-    socket.emit("onNotificationUpdated", { id: args.id, updates }, socketOpts);
+    socket.emitVolatile("onNotificationUpdated", { id: args.id, updates }, socketOpts);
 
     return updated;
   },
@@ -3314,7 +3299,7 @@ export const createSavedImportConfig = makeAction(
     const res = await new models.SavedImportConfigModel(model).save(metadataWriteOptions());
     const created = { ...model, id: res._id.toString() };
 
-    socket.emit("onSavedImportConfigCreated", created, socketOpts);
+    socket.emitVolatile("onSavedImportConfigCreated", created, socketOpts);
 
     return created;
   },
@@ -3333,7 +3318,7 @@ export const deleteSavedImportConfig = makeAction(
       metadataWriteOptions(),
     );
 
-    socket.emit("onSavedImportConfigDeleted", args, socketOpts);
+    socket.emitVolatile("onSavedImportConfigDeleted", args, socketOpts);
   },
 );
 
@@ -3392,7 +3377,7 @@ export const updateSavedImportConfig = makeAction(
       }).lean(),
     );
 
-    socket.emit("onSavedImportConfigUpdated", { id: args.id, updates }, socketOpts);
+    socket.emitVolatile("onSavedImportConfigUpdated", { id: args.id, updates }, socketOpts);
 
     return updated;
   },
@@ -3411,7 +3396,7 @@ export const createSavedSearch = makeAction(
     const res = await new models.SavedSearchModel(model).save(metadataWriteOptions());
     const created = { ...model, id: res._id.toString() };
 
-    socket.emit("onSavedSearchCreated", created, socketOpts);
+    socket.emitVolatile("onSavedSearchCreated", created, socketOpts);
 
     return created;
   },
@@ -3427,7 +3412,7 @@ export const deleteSavedSearch = makeAction(
   }) => {
     await models.SavedSearchModel.deleteMany({ _id: { $in: args.ids } }, metadataWriteOptions());
 
-    socket.emit("onSavedSearchDeleted", args, socketOpts);
+    socket.emitVolatile("onSavedSearchDeleted", args, socketOpts);
   },
 );
 
@@ -3486,7 +3471,7 @@ export const updateSavedSearch = makeAction(
       }).lean(),
     );
 
-    socket.emit("onSavedSearchUpdated", { id: args.id, updates }, socketOpts);
+    socket.emitVolatile("onSavedSearchUpdated", { id: args.id, updates }, socketOpts);
 
     return updated;
   },
@@ -3516,7 +3501,7 @@ export const _createTag = makeAction(
     const res = await new models.TagModel(model).save(metadataWriteOptions());
     const created = { ...model, id: res._id.toString() };
 
-    socket.emit("onTagCreated", created, socketOpts);
+    socket.emitVolatile("onTagCreated", created, socketOpts);
 
     return created;
   },
@@ -3532,7 +3517,7 @@ export const _deleteTag = makeAction(
   }) => {
     await models.TagModel.deleteMany({ _id: { $in: args.ids } }, metadataWriteOptions());
 
-    socket.emit("onTagDeleted", args, socketOpts);
+    socket.emitVolatile("onTagDeleted", args, socketOpts);
   },
 );
 
@@ -3594,7 +3579,7 @@ export const updateTag = makeAction(
         await models.TagModel.findById(args.id).lean(),
       );
 
-      socket.emit("onTagUpdated", { ...args, updates }, socketOpts);
+      socket.emitVolatile("onTagUpdated", { ...args, updates }, socketOpts);
 
       return updated;
     },

@@ -33,8 +33,6 @@ export class FileCollectionStore extends Model({
     const res = await trpc.deleteCollections.mutate({ ids });
 
     if (!res.success) throw new Error(res.error);
-
-    return res;
   });
 
   @modelFlow
@@ -74,8 +72,6 @@ export class FileCollectionStore extends Model({
         ].filter((collection) => collection?.id === args.id),
       ))
         collection.update({ rating: args.rating, ratingIsManual: args.rating > 0 });
-
-      return res;
     } finally {
       this.manager.setIsLoading(false);
     }

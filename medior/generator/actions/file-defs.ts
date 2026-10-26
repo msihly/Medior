@@ -2,14 +2,13 @@ import {
   getActions,
   makeActionsDef,
   makeCustomActionTypes,
-  makeFilterQueryType,
   makeModelActionTypes,
   makeSearchActionsDef,
   makeServerRouter,
 } from "medior/generator/actions/generators";
 import { MODEL_DEFS } from "medior/generator/schema/models";
 import { MODEL_SEARCH_STORE_DEFS } from "medior/generator/stores/models";
-import { makeSectionComment } from "medior/generator/utils";
+import { makeFilterQueryType, makeSectionComment } from "medior/generator/utils";
 import { Fmt } from "medior/utils/common";
 
 export const FILE_DEF_ACTIONS: FileDef = {
@@ -43,29 +42,19 @@ export const FILE_DEF_ACTIONS: FileDef = {
         socket,
       } from "medior/utils/server";`;
 
-    const makeModelActions = async () => {
-      const defs: string[] = [];
+    const makeModelActions = () =>
+      MODEL_DEFS.filter((def) => def.withActions !== false)
+        .map((def) => makeActionsDef(def, actions))
+        .join("\n");
 
-      for (const def of MODEL_DEFS.filter((def) => def.withActions !== false))
-        defs.push(await makeActionsDef(def, actions));
-
-      return defs.join("\n");
-    };
-
-    const makeSearchActions = async () => {
-      const defs: string[] = [];
-
-      for (const def of MODEL_SEARCH_STORE_DEFS)
-        defs.push(await makeSearchActionsDef(def, actions));
-
-      return defs.join("\n");
-    };
+    const makeSearchActions = () =>
+      MODEL_SEARCH_STORE_DEFS.map((def) => makeSearchActionsDef(def, actions)).join("\n");
 
     return `${makeImports()}\n
       ${makeSectionComment("SEARCH ACTIONS")}\n
-      ${await makeSearchActions()}\n
+      ${makeSearchActions()}\n
       ${makeSectionComment("MODEL ACTIONS")}\n
-      ${await makeModelActions()}\n`;
+      ${makeModelActions()}\n`;
   },
 };
 

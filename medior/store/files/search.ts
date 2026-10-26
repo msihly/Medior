@@ -15,12 +15,7 @@ export class FileSearch extends ExtendedModel(_FileSearch, {
   isArchiveOpen: prop<boolean>(false).withSetter(),
 }) {
   onInit() {
-    autoBind(this);
-
-    reaction(
-      () => this.getFilterProps(),
-      () => this.setHasChanges(true),
-    );
+    super.onInit();
 
     reaction(
       () => this.hasChanges,
@@ -140,41 +135,6 @@ export class FileSearch extends ExtendedModel(_FileSearch, {
     const requestedIds = new Set(fileIds);
 
     await reloadItemTags(this.results.filter((file) => requestedIds.has(file.id)));
-  });
-
-  @modelFlow
-  selectFirstInQuery = asyncAction(async (limit: number) => {
-    if (!Number.isSafeInteger(limit) || limit < 1) throw new Error("Enter a positive whole number");
-
-    const filters =
-      (this.cachedFilterProps as ReturnType<typeof this.getFilterProps>) ?? this.getFilterProps();
-    const loadId = this.loadId + 1;
-
-    this.setLoadId(loadId);
-    this.setIsLoading(true);
-    this.setIsPageCountLoading(false);
-
-    try {
-      const res = await trpc.listFileSearchIds.mutate({
-        ...filters,
-        forcePages: this.forcePages,
-        limit,
-      });
-
-      if (loadId !== this.loadId) return null;
-
-      if (!res.success) throw new Error(res.error);
-
-      this.setSelectedIds([...new Set([...this.selectedIds, ...res.data])]);
-
-      return res.data.length;
-    } catch (error) {
-      if (loadId === this.loadId) throw error;
-
-      return null;
-    } finally {
-      if (loadId === this.loadId) this.setIsLoading(false);
-    }
   });
 }
 

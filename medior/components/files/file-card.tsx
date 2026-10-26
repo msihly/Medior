@@ -1,7 +1,11 @@
 import { Comp, Icon, LoadingOverlay, Text, View } from "medior/components";
-import { useFileDrag } from "medior/components/files/hooks";
+import {
+  makeTileClickHandler,
+  openSearchCarousel,
+  useFileDrag,
+} from "medior/components/files/hooks";
 import { File, FileSearch, FileTransformSearch, useStores } from "medior/store";
-import { colors, CSS, openCarouselWindow, toast } from "medior/utils/client";
+import { colors, CSS, makeClasses, openCarouselWindow } from "medior/utils/client";
 import { Fmt, round } from "medior/utils/common";
 import { FileBase } from ".";
 
@@ -34,6 +38,8 @@ export const FileCard = Comp(
   }: FileCardProps) => {
     const stores = useStores();
 
+    const { css } = useClasses(null);
+
     const fileDragProps = useFileDrag(file, store.selectedIds);
 
     const hasTags = file?.tags?.length > 0;
@@ -41,16 +47,11 @@ export const FileCard = Comp(
     const hasFooter = hasTags || showFileName;
     const footerOffset = showFileName ? (hasTags ? "3.5rem" : "1.5rem") : undefined;
 
-    const handleClick = async (event: React.MouseEvent) => {
-      if (disabled) return;
-
-      const args = { hasCtrl: event.ctrlKey, hasShift: event.shiftKey, id: file.id };
-      const res = await ("handleFileSelect" in store
-        ? store.handleFileSelect(args)
-        : store.handleSelect(args));
-
-      if (!res?.success) toast.error(res.error);
-    };
+    const handleClick = makeTileClickHandler({
+      disabled,
+      id: file?.id,
+      select: "handleFileSelect" in store ? store.handleFileSelect : store.handleSelect,
+    });
 
     const handleDoubleClick = async () => {
       if (!disabled) {
@@ -60,12 +61,7 @@ export const FileCard = Comp(
             selectedFileIds: carouselFileIds,
             startTimes: carouselStartTimes,
           });
-        else {
-          const res = await store.listIdsForCarousel();
-
-          if (!res?.success) console.error(res.error);
-          else openCarouselWindow({ file, selectedFileIds: res.data });
-        }
+        else await openSearchCarousel(file, store);
       }
     };
 
@@ -111,17 +107,7 @@ export const FileCard = Comp(
                   }
                   color={colors.custom.white}
                   opacity={1}
-                  avatar={
-                    <Text
-                      display="flex"
-                      alignItems="center"
-                      justifyContent="center"
-                      bgcolor="rgb(0 0 0 / 0.3)"
-                      borderRadius="50%"
-                    >
-                      {`#${similarity.rank}`}
-                    </Text>
-                  }
+                  avatar={<Text className={css.similarityRank}>{`#${similarity.rank}`}</Text>}
                   label={`${round(similarity.score * 100, 1)}%${
                     similarity.start === undefined ? "" : ` @ ${Fmt.duration(similarity.start)}`
                   }`}
@@ -170,3 +156,13 @@ export const FileCard = Comp(
     );
   },
 );
+
+const useClasses = makeClasses({
+  similarityRank: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgb(0 0 0 / 0.3)",
+    borderRadius: "50%",
+  },
+});

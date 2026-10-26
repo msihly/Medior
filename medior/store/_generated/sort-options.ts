@@ -15,11 +15,11 @@ export type SortValue = { isDesc: boolean; key: string };
 type ModelSortName =
   | "BackgroundOperation"
   | "DeletedFile"
+  | "File"
   | "FileCollection"
   | "FileImport"
   | "FileImportBatch"
   | "FileTransform"
-  | "File"
   | "MediaProgram"
   | "Notification"
   | "SavedImportConfig"
@@ -31,6 +31,19 @@ type CustomSortName = "FileCollectionFile";
 const MODEL_SORT_OPTIONS: Record<ModelSortName, SortOption[]> = {
   BackgroundOperation: [{ attribute: "dateCreated", icon: "DateRange", label: "Date Created" }],
   DeletedFile: [],
+  File: [
+    { attribute: "bitrate", icon: "DataThresholding", label: "Bitrate" },
+    { attribute: "dateCreated", icon: "DateRange", label: "Date Created" },
+    { attribute: "dateImported", icon: "DateRange", label: "Date Imported" },
+    { attribute: "dateModified", icon: "DateRange", label: "Date Modified" },
+    { attribute: "duration", icon: "HourglassBottom", label: "Duration" },
+    { attribute: "originalName", icon: "Abc", label: "File Name" },
+    { attribute: "height", icon: "Height", label: "Height" },
+    { attribute: "peakDecibels", icon: "GraphicEq", label: "Peak Decibels" },
+    { attribute: "rating", icon: "Star", label: "Rating" },
+    { attribute: "size", icon: "FormatSize", label: "Size" },
+    { attribute: "width", icon: "Height", iconProps: { rotation: 90 }, label: "Width" },
+  ],
   FileCollection: [
     { attribute: "dateCreated", icon: "DateRange", label: "Date Created" },
     { attribute: "dateModified", icon: "DateRange", label: "Date Modified" },
@@ -58,19 +71,6 @@ const MODEL_SORT_OPTIONS: Record<ModelSortName, SortOption[]> = {
     { attribute: "status", icon: "PendingActions", label: "Status" },
     { attribute: "type", icon: "Movie", label: "Type" },
     { attribute: "beforeWidth", icon: "Height", iconProps: { rotation: 90 }, label: "Width" },
-  ],
-  File: [
-    { attribute: "bitrate", icon: "DataThresholding", label: "Bitrate" },
-    { attribute: "dateCreated", icon: "DateRange", label: "Date Created" },
-    { attribute: "dateImported", icon: "DateRange", label: "Date Imported" },
-    { attribute: "dateModified", icon: "DateRange", label: "Date Modified" },
-    { attribute: "duration", icon: "HourglassBottom", label: "Duration" },
-    { attribute: "originalName", icon: "Abc", label: "File Name" },
-    { attribute: "height", icon: "Height", label: "Height" },
-    { attribute: "peakDecibels", icon: "GraphicEq", label: "Peak Decibels" },
-    { attribute: "rating", icon: "Star", label: "Rating" },
-    { attribute: "size", icon: "FormatSize", label: "Size" },
-    { attribute: "width", icon: "Height", iconProps: { rotation: 90 }, label: "Width" },
   ],
   MediaProgram: [
     { attribute: "dateCreated", icon: "DateRange", label: "Date Created" },

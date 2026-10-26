@@ -11,9 +11,9 @@ import {
   finishFileOperation,
 } from "medior/server/database/file-operations";
 import { metadataWriteOptions } from "medior/server/database/metadata-work";
-import { genFileInfo, isGeneratedMediaUnreadable } from "medior/utils/client/files";
 import { dayjs } from "medior/utils/common";
 import { getNtfsFileIdentity, leanModelToJson, socket } from "medior/utils/server";
+import { genFileInfo, isGeneratedMediaUnreadable } from "medior/utils/server/files";
 import {
   copyMediaFile,
   hashMediaFile,
@@ -251,7 +251,7 @@ export const repairThumbnail = async (
     if (!updated)
       throw new Error("File changed during thumbnail repair; output retained for retry");
 
-    socket.emit("onFileUpdated", { id: file.id, updates });
+    socket.emitVolatile("onFileUpdated", { id: file.id, updates });
 
     if (legacyPaths.length || Object.prototype.hasOwnProperty.call(file, "thumbPaths"))
       await models.FileModel.updateOne(

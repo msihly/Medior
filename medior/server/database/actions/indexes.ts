@@ -69,38 +69,41 @@ export const rebuildIndexes = makeAction(
             await stopFileTransformer();
           }
 
+          const runWhenNoIndexBuildIsRunning = async <T>(
+            collectionName: string,
+            action: () => Promise<T>,
+          ) => {
+            let waitSeconds = 0;
+
+            while (true) {
+              checkCancelled();
+
+              try {
+                return await action();
+              } catch (error) {
+                if (!isIndexBuildInProgressError(error)) throw error;
+
+                if (waitSeconds === 0)
+                  report(
+                    `An index build is already running for ${collectionName}; waiting for it to finish.`,
+                    "progress",
+                  );
+                else if (waitSeconds % 30 === 0)
+                  report(
+                    `Still waiting for the existing index build on ${collectionName} (${waitSeconds} seconds).`,
+                    "progress",
+                  );
+
+                await sleep(1000);
+                waitSeconds++;
+              }
+            }
+          };
+
           for (let index = 0; index < collectionNames.length; index++) {
             checkCancelled();
 
             const collectionName = collectionNames[index];
-
-            const runWhenNoIndexBuildIsRunning = async <T>(action: () => Promise<T>) => {
-              let waitSeconds = 0;
-
-              while (true) {
-                checkCancelled();
-
-                try {
-                  return await action();
-                } catch (error) {
-                  if (!isIndexBuildInProgressError(error)) throw error;
-
-                  if (waitSeconds === 0)
-                    report(
-                      `An index build is already running for ${collectionName}; waiting for it to finish.`,
-                      "progress",
-                    );
-                  else if (waitSeconds % 30 === 0)
-                    report(
-                      `Still waiting for the existing index build on ${collectionName} (${waitSeconds} seconds).`,
-                      "progress",
-                    );
-
-                  await sleep(1000);
-                  waitSeconds++;
-                }
-              }
-            };
 
             report(
               `Repairing indexes for ${collectionName} (${index + 1} / ${collectionNames.length}).`,
@@ -108,13 +111,16 @@ export const rebuildIndexes = makeAction(
             );
 
             if (syncDefinitions) {
-              const droppedIndexNames = await runWhenNoIndexBuildIsRunning(async () => {
-                if (collectionName === PersistenceModel.collection.collectionName) {
-                  await ensurePersistenceIndexes();
+              const droppedIndexNames = await runWhenNoIndexBuildIsRunning(
+                collectionName,
+                async () => {
+                  if (collectionName === PersistenceModel.collection.collectionName) {
+                    await ensurePersistenceIndexes();
 
-                  return [];
-                } else return modelsByCollectionName.get(collectionName).syncIndexes();
-              });
+                    return [];
+                  } else return modelsByCollectionName.get(collectionName).syncIndexes();
+                },
+              );
 
               if (droppedIndexNames.length)
                 report(
@@ -134,7 +140,7 @@ export const rebuildIndexes = makeAction(
               for (const spec of indexSpecs) {
                 report(`Rebuilding ${spec.name} on ${collectionName}.`, "progress");
 
-                await runWhenNoIndexBuildIsRunning(() =>
+                await runWhenNoIndexBuildIsRunning(collectionName, () =>
                   Mongoose.connection.db.command(
                     { dropIndexes: collectionName, index: spec.name },
                     { session: getBackgroundSession() },

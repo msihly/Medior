@@ -59,7 +59,7 @@ export const getVariationSettings = (options: Partial<DuplicateSearchOptions>) =
 export const validateDuplicateTimeWindow = (timeWindow: number | null) => {
   if (
     timeWindow !== null &&
-    (!Number.isFinite(timeWindow) || timeWindow <= 0 || timeWindow > MAX_DUPLICATE_TIME_WINDOW)
+    (!Number.isFinite(timeWindow) || timeWindow < 1 || timeWindow > MAX_DUPLICATE_TIME_WINDOW)
   )
     throw new Error(
       `The date created window must be between 1 and ${MAX_DUPLICATE_TIME_WINDOW} minutes.`,

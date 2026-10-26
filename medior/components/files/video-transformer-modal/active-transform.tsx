@@ -15,7 +15,7 @@ import { useStores } from "medior/store";
 import { colors, toast } from "medior/utils/client";
 import { SizeHistoryChart } from "./size-history-chart";
 import { TransformDetails } from "./transform-details";
-import { ProgressCircle } from "./transform-progress-circle";
+import { TransformProgressCircle } from "./transform-progress-circle";
 
 export const ActiveTransform = Comp(({ onCompare }: { onCompare: () => void }) => {
   const stores = useStores();
@@ -41,17 +41,21 @@ export const ActiveTransform = Comp(({ onCompare }: { onCompare: () => void }) =
     if (!res.success) toast.error(res.error);
   };
 
-  const handleFindOriginal = () =>
-    store.activeTransform?.beforePath && shell.showItemInFolder(store.activeTransform.beforePath);
+  const handleFindOriginal = () => {
+    if (store.activeTransform?.beforePath) shell.showItemInFolder(store.activeTransform.beforePath);
+  };
 
-  const handleFindOutput = () =>
-    store.activeTransform?.afterPath && shell.showItemInFolder(store.activeTransform.afterPath);
+  const handleFindOutput = () => {
+    if (store.activeTransform?.afterPath) shell.showItemInFolder(store.activeTransform.afterPath);
+  };
 
-  const handlePlayOriginal = () =>
-    store.activeTransform?.beforePath && shell.openPath(store.activeTransform.beforePath);
+  const handlePlayOriginal = () => {
+    if (store.activeTransform?.beforePath) shell.openPath(store.activeTransform.beforePath);
+  };
 
-  const handlePlayOutput = () =>
-    store.activeTransform?.afterPath && shell.openPath(store.activeTransform.afterPath);
+  const handlePlayOutput = () => {
+    if (store.activeTransform?.afterPath) shell.openPath(store.activeTransform.afterPath);
+  };
 
   const handleFinalize = async () => {
     const res = await store.finalizeActiveTransform();
@@ -99,7 +103,7 @@ export const ActiveTransform = Comp(({ onCompare }: { onCompare: () => void }) =
                 />
 
                 <View row flex="none" spacing="2rem" justify="center" align="center">
-                  <ProgressCircle transform={store.activeTransform} />
+                  <TransformProgressCircle transform={store.activeTransform} />
 
                   <Divider orientation="vertical" />
 
@@ -109,7 +113,6 @@ export const ActiveTransform = Comp(({ onCompare }: { onCompare: () => void }) =
             ) : (
               <CenteredText
                 text={store.isLoading || store.isQueueTransforming ? "Loading…" : "Nothing queued"}
-                color={colors.custom.lightGrey}
                 viewProps={{ flex: "none" }}
               />
             )}

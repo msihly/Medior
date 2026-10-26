@@ -544,7 +544,7 @@ export const useSockets = ({ enabled = true, view }: UseSocketsProps) => {
       const tagUpdates = new Map<string, Partial<TagOption>>([[id, updates]]);
 
       updateFilterTagOptions(tagUpdates);
-      updateVisibleTagData(new Map([[id, updates]]));
+      updateVisibleTagData(tagUpdates);
       refreshOpenTagEditors([id]);
     });
 
@@ -812,10 +812,12 @@ export const useSockets = ({ enabled = true, view }: UseSocketsProps) => {
     });
 
     if (view === "home") {
+      // The Active Batch panel follows batch imports only; direct imports such as extracted frames
+      // would otherwise stay listed after they finish.
       makeSocket("onFileImportProgress", ({ batchId, elapsed, filePath, message, progress }) => {
         const store = stores.import.manager;
 
-        if (batchId && store.activeBatch && store.activeBatch.id !== batchId) return;
+        if (!batchId || (store.activeBatch && store.activeBatch.id !== batchId)) return;
 
         store.setActiveFilePath(filePath);
         store.setActiveFileProgress({ elapsed, message, progress });
@@ -835,9 +837,13 @@ export const useSockets = ({ enabled = true, view }: UseSocketsProps) => {
         }
       });
 
-      makeSocket("onFileImportStarted", ({ filePath }) => {
-        stores.import.manager.setActiveFilePath(filePath);
-        stores.import.manager.setActiveFileProgress(null);
+      makeSocket("onFileImportStarted", ({ batchId, filePath }) => {
+        const store = stores.import.manager;
+
+        if (!batchId || (store.activeBatch && store.activeBatch.id !== batchId)) return;
+
+        store.setActiveFilePath(filePath);
+        store.setActiveFileProgress(null);
       });
 
       makeSocket("onImportBatchLoaded", () => {

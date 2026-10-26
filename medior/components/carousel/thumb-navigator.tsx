@@ -1,6 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import AutoSizer from "react-virtualized-auto-sizer";
-import { FixedSizeList, ListOnItemsRenderedProps, ListOnScrollProps } from "react-window";
+import {
+  FixedSizeList,
+  ListChildComponentProps,
+  ListOnItemsRenderedProps,
+  ListOnScrollProps,
+} from "react-window";
 import Color from "color";
 import { CarouselThumb, Comp, IconButton, View } from "medior/components";
 import { useStores } from "medior/store";
@@ -11,13 +16,13 @@ export const CarouselThumbNavigator = Comp(() => {
   const stores = useStores();
   const store = stores.carousel;
 
-  const listOuterRef = useRef(null);
-  const listRef = useRef<FixedSizeList>(null);
-  const scrollLeft = useRef(0);
-
   const [isVisible, setIsVisible] = useState(false);
   const [visibleRange, setVisibleRange] = useState({ start: 0, stop: -1 });
   const [width, setWidth] = useState(0);
+
+  const listOuterRef = useRef(null);
+  const listRef = useRef<FixedSizeList>(null);
+  const scrollLeft = useRef(0);
 
   const visibleFileIds = store.selectedFileIds.slice(visibleRange.start, visibleRange.stop + 1);
 
@@ -85,17 +90,11 @@ export const CarouselThumbNavigator = Comp(() => {
               height={CONSTANTS.CAROUSEL.THUMB_NAV.WIDTH}
               itemSize={CONSTANTS.CAROUSEL.THUMB_NAV.WIDTH}
               itemCount={store.selectedFileIds.length}
+              itemData={{ fileIds: store.selectedFileIds, isDragging }}
               overscanCount={7}
               className={css.thumbnails}
             >
-              {({ index, style }) => (
-                <CarouselThumb
-                  key={index}
-                  id={store.selectedFileIds[index]}
-                  isDragging={isDragging}
-                  style={style}
-                />
-              )}
+              {ThumbRow}
             </FixedSizeList>
           )}
         </AutoSizer>
@@ -103,6 +102,15 @@ export const CarouselThumbNavigator = Comp(() => {
     </View>
   );
 });
+
+interface ThumbRowData {
+  fileIds: string[];
+  isDragging: boolean;
+}
+
+const ThumbRow = Comp(({ data, index, style }: ListChildComponentProps<ThumbRowData>) => (
+  <CarouselThumb id={data.fileIds[index]} isDragging={data.isDragging} style={style} />
+));
 
 interface ClassesProps {
   isMouseMoving: boolean;

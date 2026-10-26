@@ -101,9 +101,6 @@ export const runNativeTask = async <T>(
   onProgress?: (message: string, progress?: number) => void,
   onOutput?: (line: string) => void,
 ): Promise<T> => {
-  signal?.throwIfAborted();
-  serverShutdownSignal.throwIfAborted();
-
   let worker: ChildProcess;
 
   if (!workerPools.has(name)) workerPools.set(name, new Set());
@@ -217,7 +214,7 @@ export const runNativeTask = async <T>(
     };
 
     const onExit = (code: number) =>
-      onError(signal?.reason ?? new Error(`${name} worker exited with code ${code}`));
+      onError(signal.reason ?? new Error(`${name} worker exited with code ${code}`));
 
     const onMessage = (message: {
       data?: T;
@@ -236,7 +233,7 @@ export const runNativeTask = async <T>(
       } else {
         cleanup();
 
-        if (signal?.aborted) reject(signal.reason);
+        if (signal.aborted) reject(signal.reason);
         else if (message.error) reject(new Error(message.error));
         else resolve(message.data);
       }
@@ -248,7 +245,7 @@ export const runNativeTask = async <T>(
     worker.once("exit", onExit);
     worker.on("message", onMessage);
 
-    if (signal?.aborted) worker.kill();
+    if (signal.aborted) worker.kill();
     else
       worker.send({ id, input }, (error) => {
         if (error) onError(error);

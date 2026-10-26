@@ -602,7 +602,7 @@ export class VideoTransformerStore extends Model({
 
       toast.success("Media rendered");
 
-      await openCarouselWindow({ file: res.data, selectedFileIds: [res.data.id] });
+      openCarouselWindow({ file: res.data, selectedFileIds: [res.data.id] });
       await this.loadQueueCount();
       await this.loadActiveTransform({ id });
     } finally {

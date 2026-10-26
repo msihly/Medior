@@ -28,6 +28,8 @@ export class TagStore extends Model({
 }) {
   private categoryLoad: Promise<void> = null;
   private categoryRevision = 0;
+  /** Tag updates received while categories load, applied again over the loaded categories. */
+  private categoryUpdates: { tagId: string; updates: Partial<TagSchema> }[] = [];
 
   onInit() {
     autoBind(this);
@@ -35,20 +37,32 @@ export class TagStore extends Model({
 
   /* ---------------------------- STANDARD ACTIONS ---------------------------- */
   @modelAction
+  private setCategorySource(tagId: string, updates: Partial<TagSchema>) {
+    const current = this.categorySources.get(tagId);
+    const category = "category" in updates ? updates.category : current?.category;
+
+    this.categorySources.set(tagId, {
+      category: category ? { ...category } : null,
+      id: tagId,
+      parentIds: [...(updates.parentIds ?? current?.parentIds ?? [])],
+    });
+  }
+
+  @modelAction
+  private setLoadedCategorySources(sources: TagCategorySource[]) {
+    this.setCategorySources(new Map(sources.map((tag) => [tag.id, tag])));
+
+    for (const { tagId, updates } of this.categoryUpdates) this.setCategorySource(tagId, updates);
+  }
+
+  @modelAction
   updateCategorySources(tags: { tagId: string; updates: Partial<TagSchema> }[]) {
     for (const { tagId, updates } of tags) {
       if (!("category" in updates) && !("parentIds" in updates)) continue;
 
-      this.categoryRevision++;
+      if (this.categoryLoad) this.categoryUpdates.push({ tagId, updates });
 
-      const current = this.categorySources.get(tagId);
-      const category = "category" in updates ? updates.category : current?.category;
-
-      this.categorySources.set(tagId, {
-        category: category ? { ...category } : null,
-        id: tagId,
-        parentIds: [...(updates.parentIds ?? current?.parentIds ?? [])],
-      });
+      this.setCategorySource(tagId, updates);
     }
   }
 
@@ -137,6 +151,7 @@ export class TagStore extends Model({
 
     if (this.categoryLoad) return this.categoryLoad;
 
+    this.categoryUpdates = [];
     this.categoryLoad = (async () => {
       let revision: number;
 
@@ -149,7 +164,7 @@ export class TagStore extends Model({
 
         if (revision !== this.categoryRevision) continue;
 
-        this.setCategorySources(new Map(res.data.map((tag) => [tag.id, tag])));
+        this.setLoadedCategorySources(res.data);
       } while (revision !== this.categoryRevision);
     })();
 
@@ -157,6 +172,7 @@ export class TagStore extends Model({
       await this.categoryLoad;
     } finally {
       this.categoryLoad = null;
+      this.categoryUpdates = [];
     }
   });
 
@@ -196,8 +212,8 @@ export class TagStore extends Model({
   @modelFlow
   upsertTags = asyncAction(
     async ({
-      tagsToUpsert,
       onProgress,
+      tagsToUpsert,
     }: {
       onProgress?: (completed: number, total: number) => void;
       tagsToUpsert: TagToUpsert[];

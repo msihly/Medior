@@ -40,7 +40,7 @@ export const SimilarityModal = Comp(() => {
   return (
     <Modal.Container height="100%" width="100%" onClose={store.close}>
       <SearchLoadingOverlay
-        isLoading={store.isLoading || store.search.isLoading}
+        isLoading={store.isLoading || store.search.isLoading || store.search.isSelecting}
         onCancel={store.cancelLoad}
         store={store.search}
       />

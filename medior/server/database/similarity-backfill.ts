@@ -20,17 +20,14 @@ export const SimilarityBackfillModel = registerPersistenceModel(
     offset: number;
     progress: SimilarityBackfillProgress;
     queueKey?: string;
-  }>(
-    {
-      _id: String,
-      args: Schema.Types.Mixed,
-      cursor: String,
-      offset: { default: 0, type: Number },
-      progress: Schema.Types.Mixed,
-      queueKey: String,
-    },
-    { writeConcern: { j: true, w: "majority" } },
-  ).index(
+  }>({
+    _id: String,
+    args: Schema.Types.Mixed,
+    cursor: String,
+    offset: { default: 0, type: Number },
+    progress: Schema.Types.Mixed,
+    queueKey: String,
+  }).index(
     { queueKey: 1 },
     { partialFilterExpression: { queueKey: { $exists: true } }, unique: true },
   ),

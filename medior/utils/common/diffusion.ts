@@ -141,9 +141,10 @@ export const parseDiffParams = (diffParams: string): DiffParams => {
   const subseedStrength = parseDiffParam(restParams, "Variation seed strength", true, true);
   const vaeHash = parseDiffParam(restParams, '"vae"', false, true, '"', ': "') ?? "None";
 
-  const [width, height] = parseDiffParam(restParams, "Size", false)
-    .split("x")
-    .map((d) => +d);
+  const [width, height] =
+    parseDiffParam(restParams, "Size", false, true)
+      ?.split("x")
+      .map((d) => +d) ?? [];
 
   /* ---------------------------- "ADetailer" Extension ---------------------------- */
   const aDetailer = {

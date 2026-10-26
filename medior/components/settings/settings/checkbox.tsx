@@ -9,17 +9,17 @@ import { ConfigKey } from "medior/utils/server";
 export interface CheckboxProps extends Omit<CheckboxBaseProps, "checked" | "setChecked"> {
   checked?: boolean;
   configKey: ConfigKey;
-  onChange?: (checked: boolean) => void;
   setChecked?: (checked: boolean) => void;
 }
 
-export const Checkbox = Comp(({ checked, configKey, onChange, ...props }: CheckboxProps) => {
+export const Checkbox = Comp(({ checked, configKey, setChecked, ...props }: CheckboxProps) => {
   const stores = useStores();
 
   checked = checked ?? stores.home.settings.getConfigByKey<boolean>(configKey);
 
-  const setChecked = (checked: boolean) =>
-    onChange ? onChange(checked) : stores.home.settings.update({ [configKey]: checked });
+  const update = (checked: boolean) => stores.home.settings.update({ [configKey]: checked });
 
-  return <CheckboxBase {...{ checked, setChecked }} flex="inherit" {...props} />;
+  return (
+    <CheckboxBase checked={checked} setChecked={setChecked ?? update} flex="inherit" {...props} />
+  );
 });

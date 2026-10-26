@@ -135,6 +135,195 @@ DeletedFileSchema.index({ hash: 1 }, { unique: true });
 export const DeletedFileModel = model<DeletedFileSchema>("DeletedFile", DeletedFileSchema);
 
 /* --------------------------------------------------------------------------- */
+/*                               File
+/* --------------------------------------------------------------------------- */
+
+export interface FaceModel {
+  box: { height: number; width: number; x: number; y: number };
+  descriptors: string;
+  fileId: string;
+  tagId: string;
+}
+
+export interface FileSchema {
+  audioBitrate?: number;
+  audioCodec?: string;
+  bitrate?: number;
+  collectionIds: string[];
+  dateCreated: string;
+  dateImported: string;
+  dateModified: string;
+  diffusionParams?: string;
+  duration?: number;
+  ext: string;
+  faceModels?: FaceModel[];
+  frameRate?: number;
+  hash: string;
+  hasTranscript: boolean;
+  height: number;
+  id: string;
+  isArchived?: boolean;
+  isAudioCorrupted?: boolean;
+  isCorrupted?: boolean;
+  originalAudioBitrate?: number;
+  originalAudioCodec?: string;
+  originalBitrate?: number;
+  originalHash?: string;
+  originalName?: string;
+  originalPath: string;
+  originalSize: number;
+  originalVideoCodec?: string;
+  path: string;
+  peakDecibels?: number;
+  previousHashes?: string[];
+  rating: number;
+  size: number;
+  sourceHash?: string;
+  subtitles?: Array<{ ext: string; path: string; pathKey: string }>;
+  tagIds: string[];
+  tagIdsWithAncestors: string[];
+  thumb: {
+    frameHeight?: number;
+    frameWidth?: number;
+    ntfsFileId?: string;
+    ntfsVolumeId?: string;
+    path: string;
+  };
+  timestamps?: Array<{
+    id: string;
+    label: string;
+    pairs: Array<{
+      endDuration: string;
+      id: string;
+      order: number;
+      startDuration: string;
+    }>;
+  }>;
+  transcription?: { segments: Array<{ end: number; start: number; text: string }>; text: string };
+  videoCodec?: string;
+  waveformPeaks?: number[];
+  width: number;
+}
+
+const FileSchema = new Schema<FileSchema>({
+  id: String,
+  dateCreated: String,
+  audioBitrate: Number,
+  audioCodec: String,
+  bitrate: Number,
+  collectionIds: [{ type: Schema.Types.ObjectId, ref: "FileCollection" }],
+  dateImported: String,
+  dateModified: String,
+  diffusionParams: String,
+  duration: Number,
+  ext: String,
+  faceModels: [
+    {
+      box: { height: Number, width: Number, x: Number, y: Number },
+      descriptors: [Object],
+      fileId: Schema.Types.ObjectId,
+      tagId: Schema.Types.ObjectId,
+    },
+  ],
+  frameRate: Number,
+  hash: String,
+  hasTranscript: Boolean,
+  height: Number,
+  isArchived: Boolean,
+  isAudioCorrupted: Boolean,
+  isCorrupted: Boolean,
+  originalAudioBitrate: Number,
+  originalAudioCodec: String,
+  originalBitrate: Number,
+  originalHash: String,
+  originalName: String,
+  originalPath: String,
+  originalSize: Number,
+  originalVideoCodec: String,
+  path: String,
+  peakDecibels: Number,
+  previousHashes: [String],
+  rating: Number,
+  size: Number,
+  sourceHash: String,
+  subtitles: [{ ext: String, path: String, pathKey: String }],
+  tagIds: [{ type: Schema.Types.ObjectId, ref: "Tag" }],
+  tagIdsWithAncestors: [{ type: Schema.Types.ObjectId, ref: "Tag" }],
+  thumb: {
+    frameHeight: Number,
+    frameWidth: Number,
+    ntfsFileId: String,
+    ntfsVolumeId: String,
+    path: String,
+  },
+  timestamps: [
+    {
+      id: String,
+      label: String,
+      order: Number,
+      pairs: [{ endDuration: String, id: String, order: Number, startDuration: String }],
+    },
+  ],
+  transcription: { segments: [{ end: Number, start: Number, text: String }], text: String },
+  videoCodec: String,
+  waveformPeaks: [Number],
+  width: Number,
+});
+
+FileSchema.plugin(backgroundExecutionPlugin);
+
+FileSchema.plugin(mediaPathPlugin, { modelName: "File" });
+FileSchema.plugin(mediaAncestryPlugin);
+
+FileSchema.index({ dateCreated: 1, _id: 1 }, { unique: true });
+FileSchema.index({ audioCodec: 1 }, { unique: false });
+FileSchema.index({ bitrate: 1, _id: 1 }, { unique: true });
+FileSchema.index({ collectionIds: 1 }, { unique: false });
+FileSchema.index({ dateImported: 1, _id: 1 }, { unique: true });
+FileSchema.index({ dateModified: 1, _id: 1 }, { unique: true });
+FileSchema.index({ duration: 1, _id: 1 }, { unique: true });
+FileSchema.index({ ext: 1 }, { unique: false });
+FileSchema.index({ hash: 1 }, { unique: true });
+FileSchema.index({ hasTranscript: 1 }, { unique: false });
+FileSchema.index({ height: 1, _id: 1 }, { unique: true });
+FileSchema.index({ isArchived: 1 }, { unique: false });
+FileSchema.index({ isCorrupted: 1 }, { unique: false });
+FileSchema.index(
+  { originalHash: 1 },
+  { partialFilterExpression: { originalHash: { $type: "string" } }, unique: false },
+);
+FileSchema.index({ originalName: 1, _id: 1 }, { unique: true });
+FileSchema.index(
+  { isArchived: 1, originalPath: 1, _id: 1, dateCreated: 1, dateImported: 1, dateModified: 1 },
+  { unique: false },
+);
+FileSchema.index({ peakDecibels: 1, _id: 1 }, { unique: true });
+FileSchema.index(
+  { previousHashes: 1 },
+  { partialFilterExpression: { previousHashes: { $type: "string" } }, unique: false },
+);
+FileSchema.index({ rating: 1, _id: 1 }, { unique: true });
+FileSchema.index({ size: 1, _id: 1 }, { unique: true });
+FileSchema.index(
+  { sourceHash: 1 },
+  { partialFilterExpression: { sourceHash: { $type: "string" } }, unique: false },
+);
+FileSchema.index(
+  { "subtitles.pathKey": 1 },
+  { partialFilterExpression: { "subtitles.pathKey": { $type: "string" } }, unique: false },
+);
+FileSchema.index({ tagIds: 1 }, { unique: false });
+FileSchema.index({ tagIdsWithAncestors: 1 }, { unique: false });
+FileSchema.index(
+  { "timestamps.id": 1 },
+  { partialFilterExpression: { "timestamps.id": { $exists: true } }, unique: false },
+);
+FileSchema.index({ videoCodec: 1 }, { unique: false });
+FileSchema.index({ width: 1, _id: 1 }, { unique: true });
+
+export const FileModel = model<FileSchema>("File", FileSchema);
+
+/* --------------------------------------------------------------------------- */
 /*                               FileCollection
 /* --------------------------------------------------------------------------- */
 
@@ -524,193 +713,6 @@ FileTransformSchema.index({ status: 1, _id: 1 }, { unique: false });
 FileTransformSchema.index({ type: 1, _id: 1 }, { unique: false });
 
 export const FileTransformModel = model<FileTransformSchema>("FileTransform", FileTransformSchema);
-
-/* --------------------------------------------------------------------------- */
-/*                               File
-/* --------------------------------------------------------------------------- */
-
-export interface FaceModel {
-  box: { height: number; width: number; x: number; y: number };
-  descriptors: string;
-  fileId: string;
-  tagId: string;
-}
-
-export interface FileSchema {
-  audioBitrate?: number;
-  audioCodec?: string;
-  bitrate?: number;
-  collectionIds: string[];
-  dateCreated: string;
-  dateImported: string;
-  dateModified: string;
-  diffusionParams?: string;
-  duration?: number;
-  ext: string;
-  faceModels?: FaceModel[];
-  frameRate?: number;
-  hash: string;
-  hasTranscript: boolean;
-  height: number;
-  id: string;
-  isArchived?: boolean;
-  isCorrupted?: boolean;
-  originalAudioBitrate?: number;
-  originalAudioCodec?: string;
-  originalBitrate?: number;
-  originalHash?: string;
-  originalName?: string;
-  originalPath: string;
-  originalSize: number;
-  originalVideoCodec?: string;
-  path: string;
-  peakDecibels?: number;
-  previousHashes?: string[];
-  rating: number;
-  size: number;
-  sourceHash?: string;
-  subtitles?: Array<{ ext: string; path: string; pathKey: string }>;
-  tagIds: string[];
-  tagIdsWithAncestors: string[];
-  thumb: {
-    frameHeight?: number;
-    frameWidth?: number;
-    ntfsFileId?: string;
-    ntfsVolumeId?: string;
-    path: string;
-  };
-  timestamps?: Array<{
-    id: string;
-    label: string;
-    pairs: Array<{
-      endDuration: string;
-      id: string;
-      order: number;
-      startDuration: string;
-    }>;
-  }>;
-  transcription?: { segments: Array<{ end: number; start: number; text: string }>; text: string };
-  videoCodec?: string;
-  waveformPeaks?: number[];
-  width: number;
-}
-
-const FileSchema = new Schema<FileSchema>({
-  id: String,
-  dateCreated: String,
-  audioBitrate: Number,
-  audioCodec: String,
-  bitrate: Number,
-  collectionIds: [{ type: Schema.Types.ObjectId, ref: "FileCollection" }],
-  dateImported: String,
-  dateModified: String,
-  diffusionParams: String,
-  duration: Number,
-  ext: String,
-  faceModels: [
-    {
-      box: { height: Number, width: Number, x: Number, y: Number },
-      descriptors: [Object],
-      fileId: Schema.Types.ObjectId,
-      tagId: Schema.Types.ObjectId,
-    },
-  ],
-  frameRate: Number,
-  hash: String,
-  hasTranscript: Boolean,
-  height: Number,
-  isArchived: Boolean,
-  isCorrupted: Boolean,
-  originalAudioBitrate: Number,
-  originalAudioCodec: String,
-  originalBitrate: Number,
-  originalHash: String,
-  originalName: String,
-  originalPath: String,
-  originalSize: Number,
-  originalVideoCodec: String,
-  path: String,
-  peakDecibels: Number,
-  previousHashes: [String],
-  rating: Number,
-  size: Number,
-  sourceHash: String,
-  subtitles: [{ ext: String, path: String, pathKey: String }],
-  tagIds: [{ type: Schema.Types.ObjectId, ref: "Tag" }],
-  tagIdsWithAncestors: [{ type: Schema.Types.ObjectId, ref: "Tag" }],
-  thumb: {
-    frameHeight: Number,
-    frameWidth: Number,
-    ntfsFileId: String,
-    ntfsVolumeId: String,
-    path: String,
-  },
-  timestamps: [
-    {
-      id: String,
-      label: String,
-      order: Number,
-      pairs: [{ endDuration: String, id: String, order: Number, startDuration: String }],
-    },
-  ],
-  transcription: { segments: [{ end: Number, start: Number, text: String }], text: String },
-  videoCodec: String,
-  waveformPeaks: [Number],
-  width: Number,
-});
-
-FileSchema.plugin(backgroundExecutionPlugin);
-
-FileSchema.plugin(mediaPathPlugin, { modelName: "File" });
-FileSchema.plugin(mediaAncestryPlugin);
-
-FileSchema.index({ dateCreated: 1, _id: 1 }, { unique: true });
-FileSchema.index({ audioCodec: 1 }, { unique: false });
-FileSchema.index({ bitrate: 1, _id: 1 }, { unique: true });
-FileSchema.index({ collectionIds: 1 }, { unique: false });
-FileSchema.index({ dateImported: 1, _id: 1 }, { unique: true });
-FileSchema.index({ dateModified: 1, _id: 1 }, { unique: true });
-FileSchema.index({ duration: 1, _id: 1 }, { unique: true });
-FileSchema.index({ ext: 1 }, { unique: false });
-FileSchema.index({ hash: 1 }, { unique: true });
-FileSchema.index({ hasTranscript: 1 }, { unique: false });
-FileSchema.index({ height: 1, _id: 1 }, { unique: true });
-FileSchema.index({ isArchived: 1 }, { unique: false });
-FileSchema.index({ isCorrupted: 1 }, { unique: false });
-FileSchema.index(
-  { originalHash: 1 },
-  { partialFilterExpression: { originalHash: { $type: "string" } }, unique: false },
-);
-FileSchema.index({ originalName: 1, _id: 1 }, { unique: true });
-FileSchema.index(
-  { isArchived: 1, originalPath: 1, _id: 1, dateCreated: 1, dateImported: 1, dateModified: 1 },
-  { unique: false },
-);
-FileSchema.index({ peakDecibels: 1, _id: 1 }, { unique: true });
-FileSchema.index(
-  { previousHashes: 1 },
-  { partialFilterExpression: { previousHashes: { $type: "string" } }, unique: false },
-);
-FileSchema.index({ rating: 1, _id: 1 }, { unique: true });
-FileSchema.index({ size: 1, _id: 1 }, { unique: true });
-FileSchema.index(
-  { sourceHash: 1 },
-  { partialFilterExpression: { sourceHash: { $type: "string" } }, unique: false },
-);
-FileSchema.index(
-  { "subtitles.pathKey": 1 },
-  { partialFilterExpression: { "subtitles.pathKey": { $type: "string" } }, unique: false },
-);
-FileSchema.index({ tagIds: 1 }, { unique: false });
-FileSchema.index({ tagIdsWithAncestors: 1 }, { unique: false });
-FileSchema.index(
-  { "timestamps.id": 1 },
-  { partialFilterExpression: { "timestamps.id": { $exists: true } }, unique: false },
-);
-FileSchema.index({ videoCodec: 1 }, { unique: false });
-FileSchema.index({ width: 1, _id: 1 }, { unique: true });
-
-export const FileModel = model<FileSchema>("File", FileSchema);
 
 /* --------------------------------------------------------------------------- */
 /*                               MediaProgram

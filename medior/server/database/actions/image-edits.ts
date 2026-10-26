@@ -15,7 +15,6 @@ import {
   readMetadataSnapshot,
   registerMetadataWork,
 } from "medior/server/database/metadata-work";
-import { genFileInfo, isGeneratedMediaUnreadable } from "medior/utils/client/files";
 import { dayjs } from "medior/utils/common";
 import {
   getIsAnimated,
@@ -24,6 +23,7 @@ import {
   makeAction,
   socket,
 } from "medior/utils/server";
+import { genFileInfo, isGeneratedMediaUnreadable } from "medior/utils/server/files";
 import { runImageTask } from "medior/utils/server/image-task";
 import { hashMediaFile, publishMediaOutput, syncMediaFile } from "medior/utils/server/media-output";
 
@@ -218,7 +218,7 @@ export const editImage = makeAction(
         }
 
         file.collectionIds = source.collectionIds;
-        socket.emit("onFileCreated", file);
+        socket.emitVolatile("onFileCreated", file);
       } else {
         const updates = {
           ...prepared.info,
@@ -245,7 +245,7 @@ export const editImage = makeAction(
           throw new Error("Image changed during editing. The original has been preserved.");
 
         file = leanModelToJson<FileSchema>(model);
-        socket.emitReliable("onFileUpdated", { id: file.id, updates });
+        socket.emit("onFileUpdated", { id: file.id, updates });
       }
 
       await actions.queueTagMetadataRegen(file.tagIds.map(String));

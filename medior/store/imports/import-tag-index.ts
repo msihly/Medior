@@ -3,6 +3,11 @@ import type { RootStore } from "medior/store";
 import { preferredTagLabel, sleep, TagRegExMatcher } from "medior/utils/common";
 import { trpc } from "medior/utils/server";
 
+type TagDirectory = {
+  ancestorLabels: Map<string, { count: number; label: string }>;
+  labels: Map<string, string>;
+};
+
 const indexes = new WeakMap<RootStore, ImportTagIndex>();
 
 export const getImportTagIndex = (stores: RootStore) => {
@@ -11,27 +16,28 @@ export const getImportTagIndex = (stores: RootStore) => {
   return indexes.get(stores);
 };
 
+/** Labels resolve to the tag with the preferred spelling among those sharing it. */
+const addDirectoryTag = (
+  { ancestorLabels, labels }: TagDirectory,
+  tag: Pick<TagSchema, "count" | "id" | "label">,
+) => {
+  const key = tag.label.toLowerCase();
+  const previous = ancestorLabels.get(labels.get(key));
+
+  if (!previous || preferredTagLabel(previous.label, tag.label) === tag.label)
+    labels.set(key, tag.id);
+
+  ancestorLabels.set(tag.id, { count: tag.count, label: tag.label });
+};
+
 class ImportTagIndex {
-  private directory: Promise<{
-    ancestorLabels: Map<string, { count: number; label: string }>;
-    labels: Map<string, string>;
-  }>;
+  private directory: Promise<TagDirectory>;
   private matcher: Promise<TagRegExMatcher>;
 
   constructor(private stores: RootStore) {}
 
   add(tag: TagSchema) {
-    this.directory
-      ?.then(({ ancestorLabels, labels }) => {
-        const key = tag.label.toLowerCase();
-        const previous = ancestorLabels.get(labels.get(key));
-
-        if (!previous || preferredTagLabel(previous.label, tag.label) === tag.label)
-          labels.set(key, tag.id);
-
-        ancestorLabels.set(tag.id, { count: tag.count, label: tag.label });
-      })
-      .catch(() => {});
+    this.directory?.then((directory) => addDirectoryTag(directory, tag)).catch(() => {});
 
     if (tag.regEx)
       this.matcher
@@ -77,20 +83,11 @@ class ImportTagIndex {
 
     if (!res.success) throw new Error(res.error);
 
-    const ancestorLabels = new Map<string, { count: number; label: string }>();
-    const labels = new Map<string, string>();
+    const directory: TagDirectory = { ancestorLabels: new Map(), labels: new Map() };
 
-    for (const tag of res.data) {
-      const key = tag.label.toLowerCase();
-      const previous = ancestorLabels.get(labels.get(key));
+    for (const tag of res.data) addDirectoryTag(directory, tag);
 
-      if (!previous || preferredTagLabel(previous.label, tag.label) === tag.label)
-        labels.set(key, tag.id);
-
-      ancestorLabels.set(tag.id, { count: tag.count, label: tag.label });
-    }
-
-    return { ancestorLabels, labels };
+    return directory;
   }
 
   private async loadMatcher(

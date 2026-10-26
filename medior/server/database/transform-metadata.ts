@@ -5,9 +5,9 @@ import { runFileCleanupQueue } from "medior/server/database/actions/background-o
 import { getBackgroundSession } from "medior/server/database/database-context";
 import { FileOperationModel, makeFileCleanup } from "medior/server/database/file-operations";
 import { metadataWriteOptions } from "medior/server/database/metadata-work";
-import { genFileInfo, isGeneratedMediaUnreadable } from "medior/utils/client/files";
 import { chunkArray } from "medior/utils/common";
 import { getNtfsFileIdentity } from "medior/utils/server";
+import { genFileInfo, isGeneratedMediaUnreadable } from "medior/utils/server/files";
 import {
   hashMediaFile,
   publishMediaOutput,

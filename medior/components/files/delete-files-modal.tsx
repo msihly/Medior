@@ -6,6 +6,7 @@ import {
   JobProgress,
   JobStopButton,
   Modal,
+  SelectedFilesInfo,
   Text,
   useFileInfo,
 } from "medior/components";
@@ -16,7 +17,7 @@ export const DeleteFilesModal = Comp(() => {
   const stores = useStores();
   const store = stores.file;
 
-  const { loadFileInfo, renderFileInfo } = useFileInfo();
+  const { fileInfo, loadFileInfo } = useFileInfo();
 
   useEffect(() => {
     loadFileInfo(store.idsForConfirmDelete);
@@ -58,7 +59,7 @@ export const DeleteFilesModal = Comp(() => {
               {`Are you sure you want to delete these ${store.idsForConfirmDelete.length} files?`}
             </Text>
 
-            {renderFileInfo()}
+            <SelectedFilesInfo {...fileInfo} />
           </>
         )}
       </Modal.Content>

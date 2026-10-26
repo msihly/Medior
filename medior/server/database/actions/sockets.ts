@@ -7,7 +7,7 @@ import {
 import { makeAction, socket } from "medior/utils/server";
 
 export const _emitEvent = makeAction(async (args: { data: any; event: SocketEmitEvent }) => {
-  socket.emit(args.event as any, args.data);
+  socket.emitVolatile(args.event as any, args.data);
 });
 
 export const startRepair = makeAction(async ({ repairId }: { repairId: string }) => {

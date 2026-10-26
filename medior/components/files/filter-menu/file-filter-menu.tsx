@@ -27,9 +27,9 @@ export interface FileFilterMenuProps {
 }
 
 export const FileFilterMenu = Comp((props: FileFilterMenuProps) => {
-  const { color = colors.foreground, hideArchivedAndCorrupted = false, onSearch, store } = props;
-
   const stores = useStores();
+
+  const { color = colors.foreground, hideArchivedAndCorrupted = false, onSearch, store } = props;
 
   const toggleArchiveOpen = () => store.setIsArchived(!store.isArchived);
 

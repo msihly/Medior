@@ -21,7 +21,6 @@ import { queueImportCleanup } from "medior/server/database/import-cleanup";
 import { mediaPathKey } from "medior/server/database/media-paths";
 import { withMetadataMutation } from "medior/server/database/metadata-mutations";
 import { metadataWriteOptions } from "medior/server/database/metadata-work";
-import { genFileInfo, isGeneratedMediaUnreadable } from "medior/utils/client/files";
 import {
   dayjs,
   FileImportSidecar,
@@ -42,6 +41,7 @@ import {
   leanModelToJson,
   socket,
 } from "medior/utils/server";
+import { genFileInfo, isGeneratedMediaUnreadable } from "medior/utils/server/files";
 import {
   copyMediaFile,
   hashMediaFile,
@@ -86,7 +86,10 @@ export const abandonPreparedImport = async (operation: FileOperation) => {
   ]) {
     if (!outputPath || mediaPathKey(outputPath) === mediaPathKey(operation.sourcePath)) continue;
 
-    const file = await describeFileCleanup(outputPath);
+    const file =
+      outputPath === operation.outputPath && operation.outputHash
+        ? makeFileCleanup(operation.outputHash, outputPath)
+        : await describeFileCleanup(outputPath);
 
     if (file) cleanup.push(file);
   }
@@ -256,11 +259,13 @@ const prepareMediaImport = async (operation: FileOperation) => {
 };
 
 const reserveImportStorage = async (size: number) => {
+  const bytesNeeded = size + 500000;
+
   while (true) {
     if (
       importStorage &&
       getConfig().db.fileStorage.locations.includes(importStorage.location) &&
-      importStorage.bytesLeft - 500000 > size
+      importStorage.bytesLeft > bytesNeeded
     ) {
       importStorage.bytesLeft -= size;
 
@@ -269,7 +274,7 @@ const reserveImportStorage = async (size: number) => {
 
     importStorage = null;
 
-    const storage = await (importStorageCheck ??= getAvailableFileStorage(size)
+    const storage = await (importStorageCheck ??= getAvailableFileStorage(bytesNeeded)
       .then((result) => {
         if (!result.success) throw new Error(result.error);
 
@@ -283,7 +288,7 @@ const reserveImportStorage = async (size: number) => {
 
     if (!getConfig().db.fileStorage.locations.includes(storage.location)) continue;
 
-    if (storage.bytesLeft <= size) continue;
+    if (storage.bytesLeft <= bytesNeeded) continue;
 
     storage.bytesLeft -= size;
 
@@ -296,13 +301,13 @@ export const importMedia = async (args: MediaImportInput, operationId?: string) 
 
   await assertMediaPathIndexesReady();
 
-  socket.emitReliable("onFileImportStarted", { filePath: args.originalPath });
-
   const id = operationId ?? getImportOperationId(args);
 
   if (activeImports.has(id)) throw new Error("This file import is already active");
 
   activeImports.add(id);
+
+  socket.emit("onFileImportStarted", { batchId: args.batchId, filePath: args.originalPath });
 
   let releaseHash: () => void;
   const startedAt = performance.now();
@@ -318,7 +323,7 @@ export const importMedia = async (args: MediaImportInput, operationId?: string) 
   };
 
   const emitProgress = () =>
-    socket.emit("onFileImportProgress", {
+    socket.emitVolatile("onFileImportProgress", {
       batchId: args.batchId,
       elapsed: Math.floor((performance.now() - startedAt) / 1000),
       filePath: args.originalPath,
@@ -343,10 +348,8 @@ export const importMedia = async (args: MediaImportInput, operationId?: string) 
     recordTiming("recovery lookup");
 
     // Imports of the same source share one lock whether or not embedding changed their output.
-    if (operation?.outputHash) {
+    if (operation?.outputHash)
       releaseHash = await acquireImportHash(operation.sourceHash ?? operation.outputHash);
-      checkBackgroundExecution();
-    }
 
     if (operation?.state === "PREPARED" && operation.importResult) {
       if (operation.error)
@@ -651,9 +654,9 @@ export const importMedia = async (args: MediaImportInput, operationId?: string) 
             filePath: operation.outputPath,
             hash,
             onProgress: reportProgress,
-            thumbId: path.basename(operation.thumbPath).replace(/-thumb\.jpg$/, ""),
             signal: workSignal.getStore(),
             skipAudio: true,
+            thumbId: path.basename(operation.thumbPath).replace(/-thumb\.jpg$/, ""),
           })
         : null;
 
@@ -723,8 +726,10 @@ export const importMedia = async (args: MediaImportInput, operationId?: string) 
     ])) {
       if (!outputPath || mediaPathKey(outputPath) === mediaPathKey(args.originalPath)) continue;
 
+      // Output checksums differ from the source's only when taken from the finished remux.
       const entry =
-        outputPath === operation.outputPath
+        outputPath === operation.outputPath ||
+        (outputPath === operation.contentPath && hash !== sourceHash)
           ? makeFileCleanup(hash, outputPath)
           : await describeFileCleanup(outputPath);
 
@@ -781,7 +786,7 @@ const attachDuplicateSubtitles = async (file: models.FileSchema, args: MediaImpo
   );
   if (!updated.modifiedCount) return file;
 
-  socket.emit("onFilesUpdated", { fileIds: [file.id], updates: { subtitles } });
+  socket.emitVolatile("onFilesUpdated", { fileIds: [file.id], updates: { subtitles } });
 
   return { ...file, subtitles };
 };
@@ -864,7 +869,7 @@ const commitMediaImport = async (
     file = imported.data;
 
     if (file.isArchived)
-      socket.emit("onFilesUpdated", { fileIds: [file.id], updates: { isArchived: true } });
+      socket.emitVolatile("onFilesUpdated", { fileIds: [file.id], updates: { isArchived: true } });
   } else if (file) {
     const addedTagIds = args.tagIds.filter(
       (id) => !file.tagIds.some((tagId) => String(tagId) === id),
@@ -898,7 +903,7 @@ const commitMediaImport = async (
       { peakDecibels: audio.peakDecibels, waveformPeaks: audio.waveformPeaks },
     );
 
-    socket.emit("onFilesUpdated", {
+    socket.emitVolatile("onFilesUpdated", {
       fileIds: [file.id],
       updates: { peakDecibels: audio.peakDecibels, waveformPeaks: audio.waveformPeaks },
     });

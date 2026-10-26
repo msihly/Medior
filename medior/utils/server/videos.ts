@@ -13,9 +13,12 @@ import {
   validateTimestampPairs,
 } from "medior/utils/common";
 import { getAvailableFileStorage, getConfig, getScratchFolder } from "medior/utils/server";
+import { getFfprobePath, runFfmpegCommand } from "medior/utils/server/ffmpeg";
 import { runImageTask } from "medior/utils/server/image-task";
 import { hashMediaFile, MediaOutput, publishMediaOutput } from "medior/utils/server/media-output";
 import { runConcurrent, workSignal } from "medior/utils/server/work-signal";
+
+export { videoTranscoder } from "./video-transcoder";
 
 export type FfmpegOptions = {
   maxOutputSize?: number;
@@ -115,8 +118,6 @@ const timemarkToSeconds = (timemark: string) => {
   return Number(hh) * 3600 + Number(mm) * 60 + Number(ss);
 };
 
-export { videoTranscoder } from "./video-transcoder";
-
 export const extractVideoFrame = async (
   inputPath: string,
   frameIndex: number,
@@ -125,10 +126,9 @@ export const extractVideoFrame = async (
   signal?.throwIfAborted();
 
   const fileStorageRes = await getAvailableFileStorage(10000);
+  if (!fileStorageRes.success) throw new Error(fileStorageRes.error);
 
   signal?.throwIfAborted();
-
-  if (!fileStorageRes.success) throw new Error(fileStorageRes.error);
 
   const outputPath = path.join(
     getScratchFolder(path.join(fileStorageRes.data.location, "_tmp")),
@@ -144,24 +144,7 @@ export const extractVideoFrame = async (
       .outputOptions([`-vf select='eq(n\\,${round(frameIndex, 0)})'`, "-vframes 1"])
       .output(outputPath);
 
-    const abort = () => command.kill("SIGKILL");
-
-    signal?.addEventListener("abort", abort, { once: true });
-
-    try {
-      await new Promise<void>((resolve, reject) => {
-        command
-          .on("start", () => {
-            if (signal?.aborted) abort();
-          })
-          .on("end", () => resolve())
-          .on("error", reject)
-          .run();
-      });
-    } finally {
-      signal?.removeEventListener("abort", abort);
-    }
-
+    await runFfmpegCommand(command, signal);
     signal?.throwIfAborted();
 
     if (!(await checkFileExists(outputPath))) throw new Error("Extracted frame not found.");
@@ -210,59 +193,36 @@ const execFfmpeg = async (
 
   let isOversized = false;
 
-  const ffmpegPromise = new Promise((resolve, reject) => {
-    command
-      .output(tempPath)
-      .on("start", () => {
-        if (options?.signal?.aborted) command.kill("SIGKILL");
-      })
-      .on("progress", (progress) => {
-        // Reported sizes are floored KiB, so this never exceeds the bytes already written.
-        if (
-          !isOversized &&
-          options?.maxOutputSize &&
-          (progress.targetSize ?? 0) * 1000 >= options.maxOutputSize
-        ) {
-          isOversized = true;
-          command.kill("SIGKILL");
-        }
+  command.output(tempPath).on("progress", (progress) => {
+    // Reported sizes are floored KiB, so this never exceeds the bytes already written.
+    if (
+      !isOversized &&
+      options?.maxOutputSize &&
+      (progress.targetSize ?? 0) * 1000 >= options.maxOutputSize
+    ) {
+      isOversized = true;
+      command.kill("SIGKILL");
+    }
 
-        if (options?.onProgress) {
-          options.onProgress({
-            fps: progress.currentFps ?? 0,
-            frames: progress.frames ?? 0,
-            kbps: progress.currentKbps ?? 0,
-            percent:
-              duration && progress.timemark
-                ? Math.min(100, (timemarkToSeconds(progress.timemark) / duration) * 100)
-                : (progress.percent ?? 0),
-            size: progress.targetSize ? progress.targetSize * 1000 : 0,
-            time: progress.timemark ?? "",
-          });
-        }
-      })
-      .on("end", resolve)
-      .on("error", (error) => reject(isOversized ? new OutputSizeExceededError(tempPath) : error))
-      .run();
+    if (options?.onProgress) {
+      options.onProgress({
+        fps: progress.currentFps ?? 0,
+        frames: progress.frames ?? 0,
+        kbps: progress.currentKbps ?? 0,
+        percent:
+          duration && progress.timemark
+            ? Math.min(100, (timemarkToSeconds(progress.timemark) / duration) * 100)
+            : (progress.percent ?? 0),
+        size: progress.targetSize ? progress.targetSize * 1000 : 0,
+        time: progress.timemark ?? "",
+      });
+    }
   });
 
-  if (!options?.signal) await ffmpegPromise;
-  else {
-    const abortHandler = () => command.kill("SIGKILL");
-
-    if (options.signal.aborted) {
-      abortHandler();
-      await ffmpegPromise;
-      options.signal.throwIfAborted();
-    }
-
-    options.signal.addEventListener("abort", abortHandler);
-
-    try {
-      await ffmpegPromise;
-    } finally {
-      options.signal.removeEventListener("abort", abortHandler);
-    }
+  try {
+    await runFfmpegCommand(command, options.signal);
+  } catch (error) {
+    throw isOversized && !options.signal?.aborted ? new OutputSizeExceededError(tempPath) : error;
   }
 
   if (DEBUG) perfLog(`Temp file created: ${tempPath}.`);
@@ -303,7 +263,7 @@ export const getVideoInfo = (
     signal?.throwIfAborted();
 
     execFile(
-      process.env.FFPROBE_PATH || "ffprobe",
+      getFfprobePath(),
       ["-v", "quiet", "-print_format", "json", "-show_format", "-show_streams", filePath],
       { maxBuffer: 16 * 1024 * 1024, signal, windowsHide: true },
       (error, stdout) => {
@@ -512,10 +472,10 @@ const compressImage = async (inputPath: string, outputDir: string, options?: Ffm
 const gifToLoopableVideo = async (
   inputPath: string,
   outputDir: string,
+  videoInfo: MediaInfo,
   options?: FfmpegOptions,
 ) => {
   const config = getConfig().file.reencode;
-  const videoInfo = await getVideoInfo(inputPath);
   const filterArray = getVideoResizeFilters(config.maxLongEdge, config.maxShortEdge);
 
   if (config.maxFps && videoInfo.frameRate > config.maxFps)
@@ -539,7 +499,7 @@ export const reencode = async (inputPath: string, outputDir: string, options?: F
   if (!videoInfo.isAnimated) {
     return compressImage(inputPath, outputDir, options);
   } else if (videoInfo.ext === "gif") {
-    return gifToLoopableVideo(inputPath, outputDir, options);
+    return gifToLoopableVideo(inputPath, outputDir, videoInfo, options);
   } else {
     const inputFps = videoInfo.frameRate;
     const inputBitrate = videoInfo.bitrate / 1000;
@@ -730,37 +690,20 @@ export const vidToThumbGrid = async (
             signal,
           );
         } else {
-          await new Promise<void>((resolve, reject) => {
+          const command = ffmpeg()
+            .input(inputPath)
+            .inputOptions(["-ss", `${thumb.timestamp}`])
+            .outputOptions(["-vf", `scale=${scaled.width}:${scaled.height}`, "-frames:v", "1"])
+            .output(thumb.tempPath);
+
+          try {
+            await runFfmpegCommand(command, signal);
+          } catch (error) {
             signal?.throwIfAborted();
 
-            const command = ffmpeg()
-              .input(inputPath)
-              .inputOptions(["-ss", `${thumb.timestamp}`])
-              .outputOptions(["-vf", `scale=${scaled.width}:${scaled.height}`, "-frames:v", "1"])
-              .output(thumb.tempPath)
-              .on("start", () => {
-                if (signal?.aborted) command.kill("SIGKILL");
-              })
-              .on("end", () => {
-                signal?.removeEventListener("abort", abort);
-                resolve();
-              })
-              .on("error", (err) => {
-                signal?.removeEventListener("abort", abort);
-
-                if (signal?.aborted) reject(signal.reason);
-                else {
-                  console.error(`Failed thumb gen ${thumb.timestamp}: ${err}`);
-                  isCorrupted = true;
-                  resolve();
-                }
-              });
-
-            const abort = () => command.kill("SIGKILL");
-
-            signal?.addEventListener("abort", abort, { once: true });
-            command.run();
-          });
+            console.error(`Failed thumb gen ${thumb.timestamp}: ${error}`);
+            isCorrupted = true;
+          }
         }
       },
       signal,

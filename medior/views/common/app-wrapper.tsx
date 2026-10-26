@@ -1,6 +1,7 @@
 import { ipcRenderer } from "electron";
 import { ReactNode, useEffect, useState } from "react";
-import { ToastContainer } from "medior/utils/client";
+import { Text, View } from "medior/components";
+import { colors, ToastContainer } from "medior/utils/client";
 import { loadConfig, setupTRPC } from "medior/utils/server";
 import { Views } from "medior/views";
 import { RuntimeSync } from "./runtime-sync";
@@ -13,17 +14,30 @@ interface AppWrapperProps {
 }
 
 export const AppWrapper = ({ children }: AppWrapperProps) => {
+  const [error, setError] = useState<string>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     (async () => {
-      await loadConfig(await ipcRenderer.invoke("getConfigPath"));
-      setupTRPC();
-      setIsLoading(false);
+      try {
+        await loadConfig(await ipcRenderer.invoke("getConfigPath"));
+        setupTRPC();
+      } catch (err) {
+        console.error(err);
+        setError(err?.message ?? String(err));
+      } finally {
+        setIsLoading(false);
+      }
     })();
   }, []);
 
-  return isLoading ? null : (
+  return error ? (
+    <Views.MuiProvider>
+      <View column align="center" justify="center" height="100vh">
+        <Text color={colors.custom.red}>{`Failed to start Medior: ${error}`}</Text>
+      </View>
+    </Views.MuiProvider>
+  ) : isLoading ? null : (
     <Views.MuiProvider>
       <Views.StoreProvider>
         <ToastContainer />

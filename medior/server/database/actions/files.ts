@@ -79,6 +79,7 @@ import {
   getConfig,
   getMaxAudioWindowCount,
   getNtfsFileIdentity,
+  getThumbNtfsIdentity,
   leanModelToJson,
   makeAction,
   makeOrderedAudioDecoder,
@@ -112,6 +113,19 @@ const gzipAsync = promisify(gzip);
 /* -------------------------------------------------------------------------- */
 /*                              HELPER FUNCTIONS                              */
 /* -------------------------------------------------------------------------- */
+/** Writes a repair's updates only while the file keeps the content and path the repair read. */
+const updateFileIfUnchanged = async (
+  file: Pick<models.FileSchema, "hash" | "path"> & { _id: mongoose.Types.ObjectId },
+  updates: Partial<models.FileSchema>,
+) => {
+  const current = await models.FileModel.findById(file._id).select({ hash: 1, path: 1 }).lean();
+
+  if (current && current.hash === file.hash && current.path === file.path) {
+    const result = await actions.updateFile({ args: { id: String(file._id), updates } });
+    if (!result.success) throw new Error(result.error);
+  }
+};
+
 export const listAllArchivedFileIds = makeAction(async () =>
   (await models.FileModel.find({ isArchived: true }).select({ _id: 1 }).lean()).map((file) =>
     file._id.toString(),
@@ -326,10 +340,7 @@ export const deleteFiles = makeAction(
             // records, and thumbnails and subtitles by the size on disk now. Their metadata is read
             // in disk order, which the thumbnail beside each file's media records.
             if (!previousCleanup) {
-              for (const file of sortByStoredNtfsIdentity(files, (file) => ({
-                fileId: file.thumb?.ntfsFileId,
-                volumeId: file.thumb?.ntfsVolumeId,
-              }))) {
+              for (const file of sortByStoredNtfsIdentity(files, getThumbNtfsIdentity)) {
                 cleanup.push(makeFileCleanup(file.hash, file.path, file.size));
 
                 for (const companionPath of [
@@ -489,7 +500,7 @@ export const deleteFiles = makeAction(
           if (args.withCleanupQueue !== false) runFileCleanupQueue();
         }
 
-        socket.emit("onFilesDeleted", { fileHashes, fileIds });
+        socket.emitVolatile("onFilesDeleted", { fileHashes, fileIds });
       }
 
       return { cleanupIds, tagIds: [...tagIds] };
@@ -701,7 +712,8 @@ export const editFileTags = makeAction(
     { getFileIds: ({ fileIds }) => fileIds },
   ),
   ({ addedTagIds = [], batchId, fileIds, removedTagIds = [], withSub = true }) => {
-    if (withSub) socket.emit("onFileTagsUpdated", { addedTagIds, batchId, fileIds, removedTagIds });
+    if (withSub)
+      socket.emitVolatile("onFileTagsUpdated", { addedTagIds, batchId, fileIds, removedTagIds });
   },
 );
 
@@ -903,10 +915,9 @@ export const repairVideoCodecs = makeAction(async ({ repairId }: { repairId: str
     // Videos are read one at a time in disk order, since reading several at once or out of order
     // makes a hard drive seek. A video's thumbnail is written beside it right after it, so the
     // thumbnail's stored NTFS identity orders the videos without reading the disk.
-    const orderedIds = sortByStoredNtfsIdentity(candidates, (file) => ({
-      fileId: file.thumb?.ntfsFileId,
-      volumeId: file.thumb?.ntfsVolumeId,
-    })).map((file) => file._id);
+    const orderedIds = sortByStoredNtfsIdentity(candidates, getThumbNtfsIdentity).map(
+      (file) => file._id,
+    );
 
     for (const ids of chunkArray(orderedIds, 100)) {
       checkCancelled();
@@ -943,15 +954,7 @@ export const repairVideoCodecs = makeAction(async ({ repairId }: { repairId: str
         }
 
         checkCancelled();
-
-        const current = await models.FileModel.findById(file._id)
-          .select({ hash: 1, path: 1 })
-          .lean();
-
-        if (current && current.hash === file.hash && current.path === file.path) {
-          const result = await actions.updateFile({ args: { id: String(file._id), updates } });
-          if (!result.success) throw new Error(result.error);
-        }
+        await updateFileIfUnchanged(file, updates);
 
         if (updates.isCorrupted) corruptedCount++;
 
@@ -1129,7 +1132,8 @@ export const relinkFiles = makeAction(
         { session: getBackgroundSession() },
       );
 
-      for (const [id, updates] of newFilesMap) socket.emit("onFileUpdated", { id, updates });
+      for (const [id, updates] of newFilesMap)
+        socket.emitVolatile("onFileUpdated", { id, updates });
     },
     {
       getFileIds: ({ filesToRelink }) => filesToRelink.map(({ id }) => id),
@@ -1145,12 +1149,18 @@ export const repairFilesWithBrokenExt = makeAction(async ({ repairId }: { repair
     let filesWithDotPrefixCount = 0;
     let filesWithIncorrectExtCount = 0;
 
-    report("Detecting file formats from their contents in bounded batches.");
+    report("Detecting file formats from their contents in disk order.");
 
-    lock((await models.FileModel.find().select({ _id: 1 }).lean()).map((file) => String(file._id)));
+    const candidates = await models.FileModel.find()
+      .select({ _id: 1, "thumb.ntfsFileId": 1, "thumb.ntfsVolumeId": 1 })
+      .sort({ _id: 1 })
+      .lean();
 
+    lock(candidates.map((file) => String(file._id)));
+
+    // Contents are read one at a time in the disk order their stored thumbnail identity records.
     await repairMetadata(
-      models.FileModel.find().select({ _id: 1 }).sort({ _id: 1 }).lean().cursor({ batchSize: 100 }),
+      sortByStoredNtfsIdentity(candidates, getThumbNtfsIdentity),
       async (candidate) => {
         checkCancelled();
 
@@ -1251,6 +1261,7 @@ export const repairPreviousHashes = makeAction(async ({ repairId }: { repairId: 
     }
 
     await flush();
+
     report(
       `Previous checksum repair completed successfully: checked ${Fmt.commas(checkedCount)} replaced transforms and updated ${Fmt.commas(updatedCount)} files.`,
       "success",
@@ -1315,7 +1326,7 @@ export const repairFilesWithMissingInfo = makeAction(async ({ repairId }: { repa
         if (!Object.keys(updates).length) return;
 
         await models.FileModel.updateOne({ _id: file._id }, { $set: updates });
-        socket.emit("onFileUpdated", { id: String(file._id), updates });
+        socket.emitVolatile("onFileUpdated", { id: String(file._id), updates });
         checkCancelled();
       },
       async ({ candidate }) => unlock([String(candidate._id)]),
@@ -1399,8 +1410,7 @@ export const repairMissingAudioAnalysis = makeAction(
           ext: { $in: CONSTANTS.VIDEO.EXTS },
           // Archived files are never analyzed, so they also stay free to delete during the repair.
           isArchived: { $ne: true },
-          // Corrupted files include those whose audio a previous repair could not decode.
-          isCorrupted: { $ne: true },
+          isAudioCorrupted: { $ne: true },
         })
           .allowDiskUse(true)
           .select({
@@ -1471,10 +1481,9 @@ export const repairMissingAudioAnalysis = makeAction(
       // Videos are read one at a time in disk order, since reading several at once or out of order
       // makes a hard drive seek. A video's thumbnail is written beside it right after it, so the
       // thumbnail's stored NTFS identity orders the videos without reading the disk.
-      const orderedIds = sortByStoredNtfsIdentity(candidates, (file) => ({
-        fileId: file.thumb?.ntfsFileId,
-        volumeId: file.thumb?.ntfsVolumeId,
-      })).map((file) => file._id);
+      const orderedIds = sortByStoredNtfsIdentity(candidates, getThumbNtfsIdentity).map(
+        (file) => file._id,
+      );
 
       const modelOwnerId = `repair:${repairId}`;
       const pendingAudioVectors: {
@@ -1563,7 +1572,7 @@ export const repairMissingAudioAnalysis = makeAction(
           : "";
 
         const corrupted = corruptedCount
-          ? `; ${Fmt.commas(corruptedCount)} videos with undecodable audio marked corrupted`
+          ? `; ${Fmt.commas(corruptedCount)} videos with undecodable audio marked`
           : "";
 
         const skipped = skippedCount
@@ -1650,22 +1659,13 @@ export const repairMissingAudioAnalysis = makeAction(
           // ffmpeg failing to start, or the repair ending, stops everything.
           if (decodeController.signal.aborted || error.syscall?.startsWith("spawn")) throw error;
 
-          // Audio too corrupted to decode marks its video corrupted, which later repairs leave out.
+          // Audio too corrupted to decode is marked so later analysis repairs leave it out.
           // A video that couldn't be read for another reason stays stale for a later repair.
           if (error.name === AUDIO_DECODE_ERROR) {
-            const current = await models.FileModel.findById(file._id)
-              .select({ hash: 1, path: 1 })
-              .lean();
-
-            if (current && current.hash === file.hash && current.path === file.path) {
-              const result = await actions.updateFile({
-                args: { id: String(file._id), updates: { isCorrupted: true } },
-              });
-              if (!result.success) throw new Error(result.error);
-            }
+            await updateFileIfUnchanged(file, { isAudioCorrupted: true });
 
             corruptedCount++;
-            report(`Marked ${file.path} corrupted: ${error.message}`, "error");
+            report(`Marked ${file.path} as having undecodable audio: ${error.message}`, "error");
           } else {
             skippedCount++;
             report(`Skipped ${file.path}: ${error.message}`, "error");
@@ -1753,7 +1753,7 @@ export const repairMissingAudioAnalysis = makeAction(
           if (!updateRes.matchedCount)
             throw new Error("File changed during audio analysis; retry repair");
 
-          socket.emit("onFileUpdated", { id: file._id.toString(), updates });
+          socket.emitVolatile("onFileUpdated", { id: file._id.toString(), updates });
         }
 
         unlock([file._id.toString()]);
@@ -1838,7 +1838,7 @@ export const repairMissingAudioAnalysis = makeAction(
       }
 
       report(
-        `Audio analysis repair completed successfully: regenerated ${repairedWaveforms} waveforms, ${repairedTranscriptions} transcriptions, and audio similarity vectors for ${repairedAudioVectors} videos.${corruptedCount ? ` Marked ${Fmt.commas(corruptedCount)} videos with undecodable audio corrupted, listed above.` : ""}${skippedCount ? ` Skipped ${Fmt.commas(skippedCount)} unreadable videos, listed above.` : ""}`,
+        `Audio analysis repair completed successfully: regenerated ${repairedWaveforms} waveforms, ${repairedTranscriptions} transcriptions, and audio similarity vectors for ${repairedAudioVectors} videos.${corruptedCount ? ` Marked ${Fmt.commas(corruptedCount)} videos with undecodable audio, listed above.` : ""}${skippedCount ? ` Skipped ${Fmt.commas(skippedCount)} unreadable videos, listed above.` : ""}`,
         "success",
       );
 
@@ -1861,7 +1861,7 @@ export const setFileFaceModels = makeAction(
     const updates = { dateModified: dayjs().toISOString(), faceModels: args.faceModels };
 
     await models.FileModel.findOneAndUpdate({ _id: args.id }, { $set: updates });
-    socket.emit("onFilesUpdated", { fileIds: [args.id], updates });
+    socket.emitVolatile("onFilesUpdated", { fileIds: [args.id], updates });
   },
 );
 
@@ -1882,9 +1882,9 @@ export const setFileIsArchived = makeAction(
     { getFileIds: ({ fileIds }) => fileIds },
   ),
   ({ fileIds, isArchived }) => {
-    if (isArchived) socket.emit("onFilesArchived", { fileIds });
+    if (isArchived) socket.emitVolatile("onFilesArchived", { fileIds });
 
-    socket.emit("onFilesUpdated", { fileIds, updates: { isArchived } });
+    socket.emitVolatile("onFilesUpdated", { fileIds, updates: { isArchived } });
   },
 );
 
@@ -1905,7 +1905,7 @@ export const setFileRating = makeAction(
       const updates = { dateModified: dayjs().toISOString(), rating: args.rating };
 
       await models.FileModel.updateMany({ _id: { $in: args.fileIds } }, updates);
-      socket.emit("onFilesUpdated", { fileIds: args.fileIds, updates });
+      socket.emitVolatile("onFilesUpdated", { fileIds: args.fileIds, updates });
 
       const collections = await actions.regenCollAttrs({ fileIds: args.fileIds });
 
@@ -2051,6 +2051,8 @@ export const repairThumbnailNtfsMetadata = makeAction(
 
         if (!files.length) break;
 
+        const metadataItems: ThumbnailNtfsMetadata[] = [];
+
         for (const file of files) {
           checkCancelled();
 
@@ -2085,23 +2087,22 @@ export const repairThumbnailNtfsMetadata = makeAction(
 
             if (failedCount <= 5)
               report(
-                `Could not inspect thumbnail identity for file ${file._id} (${file.thumb.path}): ${error?.message ?? String(error)}`,
+                `Could not inspect thumbnail identity for file ${file._id} (${file.thumb.path}): ${error.message}`,
                 "error",
               );
 
             continue;
           }
 
-          storedCount += await storeThumbnailNtfsMetadata([
-            {
-              fileId: String(file._id),
-              ntfsFileId: identity.fileId,
-              ntfsVolumeId: identity.volumeId,
-              sourcePath: file.thumb.path,
-            },
-          ]);
+          metadataItems.push({
+            fileId: String(file._id),
+            ntfsFileId: identity.fileId,
+            ntfsVolumeId: identity.volumeId,
+            sourcePath: file.thumb.path,
+          });
         }
 
+        storedCount += await storeThumbnailNtfsMetadata(metadataItems);
         cursor = files[files.length - 1]._id;
         inspectedCount += files.length;
         unlock(files.map((file) => String(file._id)));
@@ -2190,10 +2191,9 @@ export const startFileDeletion = makeAction(async ({ fileIds }: { fileIds: strin
       // Deleting reads each file to verify it, so files go in disk order to keep a hard drive from
       // seeking. A file's thumbnail is written beside it right after it, so its stored NTFS
       // identity gives that order without reading the disk.
-      const archivedIds = sortByStoredNtfsIdentity(archivedFiles, (file) => ({
-        fileId: file.thumb?.ntfsFileId,
-        volumeId: file.thumb?.ntfsVolumeId,
-      })).map((file) => String(file._id));
+      const archivedIds = sortByStoredNtfsIdentity(archivedFiles, getThumbNtfsIdentity).map(
+        (file) => String(file._id),
+      );
 
       // Files already gone from the library need nothing more.
       const foundIds = new Set([...activeIds, ...archivedIds]);
@@ -2442,13 +2442,11 @@ class ThumbRepairer {
   private totalCount = 0;
   private unlock: ReturnType<typeof makeRepairReporter>["unlock"];
 
-  constructor(repairId: string) {
+  constructor(reporter: ReturnType<typeof makeRepairReporter>) {
     const { perfLog, perfLogTotal } = makePerfLog(this.logTag, true);
 
     this.perfLog = perfLog;
     this.perfLogTotal = perfLogTotal;
-
-    const reporter = makeRepairReporter(repairId, "repairThumbs");
 
     this.checkCancelled = reporter.checkCancelled;
     this.lock = reporter.lock;
@@ -2486,7 +2484,7 @@ class ThumbRepairer {
           (await fs.readdir(directoryPath)).map((fileName) => fileName.toLowerCase()),
         );
       } catch (error) {
-        if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+        if (error.code !== "ENOENT") throw error;
 
         loadedDirectoryFileNames = new Set();
       }
@@ -2530,7 +2528,7 @@ class ThumbRepairer {
         } catch (error) {
           this.checkCancelled();
           this.errorLog(
-            `Failed to repair thumbnail for file ${file.id} (${file.path}): ${error?.message ?? String(error)}`,
+            `Failed to repair thumbnail for file ${file.id} (${file.path}): ${error.message}`,
           );
         }
 
@@ -2793,10 +2791,10 @@ export const repairThumbs = makeAction(
     repairMissingThumbnails?: boolean;
     repairPaths?: boolean;
   }) => {
-    const { run } = makeRepairReporter(repairId, "repairThumbs");
-    const repairer = new ThumbRepairer(repairId);
+    const reporter = makeRepairReporter(repairId, "repairThumbs");
+    const repairer = new ThumbRepairer(reporter);
 
-    return run(
+    return reporter.run(
       async () => await repairer.processAllFiles({ repairMissingThumbnails, repairPaths }),
     );
   },

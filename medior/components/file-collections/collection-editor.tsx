@@ -19,6 +19,7 @@ import {
   Pagination,
   RatingButton,
   SearchLoadingOverlay,
+  SelectionButtons,
   SortMenu,
   TagRow,
   Text,
@@ -55,17 +56,17 @@ export const FileCollectionEditor = Comp(
     const stores = useStores();
     const store = stores.collection.editor;
 
+    const [isAddingFiles, setIsAddingFiles] = useState(false);
+    const [isConfirmDiscardOpen, setIsConfirmDiscardOpen] = useState(false);
+    const [isConfirmRemoveFilesOpen, setIsConfirmRemoveFilesOpen] = useState(false);
+    const [maxDelta, setMaxDelta] = useState<number>(null);
+
     const filesRef = useRef<HTMLDivElement>(null);
 
     const { handleKeyPress } = useHotkeys({ view: "collectionEditor" });
 
     const hasNoSelection = store.search.selectedIds.length === 0;
     const isCreate = store.collection === null;
-
-    const [isAddingFiles, setIsAddingFiles] = useState(false);
-    const [isConfirmDiscardOpen, setIsConfirmDiscardOpen] = useState(false);
-    const [isConfirmRemoveFilesOpen, setIsConfirmRemoveFilesOpen] = useState(false);
-    const [maxDelta, setMaxDelta] = useState<number>(null);
 
     useEffect(() => {
       return () => {
@@ -130,15 +131,7 @@ export const FileCollectionEditor = Comp(
       stores.collection.setIsConfirmDeleteOpen(true);
     };
 
-    const handleDeselectAll = () => {
-      store.search.toggleSelected(
-        store.search.selectedIds.map((id) => ({ id, isSelected: false })),
-      );
-      toast.info("Deselected all files");
-    };
-
     const handleEditTags = () => {
-      stores.file.tagsEditor.setBatchId(null);
       stores.file.tagsEditor.setFileIds([...store.search.selectedIds]);
       stores.file.tagsEditor.setIsOpen(true);
     };
@@ -181,18 +174,6 @@ export const FileCollectionEditor = Comp(
 
       if (onSave) await onSave();
       else await store.saveCollection();
-    };
-
-    const handleSelectAll = () => {
-      store.search.toggleSelected(store.search.results.map(({ id }) => ({ id, isSelected: true })));
-      toast.info(`Added all ${store.search.selectedIds.length} files to selection`);
-    };
-
-    const handleSelectAllInQuery = async () => {
-      const res = await store.search.selectAllInQuery();
-
-      if (!res.success) toast.error(res.error);
-      else if (res.data !== null) toast.info(`Added ${res.data} files to selection`);
     };
 
     const handleSplitFiles = async () => {
@@ -370,24 +351,7 @@ export const FileCollectionEditor = Comp(
                     </>
                   )}
 
-                  <MultiActionButton
-                    name="Deselect"
-                    tooltip="Deselect All Files"
-                    onClick={handleDeselectAll}
-                    disabled={hasNoSelection}
-                  />
-
-                  <MultiActionButton
-                    name="SelectAll"
-                    tooltip="Select All Files in View"
-                    onClick={handleSelectAll}
-                  />
-
-                  <MultiActionButton
-                    name="LibraryAddCheck"
-                    tooltip="Select All Files in Query"
-                    onClick={handleSelectAllInQuery}
-                  />
+                  <SelectionButtons itemLabel="files" store={store.search} toast={toast} />
                 </View>
 
                 <SortMenu
@@ -403,7 +367,10 @@ export const FileCollectionEditor = Comp(
             <Card flex={1} minHeight={0} overflow="hidden" padding={{ all: 0 }}>
               <SearchLoadingOverlay
                 isLoading={
-                  !isSaving && !store.isSaving && !store.isLoading && store.search.isLoading
+                  !isSaving &&
+                  !store.isSaving &&
+                  !store.isLoading &&
+                  (store.search.isLoading || store.search.isSelecting)
                 }
                 onCancel={mode === "merge" ? onCancelLoad : undefined}
                 store={store.search}

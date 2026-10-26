@@ -91,7 +91,7 @@ const emitRepairOperation = async (id: string) => {
     await models.BackgroundOperationModel.findById(id).lean(),
   );
 
-  socket.emit("onBackgroundOperationUpdated", { id, updates: operation });
+  socket.emitVolatile("onBackgroundOperationUpdated", { id, updates: operation });
 };
 
 const updateRepairOperation = async (
@@ -221,7 +221,7 @@ export const makeRepairReporter = (repairId: string, repairName: string) => {
     if (!isTransient)
       fileLog(`[${repairName}] ${message}`, status === "error" ? { type: "error" } : undefined);
 
-    socket.emitReliable("onRepairProgress", { message, repairId, status });
+    socket.emit("onRepairProgress", { message, repairId, status });
   };
 
   const checkCancelled = () => {

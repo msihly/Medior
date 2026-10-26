@@ -37,8 +37,8 @@ export const FileContainer = Comp(({ view }: FileContainerProps) => {
       <CardGrid
         padding={{ all: "0.3rem" }}
         ref={filesRef}
-        cards={store.results.map((f, i) => (
-          <FileCard key={i} file={f} store={store} />
+        cards={store.results.map((f) => (
+          <FileCard key={f.id} file={f} store={store} />
         ))}
         cardsProps={{ onKeyDown: handleKeyPress, tabIndex: 1 }}
         bgColor={colors.custom.black}

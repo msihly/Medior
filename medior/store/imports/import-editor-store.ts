@@ -210,7 +210,7 @@ export class ImportEditorStore extends Model({
   setCreatedTagId(tag: Pick<TagToUpsert, "id" | "label">) {
     this.flatTagsToUpsert = this.flatTagsToUpsert.map((candidate) =>
       candidate.label.toLowerCase() === tag.label.toLowerCase()
-        ? { ...candidate, id: tag.id, label: tag.label }
+        ? { ...derefMobx(candidate), id: tag.id, label: tag.label }
         : candidate,
     );
   }

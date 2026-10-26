@@ -1,39 +1,30 @@
 import { Card, CardBase, Comp, FileBase, Text, View } from "medior/components";
+import { makeTileClickHandler, openSearchCarousel } from "medior/components/files/hooks";
 import { FileTransform, useStores } from "medior/store";
-import { colors, openCarouselWindow, toast } from "medior/utils/client";
+import { colors } from "medior/utils/client";
 import { TransformDetails } from "./transform-details";
 
 export interface FileDetailsProps {
+  /** The transform's index in the current page of results. */
+  index: number;
   transform: FileTransform;
 }
 
-export const FileDetails = Comp(({ transform }: FileDetailsProps) => {
+export const FileDetails = Comp(({ index, transform }: FileDetailsProps) => {
   const stores = useStores();
   const store = stores.file.videoTransformer;
 
   const file = store.search.files.get(transform.fileId);
-  const fileIndex = store.search.results.findIndex((t) => t.id === transform.id);
-  const queueIndex = (store.search.page - 1) * store.search.pageSize + fileIndex + 1;
+  const hasTags = file?.tags?.length > 0;
+  const queueIndex = (store.search.page - 1) * store.search.pageSize + index + 1;
   const status = getTransformStatusDisplay(transform);
 
-  const handleClick = async (event: React.MouseEvent) => {
-    const res = await store.search.handleSelect({
-      hasCtrl: event.ctrlKey,
-      hasShift: event.shiftKey,
-      id: transform.id,
-    });
+  const handleClick = makeTileClickHandler({
+    id: transform.id,
+    select: store.search.handleSelect,
+  });
 
-    if (!res?.success) toast.error(res.error);
-  };
-
-  const handleDoubleClick = async () => {
-    if (!file) return;
-
-    const res = await store.search.listIdsForCarousel();
-
-    if (!res?.success) console.error(res.error);
-    else openCarouselWindow({ file, selectedFileIds: res.data });
-  };
+  const handleDoubleClick = () => openSearchCarousel(file, store.search);
 
   return !file ? null : (
     <FileBase.ContextMenu file={file} store={store.search} disabled>
@@ -75,12 +66,14 @@ export const FileDetails = Comp(({ transform }: FileDetailsProps) => {
 
                 <FileBase.ExtAndIcons position="top-right" file={file} />
 
-                <FileBase.Duration position="bottom-right" file={file} hasFooter />
+                <FileBase.Duration position="bottom-right" file={file} hasFooter={hasTags} />
               </FileBase.Image>
 
-              <FileBase.Footer>
-                <FileBase.Tags tags={file.tags} />
-              </FileBase.Footer>
+              {hasTags && (
+                <FileBase.Footer>
+                  <FileBase.Tags tags={file.tags} />
+                </FileBase.Footer>
+              )}
             </FileBase.Container>
 
             <View column justify="center" padding={{ all: 4 }}>

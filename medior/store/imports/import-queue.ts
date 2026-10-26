@@ -618,18 +618,16 @@ export const useImportEditor = (store: Ingester | Reingester) => {
       const folderNameParts = createFolderNameParts(folderName);
 
       const collectionTitle =
-        store.options.folderToCollectionMode !== "none"
-          ? (store.options.folderToCollectionMode === "withTag"
-              ? folderNameParts.slice()
-              : folderNameParts
-            ).pop()
-          : null;
+        store.options.folderToCollectionMode !== "none" ? folderNameParts.at(-1) : null;
+
+      // Collections without a tag keep their title out of the folder's name parts.
+      if (store.options.folderToCollectionMode === "withoutTag") folderNameParts.pop();
 
       const tagLabel = folderNameParts.slice().pop()!;
       const tagParentLabel = folderNameParts.slice(0, -1).pop();
 
       if (store.options.folderToTagsMode !== "none") {
-        const labels = folderNameParts.flatMap(delimit);
+        const labels = folderNameParts.flatMap((part) => delimit(part));
 
         if (store.options.folderToTagsMode === "cascading") {
           for (const label of labels) {
@@ -966,10 +964,8 @@ export const useImportEditor = (store: Ingester | Reingester) => {
     return mergeTagDefinitions(tagsToUpsert);
   };
 
-  const delimit = (str: string) =>
-    store.options.withDelimiters
-      ? str.split(config.imports.folderDelimiter).map((l) => l.trim())
-      : [str];
+  const delimit = (str: string, options: { withDelimiters: boolean } = store.options) =>
+    options.withDelimiters ? str.split(config.imports.folderDelimiter).map((l) => l.trim()) : [str];
 
   const fileToTagsAndDiffParams = async () => {
     const { perfLog } = makePerfLog("[ImportEditor.fileToTagsAndDiffParams]");
@@ -1311,7 +1307,7 @@ export const useImportEditor = (store: Ingester | Reingester) => {
     if (upscaledTypeTagId && !diffFileTagIds.includes(upscaledTypeTagId))
       diffFileTagIds.push(upscaledTypeTagId);
 
-    perfLogTotal("Parsed diffusion tags");
+    if (DEBUG) perfLogTotal("Parsed diffusion tags");
 
     return { diffFileTagIds, diffFileTagsToUpsert };
   };
@@ -1334,9 +1330,7 @@ export const useImportEditor = (store: Ingester | Reingester) => {
       if (options.folderToTagsMode === "none") continue;
 
       for (const part of parts) {
-        for (const label of options.withDelimiters
-          ? part.split(config.imports.folderDelimiter).map((label) => label.trim())
-          : [part]) {
+        for (const label of delimit(part, options)) {
           labels.add(label);
 
           if (options.withFolderNameRegEx) regexLabels.add(label);
@@ -1577,7 +1571,12 @@ export const useImportEditor = (store: Ingester | Reingester) => {
       savedConfigFolderPaths = [...stores.import.ingester.savedConfigFolderPaths];
       store.setIsOpen(false);
       stores.import.manager.setIsOpen(true);
-      stores.import.manager.runImporter();
+
+      // Starting the importer doesn't hold up the ingest, so its result is reported on its own.
+      (async () => {
+        const runRes = await stores.import.manager.runImporter();
+        if (!runRes.success) toast.error(runRes.error);
+      })();
     } catch (err) {
       if (err?.name === "IngestCancelledError") return;
 

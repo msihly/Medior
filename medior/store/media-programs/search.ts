@@ -1,4 +1,3 @@
-import autoBind from "auto-bind";
 import { reaction } from "mobx";
 import { ExtendedModel, model, modelFlow, objectToMapTransform, prop } from "mobx-keystone";
 import { _MediaProgramSearch } from "medior/store/_generated";
@@ -12,12 +11,7 @@ export class MediaProgramSearch extends ExtendedModel(_MediaProgramSearch, {
     .withSetter(),
 }) {
   onInit() {
-    autoBind(this);
-
-    reaction(
-      () => this.getFilterProps(),
-      () => this.setHasChanges(true),
-    );
+    super.onInit();
 
     reaction(
       () => this.results,

@@ -11,8 +11,9 @@ import {
   Text,
   View,
 } from "medior/components";
+import { makeTileClickHandler } from "medior/components/files/hooks";
 import { FileCollection as FileCollType, useStores } from "medior/store";
-import { colors, toast } from "medior/utils/client";
+import { colors } from "medior/utils/client";
 import { Fmt } from "medior/utils/common";
 
 export interface FileCollectionProps {
@@ -26,17 +27,11 @@ export const FileCollection = Comp(
     const stores = useStores();
     const store = stores.collection.manager;
 
-    const handleClick = async (event: React.MouseEvent) => {
-      if (disableSelection) return;
-
-      const res = await store.search.handleSelect({
-        hasCtrl: event.ctrlKey,
-        hasShift: event.shiftKey,
-        id: collection.id,
-      });
-
-      if (!res?.success) toast.error(res.error);
-    };
+    const handleClick = makeTileClickHandler({
+      disabled: disableSelection,
+      id: collection.id,
+      select: store.search.handleSelect,
+    });
 
     const handleDelete = () => {
       stores.collection.setIdsForConfirmDelete([collection.id]);

@@ -20,14 +20,14 @@ const TRIAGE_QUEUE_PAGE_SIZE = 1000;
 export const CollectionTriager = Comp(() => {
   const stores = useStores();
 
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  const [queue, setQueue] = useState<string[]>([]);
+
   const carouselSnapshot = useRef(getSnapshot(stores.carousel));
   const disposed = useRef(false);
   const fileSearchSnapshot = useRef(getSnapshot(stores.file.search));
   const loadRevision = useRef(0);
-
-  const [isLoading, setIsLoading] = useState(true);
-  const [isSaving, setIsSaving] = useState(false);
-  const [queue, setQueue] = useState<string[]>([]);
 
   const collection = stores.collection.editor.collection;
 
@@ -52,9 +52,7 @@ export const CollectionTriager = Comp(() => {
     if (queue[0]) loadCollection(queue[0]);
     else {
       stores.collection.editor.setIsOpen(false);
-      stores.carousel.setActiveFileId("");
-      stores.carousel.setSelectedFileIds([]);
-      stores.carousel.setVisibleFileIds([]);
+      stores.carousel.clearFiles();
     }
   }, [queue[0]]);
 
@@ -104,10 +102,8 @@ export const CollectionTriager = Comp(() => {
 
     try {
       setIsLoading(true);
-      stores.carousel.setActiveFileId("");
+      stores.carousel.clearFiles();
       stores.carousel.setIsPlaying(false);
-      stores.carousel.setSelectedFileIds([]);
-      stores.carousel.setVisibleFileIds([]);
       stores.file.setActiveFileId("");
       stores.file.search.setLoadId(stores.file.search.loadId + 1);
       stores.file.search.setIds([]);
@@ -119,7 +115,7 @@ export const CollectionTriager = Comp(() => {
 
       if (!loaded.data || disposed.current || revision !== loadRevision.current) return;
 
-      const fileIds = stores.collection.editor.getFileIdsForCarousel();
+      const fileIds = stores.collection.editor.carouselFileIds;
 
       stores.carousel.setSelectedFileIds(fileIds);
       stores.carousel.setActiveFileId(fileIds[0] ?? "");
@@ -163,9 +159,7 @@ export const CollectionTriager = Comp(() => {
       setIsSaving(true);
 
       if (withFiles) {
-        const archiveRes = await stores.file.archiveFiles(
-          stores.collection.editor.getFileIdsForCarousel(),
-        );
+        const archiveRes = await stores.file.archiveFiles(stores.collection.editor.carouselFileIds);
 
         if (!archiveRes.success) throw new Error(archiveRes.error);
       }

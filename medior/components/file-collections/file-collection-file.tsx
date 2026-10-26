@@ -1,7 +1,7 @@
 import { CardBase, Comp, FileBase } from "medior/components";
-import { useFileDrag } from "medior/components/files/hooks";
+import { makeTileClickHandler, useFileDrag } from "medior/components/files/hooks";
 import { File, FileSearch, useStores } from "medior/store";
-import { colors, CSS, openCarouselWindow, toast } from "medior/utils/client";
+import { colors, CSS, openCarouselWindow } from "medior/utils/client";
 
 export interface FileCollectionFileProps {
   disabled?: boolean;
@@ -20,33 +20,23 @@ export const FileCollectionFile = Comp(
 
     const fileIndex = editor.getIndexById(file.id);
     const hasChangedIndex = fileIndex !== editor.getOriginalIndex(file.id);
+    const hasTags = file.tags?.length > 0;
 
-    const handleClick = async (event: React.MouseEvent) => {
-      if (disabled) return;
-
-      const res = await editor.search.handleSelect({
-        hasCtrl: event.ctrlKey,
-        hasShift: event.shiftKey,
-        id: file.id,
-      });
-
-      if (!res?.success) toast.error(res.error);
-    };
+    const handleClick = makeTileClickHandler({
+      disabled,
+      id: file.id,
+      select: editor.search.handleSelect,
+    });
 
     const handleDoubleClick = () => {
-      if (!disabled) {
-        openCarouselWindow({
-          file,
-          selectedFileIds: editor.getFileIdsForCarousel(),
-        });
-      }
+      if (!disabled) openCarouselWindow({ file, selectedFileIds: editor.carouselFileIds });
     };
 
     return (
       <FileBase.ContextMenu
         {...{ disabled, file }}
         store={store}
-        carouselFileIds={editor.getFileIdsForCarousel()}
+        carouselFileIds={editor.carouselFileIds}
       >
         <FileBase.Tooltip {...{ file }}>
           <FileBase.Container
@@ -76,14 +66,20 @@ export const FileCollectionFile = Comp(
 
               <FileBase.ExtAndIcons position="top-right" file={file} />
 
-              <FileBase.RatingChip position="bottom-left" rating={file.rating} hasFooter />
+              <FileBase.RatingChip
+                position="bottom-left"
+                rating={file.rating}
+                hasFooter={hasTags}
+              />
 
-              <FileBase.Duration position="bottom-right" file={file} hasFooter />
+              <FileBase.Duration position="bottom-right" file={file} hasFooter={hasTags} />
             </FileBase.Image>
 
-            <FileBase.Footer>
-              <FileBase.Tags tags={file.tags} />
-            </FileBase.Footer>
+            {hasTags && (
+              <FileBase.Footer>
+                <FileBase.Tags tags={file.tags} />
+              </FileBase.Footer>
+            )}
           </FileBase.Container>
         </FileBase.Tooltip>
       </FileBase.ContextMenu>

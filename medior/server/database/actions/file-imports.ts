@@ -78,19 +78,19 @@ class ImporterStatus {
 
   setIsImporting(isImporting: boolean) {
     this.isImporting = isImporting;
-    socket.emit("onImporterStatusUpdated");
+    socket.emitVolatile("onImporterStatusUpdated");
   }
 
   setIsPaused(isPaused: boolean) {
     this.isPaused = isPaused;
-    socket.emit("onImporterStatusUpdated");
+    socket.emitVolatile("onImporterStatusUpdated");
   }
 
   tryRun() {
     if (this.isImporting) return false;
 
     this.isImporting = true;
-    socket.emit("onImporterStatusUpdated");
+    socket.emitVolatile("onImporterStatusUpdated");
 
     return true;
   }
@@ -136,8 +136,10 @@ export const completeImportBatch = makeAction(
     async (args: { id: string; withNextBatch: boolean }) => {
       const completedAt = dayjs().toISOString();
 
-      const batch = (await getImportBatch({ id: args.id })).data;
+      const batchRes = await getImportBatch({ id: args.id });
+      if (!batchRes.success) throw new Error(batchRes.error);
 
+      const batch = batchRes.data;
       if (!batch) throw new Error("Import batch is unavailable");
 
       if (batch.isCompleted) return batch.completedAt;
@@ -345,12 +347,15 @@ export const completeImportBatch = makeAction(
         metadataWriteOptions(),
       );
 
-      socket.emitReliable("onImportBatchCompleted", { id: args.id });
+      socket.emit("onImportBatchCompleted", { id: args.id });
 
       if (args.withNextBatch) {
-        const nextBatch = (await getNextImportBatch(null)).data;
+        const nextBatch = await getNextImportBatch(null);
 
-        if (nextBatch) runImportBatch({ id: nextBatch.id });
+        // The batch is already completed, so a failed lookup only skips starting the next one.
+        if (!nextBatch.success)
+          fileLog(`Failed to find the next import batch: ${nextBatch.error}`, { type: "error" });
+        else if (nextBatch.data) runImportBatch({ id: nextBatch.data.id });
       }
 
       return completedAt;
@@ -403,7 +408,7 @@ export const beginImportBatchUpload = makeAction(
       { ...metadataWriteOptions(), upsert: true },
     );
 
-    socket.emit("onReloadImportBatches");
+    socket.emitVolatile("onReloadImportBatches");
 
     return { id };
   },
@@ -500,7 +505,7 @@ export const finishImportBatchUpload = makeAction(async (args: { count: number; 
 
   if (!result.matchedCount) throw new Error("Import upload is incomplete or unavailable");
 
-  socket.emit("onReloadImportBatches");
+  socket.emitVolatile("onReloadImportBatches");
 
   return { count: args.count, id: args.id };
 });
@@ -516,7 +521,7 @@ export const discardImportBatchUpload = makeAction(
       return false;
     } else {
       await models.FileImportModel.deleteMany({ batchId: args.id });
-      socket.emit("onReloadImportBatches");
+      socket.emitVolatile("onReloadImportBatches");
 
       return true;
     }
@@ -545,17 +550,23 @@ export const getImportBatchEntries = makeAction(
   },
 );
 
-export const getImportBatchStatusCounts = makeAction(async (args: { id: string }) => {
-  const counts = await models.FileImportModel.aggregate<{ _id: Types.ImportStatus; count: number }>(
-    [
-      { $match: { batchId: objectId(args.id) } },
-      { $group: { _id: "$status", count: { $sum: 1 } } },
-    ],
-  );
+export const getImportBatchStatusCounts = makeAction(async (args: { ids: string[] }) => {
+  const counts = await models.FileImportModel.aggregate<{
+    _id: { batchId: string; status: Types.ImportStatus };
+    count: number;
+  }>([
+    { $match: { batchId: { $in: objectIds(args.ids) } } },
+    { $group: { _id: { batchId: "$batchId", status: "$status" }, count: { $sum: 1 } } },
+  ]);
 
-  return Object.fromEntries(counts.map(({ _id, count }) => [_id, count])) as Partial<
-    Record<Types.ImportStatus, number>
-  >;
+  const countsById: Record<
+    string,
+    Partial<Record<Types.ImportStatus, number>>
+  > = Object.fromEntries(args.ids.map((id) => [id, {}]));
+
+  for (const { _id, count } of counts) countsById[String(_id.batchId)][_id.status] = count;
+
+  return countsById;
 });
 
 export const deleteImportBatches = makeAction(
@@ -609,10 +620,7 @@ export const getNextImportBatch = makeAction(async () => {
 export const pauseImporter = makeAction(async () => stopImporter());
 
 export const resumeImporter = makeAction(async () => {
-  if (activeImportExecution) {
-    await stopImporter();
-    await activeImportExecution;
-  }
+  if (activeImportExecution) await stopImporter();
 
   const batch = await getNextImportBatch(null);
 
@@ -697,9 +705,9 @@ export const reingestFolder = makeAction(
       }
 
       for (const { addedTagIds, fileIds } of fileIdsByTags.values())
-        socket.emit("onFileTagsUpdated", { addedTagIds, fileIds, removedTagIds: [] });
+        socket.emitVolatile("onFileTagsUpdated", { addedTagIds, fileIds, removedTagIds: [] });
 
-      socket.emit("onFilesUpdated", {
+      socket.emitVolatile("onFilesUpdated", {
         fileIds: args.fileTagIds.map(({ fileId }) => fileId),
         updates: { dateModified },
       });
@@ -798,13 +806,19 @@ export const reprocessStoredImports = makeAction(
           );
         };
 
+        const curatedIndexes = new Set(
+          storedEntries.filter(getIsCurated).map((entry) => entry.index),
+        );
+
         // Files this batch created from an entry record its source as their original path.
         const createdFiles = storedEntries.flatMap((entry) => {
           const file = files.get(String(entry.fileId));
 
           return file && mediaPathKey(file.originalPath) === mediaPathKey(entry.path) ? [file] : [];
         });
+        const createdFileSet = new Set(createdFiles);
         const createdHashes = createdFiles.map((file) => file.hash);
+        const createdHashSet = new Set(createdHashes);
 
         // Files compressed, spliced, or edited since keep the checksums of versions this batch re-created.
         const supersedingIds = new Map<string, string>();
@@ -821,7 +835,7 @@ export const reprocessStoredImports = makeAction(
           .lean()) {
           if (await checkFileExists(file.path)) {
             for (const hash of [file.originalHash, file.sourceHash, ...(file.previousHashes ?? [])])
-              if (createdHashes.includes(hash)) supersedingIds.set(hash, String(file._id));
+              if (createdHashSet.has(hash)) supersedingIds.set(hash, String(file._id));
           }
         }
 
@@ -829,7 +843,7 @@ export const reprocessStoredImports = makeAction(
         const getSupersedingId = (entry: (typeof entries)[number]) => {
           const file = files.get(String(entry.fileId));
 
-          return createdFiles.includes(file) && !getIsCurated(entry)
+          return createdFileSet.has(file) && !curatedIndexes.has(entry.index)
             ? supersedingIds.get(file.hash)
             : undefined;
         };
@@ -853,10 +867,9 @@ export const reprocessStoredImports = makeAction(
           }
         }
 
+        const supersededIndexes = new Set(supersededEntries.map((superseded) => superseded.index));
         const candidates = storedEntries.filter(
-          (entry) =>
-            existingIndexes.has(entry.index) &&
-            !supersededEntries.some((superseded) => superseded.index === entry.index),
+          (entry) => existingIndexes.has(entry.index) && !supersededIndexes.has(entry.index),
         );
 
         const operationIds = new Map(
@@ -929,7 +942,7 @@ export const reprocessStoredImports = makeAction(
             !!supersedingId ||
             (entry.status === "COMPLETE" &&
               !!file &&
-              !getIsCurated(entry) &&
+              !curatedIndexes.has(entry.index) &&
               (isTransformOwned ||
                 getIsStorageScratchPath(entry.path) ||
                 deletedHashes.has(entry.hash) ||
@@ -1018,7 +1031,7 @@ export const reprocessStoredImports = makeAction(
           });
       }
 
-      socket.emit("onReloadImportBatches");
+      socket.emitVolatile("onReloadImportBatches");
 
       return { deletedCount, requeuedCount };
     },
@@ -1083,7 +1096,7 @@ export const runImportBatch = makeAction(async (args: { id: string }) => {
           }
 
           importerStatus.activeBatchId = id;
-          socket.emitReliable("onImportBatchLoaded", { id });
+          socket.emit("onImportBatchLoaded", { id });
           actions.runMetadataRecoveryQueue();
 
           const processImports = async (files: models.FileImportSchema[]) => {
@@ -1283,6 +1296,6 @@ export const updateFileImportByPath = makeAction(
       };
     });
 
-    socket.emitReliable("onFileImportUpdated", { ...args, ...progress });
+    socket.emit("onFileImportUpdated", { ...args, ...progress });
   },
 );

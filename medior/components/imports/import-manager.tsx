@@ -6,6 +6,7 @@ import {
   Chip,
   Comp,
   ConfirmModal,
+  DeselectAllButton,
   IconButton,
   ImportEditor,
   ImportsFilterMenu,
@@ -15,6 +16,7 @@ import {
   ProgressBar,
   SavedImportConfigsModal,
   SearchLoadingOverlay,
+  SelectAllInQueryButton,
   Text,
   View,
 } from "medior/components";
@@ -62,18 +64,6 @@ export const ImportManager = Comp(() => {
       folderPaths: getImportConfigRootPaths(stores.import.savedConfigs),
       store: stores.import.ingester,
     });
-  };
-
-  const handleSelectAllInQuery = async () => {
-    const res = await store.search.selectAllInQuery();
-
-    if (!res.success) toast.error("Failed to select all batches");
-    else if (res.data !== null) toast.info(`Selected ${res.data} batches`);
-  };
-
-  const handleSelectNone = () => {
-    store.search.toggleSelected(store.search.selectedIds.map((id) => ({ id, isSelected: false })));
-    toast.info("Deselected all batches");
   };
 
   useEffect(() => {
@@ -193,17 +183,12 @@ export const ImportManager = Comp(() => {
                           }}
                         />
 
-                        <MultiActionButton
-                          name="Deselect"
-                          tooltip="Deselect All Batches"
-                          onClick={handleSelectNone}
-                          disabled={hasNoSelection}
-                        />
+                        <DeselectAllButton itemLabel="batches" store={store.search} toast={toast} />
 
-                        <MultiActionButton
-                          name="LibraryAddCheck"
-                          tooltip="Select All Batches in Query"
-                          onClick={handleSelectAllInQuery}
+                        <SelectAllInQueryButton
+                          itemLabel="batches"
+                          store={store.search}
+                          toast={toast}
                         />
                       </View>
                     </View>
@@ -228,6 +213,7 @@ export const ImportManager = Comp(() => {
                           folder={batch}
                           withListItems={false}
                           collapsible
+                          selectable
                         />
                       ))
                     ) : (

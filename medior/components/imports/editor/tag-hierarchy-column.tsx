@@ -32,15 +32,15 @@ export const TagHierarchyColumn = Comp(
   }) => {
     const { css } = useClasses(null);
 
+    const [scrollbar, setScrollbar] = useState(0);
+    const [viewport, setViewport] = useState<HTMLDivElement>(null);
+
     const rows = useMemo(
       () => getImportTagRows({ ...hierarchy, roots: [tag] }, expanded),
       [hierarchy, tag, expanded],
     );
 
     const measuredWidth = useMemo(() => ({ value: 0 }), [rows]);
-
-    const [scrollbar, setScrollbar] = useState(0);
-    const [viewport, setViewport] = useState<HTMLDivElement>(null);
 
     const columnHeight = Math.floor(Math.min(height, rows.length * IMPORT_TAG_ROW_HEIGHT));
     const root = rows[0];

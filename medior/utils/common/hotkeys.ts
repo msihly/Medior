@@ -137,7 +137,8 @@ export const matchesHotkey = (event: HotkeyEvent, hotkey: string) => {
   if (!hotkey) return false;
 
   const parts = hotkey.split("+");
-  const key = parts.at(-1);
+  /** A trailing "+" is the key itself, as in "+" or "Shift++". */
+  const key = hotkey.endsWith("+") ? "+" : parts.at(-1);
 
   return (
     event.altKey === parts.includes("Alt") &&

@@ -45,5 +45,5 @@ export const pruneCompletedOperations = async () => {
     removedCount += result.deletedCount;
   }
 
-  if (removedCount) socket.emitReliable("onReloadBackgroundActivity");
+  if (removedCount) socket.emit("onReloadBackgroundActivity");
 };

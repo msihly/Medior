@@ -88,7 +88,7 @@ export const emitBackgroundOperation = async (id: string) => {
     await models.BackgroundOperationModel.findById(id).select(ACTIVITY_PROJECTION).lean(),
   );
 
-  socket.emit("onBackgroundOperationUpdated", { id, updates: operation });
+  socket.emitVolatile("onBackgroundOperationUpdated", { id, updates: operation });
 
   return operation;
 };
@@ -461,7 +461,7 @@ export const queueBackgroundOperation = async ({
       `[Tag metadata ${operation.id}] Created for ${uniqueTargetIds.length} tags by ${source}.`,
     );
 
-  socket.emit("onBackgroundOperationUpdated", {
+  socket.emitVolatile("onBackgroundOperationUpdated", {
     id: operation.id,
     updates: {
       ...operation,
@@ -553,6 +553,30 @@ export const completeEmptyBackgroundOperation = async (id: string, message: stri
       },
       { $unset: "queueKey" },
     ],
+    metadataWriteOptions(),
+  );
+
+  await emitBackgroundOperation(id);
+};
+
+/** Ends an operation with an error once only targets that failed remain. */
+// @generator-ignore-export
+export const failBackgroundOperation = async (id: string, failedIds: string[], error: string) => {
+  await models.BackgroundOperationModel.updateOne(
+    {
+      _id: id,
+      status: { $in: ["PENDING", "RUNNING"] },
+      targetIds: { $not: { $elemMatch: { $nin: failedIds } } },
+    },
+    {
+      $set: {
+        completedAt: dayjs().toISOString(),
+        dateModified: dayjs().toISOString(),
+        error,
+        status: "ERROR",
+      },
+      $unset: { queueKey: 1 },
+    },
     metadataWriteOptions(),
   );
 
@@ -755,7 +779,7 @@ export const markNotificationsRead = makeAction(async ({ ids }: { ids: string[] 
     { $set: { isRead: true } },
   );
 
-  socket.emit("onNotificationsRead", { ids });
+  socket.emitVolatile("onNotificationsRead", { ids });
 });
 
 export const recordNotification = makeAction(
@@ -771,7 +795,7 @@ export const recordNotification = makeAction(
       ).toObject(),
     );
 
-    socket.emit("onNotificationCreated", notification);
+    socket.emitVolatile("onNotificationCreated", notification);
 
     return notification;
   },

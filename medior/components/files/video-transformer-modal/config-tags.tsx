@@ -18,15 +18,16 @@ export const ConfigTags = Comp(({ configKey, label }: { configKey: string; label
 
     (async () => {
       try {
-        if (!ids.length) return setValue([]);
+        if (!ids.length) setValue([]);
+        else {
+          const tags = await stores.tag.listByIds({ ids });
 
-        const tags = await stores.tag.listByIds({ ids });
+          if (requestId !== lookupId.current) return;
 
-        if (requestId !== lookupId.current) return;
+          if (!tags.success) throw new Error(tags.error);
 
-        if (!tags.success) throw new Error(tags.error);
-
-        setValue(tags.data.map(tagToOption));
+          setValue(tags.data.map(tagToOption));
+        }
       } catch (error) {
         if (requestId === lookupId.current) toast.error(error);
       }

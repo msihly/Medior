@@ -18,7 +18,11 @@ import {
   MIN_DUPLICATE_SIMILARITY,
   validateDuplicateSearchOptions,
 } from "medior/utils/common/duplicate-search";
-import { leanModelToJson, sortByStoredNtfsIdentity } from "medior/utils/server";
+import {
+  getThumbNtfsIdentity,
+  leanModelToJson,
+  sortByStoredNtfsIdentity,
+} from "medior/utils/server";
 import { vectorTrpc } from "medior/utils/server/trpc";
 import { runConcurrent } from "medior/utils/server/work-signal";
 
@@ -344,10 +348,7 @@ const scoreGroups = async (scanId: string, groups: Pick<ScanGroup, "_id" | "file
   // underway at once stay close together on a hard drive.
   const orderedGroups = sortByStoredNtfsIdentity(
     groups.map((group, index) => ({ group, index })),
-    ({ group }) => ({
-      fileId: byId.get(group.files[0].id)?.thumb?.ntfsFileId,
-      volumeId: byId.get(group.files[0].id)?.thumb?.ntfsVolumeId,
-    }),
+    ({ group }) => getThumbNtfsIdentity(byId.get(group.files[0].id)),
   );
 
   // Ranking reads each file's headers and may decode same-resolution images, then the kept file's

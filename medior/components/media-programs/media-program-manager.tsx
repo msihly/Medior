@@ -113,7 +113,7 @@ export const MediaProgramManager = Comp(() => {
                 <MultiActionButton
                   name="Delete"
                   tooltip="Delete"
-                  iconProps={{ color: colors.custom.red }}
+                  iconProps={{ color: hasSelection ? colors.custom.red : colors.custom.grey }}
                   onClick={handleDelete}
                   disabled={!hasSelection}
                 />

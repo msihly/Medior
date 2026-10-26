@@ -33,13 +33,13 @@ export const TagEditor = Comp(({ isSubEditor = false }: TagEditorProps) => {
   const stores = useStores();
   const store = isSubEditor ? stores.tag.subEditor : stores.tag.editor;
 
-  const labelRef = useRef<HTMLDivElement>(null);
-
   const [hasContinue, setHasContinue] = useState(false);
   const [hasKeepChildTags, setHasKeepChildTags] = useState(false);
   const [hasKeepParentTags, setHasKeepParentTags] = useState(false);
   const [isConfirmDeleteOpen, setIsConfirmDeleteOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+
+  const labelRef = useRef<HTMLDivElement>(null);
 
   const clearInputs = () => {
     store.setLabel("");
@@ -66,14 +66,13 @@ export const TagEditor = Comp(({ isSubEditor = false }: TagEditorProps) => {
 
     const res = await stores.tag.deleteTag({ id: store.tag.id });
 
-    if (!res.success) toast.error("Failed to delete tag");
-    else {
+    if (!res.success) {
+      toast.error("Failed to delete tag");
+      setIsSaving(false);
+    } else {
       toast.success("Tag deleted");
-      setIsConfirmDeleteOpen(false);
       store.setIsOpen(false);
     }
-
-    setIsSaving(false);
 
     return res.success;
   };

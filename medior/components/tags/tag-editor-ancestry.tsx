@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import AutoSizer from "react-virtualized-auto-sizer";
 import { FixedSizeList } from "react-window";
 import type { SocketEvents, TagSchema } from "medior/_generated/server";
@@ -71,36 +71,45 @@ export const TagEditorAncestry = Comp(({ onTagClick, store }: TagEditorAncestryP
   const [rowWidth, setRowWidth] = useState(0);
   const [tags, setTags] = useState<AncestryTag[]>([]);
 
-  const ids = [
-    ...new Set(
-      [
-        store.tag?.id,
-        ...store.parentTags.map((tag) => tag.id),
-        ...store.childTags.map((tag) => tag.id),
-      ].filter(Boolean),
-    ),
-  ];
+  const childIds = store.childTags.map((tag) => tag.id);
+  const parentIds = store.parentTags.map((tag) => tag.id);
+  const ids = [...new Set([store.tag?.id, ...parentIds, ...childIds].filter(Boolean))];
 
-  const hierarchy = createImportTagHierarchy(
-    makeEditorAncestry(
+  const hierarchy = useMemo(
+    () =>
+      createImportTagHierarchy(
+        makeEditorAncestry(
+          tags,
+          {
+            category: {
+              color: store.categoryColor,
+              icon: store.categoryIcon,
+              inheritable: store.categoryInheritable,
+              sortRank: store.categorySortRank,
+            },
+            count: store.tag?.count ?? 0,
+            id: store.tag?.id ?? "draft",
+            label: store.label.trim() || "New Tag",
+            parentIds,
+          },
+          childIds,
+        ),
+      ),
+    [
+      childIds.join("|"),
+      parentIds.join("|"),
+      store.categoryColor,
+      store.categoryIcon,
+      store.categoryInheritable,
+      store.categorySortRank,
+      store.label,
+      store.tag?.count,
+      store.tag?.id,
       tags,
-      {
-        category: {
-          color: store.categoryColor,
-          icon: store.categoryIcon,
-          inheritable: store.categoryInheritable,
-          sortRank: store.categorySortRank,
-        },
-        count: store.tag?.count ?? 0,
-        id: store.tag?.id ?? "draft",
-        label: store.label.trim() || "New Tag",
-        parentIds: store.parentTags.map((tag) => tag.id),
-      },
-      store.childTags.map((tag) => tag.id),
-    ),
+    ],
   );
 
-  const rows = getImportTagRows(hierarchy, "all", collapsed);
+  const rows = useMemo(() => getImportTagRows(hierarchy, "all", collapsed), [collapsed, hierarchy]);
 
   useEffect(() => {
     if (!store.isOpen || store.isLoading) return;
@@ -240,7 +249,7 @@ export const TagEditorAncestry = Comp(({ onTagClick, store }: TagEditorAncestryP
                 const row = rows[index];
 
                 return (
-                  <View style={{ ...style, minWidth: rowWidth }}>
+                  <View style={style} minWidth={rowWidth}>
                     <TagHierarchy
                       depth={row.depth}
                       expanded={!collapsed.has(row.key)}

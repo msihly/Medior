@@ -80,7 +80,7 @@ const updateProgress = (updates: Partial<BackgroundOperationSchema>) => {
 
   if (!isServerStopping() && (updates.status || performance.now() - lastProgressAt >= 1000)) {
     lastProgressAt = performance.now();
-    socket.emitReliable("onBackgroundOperationUpdated", { id: progress.id, updates: progress });
+    socket.emit("onBackgroundOperationUpdated", { id: progress.id, updates: progress });
   }
 };
 
@@ -260,7 +260,7 @@ const consolidatePersistence = async (retry: boolean) => {
 
   await writeCheckpoint({ status: "COMPLETE" });
   updateProgress({ message: "Recovery storage consolidated.", status: "COMPLETE" });
-  socket.emitReliable("onReloadBackgroundActivity");
+  socket.emit("onReloadBackgroundActivity");
 
   return isPersistenceReady();
 };

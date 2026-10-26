@@ -4,6 +4,7 @@ import { computed } from "mobx";
 import {
   applySnapshot,
   ExtendedModel,
+  getRootStore,
   getSnapshot,
   model,
   modelAction,
@@ -13,6 +14,7 @@ import {
 import { _FileImportBatch } from "medior/store/_generated";
 import type { ImportStatus } from "medior/server/database";
 import type { TagToUpsert } from "medior/components";
+import type { RootStore } from "medior/store";
 import { asyncAction } from "medior/utils/client";
 import { IMPORT_PAGE_SIZE } from "medior/utils/common";
 import { trpc } from "medior/utils/server";
@@ -32,21 +34,9 @@ export class FileImportBatch extends ExtendedModel(_FileImportBatch, {
 }) {
   private loadRevision = 0;
   private pendingUpdates = new Map<string, ImportUpdate>();
-  private statusCountsRevision = 0;
-  private statusCountsTimer: ReturnType<typeof setTimeout> = null;
 
   onInit() {
     autoBind(this);
-  }
-
-  /** Imports in progress refresh the counts at most once per second. */
-  queueStatusCounts() {
-    if (this.statusCountsTimer) return;
-
-    this.statusCountsTimer = setTimeout(() => {
-      this.statusCountsTimer = null;
-      this.loadStatusCounts();
-    }, 1000);
   }
 
   @modelAction
@@ -69,8 +59,6 @@ export class FileImportBatch extends ExtendedModel(_FileImportBatch, {
           }
         : {}),
     });
-
-    this.queueStatusCounts();
   }
 
   @modelAction
@@ -81,7 +69,8 @@ export class FileImportBatch extends ExtendedModel(_FileImportBatch, {
       this.progressRevision = update.progressRevision;
     }
 
-    if (update.status !== undefined) this.queueStatusCounts();
+    if (update.status !== undefined)
+      getRootStore<RootStore>(this)?.import.manager.queueStatusCounts(this.id);
 
     if (
       this.isLoadingEntries &&
@@ -89,7 +78,9 @@ export class FileImportBatch extends ExtendedModel(_FileImportBatch, {
     )
       this.pendingUpdates.set(update.filePath, update);
 
-    for (const entry of this.entriesByPath.get(update.filePath) ?? []) {
+    const entries = this.entriesByPath.get(update.filePath) ?? [];
+
+    for (const entry of entries) {
       if (update.progressRevision >= entry.progressRevision) {
         entry.update({
           ...(update.errorMsg !== undefined ? { errorMsg: update.errorMsg } : {}),
@@ -99,6 +90,14 @@ export class FileImportBatch extends ExtendedModel(_FileImportBatch, {
         });
       }
     }
+
+    // Filtered pages offset into the matching entries, so entries leaving the filter are dropped.
+    const statuses = new Set<string>(this.statuses);
+
+    if (statuses.size && entries.some((entry) => !statuses.has(entry.status)))
+      this.imports = this.imports.filter(
+        (entry) => entry.path !== update.filePath || statuses.has(entry.status),
+      );
   }
 
   @modelFlow
@@ -134,16 +133,6 @@ export class FileImportBatch extends ExtendedModel(_FileImportBatch, {
     } finally {
       if (revision === this.loadRevision) this.setIsLoadingEntries(false);
     }
-  });
-
-  @modelFlow
-  loadStatusCounts = asyncAction(async () => {
-    const revision = ++this.statusCountsRevision;
-
-    const result = await trpc.getImportBatchStatusCounts.mutate({ id: this.id });
-    if (!result.success) throw new Error(result.error);
-
-    if (revision === this.statusCountsRevision) this.setStatusCounts(result.data);
   });
 
   @computed

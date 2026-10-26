@@ -5,6 +5,8 @@ import { asyncAction } from "medior/utils/client";
 import { trpc } from "medior/utils/server";
 import { FileCollection, FileCollectionSearch } from ".";
 
+export const SELECTED_FILES_PAGE_SIZE = 3;
+
 @model("medior/CollectionManager")
 export class CollectionManager extends Model({
   currentCollections: prop<FileCollection[]>(() => []).withSetter(),
@@ -32,7 +34,7 @@ export class CollectionManager extends Model({
 
     this.isOpen = isOpen;
 
-    if (isOpen) stores.collection.editor.isOpen = false;
+    if (isOpen) stores.collection.editor.setIsOpen(false);
     else {
       this.isRelatedQueueOpen = false;
       this.isTriagerOpen = false;
@@ -73,8 +75,8 @@ export class CollectionManager extends Model({
         args: {
           filter: {
             id: this.selectedFileIds.slice(
-              (this.selectedFilesPage - 1) * 3,
-              this.selectedFilesPage * 3,
+              (this.selectedFilesPage - 1) * SELECTED_FILES_PAGE_SIZE,
+              this.selectedFilesPage * SELECTED_FILES_PAGE_SIZE,
             ),
           },
         },

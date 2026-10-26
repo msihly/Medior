@@ -4,6 +4,7 @@ const model = new ModelStore("File", {
   defaultPageSize: "() => getConfig().file.search.pageSize",
   defaultSort: "() => getConfig().file.search.sort",
   withCarouselIds: true,
+  withChangeTracking: true,
   withTags: true,
 });
 

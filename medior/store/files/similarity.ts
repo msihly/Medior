@@ -81,7 +81,7 @@ export class FileSimilarityStore extends Model({
     this.setCandidates(
       this.candidates
         .filter((candidate) => !removedIds.has(candidate.fileId))
-        .map((candidate, index) => ({ ...candidate, rank: index + 1 })),
+        .map((candidate, index) => ({ ...derefMobx(candidate), rank: index + 1 })),
     );
 
     this.search.removeFiles(fileIds);
@@ -89,7 +89,7 @@ export class FileSimilarityStore extends Model({
     this.search.setSelectedIds(this.search.selectedIds.filter((id) => !removedIds.has(id)));
     this.search.setCarouselFileIds(this.search.carouselFileIds.filter((id) => !removedIds.has(id)));
     this.search.setCachedFilterProps({
-      ...this.search.cachedFilterProps,
+      ...derefMobx(this.search.cachedFilterProps),
       ids: [...this.search.ids],
     });
 
@@ -162,7 +162,7 @@ export class FileSimilarityStore extends Model({
       for (const candidate of res.data.candidates) candidates.set(candidate.fileId, candidate);
 
       const nextCandidates = [...candidates.values()].map((candidate, index) => ({
-        ...candidate,
+        ...derefMobx(candidate),
         rank: index + 1,
       }));
 

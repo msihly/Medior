@@ -34,9 +34,12 @@ export const RepairModal = Comp(() => {
   const stores = useStores();
   const store = stores.home.settings.repair;
 
-  const outputRef = useRef<HTMLDivElement>(null);
-
+  const [confirmStorageAction, setConfirmStorageAction] = useState<
+    "deleteUntracked" | "removeMissing"
+  >(null);
   const [storageResult, setStorageResult] = useState<Awaited<ScanFileStorageOutput>["data"]>(null);
+
+  const outputRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     outputRef.current?.scrollTo({ top: outputRef.current.scrollHeight });
@@ -88,7 +91,20 @@ export const RepairModal = Comp(() => {
     return res.success && res.data;
   };
 
+  const closeStorageConfirm = () => setConfirmStorageAction(null);
+
+  const handleConfirmStorageAction = async () => {
+    if (confirmStorageAction === "removeMissing") handleRemoveMissingRecords();
+    else handleDeleteUntrackedFiles();
+
+    return true;
+  };
+
   const handleMinimize = () => store.setIsMinimized(true);
+
+  const openDeleteUntrackedConfirm = () => setConfirmStorageAction("deleteUntracked");
+
+  const openRemoveMissingConfirm = () => setConfirmStorageAction("removeMissing");
 
   const rebuildSimilarityIndex = async () => {
     const formatDecodeDiagnostics = (diagnostics: SimilarityDecodeDiagnostics) => {
@@ -634,7 +650,7 @@ export const RepairModal = Comp(() => {
 
             <RepairCheckbox
               label="Audio Analysis"
-              description="Missing waveform, transcription, and audio similarity data for videos with audio. Marks videos whose audio cannot be decoded as corrupted."
+              description="Missing waveform, transcription, and audio similarity data for videos with audio. Videos whose audio cannot be decoded are marked and skipped by later runs."
               checked={store.audio.enabled}
               setChecked={store.audio.setEnabled}
               disabled={store.isRunning}
@@ -944,7 +960,7 @@ export const RepairModal = Comp(() => {
                     text="Remove Missing File Records"
                     icon="Delete"
                     color={colors.custom.red}
-                    onClick={handleRemoveMissingRecords}
+                    onClick={openRemoveMissingConfirm}
                     disabled={store.isRunning || !storageResult.fileIdsLeftInDbOnly.length}
                   />
 
@@ -952,7 +968,7 @@ export const RepairModal = Comp(() => {
                     text="Delete Untracked Files"
                     icon="Delete"
                     color={colors.custom.red}
-                    onClick={handleDeleteUntrackedFiles}
+                    onClick={openDeleteUntrackedConfirm}
                     disabled={store.isRunning || !storageResult.filesLeftInStorageOnly.length}
                   />
 
@@ -1019,6 +1035,23 @@ export const RepairModal = Comp(() => {
           confirmText="Cancel"
           setVisible={store.setIsConfirmCancelOpen}
           onConfirm={handleConfirmCancel}
+        />
+      )}
+
+      {confirmStorageAction && (
+        <ConfirmModal
+          headerText={
+            confirmStorageAction === "removeMissing"
+              ? "Remove Missing File Records"
+              : "Delete Untracked Files"
+          }
+          subText={
+            confirmStorageAction === "removeMissing"
+              ? `Remove ${Fmt.commas(storageResult.fileIdsLeftInDbOnly.length)} file records whose originals are missing? Records whose files are present again are kept.`
+              : `Delete ${Fmt.commas(storageResult.filesLeftInStorageOnly.length)} untracked files from storage?`
+          }
+          setVisible={closeStorageConfirm}
+          onConfirm={handleConfirmStorageAction}
         />
       )}
     </Modal.Container>

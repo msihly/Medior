@@ -258,7 +258,7 @@ export const ImageCrop = Comp(({ expectedHash, fileId, onClose }: ImageCropProps
 
 interface ClassesProps {
   crop: Crop;
-  image: { height: number; left: number; top: number; width: number };
+  image: Crop;
   maskSpread: number;
   preview: { height: number; width: number };
 }

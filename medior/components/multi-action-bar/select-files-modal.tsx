@@ -18,7 +18,7 @@ export const SelectFilesModal = Comp(({ onClose, store: suppliedStore }: SelectF
   const hasError = !Number.isSafeInteger(limit) || limit < 1;
 
   const handleClose = () => {
-    if (isSelecting) store.cancelLoad();
+    if (isSelecting) store.cancelSelection();
 
     onClose();
   };
@@ -28,7 +28,7 @@ export const SelectFilesModal = Comp(({ onClose, store: suppliedStore }: SelectF
 
     setIsSelecting(true);
 
-    const res = await store.selectFirstInQuery(limit);
+    const res = await store.selectAllInQuery(limit);
 
     setIsSelecting(false);
 

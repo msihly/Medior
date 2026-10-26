@@ -1,5 +1,5 @@
 import { getActions } from "medior/generator/actions/generators";
-import { makeSectionComment } from "medior/generator/utils";
+import { makeSectionComment, makeStoreDefaultValue } from "medior/generator/utils";
 import { Fmt } from "medior/utils/common";
 
 export class ModelStore {
@@ -8,6 +8,7 @@ export class ModelStore {
   private tagFields: ModelSearchStore["tagFields"] = [];
   private transformResultsFn: string = null;
   private withCarouselIds: boolean = false;
+  private withChangeTracking: boolean = false;
   private withTags: boolean = false;
 
   constructor(
@@ -19,6 +20,8 @@ export class ModelStore {
       tagFields?: ModelSearchStore["tagFields"];
       transformResultsFn?: string;
       withCarouselIds?: boolean;
+      /** Marks the search as changed whenever its filters are edited. */
+      withChangeTracking?: boolean;
       withTags?: boolean;
     },
   ) {
@@ -26,6 +29,7 @@ export class ModelStore {
     this.tagFields = options.tagFields ?? [];
     this.transformResultsFn = options.transformResultsFn;
     this.withCarouselIds = options.withCarouselIds;
+    this.withChangeTracking = options.withChangeTracking;
     this.withTags = options.withTags;
 
     if (this.withCarouselIds)
@@ -39,12 +43,14 @@ export class ModelStore {
     });
     this.addProp("isLoading", "boolean", "false", { notFilterProp: true });
     this.addProp("isPageCountLoading", "boolean", "false", { notFilterProp: true });
+    this.addProp("isSelecting", "boolean", "false", { notFilterProp: true });
     this.addProp("loadId", "number", "0", { notFilterProp: true });
     this.addProp("page", "number", "1", { notFilterProp: true });
     this.addProp("pageCount", "number", "1", { notFilterProp: true });
     this.addProp("pageSize", "number", options.defaultPageSize, { notFilterProp: true });
     this.addProp("results", `Stores.${this.name}[]`, "() => []", { notFilterProp: true });
     this.addProp("selectedIds", "string[]", "() => []", { notFilterProp: true });
+    this.addProp("selectionId", "number", "0", { notFilterProp: true });
     this.addProp("sortValue", "SortMenuProps['value']", options.defaultSort);
   }
 
@@ -168,6 +174,7 @@ export class ModelStore {
       tagFields: this.tagFields,
       transformResultsFn: this.transformResultsFn,
       withCarouselIds: this.withCarouselIds,
+      withChangeTracking: this.withChangeTracking,
       withTags: this.withTags,
     };
   }
@@ -194,7 +201,10 @@ const createSchemaItem = (storeName: string, props: ModelDefProperty[]) => {
   const makeProps = () =>
     [...props]
       .sort((a, b) => a.name.localeCompare(b.name))
-      .map((prop) => `${prop.name}: prop<${prop.storeType || prop.type}>(${getDefaultValue(prop)})`)
+      .map(
+        (prop) =>
+          `${prop.name}: prop<${prop.storeType || prop.type}>(${makeStoreDefaultValue(prop)})`,
+      )
       .join(",\n");
 
   const makeUpdateAction = () =>
@@ -218,13 +228,13 @@ const createSchemaStore = async (modelDef: ModelDef) => {
     `@modelFlow\n${type}${upperName} = asyncAction(async (args: Types.${args.typeName}) => {
       this.setIsLoading(true);
 
-      const res = await trpc.${args.fnName}.mutate({ args });
-
-      this.setIsLoading(false);
-
-      if (res.error) throw new Error(res.error);
-
-      return res.data;
+      try {
+        const res = await trpc.${args.fnName}.mutate({ args });
+        if (!res.success) throw new Error(res.error);
+        return res.data;
+      } finally {
+        this.setIsLoading(false);
+      }
     });`;
 
   const makeProps = () => `isLoading: prop<boolean>(false).withSetter()`;
@@ -303,14 +313,25 @@ export const createSearchStore = (def: ModelSearchStore) => {
     `@modelAction\n_deleteResults(ids: string[]) { const removedIds = new Set(ids);\n\nthis.results = this.results.filter((d) => !removedIds.has(d.id)); }`;
 
   const makeResetAction = () =>
-    `@modelAction\nreset() { ${props.map((prop) => (prop.name === "loadId" ? "this.loadId += 1;" : `this.${prop.name} = ${prop.defaultValue.replace("() => ", "")};`)).join("\n")} }`;
+    `@modelAction\nreset() { ${props.map((prop) => (["loadId", "selectionId"].includes(prop.name) ? `this.${prop.name} += 1;` : `this.${prop.name} = ${prop.defaultValue.replace("() => ", "")};`)).join("\n")} }`;
 
+  /** Cancels page loads and selections alike. */
   const makeCancelLoadAction = () =>
     `@modelAction
     cancelLoad() {
       this.loadId += 1;
       this.isLoading = false;
       this.isPageCountLoading = false;
+      this.selectionId += 1;
+      this.isSelecting = false;
+    }`;
+
+  /** Cancels a selection while leaving any page load running. */
+  const makeCancelSelectionAction = () =>
+    `@modelAction
+    cancelSelection() {
+      this.selectionId += 1;
+      this.isSelecting = false;
     }`;
 
   const makeApplySearchPropsAction = () =>
@@ -393,11 +414,10 @@ export const createSearchStore = (def: ModelSearchStore) => {
 
         if (range) return range;
 
-        const loadId = this.loadId + 1;
+        const selectionId = this.selectionId + 1;
 
-        this.setLoadId(loadId);
-        this.setIsLoading(true);
-        this.setIsPageCountLoading(false);
+        this.setSelectionId(selectionId);
+        this.setIsSelecting(true);
 
         try {
           const res = await trpc.getShiftSelected${def.name}.mutate({
@@ -406,17 +426,17 @@ export const createSearchStore = (def: ModelSearchStore) => {
             selectedIds,
           });
 
-          if (loadId !== this.loadId) return null;
+          if (selectionId !== this.selectionId) return null;
 
           if (!res.success) throw new Error(res.error);
 
           return res.data;
         } catch (error) {
-          if (loadId === this.loadId) throw error;
+          if (selectionId === this.selectionId) throw error;
 
           return null;
         } finally {
-          if (loadId === this.loadId) this.setIsLoading(false);
+          if (selectionId === this.selectionId) this.setIsSelecting(false);
         }
       }
     );`;
@@ -438,26 +458,26 @@ export const createSearchStore = (def: ModelSearchStore) => {
       } else if (hasCtrl) {
         this.toggleSelected([{ id, isSelected: !this.getIsSelected(id) }]);
       } else if (this.selectedIds.length === 1 && this.getIsSelected(id)) {
-        this.selectedIds = [];
+        this.setSelectedIds([]);
       } else {
-        this.selectedIds = [id];
+        this.setSelectedIds([id]);
       }
     });`;
 
+  /** File searches can select only the first `limit` files in the query. */
   const makeSelectAllInQueryAction = () =>
     `@modelFlow
-    selectAllInQuery = asyncAction(async () => {
+    selectAllInQuery = asyncAction(async (${def.withCarouselIds ? "limit?: number" : ""}) => {
       const filterProps = this.cachedFilterProps ?? this.getFilterProps();
-      const loadId = this.loadId + 1;
+      const selectionId = this.selectionId + 1;
 
-      this.setLoadId(loadId);
-      this.setIsLoading(true);
-      this.setIsPageCountLoading(false);
+      this.setSelectionId(selectionId);
+      this.setIsSelecting(true);
 
       try {
         ${
           def.withCarouselIds
-            ? `const res = await trpc.listFileSearchIds.mutate({ ...filterProps, forcePages: this.forcePages });`
+            ? `const res = await trpc.listFileSearchIds.mutate({ ...filterProps, forcePages: this.forcePages, limit });`
             : `
         const countRes = await trpc.getFiltered${def.name}Count.mutate({
           ...filterProps,
@@ -468,7 +488,7 @@ export const createSearchStore = (def: ModelSearchStore) => {
           withFull: true,
         });
 
-        if (loadId !== this.loadId) return null;
+        if (selectionId !== this.selectionId) return null;
 
         if (!countRes.success) throw new Error(countRes.error);
 
@@ -484,40 +504,36 @@ export const createSearchStore = (def: ModelSearchStore) => {
         `
         }
 
-        if (loadId !== this.loadId) return null;
+        if (selectionId !== this.selectionId) return null;
 
         if (!res.success) throw new Error(res.error);
 
         ${
           def.withCarouselIds
-            ? `this.setSelectedIds([...new Set([...this.selectedIds, ...res.data])]);
-
-        return res.data.length;`
-            : `const items = res.data;
-
-        this.toggleSelected(items.map(({ id }) => ({ id, isSelected: true })));
-
-        return items.length;`
+            ? `this.setSelectedIds([...new Set([...this.selectedIds, ...res.data])]);`
+            : `this.toggleSelected(res.data.map(({ id }) => ({ id, isSelected: true })));`
         }
+
+        return res.data.length;
       } catch (error) {
-        if (loadId === this.loadId) throw error;
+        if (selectionId === this.selectionId) throw error;
 
         return null;
       } finally {
-        if (loadId === this.loadId) this.setIsLoading(false);
+        if (selectionId === this.selectionId) this.setIsSelecting(false);
       }
     });`;
 
-  const makeLoadFilteredAction = () =>
-    `@modelFlow
+  const makeLoadFilteredAction = () => {
+    const resultsName = def.transformResultsFn ? "results" : "items";
+
+    return `@modelFlow
     loadFiltered = asyncAction(async ({ noCache, page, toLastPage, withFullCount }: {
       noCache?: boolean;
       page?: number;
       toLastPage?: boolean;
       withFullCount?: boolean;
     } = {}) => {
-      const debug = false;
-      const { perfLog } = makePerfLog("[${def.name}Search]");
       const loadId = this.loadId + 1;
 
       this.setLoadId(loadId);
@@ -529,6 +545,9 @@ export const createSearchStore = (def: ModelSearchStore) => {
         const filterProps = shouldCacheFilterProps
           ? this.getFilterProps()
           : this.cachedFilterProps;
+
+        // A selection still running over the previous query would add its results to the new one.
+        if (shouldCacheFilterProps) this.cancelSelection();
 
         const exactCount = withFullCount || toLastPage;
         let nextPageCount = this.pageCount;
@@ -569,8 +588,6 @@ export const createSearchStore = (def: ModelSearchStore) => {
 
         let items = ${def.withCarouselIds ? `itemsRes.data.items as ModelCreationData<Stores.${def.name}>[]` : "itemsRes.data"};
 
-        if (debug) perfLog(\`Loaded \${items.length} items\`);
-
         ${
           !def.withTags
             ? ""
@@ -579,29 +596,32 @@ export const createSearchStore = (def: ModelSearchStore) => {
                   ? `[item.tagIds, ${def.tagFields.map((field) => `item.${field.idsName}`).join(", ")}].flat()`
                   : "item.tagIds"
               }))];
-              const tagRes = await trpc.listTag.mutate({ filter: { id: tagIds } });
 
-              if (loadId !== this.loadId) return;
+              if (tagIds.length) {
+                const tagRes = await trpc.listTag.mutate({ filter: { id: tagIds } });
 
-              if (!tagRes.success) throw new Error(tagRes.error);
+                if (loadId !== this.loadId) return;
 
-              const selectTags = makeTagSelector(tagRes.data);
+                if (!tagRes.success) throw new Error(tagRes.error);
 
-              items = items.map((item) => ({ ...item, ${(def.tagFields ?? [])
-                .map((field) => `${field.name}: selectTags(item.${field.idsName}), `)
-                .join("")}tags: selectTags(item.tagIds) }));`
+                const selectTags = makeTagSelector(tagRes.data);
+
+                items = items.map((item) => ({ ...item, ${(def.tagFields ?? [])
+                  .map((field) => `${field.name}: selectTags(item.${field.idsName}), `)
+                  .join("")}tags: selectTags(item.tagIds) }));
+              }`
         }
-
-        const results = ${def.transformResultsFn || "items"}
-
-        if (loadId !== this.loadId) return;
 
         ${
-          def.withCarouselIds
-            ? `this.setResults(results.map((result) => new Stores.${def.name}(result)));
-              this.setCarouselFileIds(itemsRes.data.carouselFileIds);`
-            : `this.setResults(results.map((result) => new Stores.${def.name}(result)));`
+          def.transformResultsFn
+            ? `const results = ${def.transformResultsFn};
+
+        if (loadId !== this.loadId) return;`
+            : ""
         }
+
+        this.setResults(${resultsName}.map((result) => new Stores.${def.name}(result)));
+        ${def.withCarouselIds ? "this.setCarouselFileIds(itemsRes.data.carouselFileIds);" : ""}
 
         if (shouldCacheFilterProps) this.setCachedFilterProps(derefMobx(filterProps));
 
@@ -611,9 +631,6 @@ export const createSearchStore = (def: ModelSearchStore) => {
         }
 
         this.setPage(newPage);
-
-        if (debug) perfLog("Overwrite and re-render");
-
         this.setIsLoading(false);
 
         if (noCache) this.setHasChanges(false);
@@ -627,7 +644,7 @@ export const createSearchStore = (def: ModelSearchStore) => {
                 forcePages: this.forcePages,
                 page: newPage,
                 pageSize: this.pageSize,
-                withFull: withFullCount
+                withFull: false
               });
 
               if (loadId !== this.loadId) return;
@@ -635,13 +652,7 @@ export const createSearchStore = (def: ModelSearchStore) => {
               this.setIsPageCountLoading(false);
 
               if (!countRes.success) console.error(countRes.error);
-              else {
-                const pageCount = countRes.data.pageCount;
-
-                this.setPageCount(pageCount);
-
-                if (debug) perfLog(\`Set pageCount to \${pageCount}\`);
-              }
+              else this.setPageCount(countRes.data.pageCount);
             } catch (error) {
               if (loadId !== this.loadId) return;
 
@@ -651,7 +662,7 @@ export const createSearchStore = (def: ModelSearchStore) => {
           })();
         }
 
-        return results;
+        return ${resultsName};
       } catch (error) {
         if (loadId !== this.loadId) return;
 
@@ -661,6 +672,7 @@ export const createSearchStore = (def: ModelSearchStore) => {
         throw error;
       }
     });`;
+  };
 
   const makeLoadSavedSearchesAction = () =>
     `@modelFlow
@@ -774,12 +786,22 @@ export const createSearchStore = (def: ModelSearchStore) => {
     export class ${storeName} extends Model({ ${makeProps()} }) {
       onInit() {
         autoBind(this);
+        ${
+          def.withChangeTracking
+            ? `
+        reaction(
+          () => this.getFilterProps(),
+          () => this.setHasChanges(true),
+        );`
+            : ""
+        }
       }
 
       /* STANDARD ACTIONS */
       ${makeAddResultAction()}\n
       ${makeApplySearchPropsAction()}\n
       ${makeCancelLoadAction()}\n
+      ${makeCancelSelectionAction()}\n
       ${makeCustomSetters()}\n
       ${makeDeleteResultsAction()}\n
       ${makeResetAction()}\n
@@ -808,14 +830,6 @@ export const createSearchStore = (def: ModelSearchStore) => {
       ${makeResultGetter()}\n
       ${makeSearchPropsGetter()}\n
     }`;
-};
-
-const getDefaultValue = (prop: ModelDefProperty) => {
-  if (prop.defaultValue)
-    return /^([{\[]|dayjs\(\))/.test(prop.defaultValue)
-      ? `() => ${prop.defaultValue}`
-      : prop.defaultValue;
-  else return prop.required ? "" : "null";
 };
 
 const makeFnAndTypeNames = (modelActions: string[], rawName: string) => {

@@ -267,7 +267,7 @@ export const runImportEntryMigrationQueue = async () => {
     totalCount: copiedEntries,
   });
 
-  socket.emit("onImporterStatusUpdated");
+  socket.emitVolatile("onImporterStatusUpdated");
 
   return true;
 };

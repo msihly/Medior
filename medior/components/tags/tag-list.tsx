@@ -45,8 +45,6 @@ export const TagList = Comp(
     const tags = sortTags(search.value, stores.tag.getCategory);
 
     useEffect(() => {
-      if (!socket?.isConnected) return;
-
       let isActive = true;
 
       const updateTags = (value: TagOption[]) => {
@@ -119,7 +117,7 @@ export const TagList = Comp(
         socket.off("onTagUpdated", onTagUpdated);
         socket.off("onTagsUpdated", onTagsUpdated);
       };
-    }, [socket?.isConnected]);
+    }, []);
 
     return (
       <MultiInputList

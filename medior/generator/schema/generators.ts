@@ -72,16 +72,13 @@ export class ModelDb {
   public makeSchemaType = (type: string) => {
     let schemaType: string;
 
-    if (type.includes("boolean")) schemaType = "Boolean";
-
-    if (type.includes("number")) schemaType = "Number";
-
-    if (type.includes("string")) schemaType = "String";
-
     if (type.includes(".id"))
       schemaType = type.includes("[]")
         ? `{ type: Schema.Types.ObjectId, ref: "${type.split(".")[0]}" }`
         : "Schema.Types.ObjectId";
+    else if (type.includes("string")) schemaType = "String";
+    else if (type.includes("number")) schemaType = "Number";
+    else if (type.includes("boolean")) schemaType = "Boolean";
 
     if (type.startsWith("Array<") || type.endsWith("[]")) schemaType = `[${schemaType}]`;
 

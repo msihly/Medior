@@ -13,6 +13,8 @@ import {
   Pagination,
   RegExOverlapsModal,
   SearchLoadingOverlay,
+  selectAllInView,
+  SelectionButtons,
   TagCard,
   TagFilterMenu,
   Text,
@@ -52,17 +54,15 @@ export const TagManager = Comp(() => {
     }
   };
 
-  const handleCreate = () => stores.tag.editor.setIsOpen(true);
-
   const handleConfirmDelete = async () => {
-    setIsConfirmDeleteOpen(false);
-
     const res = await manager.deleteTags([...store.selectedIds]);
 
     if (!res.success) toast.error(res.error);
 
     return res.success;
   };
+
+  const handleCreate = () => stores.tag.editor.setIsOpen(true);
 
   const handleDelete = () => setIsConfirmDeleteOpen(true);
 
@@ -75,7 +75,7 @@ export const TagManager = Comp(() => {
   const handleKeyPress = (event: KeyboardEvent) => {
     if (matchesHotkey(event, stores.home.settings.hotkeys.tagManager.selectAll)) {
       event.preventDefault();
-      handleSelectAll();
+      selectAllInView({ itemLabel: "tags", store, toast });
     } else {
       if (store.selectedIds.length !== 1) return;
 
@@ -88,34 +88,17 @@ export const TagManager = Comp(() => {
     }
   };
 
-  const handlePageChange = (page: number) => store.loadFiltered({ page });
-
-  const handleSearchWindow = () => openSearchWindow({ tagIds: store.selectedIds });
-
-  const handleSelectAll = () => {
-    store.toggleSelected(store.results.map(({ id }) => ({ id, isSelected: true })));
-    toast.info(`Added ${store.results.length} tags to selection`);
-  };
-
-  const handleSelectAllInQuery = async () => {
-    const res = await store.selectAllInQuery();
-
-    if (!res.success) toast.error("Failed to select all tags");
-    else if (res.data !== null) toast.info(`Selected ${res.data} tags`);
-  };
-
-  const handleSelectNone = () => {
-    store.toggleSelected(store.selectedIds.map((id) => ({ id, isSelected: false })));
-    toast.info("Deselected all tags");
-  };
-
   const handleMinimize = () => manager.setIsMinimized(true);
+
+  const handlePageChange = (page: number) => store.loadFiltered({ page });
 
   const handleRegenerateRegEx = async () => {
     const res = await manager.regenerateRegEx([...store.selectedIds]);
 
     if (!res.success) toast.error(res.error);
   };
+
+  const handleSearchWindow = () => openSearchWindow({ tagIds: store.selectedIds });
 
   return (
     <Modal.Container
@@ -193,24 +176,7 @@ export const TagManager = Comp(() => {
                   onClick={handleFindRegExOverlaps}
                 />
 
-                <MultiActionButton
-                  name="Deselect"
-                  tooltip="Deselect All Tags"
-                  onClick={handleSelectNone}
-                  disabled={hasNoSelection}
-                />
-
-                <MultiActionButton
-                  name="SelectAll"
-                  tooltip="Select All Tags in View"
-                  onClick={handleSelectAll}
-                />
-
-                <MultiActionButton
-                  name="LibraryAddCheck"
-                  tooltip="Select All Tags in Query"
-                  onClick={handleSelectAllInQuery}
-                />
+                <SelectionButtons itemLabel="tags" store={store} toast={toast} />
               </View>
             </UniformList>
           }

@@ -228,7 +228,7 @@ export class MediaProgramEditorStore extends Model({
 
     if (!file) throw new Error("Episode no longer exists.");
 
-    await openCarouselWindow({ file, selectedFileIds: episodeIds });
+    openCarouselWindow({ file, selectedFileIds: episodeIds });
   });
 
   @modelFlow

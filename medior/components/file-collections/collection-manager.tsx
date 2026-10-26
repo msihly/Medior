@@ -18,7 +18,7 @@ import {
   UniformList,
   View,
 } from "medior/components";
-import { useStores } from "medior/store";
+import { SELECTED_FILES_PAGE_SIZE, useStores } from "medior/store";
 import { colors, toast, useCancellableLoad } from "medior/utils/client";
 import {
   CollectionFilterMenu,
@@ -253,7 +253,7 @@ export const FileCollectionManager = Comp(() => {
 
             <Pagination
               inline
-              count={Math.ceil(selectedFileIds.length / 3)}
+              count={Math.ceil(selectedFileIds.length / SELECTED_FILES_PAGE_SIZE)}
               page={store.selectedFilesPage}
               onChange={handleSelectedFilesPage}
             />
@@ -359,7 +359,7 @@ export const FileCollectionManager = Comp(() => {
             <View flex={1} position="relative" overflow="hidden">
               <SearchLoadingOverlay
                 store={store.search}
-                isLoading={!load.isLoading && store.search.isLoading}
+                isLoading={!load.isLoading && (store.search.isLoading || store.search.isSelecting)}
               />
 
               <View ref={collsRef} column height="100%" spacing="0.5rem" overflow="auto">

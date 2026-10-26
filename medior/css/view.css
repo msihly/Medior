@@ -42,10 +42,10 @@ body {
 ::-webkit-scrollbar-thumb {
   background: rgb(50, 50, 50);
   border-radius: 6px;
-  transition: "all 200ms ease-in-out";
+  transition: all 200ms ease-in-out;
 }
 
 ::-webkit-scrollbar-thumb:hover {
   background: rgb(75, 75, 75);
-  transition: "all 200ms ease-in-out";
+  transition: all 200ms ease-in-out;
 }

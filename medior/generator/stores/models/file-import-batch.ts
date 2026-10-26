@@ -3,6 +3,7 @@ import { ModelStore } from "medior/generator/stores/generators";
 const model = new ModelStore("FileImportBatch", {
   defaultPageSize: "() => getConfig().imports.manager.search.pageSize",
   defaultSort: "() => getConfig().imports.manager.search.sort",
+  withChangeTracking: true,
   withTags: true,
 });
 
@@ -38,7 +39,7 @@ model.addProp("isCompleted", "boolean", "false", {
   objValue: "args.isCompleted",
 });
 
-model.addProp("statuses", "string[]", "() => []", {
+model.addProp("statuses", "Types.ImportStatus[]", "() => []", {
   objPath: ["imports", "$elemMatch", "status", "$in"],
   objValue: "args.statuses",
 });

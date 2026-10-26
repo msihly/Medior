@@ -63,6 +63,13 @@ export const Image = ({
   thumbs,
   title,
 }: ImageProps) => {
+  const [hasError, setHasError] = useState(false);
+  const [imagePos, setImagePos] = useState<string>("center");
+  const [isHovered, setIsHovered] = useState(false);
+  const [repairedThumb, setRepairedThumb] = useState<FileSchema["thumb"]>();
+  const [thumbIndex, setThumbIndex] = useState(0);
+  const [videoPosIndex, setVideoPosIndex] = useState(1);
+
   const containerRef = useRef<HTMLDivElement>(null);
   const isRepairingThumbnail = useRef(false);
   /** The server asked to retry later, such as while the file is locked or indexes are building. */
@@ -71,23 +78,35 @@ export const Image = ({
   const repairReadinessRevision = useRef(0);
   const repairRevision = useRef(0);
 
-  const [hasError, setHasError] = useState(false);
-  const [imagePos, setImagePos] = useState<string>("center");
-  const [isHovered, setIsHovered] = useState(false);
-  const [repairedThumb, setRepairedThumb] = useState<FileSchema["thumb"]>();
-  const [thumbIndex, setThumbIndex] = useState(0);
-  const [videoPosIndex, setVideoPosIndex] = useState(1);
+  const containerDims = useElementResize(containerRef);
+  const isVisible = useLazyLoad(containerRef);
 
   const sourceThumb = thumbs?.[thumbIndex] ?? thumb;
   const curThumb = repairedThumb ?? sourceThumb;
   const isAnimated = curThumb?.frameHeight > 0 && curThumb?.frameWidth > 0;
   const scaled = isAnimated ? getScaledThumbSize(curThumb.frameWidth, curThumb.frameHeight) : null;
   const videoPos = isAnimated ? VIDEO_POSITIONS[videoPosIndex] : null;
-
-  const containerDims = useElementResize(containerRef);
-  const isVisible = useLazyLoad(containerRef);
-
   const shouldAnimate = isVisible && !hasError && (autoAnimate || isHovered);
+  const thumbScale =
+    scaled && containerDims
+      ? Math.max(
+          1,
+          scaled.height > scaled.width
+            ? containerDims.height / scaled.height
+            : containerDims.width / scaled.width,
+        )
+      : undefined;
+
+  const { css, cx } = useClasses({
+    blur,
+    fit,
+    height: scaled?.height ?? height,
+    isAnimated,
+    objectPosition: fit === "cover" || isAnimated ? (isAnimated ? videoPos : imagePos) : undefined,
+    rounded,
+    scale: thumbScale,
+    width: scaled?.width,
+  });
 
   useEffect(() => {
     isRepairingThumbnail.current = false;
@@ -100,14 +119,6 @@ export const Image = ({
       repairRevision.current++;
     };
   }, [fileId, sourceThumb?.path]);
-
-  const resumeThumbnailRepair = () => {
-    if (isRepairWaiting.current) {
-      isRepairWaiting.current = false;
-      repairAttempted.current = false;
-      setHasError(false);
-    }
-  };
 
   useEffect(() => {
     const handleReady = () => {
@@ -148,29 +159,6 @@ export const Image = ({
       setImagePos("center");
     }
   }, [isVisible]);
-
-  const getThumbScale = () => {
-    if (!scaled || !containerDims) return;
-
-    const isVertical = scaled.height > scaled.width;
-
-    const scaleFactor = isVertical
-      ? containerDims.height / scaled.height
-      : containerDims.width / scaled.width;
-
-    return Math.max(1, scaleFactor);
-  };
-
-  const { css, cx } = useClasses({
-    blur,
-    fit,
-    height: scaled?.height ?? height,
-    isAnimated,
-    objectPosition: fit === "cover" || isAnimated ? (isAnimated ? videoPos : imagePos) : undefined,
-    rounded,
-    scale: getThumbScale(),
-    width: scaled?.width,
-  });
 
   useEffect(() => {
     const timeout =
@@ -251,6 +239,14 @@ export const Image = ({
       setImagePos(
         `${(Math.max(0, offsetX) / width) * 100}% ${(Math.max(0, offsetY) / height) * 100}%`,
       );
+  };
+
+  const resumeThumbnailRepair = () => {
+    if (isRepairWaiting.current) {
+      isRepairWaiting.current = false;
+      repairAttempted.current = false;
+      setHasError(false);
+    }
   };
 
   return (

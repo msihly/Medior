@@ -1,4 +1,5 @@
 import { MouseEvent, useEffect, useRef, useState } from "react";
+import { fromSnapshot, SnapshotOutOf } from "mobx-keystone";
 import {
   Button,
   Card,
@@ -15,7 +16,7 @@ import {
   View,
 } from "medior/components";
 import { File, FileCollection as FileCollectionModel, useStores } from "medior/store";
-import { colors, toast } from "medior/utils/client";
+import { colors, derefMobx, toast } from "medior/utils/client";
 import { makeTagSelector } from "medior/utils/common";
 import { trpc } from "medior/utils/server";
 import { useCollectionMerge } from "./hooks";
@@ -44,6 +45,10 @@ const getSelectableIds = (group?: RelatedGroup, selectedBaseId?: string) => {
   return group.collections.filter(({ id }) => id !== baseId).map(({ id }) => id);
 };
 
+/** Builds new file models, since each model instance can belong to only one store tree. */
+const makeFileEntries = (files: SnapshotOutOf<File>[]) =>
+  files.map((file) => [file.id, fromSnapshot<File>(file)] as const);
+
 export interface RelatedCollectionsQueueProps {
   onClose: () => void;
 }
@@ -51,12 +56,6 @@ export interface RelatedCollectionsQueueProps {
 export const RelatedCollectionsQueue = Comp(({ onClose }: RelatedCollectionsQueueProps) => {
   const stores = useStores();
   const store = stores.collection.manager;
-
-  const collectionLoadId = useRef(0);
-  const managerFiles = useRef(new Map(store.search.files));
-  const managerSelectedIds = useRef([...store.search.selectedIds]);
-  const matchesRef = useRef<HTMLDivElement>(null);
-  const queueLoadId = useRef(0);
 
   const [baseId, setBaseId] = useState("");
   const [groupIndex, setGroupIndex] = useState(0);
@@ -68,8 +67,16 @@ export const RelatedCollectionsQueue = Comp(({ onClose }: RelatedCollectionsQueu
   const [isLoading, setIsLoading] = useState(true);
   const [loadedCollections, setLoadedCollections] = useState<FileCollectionModel[]>([]);
   const [lookupError, setLookupError] = useState("");
+  const [managerFiles] = useState<SnapshotOutOf<File>[]>(() =>
+    [...store.search.files.values()].map((file) => derefMobx(file)),
+  );
   const [minCommonPercentage, setMinCommonPercentage] = useState(50);
   const [resultPage, setResultPage] = useState(1);
+
+  const collectionLoadId = useRef(0);
+  const managerSelectedIds = useRef([...store.search.selectedIds]);
+  const matchesRef = useRef<HTMLDivElement>(null);
+  const queueLoadId = useRef(0);
 
   const group = groups[groupIndex];
   const defaultBaseEntry = group
@@ -124,7 +131,8 @@ export const RelatedCollectionsQueue = Comp(({ onClose }: RelatedCollectionsQueu
   useEffect(() => {
     return () => {
       collectionLoadId.current += 1;
-      store.search.setFiles(managerFiles.current);
+      queueLoadId.current += 1;
+      store.search.setFiles(new Map(makeFileEntries(managerFiles)));
       store.search.setSelectedIds(managerSelectedIds.current);
     };
   }, []);
@@ -172,7 +180,7 @@ export const RelatedCollectionsQueue = Comp(({ onClose }: RelatedCollectionsQueu
 
       store.search.setFiles(
         new Map([
-          ...managerFiles.current,
+          ...makeFileEntries(managerFiles),
           ...filesRes.data.items.map((file) => [file.id, new File(file)] as const),
         ]),
       );
@@ -314,9 +322,11 @@ export const RelatedCollectionsQueue = Comp(({ onClose }: RelatedCollectionsQueu
       </View>
 
       <View column flex={1} position="relative" overflow="hidden" spacing="0.3rem">
-        <Text preset="title" padding="0 0.5rem">
-          {`Matches - ${foundEntries.length}`}
-        </Text>
+        <View row align="center" spacing="0.5rem" padding={{ all: "0 0.5rem" }}>
+          <Text preset="title">{"Matches"}</Text>
+
+          <Chip label={foundEntries.length} height="1.5em" />
+        </View>
 
         <View column flex={1} spacing="0.5rem" overflow="hidden auto" ref={matchesRef}>
           {pagedEntries.map((entry) => {

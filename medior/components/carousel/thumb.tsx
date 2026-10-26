@@ -1,7 +1,6 @@
 import { Comp, FileBase } from "medior/components";
 import { useStores } from "medior/store";
-import { colors } from "medior/utils/client";
-import { CONSTANTS, Fmt } from "medior/utils/common";
+import { CONSTANTS } from "medior/utils/common";
 
 interface CarouselThumbProps {
   id: string;
@@ -28,12 +27,7 @@ export const CarouselThumb = Comp(({ id, isDragging = false, style }: CarouselTh
       width={CONSTANTS.CAROUSEL.THUMB_NAV.WIDTH}
       style={style}
     >
-      <FileBase.Chip
-        label={file?.rating}
-        icon="Star"
-        iconColor={colors.custom.orange}
-        position="top-left"
-      />
+      {file && <FileBase.RatingChip position="top-left" rating={file.rating} />}
 
       <FileBase.Image
         thumb={file?.thumb}
@@ -44,9 +38,7 @@ export const CarouselThumb = Comp(({ id, isDragging = false, style }: CarouselTh
 
       <FileBase.Chip label={file?.ext} position="top-right" />
 
-      {file?.duration && (
-        <FileBase.Chip label={Fmt.duration(file.duration)} position="bottom-right" />
-      )}
+      {file && <FileBase.Duration position="bottom-right" file={file} />}
     </FileBase.Container>
   );
 });

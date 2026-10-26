@@ -68,11 +68,11 @@ const emitJob = (job: RunningJob, isFinal = false) => {
   if (isFinal) {
     clearTimeout(job.emitTimer);
     job.emitTimer = null;
-    socket.emitReliable("onJobUpdated", getJobState(job));
+    socket.emit("onJobUpdated", getJobState(job));
   } else
     job.emitTimer ??= setTimeout(() => {
       job.emitTimer = null;
-      socket.emitReliable("onJobUpdated", getJobState(job));
+      socket.emit("onJobUpdated", getJobState(job));
     }, 250);
 };
 

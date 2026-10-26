@@ -2,17 +2,12 @@ import { Comp, Detail, Text, UniformList, View } from "medior/components";
 import { FileTransform } from "medior/store";
 import { Fmt, round } from "medior/utils/common";
 import { DuplicateReview } from "./duplicate-review";
-import { InputOutputRow } from "./input-output-row";
+import { getDetailLabelProps, InputOutputRow } from "./input-output-row";
 
 export const TransformDetails = Comp(
   ({ transform, compact = false }: { compact?: boolean; transform: FileTransform }) => {
     const outputSize = transform.afterSize ?? transform.progressSize;
-
-    const detailLabelProps = {
-      alignSelf: "center",
-      fontSize: compact ? "0.9em" : "1em",
-      width: compact ? "5rem" : "6rem",
-    } as const;
+    const detailLabelProps = getDetailLabelProps(compact);
 
     return (
       <View column spacing={compact ? "0.35rem" : "0.8rem"} overflow="visible">

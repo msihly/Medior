@@ -4,6 +4,7 @@ const model = new ModelStore("Tag", {
   defaultPageSize: "() => getConfig().tags.manager.search.pageSize",
   defaultSort: "() => getConfig().tags.manager.search.sort",
   transformResultsFn: "await trpc.deriveTagCategories.mutate(items)",
+  withChangeTracking: true,
 });
 
 model.addTagOptsProp("_id", "ancestorIds");
@@ -59,12 +60,6 @@ model.addProp("label", "string", '""', {
   filterGroup: "label",
   objPath: ["label", "$regex"],
   objValue: "args.label",
-});
-
-model.addProp("title", "string", '""', {
-  filterGroup: "title",
-  objPath: ["title", "$regex"],
-  objValue: "args.title",
 });
 
 export const MODEL_SEARCH_STORE_TAG = model.getModel();

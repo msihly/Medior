@@ -1,8 +1,9 @@
 import autoBind from "auto-bind";
+import { computed } from "mobx";
 import { Model, model, modelAction, ModelCreationData, modelFlow, prop } from "mobx-keystone";
 import { SortMenuProps } from "medior/components";
 import { File, FileSearch, Tag } from "medior/store";
-import { asyncAction, toast } from "medior/utils/client";
+import { asyncAction, derefMobx, toast } from "medior/utils/client";
 import { isDeepEqual } from "medior/utils/common";
 import { getConfig, trpc } from "medior/utils/server";
 import { FileCollection } from ".";
@@ -43,6 +44,16 @@ export class CollectionEditor extends Model({
     this.fileSearch.cancelLoad();
   }
 
+  /** Resets the collection's file search to the editor's configured page size and sort. */
+  @modelAction
+  resetSearch() {
+    const config = getConfig().collection.editor.search;
+
+    this.search.reset();
+    this.search.setPageSize(config.pageSize);
+    this.search.setSortValue(config.sort);
+  }
+
   @modelAction
   setIsOpen(isOpen: boolean) {
     this.cancelLoad();
@@ -50,13 +61,9 @@ export class CollectionEditor extends Model({
 
     if (!isOpen) this.setCollection(null);
 
-    const config = getConfig().collection.editor;
-
     this.fileSearch.reset();
-    this.fileSearch.setPageSize(config.fileSearch.pageSize);
-    this.search.reset();
-    this.search.setPageSize(config.search.pageSize);
-    this.search.setSortValue(config.search.sort);
+    this.fileSearch.setPageSize(getConfig().collection.editor.fileSearch.pageSize);
+    this.resetSearch();
   }
 
   /**
@@ -92,9 +99,7 @@ export class CollectionEditor extends Model({
 
   @modelAction
   updateFiles(fileIds: string[], updates: Partial<ModelCreationData<File>>) {
-    const filesById = new Map(this.search.results.map((file) => [file.id, file]));
-
-    fileIds.forEach((id) => filesById.get(id)?.update?.(updates));
+    fileIds.forEach((id) => this.search.getResult(id)?.update(updates));
   }
 
   /* ------------------------------ ASYNC ACTIONS ----------------------------- */
@@ -134,7 +139,7 @@ export class CollectionEditor extends Model({
 
       if (this.fileSearch.cachedFilterProps)
         this.fileSearch.setCachedFilterProps({
-          ...this.fileSearch.cachedFilterProps,
+          ...derefMobx(this.fileSearch.cachedFilterProps),
           excludedFileIds: [...orderedIds],
         });
 
@@ -197,7 +202,7 @@ export class CollectionEditor extends Model({
     }
 
     if (id === null) {
-      this.search.reset();
+      this.resetSearch();
 
       return false;
     }
@@ -379,7 +384,7 @@ export class CollectionEditor extends Model({
         }
 
         if (fileIndexes.some((file, index) => file.fileId !== this.fileIndexes[index].fileId)) {
-          this.setFileIndexes(fileIndexes.map((file, index) => ({ ...file, index })));
+          this.setFileIndexes(fileIndexes.map(({ fileId }, index) => ({ fileId, index })));
           this.search.setIds(fileIndexes.map(({ fileId }) => fileId));
           this.setHasUnsavedChanges(true);
 
@@ -500,20 +505,28 @@ export class CollectionEditor extends Model({
     }
   });
 
-  /* --------------------------------- DYNAMIC GETTERS -------------------------------- */
-  getFileById(id: string) {
-    return this.search.results.find((f) => f.id === id);
-  }
-
-  getFileIdsForCarousel() {
+  /* --------------------------------- GETTERS -------------------------------- */
+  @computed
+  get carouselFileIds() {
     return this.fileIndexes.map((f) => f.fileId);
   }
 
+  @computed
+  private get indexesById() {
+    return new Map(this.fileIndexes.map((f) => [f.fileId, f.index]));
+  }
+
+  @computed
+  private get originalIndexesById() {
+    return new Map(this.collection?.fileIdIndexes.map((f) => [f.fileId, f.index]));
+  }
+
+  /* --------------------------------- DYNAMIC GETTERS -------------------------------- */
   getIndexById(id: string) {
-    return this.fileIndexes.find((f) => f.fileId === id)?.index;
+    return this.indexesById.get(id);
   }
 
   getOriginalIndex(id: string) {
-    return this.collection?.fileIdIndexes.find((f) => f.fileId === id)?.index;
+    return this.originalIndexesById.get(id);
   }
 }

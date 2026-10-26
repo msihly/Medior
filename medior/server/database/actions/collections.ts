@@ -52,7 +52,7 @@ const updateFileCollectionIds = async (
     }
 
     for (const { collectionIds, fileIds } of groups.values())
-      socket.emit("onFilesUpdated", { fileIds, updates: { collectionIds } });
+      socket.emitVolatile("onFilesUpdated", { fileIds, updates: { collectionIds } });
   }
 };
 
@@ -88,11 +88,9 @@ const dedupeFileIdIndexes = (fileIdIndexes: { fileId: string; index: number }[])
       if (!fileId) return false;
 
       const id = fileId.toString();
-
       if (seenFileIds.has(id)) return false;
 
       seenFileIds.add(id);
-
       return true;
     })
     .sort((a, b) => a.index - b.index)
@@ -113,7 +111,8 @@ const getMergedFileIdIndexes = (
     ),
   );
 
-const getMergeRatingSource = <T extends { rating: number; ratingIsManual?: boolean }>(
+// @generator-ignore-export
+export const getMergeRatingSource = <T extends { rating: number; ratingIsManual?: boolean }>(
   collections: T[],
 ) =>
   collections.find(({ ratingIsManual }) => ratingIsManual) ??
@@ -253,7 +252,7 @@ const writeCollectionMetadata = async (
     if (result.matchedCount !== updates.length) return false;
   }
 
-  for (const update of updates) socket.emit("onFileCollectionUpdated", update);
+  for (const update of updates) socket.emitVolatile("onFileCollectionUpdated", update);
 
   await actions.regenMediaProgramsByCollectionIds(updates.map(({ id }) => id));
 
@@ -433,7 +432,7 @@ export const createCollection = makeAction(
         deduped.map(({ fileId }) => fileId),
       );
 
-      if (args.withSub) socket.emit("onFileCollectionCreated", res);
+      if (args.withSub) socket.emitVolatile("onFileCollectionCreated", res);
 
       return { ...collection, id: res._id.toString() };
     },
@@ -645,7 +644,7 @@ export const deleteCollections = makeAction(
 
     await removeFileCollectionIds(args.ids);
 
-    if (res.deletedCount) socket.emit("onFileCollectionsDeleted", args);
+    if (res.deletedCount) socket.emitVolatile("onFileCollectionsDeleted", args);
 
     return res;
   }),
@@ -1140,44 +1139,75 @@ export const repairCollections = makeAction(
       if (syncFileMembership) {
         report("Synchronizing each file's collection membership from current collections.");
 
-        await repairMetadata(
-          models.FileModel.find().select({ _id: 1 }).sort({ _id: 1 }).lean().cursor(),
-          async (candidate) => {
-            checkCancelled();
+        /** Streams the library's file ids in batches, so they never load all at once. */
+        const listFileIdBatches = async function* () {
+          let batch: mongoose.Types.ObjectId[] = [];
 
-            const file = await models.FileModel.findById(candidate._id)
-              .select({ collectionIds: 1 })
-              .lean();
+          for await (const { _id } of models.FileModel.find()
+            .select({ _id: 1 })
+            .sort({ _id: 1 })
+            .lean()
+            .cursor()) {
+            batch.push(_id);
 
-            if (!file) return;
+            if (batch.length === 1000) {
+              yield batch;
+              batch = [];
+            }
+          }
 
-            const collectionIds = (
-              await models.FileCollectionModel.find({ "fileIdIndexes.fileId": file._id })
-                .select({ _id: 1 })
-                .lean()
-            )
-              .map(({ _id }) => String(_id))
-              .sort();
+          if (batch.length) yield batch;
+        };
 
-            if (
+        await repairMetadata(listFileIdBatches(), async (fileIds) => {
+          checkCancelled();
+
+          const files = await models.FileModel.find({ _id: { $in: fileIds } })
+            .select({ collectionIds: 1 })
+            .lean();
+
+          const collections = await models.FileCollectionModel.find({
+            "fileIdIndexes.fileId": { $in: fileIds },
+          })
+            .select({ "fileIdIndexes.fileId": 1 })
+            .lean();
+
+          const collectionIdsByFileId = new Map<string, Set<string>>(
+            files.map((file) => [String(file._id), new Set<string>()]),
+          );
+
+          for (const collection of collections) {
+            for (const { fileId } of collection.fileIdIndexes)
+              collectionIdsByFileId.get(String(fileId))?.add(String(collection._id));
+          }
+
+          const changedFiles = files.flatMap((file) => {
+            const collectionIds = [...collectionIdsByFileId.get(String(file._id))].sort();
+            const isUnchanged =
               file.collectionIds &&
-              [...file.collectionIds].map(String).sort().join(",") === collectionIds.join(",")
-            )
-              return;
+              [...file.collectionIds].map(String).sort().join(",") === collectionIds.join(",");
 
-            await models.FileModel.updateOne(
-              { _id: file._id },
-              { $set: { collectionIds: objectIds(collectionIds) } },
+            return isUnchanged ? [] : [{ collectionIds, id: file._id }];
+          });
+
+          if (changedFiles.length)
+            await models.FileModel.bulkWrite(
+              changedFiles.map(({ collectionIds, id }) => ({
+                updateOne: {
+                  filter: { _id: id },
+                  update: { $set: { collectionIds } },
+                },
+              })),
             );
 
-            socket.emit("onFilesUpdated", {
-              fileIds: [String(file._id)],
+          for (const { collectionIds, id } of changedFiles)
+            socket.emitVolatile("onFilesUpdated", {
+              fileIds: [String(id)],
               updates: { collectionIds },
             });
 
-            checkCancelled();
-          },
-        );
+          checkCancelled();
+        });
       }
 
       report(
@@ -1194,7 +1224,9 @@ export const updateCollection = makeAction(
   registerMetadataWork(
     "updateCollection",
     async (updates: Omit<Partial<models.FileCollectionSchema>, "tagIds"> & { id: string }) => {
-      const coll = await models.FileCollectionModel.findOne({ _id: updates.id });
+      const coll = await models.FileCollectionModel.findOne({ _id: updates.id })
+        .select({ ratingIsManual: 1 })
+        .lean();
 
       if (!coll) throw new Error("Collection not found");
 
@@ -1234,7 +1266,7 @@ export const updateCollection = makeAction(
         if (!queued.success) throw new Error(queued.error);
       }
 
-      socket.emit("onFileCollectionUpdated", { id: updates.id, updates });
+      socket.emitVolatile("onFileCollectionUpdated", { id: updates.id, updates });
 
       // Queued collection regens update their programs; manual ratings skip that queue.
       if (updates.rating !== undefined)

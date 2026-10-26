@@ -30,7 +30,7 @@ const flushUpdates = () => {
   pendingUpdates.clear();
 
   for (const [label, fileIds] of fileIdsByLabel)
-    socket.emitReliable("onFileLocksUpdated", { fileIds, label });
+    socket.emit("onFileLocksUpdated", { fileIds, label });
 };
 
 const queueUpdates = (fileIds: string[], label: string | null) => {

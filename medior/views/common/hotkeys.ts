@@ -1,24 +1,44 @@
-import { KeyboardEvent, MutableRefObject, useMemo } from "react";
+import { KeyboardEvent, MutableRefObject, useMemo, useState } from "react";
 import FilePlayer from "react-player/file";
+import { selectAllInView } from "medior/components";
 import { useStores } from "medior/store";
 import { persistNotification, toast, Toaster } from "medior/utils/client";
 import { dayjs, Fmt, getHotkeyRating, matchesHotkey, round, throttle } from "medior/utils/common";
 
 export interface UseHotkeysProps {
+  embedded?: boolean;
   rootRef?: MutableRefObject<HTMLElement>;
   videoRef?: MutableRefObject<FilePlayer>;
   view: "carousel" | "collectionEditor" | "home" | "search";
 }
 
-export const useHotkeys = ({ rootRef, videoRef, view }: UseHotkeysProps) => {
+export const useHotkeys = ({ embedded = false, rootRef, videoRef, view }: UseHotkeysProps) => {
   const stores = useStores();
   const store = stores.carousel;
 
+  const [toaster] = useState(() => new Toaster());
+
   const activeFileId = store.activeFileId;
-  const toaster = new Toaster();
 
   const handleKeyPress = async (event: KeyboardEvent) => {
+    /**
+     * The carousel listens at its root, so keys pressed in its modals bubble up through portals.
+     * Embedded in the Collection Triager, it sits inside the manager and renders only tag modals.
+     */
+    const isCarouselModalOpen =
+      view === "carousel" &&
+      ((stores.tag.manager.isOpen && !stores.tag.manager.isMinimized) ||
+        stores.tag.manager.isMultiTagEditorOpen ||
+        (!embedded &&
+          (stores._getIsBlockingModalOpen() ||
+            stores.collection.isConfirmDeleteOpen ||
+            stores.file.exporter.isOpen ||
+            (stores.file.isActionRunning && !stores.file.isActionMinimized) ||
+            stores.file.isConfirmDeleteOpen ||
+            stores.file.isInfoModalOpen)));
+
     if (
+      isCarouselModalOpen ||
       stores.file.tagsEditor.isOpen ||
       stores.tag.editor.isOpen ||
       stores.tag.subEditor.isOpen ||
@@ -42,10 +62,8 @@ export const useHotkeys = ({ rootRef, videoRef, view }: UseHotkeysProps) => {
 
     event.preventDefault();
 
-    if (isSelectAll) {
-      searchStore.toggleSelected(searchStore.results.map(({ id }) => ({ id, isSelected: true })));
-      toast.info(`Added ${searchStore.results.length} files to selection`);
-    } else if (isOneFileSelected) {
+    if (isSelectAll) selectAllInView({ itemLabel: "files", store: searchStore, toast });
+    else if (isOneFileSelected) {
       if (matchesHotkey(event, hotkeys.fileInfo)) {
         stores.file.setActiveFileId(fileIds[0]);
         stores.file.setIsInfoModalOpen(true);
@@ -108,7 +126,6 @@ export const useHotkeys = ({ rootRef, videoRef, view }: UseHotkeysProps) => {
     }
 
     if (matchesHotkey(event, hotkeys.editTags)) {
-      stores.file.tagsEditor.setBatchId(null);
       stores.file.tagsEditor.setFileIds(fileIds);
       stores.file.tagsEditor.setIsOpen(true);
     }

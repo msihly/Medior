@@ -24,6 +24,7 @@ import {
   AUDIO_SIMILARITY_LAYER_OPTIONS,
   AUDIO_SIMILARITY_MODELS,
   DEV_TOOLS_MODES,
+  getConfig,
   loadConfig,
   SIMILARITY_DEVICE_OPTIONS,
   TRANSCRIPTION_MODELS,
@@ -84,6 +85,8 @@ export const SettingsModal = Comp(() => {
 
   const handleClose = async () => {
     load.cancel();
+    if (store.hasUnsavedChanges) stores.applyConfig(getConfig());
+
     store.setIsOpen(false);
     store.setHasUnsavedChanges(false);
 
@@ -749,6 +752,7 @@ export const SettingsModal = Comp(() => {
                         configKey="imports.folderToCollMode"
                         checked={store.imports.folderToCollMode === "withTag"}
                         setChecked={store.toggleFolderToCollMode}
+                        disabled={isFolderToCollectionOff}
                       />
 
                       <View row align="center" spacing="0.5rem">

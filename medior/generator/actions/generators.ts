@@ -1,6 +1,6 @@
 import { MODEL_DEFS } from "medior/generator/schema/models";
 import { MODEL_SEARCH_STORE_DEFS } from "medior/generator/stores/models";
-import { parseExportsFromIndex, ROOT_PATH } from "medior/generator/utils";
+import { makeServerEndpointDefs, parseExportsFromIndex, ROOT_PATH } from "medior/generator/utils";
 import { Fmt } from "medior/utils/common";
 
 const MODEL_ACTIONS = ["create", "delete", "list", "update"];
@@ -8,7 +8,7 @@ const MODEL_ACTIONS = ["create", "delete", "list", "update"];
 /* -------------------------------------------------------------------------- */
 /*                                   ACTIONS                                  */
 /* -------------------------------------------------------------------------- */
-export const getActions = async () => {
+const loadActions = async () => {
   const customActions = await parseExportsFromIndex(
     `${ROOT_PATH}/server/database/actions/index.ts`,
   );
@@ -25,13 +25,21 @@ export const getActions = async () => {
   };
 };
 
+let actionsLoad: ReturnType<typeof loadActions> = null;
+
+/** Parses the custom actions once per generator run. */
+export const getActions = () => {
+  actionsLoad ??= loadActions();
+  return actionsLoad;
+};
+
 const makeFnAndTypeNames = (rawName: string, actions: { custom: string[]; model: string[] }) => {
   const prefix = actions.custom.includes(rawName) ? "_" : "";
 
   return { fnName: `${prefix}${rawName}`, typeName: `${prefix}${Fmt.capitalize(rawName)}Input` };
 };
 
-export const makeActionsDef = async (
+export const makeActionsDef = (
   modelDef: ModelDef,
   actions: { custom: string[]; model: string[] },
 ) => {
@@ -65,7 +73,7 @@ export const makeActionsDef = async (
         const res = await new models.${modelDef.name}Model(model).save(metadataWriteOptions());
         const created = { ...model, id: res._id.toString() };
 
-        socket.emit("on${modelDef.name}Created", created, socketOpts);
+        socket.emitVolatile("on${modelDef.name}Created", created, socketOpts);
 
         return created;
       }${usesMetadataWork(fnName) ? ")" : ""});`;
@@ -98,7 +106,7 @@ export const makeActionsDef = async (
 
         const created = { ...model, id };
 
-        socket.emit("on${modelDef.name}Created", created, socketOpts);
+        socket.emitVolatile("on${modelDef.name}Created", created, socketOpts);
 
         return created;
       }${usesMetadataWork(fnName) ? ")" : ""});`;
@@ -119,13 +127,13 @@ export const makeActionsDef = async (
 
         if (!deleted.success) throw new Error(deleted.error);
 
-        socket.emit("on${modelDef.name}Deleted", args, socketOpts);
+        socket.emitVolatile("on${modelDef.name}Deleted", args, socketOpts);
       }${usesMetadataWork(fnName) ? ")" : ""});`;
     else if (modelDef.name !== "FileCollection")
       return `${makeFnPrefix(fnName, typeName)}
         await models.${modelDef.name}Model.deleteMany({ _id: { $in: args.ids } }, metadataWriteOptions());
 
-        socket.emit("on${modelDef.name}Deleted", args, socketOpts);
+        socket.emitVolatile("on${modelDef.name}Deleted", args, socketOpts);
       }${usesMetadataWork(fnName) ? ")" : ""});`;
     else
       return `${makeFnPrefix(fnName, typeName)}
@@ -133,7 +141,7 @@ export const makeActionsDef = async (
 
         await removeFileCollectionIds(args.ids);
 
-        socket.emit("on${modelDef.name}Deleted", args, socketOpts);
+        socket.emitVolatile("on${modelDef.name}Deleted", args, socketOpts);
       }${usesMetadataWork(fnName) ? ")" : ""});`;
   };
 
@@ -189,7 +197,7 @@ export const makeActionsDef = async (
           ).lean()
         );
 
-        socket.emit("on${modelDef.name}Updated", { id: args.id, updates }, socketOpts);
+        socket.emitVolatile("on${modelDef.name}Updated", { id: args.id, updates }, socketOpts);
 
         return updated;
       }${usesMetadataWork(fnName) ? ")" : ""});`;
@@ -256,7 +264,7 @@ export const makeActionsDef = async (
             : ""
         }
 
-        socket.emit("on${modelDef.name}Updated", ${withDateModified ? "{ ...args, updates }" : "args"}, socketOpts);
+        socket.emitVolatile("on${modelDef.name}Updated", ${withDateModified ? "{ ...args, updates }" : "args"}, socketOpts);
 
         return updated;
       }${modelDef.name === "File" ? ", { getFileIds: ({ args }) => [args.id] })" : usesMetadataWork(fnName) ? ")" : ""});`;
@@ -269,7 +277,7 @@ export const makeActionsDef = async (
     ${makeUpdateFn()}`;
 };
 
-export const makeSearchActionsDef = async (
+export const makeSearchActionsDef = (
   def: ModelSearchStore,
   actions: { custom: string[]; model: string[] },
 ) => {
@@ -278,7 +286,7 @@ export const makeSearchActionsDef = async (
 
   const filterFn = makeFnAndTypeNames(`create${def.name}FilterPipeline`, actions);
 
-  const props = def.props.sort((a, b) => a.name.localeCompare(b.name));
+  const props = [...def.props].sort((a, b) => a.name.localeCompare(b.name));
 
   const defaultProps = props.filter(
     (prop) =>
@@ -616,13 +624,7 @@ export const makeServerRouter = async () => {
       .sort()
       .join(",");
 
-  return `export const trpc = initTRPC.create();\n
-    /** All resources defined as mutation to deal with max length URLs in GET requests.
-     *  @see https://github.com/trpc/trpc/discussions/1936
-     */
-    export const serverEndpoint = <Input, Output>(fn: (input: Input) => Promise<Output>) =>
-      trpc.procedure.input((input: Input) => input).mutation(({ input }) => fn(input));
-
+  return `${makeServerEndpointDefs()}\n
     export const serverRouter = trpc.router({
       /** Model actions */
       ${makeModelEndpoints()},
@@ -644,27 +646,6 @@ export const makeCustomActionTypes = (customActions: string[]) =>
        export type ${Fmt.capitalize(action)}Output = ReturnType<typeof db.${action}>;`,
     )
     .join("\n\n");
-
-export const makeFilterQueryType = () =>
-  `export type _FilterQuery<Schema> = {
-    [SchemaKey in keyof Schema]?:
-      | Schema[SchemaKey]
-      | Array<Schema[SchemaKey]>
-      | QuerySelector<Schema[SchemaKey]>;
-  } & {
-    _id?: string | Array<string> | QuerySelector<string>;
-    $and?: Array<_FilterQuery<Schema>>;
-    $comment?: string;
-    $nor?: Array<_FilterQuery<Schema>>;
-    $or?: Array<_FilterQuery<Schema>>;
-    $text?: {
-      $caseSensitive?: boolean;
-      $diacriticSensitive?: boolean;
-      $language?: string;
-      $search: string;
-    };
-    $where?: string | Function;
-  };`;
 
 export const makeModelActionTypes = (modelName: string, uniqueTypeNames: string[]) => {
   const schemaName = `${modelName}Schema`;

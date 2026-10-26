@@ -91,21 +91,19 @@ export class HomeStore extends Model({
 
   /**
    * Calls back once with the job's final state, even when it ended before being followed. Each
-   * job is followed once; later calls are ignored.
+   * job is followed once; later calls are ignored. `onFollow` runs only when following starts,
+   * before `onFinish`.
    */
-  followJob(id: string, onFinish: (job: JobState) => void) {
+  followJob(id: string, onFinish: (job: JobState) => void, onFollow?: () => void) {
     if (this.followedJobIds.has(id)) return;
 
     const finished = this.finishedJobs.get(id);
 
     this.followedJobIds.add(id);
+    onFollow?.();
 
     if (finished) onFinish(finished);
     else this.jobFollowers.set(id, onFinish);
-  }
-
-  isFollowingJob(id: string) {
-    return this.followedJobIds.has(id);
   }
 
   /** Follows a job's progress; an ended job is handed to its follower and anything waiting on it. */
@@ -156,7 +154,7 @@ export class HomeStore extends Model({
   markNotificationsRead(ids: string[]) {
     this.notificationRevision++;
     this.notifications = sortNotifications(
-      this.notifications.map((notification) =>
+      derefMobx(this.notifications).map((notification: NotificationSchema) =>
         ids.includes(notification.id) ? { ...notification, isRead: true } : notification,
       ),
     );
@@ -258,7 +256,7 @@ export class HomeStore extends Model({
     // Known jobs that stopped running end as the server recorded them, or as lost to a restart.
     for (const id of knownIds) {
       if (!runningIds.has(id) && !this.finishedJobs.has(id)) {
-        const shown = this.jobs.find((job) => job.id === id);
+        const shown = this.getJobById(id);
 
         this.updateJob(
           finishedById.get(id) ?? {
@@ -310,6 +308,10 @@ export class HomeStore extends Model({
   /* ----------------------------- DYNAMIC GETTERS ---------------------------- */
   getJob(type: JobType, scope: string = null) {
     return this.jobs.find((job) => job.type === type && job.scope === scope);
+  }
+
+  getJobById(id: string) {
+    return this.jobs.find((job) => job.id === id);
   }
 
   get hasRunningBackgroundOperations() {

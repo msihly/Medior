@@ -5,6 +5,7 @@ import os from "os";
 import { checkFileExists } from "trabecula/utils/server";
 import { Fmt, round } from "medior/utils/common";
 import { getAudioSimilarityModel, getConfig } from "medior/utils/server/config";
+import { getFfmpegPath, getFfprobePath } from "medior/utils/server/ffmpeg";
 import { runNativeTask, stopNativeTask } from "medior/utils/server/native-task";
 import { workSignal } from "medior/utils/server/work-signal";
 
@@ -156,7 +157,6 @@ const readSamples = async (audio: FileHandle, start: number, end: number) => {
       bytes.length - offset,
       start * Float32Array.BYTES_PER_ELEMENT + offset,
     );
-
     if (!bytesRead) throw new Error("Extracted audio ended unexpectedly.");
 
     offset += bytesRead;
@@ -212,7 +212,7 @@ const makeFfmpegLog = () => {
 
       return { errorRate, messages, otherCount, streamId };
     },
-    write: (data: Buffer) => {
+    write: (data: string) => {
       const lines = (pending + data).split(/\r?\n/);
       pending = lines.pop();
 
@@ -222,10 +222,10 @@ const makeFfmpegLog = () => {
 };
 
 /** The file's audio streams for an error message, or none when ffprobe can't read them. */
-const probeAudioStreams = (filePath: string) =>
+const probeAudioStreams = (filePath: string, signal?: AbortSignal) =>
   new Promise<ProbedAudioStream[]>((resolve) => {
     execFile(
-      process.env.FFPROBE_PATH || "ffprobe",
+      getFfprobePath(),
       [
         "-v",
         "quiet",
@@ -237,7 +237,7 @@ const probeAudioStreams = (filePath: string) =>
         "stream=channel_layout,channels,codec_name,index,profile,sample_rate",
         filePath,
       ],
-      { windowsHide: true },
+      { signal, windowsHide: true },
       (error, stdout) => {
         try {
           resolve(error ? [] : (JSON.parse(stdout).streams ?? []));
@@ -258,10 +258,11 @@ const describeDecodeFailure = async (
     streamId,
   }: ReturnType<ReturnType<typeof makeFfmpegLog>["finish"]>,
   code: number,
+  signal?: AbortSignal,
 ) => {
   if (!messages.size && !errorRate) return `FFmpeg exited with code ${code}.`;
 
-  const audioStreams = await probeAudioStreams(filePath);
+  const audioStreams = await probeAudioStreams(filePath, signal);
   const stream = audioStreams.find(({ index }) => `0:${index}` === streamId);
 
   const streamDetails = stream
@@ -329,7 +330,7 @@ const decodeAudio = async (
 
   args.push("-f", "f32le", "pipe:1");
 
-  const ffmpeg = spawn(process.env.FFMPEG_PATH || "ffmpeg", args, {
+  const ffmpeg = spawn(getFfmpegPath(), args, {
     signal,
     stdio: ["ignore", "pipe", "pipe"],
     windowsHide: true,
@@ -351,6 +352,8 @@ const decodeAudio = async (
     if (spill) await fs.rm(spill.directory, { force: true, recursive: true });
   };
 
+  // Decoded as a stream, so characters split across chunks stay whole.
+  ffmpeg.stderr.setEncoding("utf8");
   ffmpeg.stderr.on("data", log.write);
 
   try {
@@ -382,7 +385,7 @@ const decodeAudio = async (
 
     if (code !== 0) {
       const ffmpegLog = log.finish();
-      const decodeError = new Error(await describeDecodeFailure(filePath, ffmpegLog, code));
+      const decodeError = new Error(await describeDecodeFailure(filePath, ffmpegLog, code, signal));
 
       // Audio ffmpeg read but gave up decoding is corrupted, unlike a file it couldn't open.
       if (ffmpegLog.errorRate) decodeError.name = AUDIO_DECODE_ERROR;
@@ -574,7 +577,6 @@ const embedAudioTokens = async (
     inferenceMs += Date.now() - inferenceStart;
 
     const [batchSize, chunkTokenCount, dimensions] = output.dims;
-
     if (batchSize !== batch.length || dimensions !== model.dimensions)
       throw new Error(
         `Unexpected audio embedding shape ${output.dims.join("x")}; ${model.label} embeddings have ${model.dimensions} dimensions. Export the model again.`,

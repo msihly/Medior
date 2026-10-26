@@ -160,7 +160,7 @@ export class TagEditorStore extends Model({
     this.aliases = [];
     this.categoryColor = null;
     this.categoryIcon = null;
-    this.categoryInheritable = null;
+    this.categoryInheritable = false;
     this.categorySortRank = null;
     this.childTags = [];
     this.isDuplicate = false;

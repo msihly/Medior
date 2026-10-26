@@ -221,7 +221,7 @@ const writeMediaProgramAttrs = async (id: string, { isSeasonChange = false } = {
       metadataWriteOptions(),
     );
 
-    socket.emit("onMediaProgramUpdated", { id, updates });
+    socket.emitVolatile("onMediaProgramUpdated", { id, updates });
   }
 };
 
@@ -272,7 +272,7 @@ const writeWatchedFileIds = async (
 
   await models.MediaProgramModel.updateOne({ _id: id }, { $set: updates }, metadataWriteOptions());
 
-  socket.emit("onMediaProgramUpdated", { id, updates });
+  socket.emitVolatile("onMediaProgramUpdated", { id, updates });
 
   return updates;
 };
@@ -332,7 +332,7 @@ export const attachImportedMediaProgramSeason = (args: {
 
     const program = leanModelToJson<models.MediaProgramSchema>(updated);
 
-    if (!existing) socket.emit("onMediaProgramCreated", program);
+    if (!existing) socket.emitVolatile("onMediaProgramCreated", program);
 
     const isNewSeason = !program.collectionIdIndexes.some(
       ({ collectionId }) => String(collectionId) === args.collectionId,
@@ -468,7 +468,7 @@ export const createMediaProgram = makeAction(
       const res = await new models.MediaProgramModel(program).save(metadataWriteOptions());
       const id = res._id.toString();
 
-      socket.emit("onMediaProgramCreated", { ...program, id });
+      socket.emitVolatile("onMediaProgramCreated", { ...program, id });
 
       await writeMediaProgramAttrs(id);
 
@@ -490,7 +490,7 @@ export const deleteMediaPrograms = makeAction(
         metadataWriteOptions(),
       );
 
-      socket.emit("onMediaProgramDeleted", { ids });
+      socket.emitVolatile("onMediaProgramDeleted", { ids });
 
       return programs.flatMap((program) =>
         program.collectionIdIndexes.map(({ collectionId }) => String(collectionId)),
@@ -608,7 +608,7 @@ export const updateMediaProgram = makeAction(
         metadataWriteOptions(),
       );
 
-      socket.emit("onMediaProgramUpdated", { id, updates: changes });
+      socket.emitVolatile("onMediaProgramUpdated", { id, updates: changes });
 
       // Clearing a rating returns it to the seasons' average.
       if (updates.collectionIdIndexes || updates.ratingIsManual === false)

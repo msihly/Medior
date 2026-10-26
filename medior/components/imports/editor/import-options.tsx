@@ -150,6 +150,7 @@ export const ImportOptions = Comp(({ scan, store }: ImportOptionsProps) => {
           label="With Tag"
           checked={store.options.folderToCollectionMode === "withTag"}
           setChecked={store.options.toggleFolderToCollWithTag}
+          disabled={checkboxProps.disabled || store.options.folderToCollectionMode === "none"}
         />
 
         <View row align="center" spacing="0.5rem">

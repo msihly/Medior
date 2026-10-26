@@ -1,7 +1,10 @@
 import type { SocketEventOptions } from "medior/_generated/server/socket";
 import mongoose, { LeanDocument, PipelineStage, Types } from "mongoose";
+import { objectIds } from "trabecula/utils/server/mongo";
 import { metadataWork } from "medior/server/database/metadata-context";
 import { handleErrors } from "medior/utils/common";
+
+export { leanModelToJson, objectId, objectIds } from "trabecula/utils/server/mongo";
 
 export const getShiftSelectedItems = async <ModelType>({
   clickedId,
@@ -105,23 +108,6 @@ export const getShiftSelectedItems = async <ModelType>({
   return result;
 };
 
-export const leanModelToJson = <T>(
-  doc: LeanDocument<T & { __v?: number; _id: Types.ObjectId }>,
-) => {
-  try {
-    if (!doc) return null;
-
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { _id, __v, ...rest } = doc;
-
-    return { ...rest, id: _id.toString() } as unknown as T;
-  } catch (err) {
-    console.error(err.message);
-
-    return null;
-  }
-};
-
 /** Resolve membership in bounded batches and fetch metadata only for the requested page. */
 export const listItemsByIds = async <ModelType>({
   ids,
@@ -200,7 +186,3 @@ export const makeAction =
       ? { data: await execute(), success: true as const }
       : await handleErrors(execute);
   };
-
-export const objectId = (id: string) => new Types.ObjectId(id);
-
-export const objectIds = (ids: string[]) => ids.map(objectId);

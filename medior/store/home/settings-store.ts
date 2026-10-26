@@ -161,8 +161,6 @@ export class SettingsStore extends Model({
 
     setConfig(config);
     getRootStore<RootStore>(this).applyConfig(config);
-
-    return result;
   });
 
   /* ----------------------------- DYNAMIC GETTERS ---------------------------- */

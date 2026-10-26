@@ -139,76 +139,10 @@ export class LowerResolutionStore extends Model({
     );
   }
 
-  get archiveJob() {
-    return getRootStore<RootStore>(this).home.jobs.find((job) => job.id === this.archiveJobId);
-  }
-
-  /**
-   * Grouping only shows as the activity while it rebuilds groups between searches, or while it is
-   * paused with matches left to group.
-   */
-  get displayStatus() {
-    if (!this.isScanning && this.isGrouping) return "grouping";
-    else if (!this.isScanning && this.isGroupingPaused && this.grouped < this.matched)
-      return "groupingPaused";
-    else return this.status;
-  }
-
-  /** The filter menu differs from the filter the groups are built with. */
-  get hasFilterChanges() {
-    return (
-      this.appliedFilter !== null &&
-      getFilterJson(this.search.getFilterProps()) !== this.appliedFilter
-    );
-  }
-
-  get isArchiving() {
-    return this.isStartingArchive || !!this.archiveJobId;
-  }
-
-  get isScanning() {
-    return this.status === "running";
-  }
-
-  get options(): DuplicateSearchOptions {
-    return {
-      filter: this.appliedFilter,
-      minSimilarity: this.minSimilarity,
-      searchProps: this.appliedSearchProps,
-      // An empty window is invalid rather than turning date grouping off.
-      timeWindow: this.isTimeGrouped ? (this.timeWindowMinutes ?? 0) : null,
-      variationBlockSize: this.variationBlockSize,
-      variationThreshold: this.variationThreshold,
-    };
-  }
-
-  get pageCount() {
-    return Math.ceil(this.reviewCount / DUPLICATE_PAGE_SIZE);
-  }
-
-  get selectedCount() {
-    return Object.keys(this.selection).length;
-  }
-
-  /** The selected files of each group they belong to. */
-  get selectedGroups() {
-    const fileIdsByGroup = new Map<string, string[]>();
-
-    for (const [fileId, groupId] of Object.entries(this.selection)) {
-      if (!fileIdsByGroup.has(groupId)) fileIdsByGroup.set(groupId, []);
-      fileIdsByGroup.get(groupId).push(fileId);
-    }
-
-    return [...fileIdsByGroup].map(([groupId, fileIds]) => ({ fileIds, groupId }));
-  }
-
   private followArchive(jobId: string) {
     const stores = getRootStore<RootStore>(this);
 
-    if (stores.home.isFollowingJob(jobId)) return;
-
-    this.setArchiveJobId(jobId);
-    stores.home.followJob(jobId, this.finishArchive);
+    stores.home.followJob(jobId, this.finishArchive, () => this.setArchiveJobId(jobId));
   }
 
   private queueReviewOptions() {
@@ -216,6 +150,7 @@ export class LowerResolutionStore extends Model({
     this.applyReviewOptionsLater();
   }
 
+  /* ---------------------------- STANDARD ACTIONS ---------------------------- */
   /**
    * Builds the groups with the filter menu's current filter, saving the menu's settings to restore
    * it. Searching the menu, resetting it, and choosing a saved search apply it.
@@ -238,6 +173,21 @@ export class LowerResolutionStore extends Model({
     this.setSelection({});
     this.setKeepOneGroupId(null);
     this.setLastSelectedId(null);
+  }
+
+  @modelAction
+  close() {
+    this.cancelPageLoad();
+    this.setIsMinimized(false);
+    this.setIsOpen(false);
+  }
+
+  /** Opens the file tag editor on a group's files or the current selection. */
+  editTags(fileIds: string[]) {
+    const stores = getRootStore<RootStore>(this);
+
+    stores.file.tagsEditor.setFileIds(fileIds);
+    stores.file.tagsEditor.setIsOpen(true);
   }
 
   /** Shift-click selects every tile between the last clicked tile and this one on the page. */
@@ -274,6 +224,7 @@ export class LowerResolutionStore extends Model({
     this.setLastSelectedId(fileId);
   }
 
+  /* ------------------------------ ASYNC ACTIONS ----------------------------- */
   /** Regroups the stored matches with the current settings, then follows the regrouping. */
   @modelFlow
   applyReviewOptions = asyncAction(async () => {
@@ -320,9 +271,10 @@ export class LowerResolutionStore extends Model({
         this.setGroups([]);
         this.setPage(1);
         this.setReviewCount(0);
-      } else if (isWindowChanged && this.isOpen && this.groups.length)
+      } else if (isWindowChanged && this.isOpen && this.groups.length) {
         // A new date window only changes the files listed beside each group.
         await this.loadPage(this.page);
+      }
 
       // A running search defers grouping until it stops.
       if (isGrouping && !this.isScanning) this.setIsGrouping(true);
@@ -458,13 +410,6 @@ export class LowerResolutionStore extends Model({
     else if (this.isOpen) await this.loadPage(this.page);
   });
 
-  @modelAction
-  close() {
-    this.cancelPageLoad();
-    this.setIsMinimized(false);
-    this.setIsOpen(false);
-  }
-
   /**
    * Creates a collection from a group's files and those listed as created nearby, in the order
    * they were created, then opens it.
@@ -488,15 +433,6 @@ export class LowerResolutionStore extends Model({
     stores.collection.editor.setIsOpen(true);
     await stores.collection.editor.loadCollection(res.data.id);
   });
-
-  /** Opens the file tag editor on a group's files or the current selection. */
-  editTags(fileIds: string[]) {
-    const stores = getRootStore<RootStore>(this);
-
-    stores.file.tagsEditor.setBatchId(null);
-    stores.file.tagsEditor.setFileIds(fileIds);
-    stores.file.tagsEditor.setIsOpen(true);
-  }
 
   /** Selects every file except the best one in each group, across all pages. */
   @modelFlow
@@ -841,4 +777,68 @@ export class LowerResolutionStore extends Model({
       if (isWatching) await sleep(1000);
     }
   });
+
+  /* --------------------------------- GETTERS -------------------------------- */
+  get archiveJob() {
+    return getRootStore<RootStore>(this).home.getJobById(this.archiveJobId);
+  }
+
+  /**
+   * Grouping only shows as the activity while it rebuilds groups between searches, or while it is
+   * paused with matches left to group.
+   */
+  get displayStatus() {
+    if (!this.isScanning && this.isGrouping) return "grouping";
+    else if (!this.isScanning && this.isGroupingPaused && this.grouped < this.matched)
+      return "groupingPaused";
+    else return this.status;
+  }
+
+  /** The filter menu differs from the filter the groups are built with. */
+  get hasFilterChanges() {
+    return (
+      this.appliedFilter !== null &&
+      getFilterJson(this.search.getFilterProps()) !== this.appliedFilter
+    );
+  }
+
+  get isArchiving() {
+    return this.isStartingArchive || !!this.archiveJobId;
+  }
+
+  get isScanning() {
+    return this.status === "running";
+  }
+
+  get options(): DuplicateSearchOptions {
+    return {
+      filter: this.appliedFilter,
+      minSimilarity: this.minSimilarity,
+      searchProps: this.appliedSearchProps,
+      // An empty window is invalid rather than turning date grouping off.
+      timeWindow: this.isTimeGrouped ? (this.timeWindowMinutes ?? 0) : null,
+      variationBlockSize: this.variationBlockSize,
+      variationThreshold: this.variationThreshold,
+    };
+  }
+
+  get pageCount() {
+    return Math.ceil(this.reviewCount / DUPLICATE_PAGE_SIZE);
+  }
+
+  get selectedCount() {
+    return Object.keys(this.selection).length;
+  }
+
+  /** The selected files of each group they belong to. */
+  get selectedGroups() {
+    const fileIdsByGroup = new Map<string, string[]>();
+
+    for (const [fileId, groupId] of Object.entries(this.selection)) {
+      if (!fileIdsByGroup.has(groupId)) fileIdsByGroup.set(groupId, []);
+      fileIdsByGroup.get(groupId).push(fileId);
+    }
+
+    return [...fileIdsByGroup].map(([groupId, fileIds]) => ({ fileIds, groupId }));
+  }
 }

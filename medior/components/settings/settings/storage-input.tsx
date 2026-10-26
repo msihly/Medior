@@ -1,8 +1,7 @@
-import { Comp, IconButton, View } from "medior/components";
+import { Comp, IconButton, Input, InputProps, View } from "medior/components";
 import { useStores } from "medior/store";
 import { colors } from "medior/utils/client";
 import { DiskStatus } from "./disk-status";
-import { Input, InputProps } from "./input";
 
 export interface StorageInputProps extends Omit<InputProps, "setValue" | "value"> {
   index: number;
@@ -41,7 +40,13 @@ export const StorageInput = Comp(({ index, selectLocation, ...props }: StorageIn
         disabled={index === store.db.fileStorage.locations.length - 1}
       />
 
-      <Input value={value} onClick={handleLocationClick} flex={1} {...props} />
+      <Input
+        value={value}
+        setValue={setLocationValue}
+        onClick={handleLocationClick}
+        flex={1}
+        {...props}
+      />
 
       <DiskStatus diskPath={value} threshold={store.db.fileStorage.threshold} />
 

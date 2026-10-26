@@ -14,6 +14,8 @@ export const TagCard = Comp(({ tag }: TagCardProps) => {
   const stores = useStores();
   const store = stores.tag;
 
+  const [isHovering, setIsHovering] = useState(false);
+
   const category = store.getCategory(tag);
   const color = category?.color || "black";
   const ratingMeta = getRatingMeta(tag.rating);
@@ -22,8 +24,6 @@ export const TagCard = Comp(({ tag }: TagCardProps) => {
     textColor === colors.custom.white ? colors.custom.lightGrey : colors.custom.darkGrey;
 
   const { css } = useClasses({ textShadow: ratingMeta.textShadow });
-
-  const [isHovering, setIsHovering] = useState(false);
 
   const handleClick = async (event: React.MouseEvent) => {
     const res = await store.manager.search.handleSelect({

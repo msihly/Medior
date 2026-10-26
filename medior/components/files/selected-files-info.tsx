@@ -4,6 +4,74 @@ import { colors, CssColor, useCancellableLoad } from "medior/utils/client";
 import { Fmt } from "medior/utils/common";
 import { getIsVideo, trpc } from "medior/utils/server";
 
+export interface SelectedFilesInfoProps {
+  isLoading: boolean;
+  onCancel: () => void;
+  totalFiles: number;
+  totalFilesSize: number;
+  totalImages: number;
+  totalImagesSize: number;
+  totalVideos: number;
+  totalVideosSize: number;
+}
+
+export const SelectedFilesInfo = Comp(
+  ({
+    isLoading,
+    onCancel,
+    totalFiles,
+    totalFilesSize,
+    totalImages,
+    totalImagesSize,
+    totalVideos,
+    totalVideosSize,
+  }: SelectedFilesInfoProps) => (
+    <View column padding={{ all: "0.4rem 0.8rem" }}>
+      {isLoading ? (
+        <View column align="center" spacing="0.5rem">
+          <ProgressCircle color="inherit" size={20} variant="indeterminate" />
+
+          <Button text="Cancel" icon="Close" onClick={onCancel} />
+        </View>
+      ) : (
+        <>
+          {totalVideos > 0 ? (
+            <FileTypeRow
+              label="Videos"
+              icon="Videocam"
+              color={colors.custom.purple}
+              count={totalVideos}
+              size={totalVideosSize}
+            />
+          ) : null}
+
+          {totalImages > 0 ? (
+            <FileTypeRow
+              label="Images"
+              icon="Image"
+              color={colors.custom.blue}
+              count={totalImages}
+              size={totalImagesSize}
+            />
+          ) : null}
+
+          {totalFiles > 0 ? (
+            <FileTypeRow
+              label="Files"
+              icon="Folder"
+              color={colors.custom.red}
+              count={totalFiles}
+              size={totalFilesSize}
+            />
+          ) : (
+            <Text>{"No files selected"}</Text>
+          )}
+        </>
+      )}
+    </View>
+  ),
+);
+
 export const useFileInfo = () => {
   const load = useCancellableLoad();
 
@@ -42,53 +110,18 @@ export const useFileInfo = () => {
       setTotalFilesSize(imagesSize + videosSize);
     });
 
-  const renderFileInfo = () => (
-    <View column padding={{ all: "0.4rem 0.8rem" }}>
-      {load.isLoading ? (
-        <View column align="center" spacing="0.5rem">
-          <ProgressCircle color="inherit" size={20} variant="indeterminate" />
+  const fileInfo: SelectedFilesInfoProps = {
+    isLoading: load.isLoading,
+    onCancel: load.cancel,
+    totalFiles,
+    totalFilesSize,
+    totalImages,
+    totalImagesSize,
+    totalVideos,
+    totalVideosSize,
+  };
 
-          <Button text="Cancel" icon="Close" onClick={load.cancel} />
-        </View>
-      ) : (
-        <>
-          {totalVideos > 0 ? (
-            <FileTypeRow
-              label="Videos"
-              icon="Videocam"
-              color={colors.custom.purple}
-              count={totalVideos}
-              size={totalVideosSize}
-            />
-          ) : null}
-
-          {totalImages > 0 ? (
-            <FileTypeRow
-              label="Images"
-              icon="Image"
-              color={colors.custom.blue}
-              count={totalImages}
-              size={totalImagesSize}
-            />
-          ) : null}
-
-          {totalFiles > 0 ? (
-            <FileTypeRow
-              label="Files"
-              icon="Folder"
-              color={colors.custom.red}
-              count={totalFiles}
-              size={totalFilesSize}
-            />
-          ) : (
-            <Text>{"No files selected"}</Text>
-          )}
-        </>
-      )}
-    </View>
-  );
-
-  return { loadFileInfo, renderFileInfo };
+  return { fileInfo, loadFileInfo };
 };
 
 const FileTypeRow = Comp(

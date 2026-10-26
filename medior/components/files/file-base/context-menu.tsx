@@ -1,25 +1,22 @@
 import { shell } from "@electron/remote";
 import fs from "fs/promises";
 import path from "path";
-import { ReactNode } from "react";
 import { FileSchema } from "medior/_generated/server";
 import {
   Button,
   Comp,
   ContextMenu as ContextMenuBase,
+  ContextMenuProps as ContextMenuBaseProps,
   LoadingOverlay,
   Modal,
-  ViewProps,
 } from "medior/components";
 import { FileCollectionSearch, FileSearch, FileTransformSearch, useStores } from "medior/store";
 import { colors, copyToClipboard, toast, useCancellableLoad } from "medior/utils/client";
 import { CONSTANTS, durationToSeconds, VideoExt } from "medior/utils/common";
 import { getConfig, getIsImage, getIsRemuxable, trpc } from "medior/utils/server";
 
-export interface ContextMenuProps extends ViewProps {
+export interface ContextMenuProps extends Omit<ContextMenuBaseProps, "id" | "menuItems"> {
   carouselFileIds?: string[];
-  children?: ReactNode | ReactNode[];
-  disabled?: boolean;
   file: FileSchema;
   store: FileCollectionSearch | FileSearch | FileTransformSearch;
 }

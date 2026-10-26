@@ -1,7 +1,6 @@
 import { useEffect, useRef } from "react";
 import {
   Button,
-  Card,
   CardGrid,
   Checkbox,
   Chip,
@@ -17,9 +16,9 @@ import {
   View,
 } from "medior/components";
 import { useStores } from "medior/store";
-import { colors, toast } from "medior/utils/client";
+import { colors } from "medior/utils/client";
 import { Fmt } from "medior/utils/common";
-import { GroupFile } from "./lower-resolution-modal/group-file";
+import { DuplicateGroupCard } from "./lower-resolution-modal/duplicate-group-card";
 import { SearchSettings } from "./lower-resolution-modal/search-settings";
 import { SearchStatus } from "./lower-resolution-modal/search-status";
 
@@ -34,7 +33,13 @@ export const LowerResolutionModal = Comp(() => {
     groupsRef.current?.scrollTo({ behavior: "instant", top: 0 });
   }, [store.page]);
 
-  const isTimeGrouped = !!store.options.timeWindow;
+  const isBusy =
+    store.isApplyingOptions ||
+    store.isArchiving ||
+    store.isDismissing ||
+    store.isGrouping ||
+    store.isPageLoading ||
+    store.isStarting;
   const emptyStates = {
     complete: {
       description: `No files matched at ${store.minSimilarity.toFixed(1)}% similarity or higher.`,
@@ -93,11 +98,6 @@ export const LowerResolutionModal = Comp(() => {
   const handleClose = () => {
     if (store.isArchiving) handleMinimize();
     else store.close();
-  };
-
-  const handleCreateCollection = async (groupId: string) => {
-    const res = await store.createGroupCollection(groupId);
-    if (!res.success) toast.error(res.error);
   };
 
   const handleMinimize = () => store.setIsMinimized(true);
@@ -193,15 +193,7 @@ export const LowerResolutionModal = Comp(() => {
                   text={store.isDismissing ? "Marking…" : "Not Duplicates"}
                   icon="DoNotDisturb"
                   onClick={store.dismissSelected}
-                  disabled={
-                    store.isApplyingOptions ||
-                    store.isArchiving ||
-                    store.isDismissing ||
-                    store.isGrouping ||
-                    store.isPageLoading ||
-                    store.isStarting ||
-                    !store.selectedCount
-                  }
+                  disabled={isBusy || !store.selectedCount}
                   tooltip="Mark the selected files as not duplicates of their group's best-quality file, such as confirmed variations. They leave their groups and stay apart in later searches until either file changes."
                 />
 
@@ -221,15 +213,7 @@ export const LowerResolutionModal = Comp(() => {
                   icon="Archive"
                   color={colors.custom.red}
                   onClick={store.archive}
-                  disabled={
-                    store.isApplyingOptions ||
-                    store.isArchiving ||
-                    store.isDismissing ||
-                    store.isGrouping ||
-                    store.isStarting ||
-                    store.isPageLoading ||
-                    !store.selectedCount
-                  }
+                  disabled={isBusy || !store.selectedCount}
                 />
               </View>
             </View>
@@ -238,119 +222,9 @@ export const LowerResolutionModal = Comp(() => {
               maxCards={2}
               padding={{ all: 0 }}
               ref={groupsRef}
-              cards={store.groups.map((group) => {
-                const groupFileIds = [...group.files, ...group.nearby].map((file) => file.id);
-
-                return (
-                  <View key={group.id} padding={{ all: "0.3rem" }}>
-                    <Card spacing="0.5rem">
-                      <View row align="center" justify="space-between" spacing="0.5rem">
-                        <Text bold>{`Up to ${group.score.toFixed(1)}% similar`}</Text>
-
-                        <View row align="center" spacing="0.5rem">
-                          <Text color={colors.custom.lightGrey} fontSize="0.85em">
-                            {`${group.files.length - 1} ${group.files.length === 2 ? "duplicate" : "duplicates"}`}
-                          </Text>
-
-                          <Button
-                            icon="Label"
-                            tooltip="Add Tags to Group"
-                            onClick={() => store.editTags(groupFileIds)}
-                            disabled={store.isArchiving}
-                            color={colors.foregroundCard}
-                          />
-
-                          <Button
-                            icon="Collections"
-                            tooltip="Create Collection from Group"
-                            onClick={() => handleCreateCollection(group.id)}
-                            disabled={store.isArchiving}
-                            color={colors.foregroundCard}
-                          />
-                        </View>
-                      </View>
-
-                      {store.keepOneGroupId === group.id && (
-                        <View row align="center" spacing="0.5rem">
-                          <Icon name="Error" size="1.1em" color={colors.custom.red} />
-
-                          <Text color={colors.custom.red} fontSize="0.85em">
-                            {"Keep at least one file from each group."}
-                          </Text>
-                        </View>
-                      )}
-
-                      <View row wrap="wrap">
-                        {group.files.map((file, index) => {
-                          const isSelected = !!store.selection[file.id];
-
-                          return (
-                            <GroupFile
-                              key={file.id}
-                              file={file}
-                              carouselFileIds={groupFileIds}
-                              chip={
-                                isSelected
-                                  ? { bgColor: colors.custom.red, label: "Archive" }
-                                  : index === 0
-                                    ? { bgColor: colors.custom.green, label: "Best Quality" }
-                                    : file.isVariation
-                                      ? {
-                                          bgColor: colors.custom.orange,
-                                          label: `Variation · ${file.similarity.toFixed(1)}%`,
-                                        }
-                                      : { label: `${file.similarity.toFixed(1)}%` }
-                              }
-                              comparison={
-                                index === 0
-                                  ? null
-                                  : file.difference !== null
-                                    ? `${file.difference.toFixed(1)}% of the image differs`
-                                    : file.isVariation
-                                      ? "Different shape"
-                                      : null
-                              }
-                              isSelected={isSelected}
-                              jpeg={file.jpeg}
-                              onClick={(event) => store.toggleSelected(file.id, event.shiftKey)}
-                              showDateCreated={isTimeGrouped}
-                            />
-                          );
-                        })}
-                      </View>
-
-                      {group.nearby.length > 0 && (
-                        <>
-                          <Divider />
-
-                          <View row align="center" justify="space-between" spacing="0.5rem">
-                            <Text bold fontSize="0.9em">
-                              {"Created Nearby"}
-                            </Text>
-
-                            <Text color={colors.custom.lightGrey} fontSize="0.85em">
-                              {group.nearbyCount > group.nearby.length
-                                ? `First ${group.nearby.length} of ${Fmt.commas(group.nearbyCount)} files`
-                                : `${group.nearby.length} ${group.nearby.length === 1 ? "file" : "files"}`}
-                            </Text>
-                          </View>
-
-                          <View row wrap="wrap">
-                            {group.nearby.map((file) => (
-                              <GroupFile
-                                key={file.id}
-                                file={file}
-                                carouselFileIds={groupFileIds}
-                                showDateCreated
-                              />
-                            ))}
-                          </View>
-                        </>
-                      )}
-                    </Card>
-                  </View>
-                );
-              })}
+              cards={store.groups.map((group) => (
+                <DuplicateGroupCard key={group.id} group={group} />
+              ))}
             />
 
             {store.pageCount > 1 && (

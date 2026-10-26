@@ -62,10 +62,7 @@ export const SizeHistoryChart = Comp(() => {
             xValues={totals.map((total) => total.date)}
           />
         ) : !store.isSizeHistoryLoading ? (
-          <CenteredText
-            text="No completed transforms in this period"
-            color={colors.custom.lightGrey}
-          />
+          <CenteredText text="No completed transforms in this period" />
         ) : null}
       </View>
     </View>

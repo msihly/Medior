@@ -571,7 +571,8 @@ export class VectorSimilarityService {
       !Number.isSafeInteger(args.limit) ||
       !Number.isSafeInteger(args.offset) ||
       args.limit < 1 ||
-      args.offset < 0
+      args.offset < 0 ||
+      (args.exclude && (!Number.isFinite(args.exclude.start) || !Number.isFinite(args.exclude.end)))
     )
       throw new Error("Invalid similarity result range.");
 
@@ -822,14 +823,8 @@ export class VectorSimilarityService {
     const results: { status: string; vectorType: SimilarityVectorType }[] = [];
 
     for (const vectorType of vectorTypes) {
-      if (vectorType !== VISUAL_VECTOR_TYPE) {
-        results.push({ status: "unsupported", vectorType });
-        continue;
-      }
-
-      const status = await this.indexVisualFile(args.fileId);
-
-      results.push({ status, vectorType });
+      if (vectorType !== VISUAL_VECTOR_TYPE) results.push({ status: "unsupported", vectorType });
+      else results.push({ status: await this.indexVisualFile(args.fileId), vectorType });
     }
 
     return results;
@@ -1003,7 +998,6 @@ export class VectorSimilarityService {
     ).lean();
     const progress =
       persisted?.progress ?? (await SimilarityBackfillModel.findById(args.jobId).lean())?.progress;
-
     if (!progress) throw new Error(`Similarity backfill job not found: ${args.jobId}`);
 
     return progress;
@@ -1458,47 +1452,57 @@ export class VectorSimilarityService {
       Math.max(pipelineBatchSize, VISUAL_DECODE_CONCURRENCY),
     );
 
-    let decodedBatchPromise = sourceBatches.length
-      ? this.decodeVisualSourceBatch({ job: args.job, sourceItems: sourceBatches[0] })
-      : null;
+    const decodeBatch = (batch: VisualSourceItem[]) => {
+      const decoding = this.decodeVisualSourceBatch({ job: args.job, sourceItems: batch });
 
-    for (let batchIndex = 0; batchIndex < sourceBatches.length; batchIndex++) {
-      this.assertJobNotCancelled(args.job);
+      // A failed decode surfaces when its batch is needed.
+      decoding.catch(() => null);
 
-      if (!decodedBatchPromise) break;
+      return decoding;
+    };
 
-      const sourceBatch = sourceBatches[batchIndex];
-      const { decodeMs, decoded, diagnostics } = await decodedBatchPromise;
+    let decodedBatchPromise = sourceBatches.length ? decodeBatch(sourceBatches[0]) : null;
 
-      decodedBatchPromise = sourceBatches[batchIndex + 1]
-        ? this.decodeVisualSourceBatch({
+    try {
+      for (let batchIndex = 0; batchIndex < sourceBatches.length; batchIndex++) {
+        this.assertJobNotCancelled(args.job);
+
+        if (!decodedBatchPromise) break;
+
+        const sourceBatch = sourceBatches[batchIndex];
+        const { decodeMs, decoded, diagnostics } = await decodedBatchPromise;
+
+        decodedBatchPromise = sourceBatches[batchIndex + 1]
+          ? decodeBatch(sourceBatches[batchIndex + 1])
+          : null;
+
+        const batchRows: Record<string, any>[] = [];
+        let inferenceMs = 0;
+
+        for (const inferenceBatch of chunkArray(decoded, pipelineBatchSize)) {
+          const embedded = await this.embedVisualDecodedSources({
+            decoded: inferenceBatch,
             job: args.job,
-            sourceItems: sourceBatches[batchIndex + 1],
-          })
-        : null;
+            tableDef,
+          });
 
-      const batchRows: Record<string, any>[] = [];
-      let inferenceMs = 0;
+          batchRows.push(...embedded.rows);
+          inferenceMs += embedded.inferenceMs;
+        }
 
-      for (const inferenceBatch of chunkArray(decoded, pipelineBatchSize)) {
-        const embedded = await this.embedVisualDecodedSources({
-          decoded: inferenceBatch,
-          job: args.job,
-          tableDef,
-        });
+        pendingDecodeDiagnostics = this.sumDecodeDiagnostics(pendingDecodeDiagnostics, diagnostics);
+        pendingDecodeMs += decodeMs;
+        pendingErrorCount += sourceBatch.length - batchRows.length;
+        pendingInferenceMs += inferenceMs;
+        pendingProcessedCount += sourceBatch.length;
+        pendingRows.push(...batchRows);
 
-        batchRows.push(...embedded.rows);
-        inferenceMs += embedded.inferenceMs;
+        if (pendingProcessedCount >= VISUAL_WRITE_FLUSH_ROW_COUNT) await flushPendingRows();
       }
-
-      pendingDecodeDiagnostics = this.sumDecodeDiagnostics(pendingDecodeDiagnostics, diagnostics);
-      pendingDecodeMs += decodeMs;
-      pendingErrorCount += sourceBatch.length - batchRows.length;
-      pendingInferenceMs += inferenceMs;
-      pendingProcessedCount += sourceBatch.length;
-      pendingRows.push(...batchRows);
-
-      if (pendingProcessedCount >= VISUAL_WRITE_FLUSH_ROW_COUNT) await flushPendingRows();
+    } finally {
+      // The next batch may still be decoding when embedding or cancellation stops the loop; it
+      // settles before the error propagates, so its reads never outlive the job.
+      await Promise.allSettled([decodedBatchPromise]);
     }
 
     await flushPendingRows();
@@ -1782,14 +1786,15 @@ export class VectorSimilarityService {
   }
 
   private extractVisualFeatureVectors(tensor: any, batchSize: number) {
-    const values = Array.from(tensor.data, Number);
     const dims = tensor.dims as number[] | undefined;
     const expectedLength = batchSize * VISUAL_VECTOR_DIMENSIONS;
 
+    // Only the row each image uses is converted.
+    const getRow = (offset: number) =>
+      Array.from(tensor.data.slice(offset, offset + VISUAL_VECTOR_DIMENSIONS), Number);
+
     if (dims?.length === 2 && dims[0] === batchSize && dims[1] === VISUAL_VECTOR_DIMENSIONS) {
-      return Array.from({ length: batchSize }, (_, idx) =>
-        values.slice(idx * VISUAL_VECTOR_DIMENSIONS, (idx + 1) * VISUAL_VECTOR_DIMENSIONS),
-      );
+      return Array.from({ length: batchSize }, (_, idx) => getRow(idx * VISUAL_VECTOR_DIMENSIONS));
     } else if (
       dims?.length === 3 &&
       dims[0] === batchSize &&
@@ -1797,18 +1802,14 @@ export class VectorSimilarityService {
     ) {
       const tokenCount = dims[1];
 
-      return Array.from({ length: batchSize }, (_, idx) => {
-        const offset = idx * tokenCount * VISUAL_VECTOR_DIMENSIONS;
-
-        return values.slice(offset, offset + VISUAL_VECTOR_DIMENSIONS);
-      });
-    } else if (values.length === expectedLength) {
       return Array.from({ length: batchSize }, (_, idx) =>
-        values.slice(idx * VISUAL_VECTOR_DIMENSIONS, (idx + 1) * VISUAL_VECTOR_DIMENSIONS),
+        getRow(idx * tokenCount * VISUAL_VECTOR_DIMENSIONS),
       );
+    } else if (tensor.data.length === expectedLength) {
+      return Array.from({ length: batchSize }, (_, idx) => getRow(idx * VISUAL_VECTOR_DIMENSIONS));
     } else {
       throw new Error(
-        `Unexpected visual vector shape: ${dims?.join("x") ?? values.length}. Expected ${batchSize}x${VISUAL_VECTOR_DIMENSIONS} or ${batchSize}xNx${VISUAL_VECTOR_DIMENSIONS}.`,
+        `Unexpected visual vector shape: ${dims?.join("x") ?? tensor.data.length}. Expected ${batchSize}x${VISUAL_VECTOR_DIMENSIONS} or ${batchSize}xNx${VISUAL_VECTOR_DIMENSIONS}.`,
       );
     }
   }
@@ -1831,7 +1832,6 @@ export class VectorSimilarityService {
     tableDef: VectorTableManifestEntry;
   }) {
     const table = await this.openValidTableIfExists(args.tableDef);
-
     if (!table) throw new Error("No active visual vector was found for this file yet.");
 
     const sourceRows = await table
@@ -1842,7 +1842,6 @@ export class VectorSimilarityService {
       .toArray();
 
     const sourceRow = sourceRows[0];
-
     if (!sourceRow?.vector) throw new Error("No active visual vector was found for this file yet.");
 
     // Find Similar stays exact; the search index only serves library-wide duplicate scans.
@@ -1976,11 +1975,9 @@ export class VectorSimilarityService {
 
   private getActiveTableDef(vectorType: SimilarityVectorType) {
     const tableName = this.manifest.activeTables[vectorType];
-
     if (!tableName) return null;
 
     const tableDef = this.manifest.tables[tableName];
-
     if (!tableDef || tableDef.status !== "active") return null;
 
     return tableDef;

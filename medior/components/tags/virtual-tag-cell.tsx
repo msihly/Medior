@@ -28,8 +28,10 @@ export const VirtualTagCell = Comp(
     }, [data.onWidth, index]);
 
     return (
-      <View ref={rowRef} row style={{ ...style, height: "auto", top: 10, width: "max-content" }}>
-        <TagChip tag={data.tags[index]} disabled={data.disabled} hasEditor width="fit-content" />
+      <View style={style}>
+        <View ref={rowRef} row margins={{ top: 10 }} width="max-content">
+          <TagChip tag={data.tags[index]} disabled={data.disabled} hasEditor width="fit-content" />
+        </View>
       </View>
     );
   },

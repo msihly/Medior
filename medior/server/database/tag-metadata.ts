@@ -141,7 +141,10 @@ export const readTagMetadata = async (
             metadataWriteOptions(),
           );
 
-          socket.emit("onBackgroundOperationUpdated", { id: operation.id, updates: { message } });
+          socket.emitVolatile("onBackgroundOperationUpdated", {
+            id: operation.id,
+            updates: { message },
+          });
           lastProgressAt = performance.now();
         }
       }
@@ -202,7 +205,7 @@ export const writeTagMetadata = async (
     updates: { count: tag.count, rating: tag.rating, size: tag.size, thumb: tag.thumb },
   }));
 
-  if (withSub) socket.emit("onTagsUpdated", { tags: updates, withFileReload: false });
+  if (withSub) socket.emitVolatile("onTagsUpdated", { tags: updates, withFileReload: false });
 
   if (updates.length) runFileCleanupQueue();
 

@@ -57,6 +57,7 @@ declare global {
     tagFields?: Array<{ idsName: string; name: string }>;
     transformResultsFn?: string;
     withCarouselIds?: boolean;
+    withChangeTracking?: boolean;
     withTags?: boolean;
   }
 }

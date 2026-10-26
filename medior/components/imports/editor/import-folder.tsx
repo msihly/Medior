@@ -6,6 +6,7 @@ import Color from "color";
 import type { ImportStatus } from "medior/server/database";
 import {
   Card,
+  Checkbox,
   Chip,
   Comp,
   ConfirmModal,
@@ -37,6 +38,8 @@ export interface ImportFolderListProps {
   folder: Folder;
   maxVisibleFiles?: number;
   noStatus?: boolean;
+  /** Shows a checkbox that selects the batch in the Import Manager's search. */
+  selectable?: boolean;
   withListItems?: boolean;
 }
 
@@ -47,6 +50,7 @@ export const ImportFolderList = Comp(
     folder,
     maxVisibleFiles,
     noStatus = false,
+    selectable = false,
     withListItems = true,
   }: ImportFolderListProps) => {
     const stores = useStores();
@@ -74,6 +78,7 @@ export const ImportFolderList = Comp(
       ? getImportFolderHeight({ folder, maxVisibleFiles, withListItems: !collapsed })
       : null;
 
+    const isSelected = !!batch && stores.import.manager.search.getIsSelected(batch.id);
     const totalBytes = batch
       ? batch.size
       : folder
@@ -89,7 +94,24 @@ export const ImportFolderList = Comp(
       return res.success;
     };
 
+    const getItemKey = (index: number) => folder.imports[index].id ?? folder.imports[index].path;
+
     const handlePageChange = (page: number) => batch.loadPage(page);
+
+    /** Checking a batch toggles it, and Shift selects the range up to it. */
+    const handleSelectChange = async (
+      _checked: boolean,
+      _ternary: boolean,
+      event: React.MouseEvent,
+    ) => {
+      const res = await stores.import.manager.search.handleSelect({
+        hasCtrl: !event?.shiftKey,
+        hasShift: !!event?.shiftKey,
+        id: batch.id,
+      });
+
+      if (!res?.success) toast.error(res.error);
+    };
 
     /** Status chips filter the batch's files, expanding it to show them. */
     const handleStatusClick = (status: ImportStatus) => {
@@ -100,6 +122,8 @@ export const ImportFolderList = Comp(
       else batch.loadPage(1);
     };
 
+    const openDeleteConfirm = () => setIsDeleteConfirmOpen(true);
+
     const openFolder = async () => {
       if (!folderPath) return;
 
@@ -107,8 +131,6 @@ export const ImportFolderList = Comp(
 
       if (error) toast.error(error);
     };
-
-    const openDeleteConfirm = () => setIsDeleteConfirmOpen(true);
 
     const openReprocessConfirm = () => setIsReprocessConfirmOpen(true);
 
@@ -130,10 +152,6 @@ export const ImportFolderList = Comp(
     }, [batch, collapsed]);
 
     useEffect(() => {
-      batch?.loadStatusCounts();
-    }, [batch]);
-
-    useEffect(() => {
       listRef.current?.scrollTo(0);
     }, [batch?.page]);
 
@@ -148,6 +166,15 @@ export const ImportFolderList = Comp(
       >
         <View spacing="0.5rem" className={css.header}>
           <View row align="center" className={css.folderPath}>
+            {selectable && batch && (
+              <Checkbox
+                checked={isSelected}
+                setChecked={handleSelectChange}
+                flex="none"
+                padding={{ all: "0.3em" }}
+              />
+            )}
+
             {collapsible ? (
               <IconButton
                 name="ChevronRight"
@@ -192,12 +219,12 @@ export const ImportFolderList = Comp(
             {batch &&
               (Object.keys(IMPORT_STATUSES) as ImportStatus[]).map(
                 (status) =>
-                  batch.statusCounts[status] > 0 && (
+                  (batch.statusCounts[status] > 0 || batch.statuses.includes(status)) && (
                     <TooltipWrapper key={status} tooltip={IMPORT_STATUSES[status].label}>
                       <Chip
                         size="small"
                         icon={IMPORT_STATUSES[status].icon}
-                        label={Fmt.commas(batch.statusCounts[status])}
+                        label={Fmt.commas(batch.statusCounts[status] ?? 0)}
                         bgColor={IMPORT_STATUSES[status].color}
                         onClick={() => handleStatusClick(status)}
                         className={cx(
@@ -253,10 +280,10 @@ export const ImportFolderList = Comp(
               height={getImportFolderListHeight(folder.imports.length, maxVisibleFiles)}
               itemSize={IMPORT_LIST_ITEM_HEIGHT}
               itemCount={folder.imports.length}
+              itemKey={getItemKey}
             >
               {({ index, style }) => (
                 <ImportListItem
-                  key={index}
                   batchImports={folder.imports}
                   fileImport={folder.imports[index]}
                   noStatus={noStatus}

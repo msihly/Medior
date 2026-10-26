@@ -51,6 +51,7 @@ export const CarouselWindow = Comp(({ embedded = false }: CarouselWindowProps) =
   };
 
   const { handleKeyPress, navCarouselByArrowKey } = useHotkeys({
+    embedded,
     rootRef,
     videoRef,
     view: "carousel",
@@ -98,7 +99,10 @@ export const CarouselWindow = Comp(({ embedded = false }: CarouselWindowProps) =
   useEffect(() => {
     window.addEventListener("mousemove", handleMouseMove);
 
-    return () => window.removeEventListener("mousemove", handleMouseMove);
+    return () => {
+      window.removeEventListener("mousemove", handleMouseMove);
+      clearTimeout(mouseMoveTimeout.current);
+    };
   }, []);
 
   useEffect(() => {
@@ -157,7 +161,6 @@ export const CarouselWindow = Comp(({ embedded = false }: CarouselWindowProps) =
         <View
           ref={setRootRef}
           onKeyDown={handleKeyPress}
-          onMouseMove={handleMouseMove}
           onWheel={handleScroll}
           column
           height={embedded ? "100%" : "100vh"}

@@ -1,5 +1,6 @@
 import type { InferenceSession } from "onnxruntime-node";
 import type { Config } from "medior/utils/server/config";
+import { registerNativeWorker } from "medior/utils/server/native-worker";
 
 type AudioConfig = Config["file"]["similarity"]["audio"];
 
@@ -42,34 +43,21 @@ const getSession = async (config: AudioConfig, modelPath: string) => {
   return session;
 };
 
-process.on("disconnect", () => process.exit(1));
+registerNativeWorker(
+  async (input: { chunks: Float32Array[]; config: AudioConfig; modelPath: string }) => {
+    const encoder = await getSession(input.config, input.modelPath);
+    const sampleCount = input.chunks[0].length;
+    const waveform = new Float32Array(input.chunks.length * sampleCount);
 
-process.on(
-  "message",
-  async ({
-    id,
-    input,
-  }: {
-    id: string;
-    input: { chunks: Float32Array[]; config: AudioConfig; modelPath: string };
-  }) => {
-    try {
-      const encoder = await getSession(input.config, input.modelPath);
-      const sampleCount = input.chunks[0].length;
-      const waveform = new Float32Array(input.chunks.length * sampleCount);
+    input.chunks.forEach((chunk, index) => waveform.set(chunk, index * sampleCount));
 
-      input.chunks.forEach((chunk, index) => waveform.set(chunk, index * sampleCount));
+    const outputs = await encoder.run(
+      { waveform: new ort.Tensor("float32", waveform, [input.chunks.length, sampleCount]) },
+      [input.config.layer],
+    );
 
-      const outputs = await encoder.run(
-        { waveform: new ort.Tensor("float32", waveform, [input.chunks.length, sampleCount]) },
-        [input.config.layer],
-      );
+    const tokens = outputs[input.config.layer];
 
-      const tokens = outputs[input.config.layer];
-
-      process.send({ data: { data: tokens.data as Float32Array, dims: tokens.dims }, id });
-    } catch (error) {
-      process.send({ error: error.message, id });
-    }
+    return { data: tokens.data as Float32Array, dims: tokens.dims };
   },
 );

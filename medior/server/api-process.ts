@@ -3,9 +3,11 @@ import Mongoose from "mongoose";
 import {
   checkServerShutdown,
   closeHttpServer,
+  listenHttpServer,
   registerProcessLifecycle,
   reportStartupProgress,
 } from "trabecula/utils/process";
+import { connectMongoPrimary } from "trabecula/utils/process/mongo-client";
 import { fileLog } from "trabecula/utils/server";
 import {
   startBackgroundQueues,
@@ -31,35 +33,15 @@ registerProcessLifecycle({
     reportStartupProgress("Loading API configuration...");
     await loadConfig(process.env.CONFIG_PATH);
     checkServerShutdown();
-    Mongoose.set("strictQuery", true);
 
-    reportStartupProgress("Connecting the API to storage...");
-    await Mongoose.connect(message.uri, {
-      autoIndex: false,
-      family: 4,
-      writeConcern: { j: true, w: "majority" },
-    });
-
-    checkServerShutdown();
-    reportStartupProgress("Checking storage readiness...");
-
-    const hello = await Mongoose.connection.db.admin().command({ hello: 1 });
-
-    checkServerShutdown();
-
-    if (hello.setName !== "rs0" || !hello.isWritablePrimary)
-      throw new Error("The configured rs0 database is not PRIMARY yet.");
+    await connectMongoPrimary(message.uri, "rs0");
 
     reportStartupProgress("Opening the API listener...");
     setupTRPC();
     setupVectorTRPC();
 
     server = createHTTPServer({ router: serverRouter });
-
-    await new Promise<void>((resolve, reject) => {
-      server.server.once("error", reject);
-      server.server.listen(getConfig().ports.server, "127.0.0.1", resolve);
-    });
+    await listenHttpServer(server.server, getConfig().ports.server);
 
     checkServerShutdown();
     startBackgroundQueues();

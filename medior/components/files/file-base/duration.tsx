@@ -1,10 +1,10 @@
+import { FileSchema } from "medior/_generated/server";
 import { FileBase, Icon, Text, View } from "medior/components";
-import { File } from "medior/store";
 import { Fmt } from "medior/utils/common";
 import { ChipProps } from "./chip";
 
 interface DurationProps extends Omit<ChipProps, "label"> {
-  file: File;
+  file: Pick<FileSchema, "audioCodec" | "duration">;
 }
 
 export const Duration = ({ file, ...props }: DurationProps) => {

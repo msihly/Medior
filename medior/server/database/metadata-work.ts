@@ -300,7 +300,7 @@ export const resumeMetadataWork = async (canContinue: () => boolean) => {
 };
 
 export const repairMetadata = async <T, R>(
-  candidates: AsyncIterable<T>,
+  candidates: AsyncIterable<T> | Iterable<T>,
   repair: (candidate: T) => Promise<R>,
   onProcessed?: (repaired: { candidate: T; result: R }) => Promise<void>,
 ) => {

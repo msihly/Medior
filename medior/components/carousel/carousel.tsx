@@ -25,9 +25,7 @@ export const Carousel = Comp((_, videoRef: MutableRefObject<ReactPlayer>) => {
   const store = stores.carousel;
 
   const activeFile = store.getActiveFile();
-
   const playbackUrl = store.requiresTranscoding ? store.mediaSourceUrl : activeFile?.path;
-
   const activeCaption = store.isCaptionsVisible ? store.activeCaption : null;
 
   const { css } = useClasses({
@@ -166,8 +164,6 @@ export const Carousel = Comp((_, videoRef: MutableRefObject<ReactPlayer>) => {
     }
   };
 
-  const togglePlaying = () => store.setIsPlaying(!store.isPlaying);
-
   const handleCancelLoad = () => {
     stores.file.search.cancelLoad();
 
@@ -215,7 +211,7 @@ export const Carousel = Comp((_, videoRef: MutableRefObject<ReactPlayer>) => {
                       column
                       flex={1}
                       height="inherit"
-                      onClick={togglePlaying}
+                      onClick={store.toggleIsPlaying}
                       className={css.videoSurface}
                     >
                       {store.isWaitingForFrames && (

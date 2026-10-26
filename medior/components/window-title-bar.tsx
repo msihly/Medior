@@ -33,11 +33,15 @@ export const WindowTitleBar = Comp(({ isDark = false, title }: WindowTitleBarPro
 
   const handleClose = () => getCurrentWindow().close();
 
-  const handleDeveloperTools = () => getCurrentWindow().webContents.toggleDevTools();
+  const handleDeveloperTools = (onClose: () => void) => {
+    onClose();
+    getCurrentWindow().webContents.toggleDevTools();
+  };
 
-  const handleFileNameToggle = async () => {
+  const handleFileNameToggle = async (onClose: () => void) => {
     const showFileName = !store.showFileName;
 
+    onClose();
     store.setShowFileName(showFileName);
     store.settings.update({ file: { showFileName } });
 
@@ -55,7 +59,10 @@ export const WindowTitleBar = Comp(({ isDark = false, title }: WindowTitleBarPro
 
   const handleHotkeysClose = () => setIsHotkeysOpen(false);
 
-  const handleHotkeysOpen = () => setIsHotkeysOpen(true);
+  const handleHotkeysOpen = (onClose: () => void) => {
+    onClose();
+    setIsHotkeysOpen(true);
+  };
 
   const handleMaximize = () => {
     const browserWindow = getCurrentWindow();
@@ -108,28 +115,15 @@ export const WindowTitleBar = Comp(({ isDark = false, title }: WindowTitleBarPro
           <View>
             <ListItem
               icon={store.showFileName ? "CheckBox" : "CheckBoxOutlineBlank"}
-              onClick={() => {
-                onClose();
-                handleFileNameToggle();
-              }}
+              onClick={() => handleFileNameToggle(onClose)}
               text="Show File Names"
             />
 
-            <ListItem
-              icon="Keyboard"
-              onClick={() => {
-                onClose();
-                handleHotkeysOpen();
-              }}
-              text="Hotkeys"
-            />
+            <ListItem icon="Keyboard" onClick={() => handleHotkeysOpen(onClose)} text="Hotkeys" />
 
             <ListItem
               icon="DeveloperMode"
-              onClick={() => {
-                onClose();
-                handleDeveloperTools();
-              }}
+              onClick={() => handleDeveloperTools(onClose)}
               text="Developer Tools"
             />
           </View>

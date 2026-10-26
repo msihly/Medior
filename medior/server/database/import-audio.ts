@@ -8,6 +8,8 @@ import {
   canRunBackgroundQueues,
   completeBackgroundOperationTargets,
   completeEmptyBackgroundOperation,
+  emitBackgroundOperation,
+  failBackgroundOperation,
   makeBackgroundOperationRunner,
   queueBackgroundOperation,
   setBackgroundOperationStatus,
@@ -26,15 +28,23 @@ const processImportedAudio = async () => {
     let operation: BackgroundOperationSchema;
 
     try {
-      operation = leanModelToJson<BackgroundOperationSchema>(
-        await BackgroundOperationModel.findOne({
-          status: { $in: ["PENDING", "RUNNING"] },
-          type: "audioAnalysis",
-        })
-          .select({ targetIds: { $slice: 1 } })
-          .sort({ dateCreated: 1 })
-          .lean(),
-      );
+      const [queued] = await BackgroundOperationModel.aggregate([
+        { $match: { status: { $in: ["PENDING", "RUNNING"] }, type: "audioAnalysis" } },
+        { $sort: { dateCreated: 1 } },
+        { $limit: 1 },
+        // Failed files stay queued, so the next file to analyze is within the first failures + 1.
+        {
+          $project: {
+            failures: 1,
+            status: 1,
+            targetIds: {
+              $slice: ["$targetIds", { $add: [{ $size: { $ifNull: ["$failures", []] } }, 1] }],
+            },
+          },
+        },
+      ]);
+
+      operation = leanModelToJson<BackgroundOperationSchema>(queued);
 
       if (!operation) return;
 
@@ -43,64 +53,99 @@ const processImportedAudio = async () => {
       if (operation.status === "PENDING")
         await setBackgroundOperationStatus(operation.id, "RUNNING");
 
-      const fileId = operation.targetIds[0];
+      const failedIds = new Set(operation.failures?.map((failure) => failure.targetId));
+      const fileId = operation.targetIds.find((id) => !failedIds.has(id));
 
       if (!fileId) {
-        await completeEmptyBackgroundOperation(operation.id, "Imported audio analysis completed.");
+        if (failedIds.size)
+          await failBackgroundOperation(
+            operation.id,
+            [...failedIds],
+            `${failedIds.size} imported files could not be analyzed. See the individual failures below.`,
+          );
+        else
+          await completeEmptyBackgroundOperation(
+            operation.id,
+            "Imported audio analysis completed.",
+          );
+
         continue;
       }
 
-      const file = await FileModel.findById(fileId)
-        .select({ audioCodec: 1, hash: 1, path: 1, peakDecibels: 1, waveformPeaks: 1 })
-        .lean();
+      // Read before analyzing, so a file queued again meanwhile stays queued for another pass.
+      const targetVersions = (
+        await BackgroundOperationModel.findById(operation.id)
+          .select({ [`targetVersions.${fileId}`]: 1 })
+          .lean()
+      )?.targetVersions;
 
-      if (
-        file?.audioCodec &&
-        file.audioCodec !== "None" &&
-        (!file.waveformPeaks?.length || file.peakDecibels == null)
-      ) {
-        let lastProgress = 0;
+      try {
+        const file = await FileModel.findById(fileId)
+          .select({ audioCodec: 1, hash: 1, path: 1, peakDecibels: 1, waveformPeaks: 1 })
+          .lean();
 
-        const reportProgress = (message: string) => {
-          const now = Date.now();
+        if (
+          file?.audioCodec &&
+          file.audioCodec !== "None" &&
+          (!file.waveformPeaks?.length || file.peakDecibels == null)
+        ) {
+          let lastProgress = 0;
 
-          if (now - lastProgress < 1000) return;
+          const reportProgress = (message: string) => {
+            const now = Date.now();
 
-          lastProgress = now;
-          socket.emit("onBackgroundOperationUpdated", {
-            id: operation.id,
-            updates: { message: `${path.basename(file.path)}: ${message}` },
+            if (now - lastProgress < 1000) return;
+
+            lastProgress = now;
+            socket.emitVolatile("onBackgroundOperationUpdated", {
+              id: operation.id,
+              updates: { message: `${path.basename(file.path)}: ${message}` },
+            });
+          };
+
+          const analysis = await analyzeAudio(file.path, reportProgress, workSignal.getStore(), {
+            withTranscription: false,
+            withWaveform: true,
           });
-        };
 
-        const analysis = await analyzeAudio(file.path, reportProgress, workSignal.getStore(), {
-          withTranscription: false,
-          withWaveform: true,
-        });
+          checkBackgroundExecution();
 
+          const updates = {
+            peakDecibels: analysis.peakDecibels,
+            waveformPeaks: analysis.waveformPeaks,
+          };
+          const result = await FileModel.updateOne(
+            { _id: file._id, hash: file.hash, path: file.path },
+            { $set: updates },
+            metadataWriteOptions(),
+          );
+
+          if (!result.matchedCount)
+            throw new Error("File changed during audio analysis; retry analysis");
+
+          socket.emitVolatile("onFilesUpdated", { fileIds: [fileId], updates });
+        }
+      } catch (error) {
         checkBackgroundExecution();
 
-        const updates = {
-          peakDecibels: analysis.peakDecibels,
-          waveformPeaks: analysis.waveformPeaks,
-        };
-        const result = await FileModel.updateOne(
-          { _id: file._id, hash: file.hash, path: file.path },
-          { $set: updates },
+        // ffmpeg failing to start would fail every file, so it stops the operation instead.
+        if (error.syscall?.startsWith("spawn")) throw error;
+
+        await BackgroundOperationModel.updateOne(
+          { _id: operation.id, status: { $in: ["PENDING", "RUNNING"] } },
+          { $push: { failures: { message: error.message, targetId: fileId } } },
           metadataWriteOptions(),
         );
 
-        if (!result.matchedCount)
-          throw new Error("File changed during audio analysis; retry analysis");
-
-        socket.emit("onFilesUpdated", { fileIds: [fileId], updates });
+        await emitBackgroundOperation(operation.id);
+        continue;
       }
 
       await completeBackgroundOperationTargets(
         operation.id,
         [fileId],
         "Imported audio analysis saved.",
-        operation.targetVersions ?? {},
+        targetVersions ?? {},
       );
     } catch (error) {
       if (!canRunBackgroundQueues()) return;

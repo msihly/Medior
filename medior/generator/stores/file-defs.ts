@@ -61,7 +61,7 @@ export const FILE_DEF_STORES: FileDef = {
   makeFile: async () => {
     const makeImports = () =>
       `import autoBind from "auto-bind";
-      import { computed } from "mobx";
+      import { computed, reaction } from "mobx";
       import {
         applySnapshot,
         getRootStore,
@@ -73,7 +73,6 @@ export const FILE_DEF_STORES: FileDef = {
         modelFlow,
         prop,
       } from "mobx-keystone";
-      import { makePerfLog } from "trabecula/utils/server";
       import * as Types from "medior/server/database/types";
       import { IconName, SortMenuProps } from "medior/components";
       import * as Stores from "medior/store";

@@ -62,13 +62,7 @@ export const GroupFile = Comp(
 
             <FileBase.Chip position="top-right" label={file.ext} />
 
-            {!!file.duration && (
-              <FileBase.Chip
-                position="bottom-right"
-                label={Fmt.duration(file.duration)}
-                hasFooter={hasTags}
-              />
-            )}
+            <FileBase.Duration position="bottom-right" file={file} hasFooter={hasTags} />
           </FileBase.Image>
 
           {hasTags && (
