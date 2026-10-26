@@ -79,8 +79,8 @@ dependencies:
     specifier: ^4.6.2
     version: 4.7.5
   trabecula:
-    specifier: github:msihly/trabecula#42bded1e7057a6de36a8e94a2279b702699a4f5e
-    version: github.com/msihly/trabecula/42bded1e7057a6de36a8e94a2279b702699a4f5e(@mui/system@5.16.7)(@types/react@17.0.80)(electron@25.9.8)(mongodb-memory-server@8.16.1)(mongoose@6.13.0)(socket.io-client@4.7.5)(socket.io@4.7.5)
+    specifier: github:msihly/trabecula#b6e8e2827a1c0d420a043b80e3ab7e93131fa421
+    version: github.com/msihly/trabecula/b6e8e2827a1c0d420a043b80e3ab7e93131fa421(@mui/system@5.16.7)(@types/react@17.0.80)(electron@25.9.8)(mongodb-memory-server@8.16.1)(mongoose@6.13.0)(socket.io-client@4.7.5)(socket.io@4.7.5)
   util:
     specifier: ^0.12.5
     version: 0.12.5
@@ -9576,9 +9576,9 @@ packages:
       readable-stream: 3.6.2
     dev: true
 
-  github.com/msihly/trabecula/42bded1e7057a6de36a8e94a2279b702699a4f5e(@mui/system@5.16.7)(@types/react@17.0.80)(electron@25.9.8)(mongodb-memory-server@8.16.1)(mongoose@6.13.0)(socket.io-client@4.7.5)(socket.io@4.7.5):
-    resolution: {tarball: https://codeload.github.com/msihly/trabecula/tar.gz/42bded1e7057a6de36a8e94a2279b702699a4f5e}
-    id: github.com/msihly/trabecula/42bded1e7057a6de36a8e94a2279b702699a4f5e
+  github.com/msihly/trabecula/b6e8e2827a1c0d420a043b80e3ab7e93131fa421(@mui/system@5.16.7)(@types/react@17.0.80)(electron@25.9.8)(mongodb-memory-server@8.16.1)(mongoose@6.13.0)(socket.io-client@4.7.5)(socket.io@4.7.5):
+    resolution: {tarball: https://codeload.github.com/msihly/trabecula/tar.gz/b6e8e2827a1c0d420a043b80e3ab7e93131fa421}
+    id: github.com/msihly/trabecula/b6e8e2827a1c0d420a043b80e3ab7e93131fa421
     name: trabecula
     version: 1.1.1
     peerDependencies:

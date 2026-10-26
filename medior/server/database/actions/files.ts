@@ -1149,18 +1149,12 @@ export const repairFilesWithBrokenExt = makeAction(async ({ repairId }: { repair
     let filesWithDotPrefixCount = 0;
     let filesWithIncorrectExtCount = 0;
 
-    report("Detecting file formats from their contents in disk order.");
+    report("Detecting file formats from their contents in bounded batches.");
 
-    const candidates = await models.FileModel.find()
-      .select({ _id: 1, "thumb.ntfsFileId": 1, "thumb.ntfsVolumeId": 1 })
-      .sort({ _id: 1 })
-      .lean();
+    lock((await models.FileModel.find().select({ _id: 1 }).lean()).map((file) => String(file._id)));
 
-    lock(candidates.map((file) => String(file._id)));
-
-    // Contents are read one at a time in the disk order their stored thumbnail identity records.
     await repairMetadata(
-      sortByStoredNtfsIdentity(candidates, getThumbNtfsIdentity),
+      models.FileModel.find().select({ _id: 1 }).sort({ _id: 1 }).lean().cursor({ batchSize: 100 }),
       async (candidate) => {
         checkCancelled();
 
@@ -1411,6 +1405,7 @@ export const repairMissingAudioAnalysis = makeAction(
           // Archived files are never analyzed, so they also stay free to delete during the repair.
           isArchived: { $ne: true },
           isAudioCorrupted: { $ne: true },
+          isCorrupted: { $ne: true },
         })
           .allowDiskUse(true)
           .select({
@@ -2051,8 +2046,6 @@ export const repairThumbnailNtfsMetadata = makeAction(
 
         if (!files.length) break;
 
-        const metadataItems: ThumbnailNtfsMetadata[] = [];
-
         for (const file of files) {
           checkCancelled();
 
@@ -2094,15 +2087,16 @@ export const repairThumbnailNtfsMetadata = makeAction(
             continue;
           }
 
-          metadataItems.push({
-            fileId: String(file._id),
-            ntfsFileId: identity.fileId,
-            ntfsVolumeId: identity.volumeId,
-            sourcePath: file.thumb.path,
-          });
+          storedCount += await storeThumbnailNtfsMetadata([
+            {
+              fileId: String(file._id),
+              ntfsFileId: identity.fileId,
+              ntfsVolumeId: identity.volumeId,
+              sourcePath: file.thumb.path,
+            },
+          ]);
         }
 
-        storedCount += await storeThumbnailNtfsMetadata(metadataItems);
         cursor = files[files.length - 1]._id;
         inspectedCount += files.length;
         unlock(files.map((file) => String(file._id)));

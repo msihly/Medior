@@ -33,8 +33,10 @@ export const AppWrapper = ({ children }: AppWrapperProps) => {
 
   return error ? (
     <Views.MuiProvider>
-      <View column align="center" justify="center" height="100vh">
-        <Text color={colors.custom.red}>{`Failed to start Medior: ${error}`}</Text>
+      <View column align="center" justify="center" height="100vh" padding={{ all: "0 2rem" }}>
+        <Text align="center" color={colors.custom.red} overflowWrap="anywhere" whiteSpace="normal">
+          {`Failed to start Medior: ${error}`}
+        </Text>
       </View>
     </Views.MuiProvider>
   ) : isLoading ? null : (

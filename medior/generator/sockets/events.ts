@@ -11,7 +11,7 @@ export const CUSTOM_EVENTS: {
     args: "{ batchId?: string; elapsed: number; filePath: string; message: string; progress?: number }",
     name: "onFileImportProgress",
   },
-  { args: "{ batchId?: string; filePath: string }", name: "onFileImportStarted" },
+  { args: "{ filePath: string }", name: "onFileImportStarted" },
   {
     args: "{ batchId: string; errorMsg?: string; fileId?: string; filePath: string; processedCount: number; processedSize: number; progressRevision: number; status?: Types.ImportStatus }",
     name: "onFileImportUpdated",

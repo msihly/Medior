@@ -27,14 +27,14 @@ export const CarouselThumb = Comp(({ id, isDragging = false, style }: CarouselTh
       width={CONSTANTS.CAROUSEL.THUMB_NAV.WIDTH}
       style={style}
     >
-      {file && <FileBase.RatingChip position="top-left" rating={file.rating} />}
-
       <FileBase.Image
         thumb={file?.thumb}
         title={file?.originalName}
         fileId={file?.id}
         isCorrupted={file?.isCorrupted}
       />
+
+      {file && <FileBase.RatingChip position="top-left" rating={file.rating} />}
 
       <FileBase.Chip label={file?.ext} position="top-right" />
 

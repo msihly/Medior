@@ -322,7 +322,7 @@ export const RelatedCollectionsQueue = Comp(({ onClose }: RelatedCollectionsQueu
       </View>
 
       <View column flex={1} position="relative" overflow="hidden" spacing="0.3rem">
-        <View row align="center" spacing="0.5rem" padding={{ all: "0 0.5rem" }}>
+        <View row align="center" justify="center" spacing="0.5rem" padding={{ all: "0 0.5rem" }}>
           <Text preset="title">{"Matches"}</Text>
 
           <Chip label={foundEntries.length} height="1.5em" />

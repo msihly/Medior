@@ -60,10 +60,7 @@ export interface SocketEmitEvents {
     },
     options?: SocketEventOptions,
   ) => void;
-  onFileImportStarted: (
-    args: { batchId?: string; filePath: string },
-    options?: SocketEventOptions,
-  ) => void;
+  onFileImportStarted: (args: { filePath: string }, options?: SocketEventOptions) => void;
   onFileImportUpdated: (
     args: {
       batchId: string;

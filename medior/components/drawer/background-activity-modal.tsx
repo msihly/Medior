@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { Button, Card, CenteredText, Comp, Icon, Modal, Text, View } from "medior/components";
+import { Button, Card, Comp, Icon, Modal, Text, View } from "medior/components";
 import { useStores } from "medior/store";
 import { colors } from "medior/utils/client";
 import { formatDate, NOTIFICATION_TYPE_META } from "./activity-meta";
@@ -54,7 +54,9 @@ export const BackgroundActivityModal = Comp(() => {
               <OperationCard key={operation.id} operation={operation} />
             ))
           ) : (
-            <CenteredText text="No background operations." />
+            <View flex={1} align="center" justify="center">
+              <Text color={colors.custom.lightGrey}>{"No background operations."}</Text>
+            </View>
           )}
         </Card>
 
@@ -103,7 +105,9 @@ export const BackgroundActivityModal = Comp(() => {
               );
             })
           ) : (
-            <CenteredText text="No notifications." />
+            <View flex={1} align="center" justify="center">
+              <Text color={colors.custom.lightGrey}>{"No notifications."}</Text>
+            </View>
           )}
         </Card>
       </Modal.Content>

@@ -171,6 +171,7 @@ export const ImportFolderList = Comp(
                 checked={isSelected}
                 setChecked={handleSelectChange}
                 flex="none"
+                width="auto"
                 padding={{ all: "0.3em" }}
               />
             )}

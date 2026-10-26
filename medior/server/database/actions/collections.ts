@@ -1139,75 +1139,44 @@ export const repairCollections = makeAction(
       if (syncFileMembership) {
         report("Synchronizing each file's collection membership from current collections.");
 
-        /** Streams the library's file ids in batches, so they never load all at once. */
-        const listFileIdBatches = async function* () {
-          let batch: mongoose.Types.ObjectId[] = [];
+        await repairMetadata(
+          models.FileModel.find().select({ _id: 1 }).sort({ _id: 1 }).lean().cursor(),
+          async (candidate) => {
+            checkCancelled();
 
-          for await (const { _id } of models.FileModel.find()
-            .select({ _id: 1 })
-            .sort({ _id: 1 })
-            .lean()
-            .cursor()) {
-            batch.push(_id);
+            const file = await models.FileModel.findById(candidate._id)
+              .select({ collectionIds: 1 })
+              .lean();
 
-            if (batch.length === 1000) {
-              yield batch;
-              batch = [];
-            }
-          }
+            if (!file) return;
 
-          if (batch.length) yield batch;
-        };
+            const collectionIds = (
+              await models.FileCollectionModel.find({ "fileIdIndexes.fileId": file._id })
+                .select({ _id: 1 })
+                .lean()
+            )
+              .map(({ _id }) => String(_id))
+              .sort();
 
-        await repairMetadata(listFileIdBatches(), async (fileIds) => {
-          checkCancelled();
-
-          const files = await models.FileModel.find({ _id: { $in: fileIds } })
-            .select({ collectionIds: 1 })
-            .lean();
-
-          const collections = await models.FileCollectionModel.find({
-            "fileIdIndexes.fileId": { $in: fileIds },
-          })
-            .select({ "fileIdIndexes.fileId": 1 })
-            .lean();
-
-          const collectionIdsByFileId = new Map<string, Set<string>>(
-            files.map((file) => [String(file._id), new Set<string>()]),
-          );
-
-          for (const collection of collections) {
-            for (const { fileId } of collection.fileIdIndexes)
-              collectionIdsByFileId.get(String(fileId))?.add(String(collection._id));
-          }
-
-          const changedFiles = files.flatMap((file) => {
-            const collectionIds = [...collectionIdsByFileId.get(String(file._id))].sort();
-            const isUnchanged =
+            if (
               file.collectionIds &&
-              [...file.collectionIds].map(String).sort().join(",") === collectionIds.join(",");
+              [...file.collectionIds].map(String).sort().join(",") === collectionIds.join(",")
+            )
+              return;
 
-            return isUnchanged ? [] : [{ collectionIds, id: file._id }];
-          });
-
-          if (changedFiles.length)
-            await models.FileModel.bulkWrite(
-              changedFiles.map(({ collectionIds, id }) => ({
-                updateOne: {
-                  filter: { _id: id },
-                  update: { $set: { collectionIds } },
-                },
-              })),
+            await models.FileModel.updateOne(
+              { _id: file._id },
+              { $set: { collectionIds: objectIds(collectionIds) } },
             );
 
-          for (const { collectionIds, id } of changedFiles)
             socket.emitVolatile("onFilesUpdated", {
-              fileIds: [String(id)],
+              fileIds: [String(file._id)],
               updates: { collectionIds },
             });
 
-          checkCancelled();
-        });
+            checkCancelled();
+          },
+        );
       }
 
       report(

@@ -14,14 +14,7 @@ import { mediaPathKey } from "medior/server/database/media-paths";
 import { withMetadataMutation } from "medior/server/database/metadata-mutations";
 import { makeRepairReporter } from "medior/server/database/repair-progress";
 import { chunkArray, CONSTANTS, Fmt, getSubtitleFilePaths } from "medior/utils/common";
-import {
-  getConfig,
-  getIsActiveScratchPath,
-  getNtfsFileIdentity,
-  makeAction,
-  NtfsFileIdentity,
-  sortByStoredNtfsIdentity,
-} from "medior/utils/server";
+import { getConfig, getIsActiveScratchPath, makeAction } from "medior/utils/server";
 import { hashMediaFile } from "medior/utils/server/media-output";
 import { runConcurrent } from "medior/utils/server/work-signal";
 
@@ -590,50 +583,8 @@ export const scanFileStorage = makeAction(async ({ repairId }: { repairId: strin
         }
       };
 
-      const matchHashes = new Map<string, string>();
-
-      /**
-       * Hashes the recovery matches of the next candidates one at a time, in their NTFS order. The
-       * identities come from file metadata, without reading contents.
-       */
-      const hashRecoveryMatches = async (batch: typeof candidates) => {
-        const hashPaths = new Set<string>();
-        const hashTargets: (NtfsFileIdentity & { filePath: string })[] = [];
-
-        for (const candidate of batch) {
-          if (candidate.missingFile && candidate.path && candidate.hash) {
-            const match = matches.get(path.basename(candidate.path).toLowerCase());
-
-            if (match && !occupiedPaths.has(mediaPathKey(match)) && !matchHashes.has(match))
-              hashPaths.add(match);
-          }
-        }
-
-        for (const filePath of hashPaths) {
-          checkCancelled();
-
-          try {
-            hashTargets.push({ ...(await getNtfsFileIdentity(filePath)), filePath });
-          } catch (error) {
-            if (error.code !== "ENOENT") throw error;
-          }
-        }
-
-        for (const { filePath } of sortByStoredNtfsIdentity(hashTargets, (target) => target)) {
-          checkCancelled();
-
-          try {
-            matchHashes.set(filePath, (await hashMediaFile(filePath, signal)).toLowerCase());
-          } catch (error) {
-            if (error.code !== "ENOENT") throw error;
-          }
-        }
-      };
-
       for (const [index, candidate] of candidates.entries()) {
         checkCancelled();
-
-        if (index % 250 === 0) await hashRecoveryMatches(candidates.slice(index, index + 250));
 
         let recoveredPath: string;
         let recoveredThumbPath: string;
@@ -644,10 +595,17 @@ export const scanFileStorage = makeAction(async ({ repairId }: { repairId: strin
           if (
             match &&
             !claimedPaths.has(mediaPathKey(match)) &&
-            !occupiedPaths.has(mediaPathKey(match)) &&
-            matchHashes.get(match) === candidate.hash.toLowerCase()
-          )
-            recoveredPath = match;
+            !occupiedPaths.has(mediaPathKey(match))
+          ) {
+            try {
+              if (
+                (await hashMediaFile(match, signal)).toLowerCase() === candidate.hash.toLowerCase()
+              )
+                recoveredPath = match;
+            } catch (error) {
+              if (error.code !== "ENOENT") throw error;
+            }
+          }
         }
 
         if (candidate.missingThumb) {

@@ -307,7 +307,7 @@ export const importMedia = async (args: MediaImportInput, operationId?: string) 
 
   activeImports.add(id);
 
-  socket.emit("onFileImportStarted", { batchId: args.batchId, filePath: args.originalPath });
+  socket.emit("onFileImportStarted", { filePath: args.originalPath });
 
   let releaseHash: () => void;
   const startedAt = performance.now();
