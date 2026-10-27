@@ -14,7 +14,7 @@ import {
   SimilarityBackfillModel,
 } from "medior/server/database/similarity-backfill";
 import { ThumbnailNtfsMetadata } from "medior/server/database/types";
-import { chunkArray, CONSTANTS, round } from "medior/utils/common";
+import { chunkArray, CONSTANTS, Fmt, round, TaskProgress } from "medior/utils/common";
 import { AudioVectorWindow, getAudioWindowTokens } from "medior/utils/server/audio-analysis";
 import { getAudioSimilarityModel, getConfig, getIsAnimated } from "medior/utils/server/config";
 import { runImageTask } from "medior/utils/server/image-task";
@@ -381,6 +381,7 @@ const getSimilarityScore = (similarity: number) =>
   round(Math.max(0, Math.min(100, similarity * 100)), 1);
 
 export class VectorSimilarityService {
+  private audioLookups = new Map<string, TaskProgress>();
   private db: LanceConnection;
   private initialization: Promise<void>;
   private jobs = new Map<string, SimilarityBackfillJob>();
@@ -564,6 +565,8 @@ export class VectorSimilarityService {
     exclude?: { end: number; fileId: string; start: number };
     fileIds?: string[];
     limit: number;
+    /** Reports the search's progress to `getAudioLookupProgress` under this ID. */
+    lookupId?: string;
     offset: number;
     vector: number[];
   }) {
@@ -590,6 +593,13 @@ export class VectorSimilarityService {
     const isExact = !!args.fileIds || !(await this.getVectorIndex(table));
     const wantedCount = args.offset + args.limit + 1;
 
+    // Batches still running when another fails would otherwise report after the lookup ends.
+    let isSettled = false;
+
+    const reportProgress = (message: string, progress?: number) => {
+      if (args.lookupId && !isSettled) this.audioLookups.set(args.lookupId, { message, progress });
+    };
+
     // The query's own stretch of audio would always match itself.
     const exclusion = args.exclude
       ? `NOT (${makeFileIdPredicate(args.exclude.fileId)} AND \`start\` < ${args.exclude.end} AND \`end\` > ${args.exclude.start})`
@@ -609,6 +619,12 @@ export class VectorSimilarityService {
       );
 
       while (candidates.size < wantedCount) {
+        // Filtered files are searched in batches at once, which report as they finish instead.
+        if (!fileIds)
+          reportProgress(
+            `${isExact ? "Comparing every audio window" : "Searching the audio index"}: ${Fmt.commas(candidates.size)} of ${Fmt.commas(wantedCount)} files found.`,
+          );
+
         const predicate = [
           fileIds ? makeFileIdsPredicate(fileIds) : null,
           candidates.size ? `NOT (${makeFileIdsPredicate([...candidates.keys()])})` : null,
@@ -649,15 +665,41 @@ export class VectorSimilarityService {
       return [...candidates.values()];
     };
 
-    // Every batch of chosen files keeps enough of its own closest files to fill the page alone.
-    const ranked = (
-      args.fileIds
-        ? await this.mapFileIdBatches(args.fileIds, findClosestWindows)
-        : [await findClosestWindows(null)]
-    )
-      .flat()
-      .sort((a, b) => b.score - a.score)
-      .slice(args.offset, wantedCount);
+    const findFilteredClosestWindows = async (fileIds: string[]) => {
+      let searchedCount = 0;
+
+      reportProgress(`Searching ${Fmt.commas(fileIds.length)} filtered files.`, 0);
+
+      return await this.mapFileIdBatches(fileIds, async (batch) => {
+        const windows = await findClosestWindows(batch);
+
+        searchedCount += batch.length;
+        reportProgress(
+          `Searched ${Fmt.commas(searchedCount)} of ${Fmt.commas(fileIds.length)} filtered files.`,
+          (searchedCount / fileIds.length) * 100,
+        );
+
+        return windows;
+      });
+    };
+
+    let ranked: AudioCandidate[];
+
+    try {
+      // Every batch of chosen files keeps enough of its own closest files to fill the page alone.
+      ranked = (
+        args.fileIds
+          ? await findFilteredClosestWindows(args.fileIds)
+          : [await findClosestWindows(null)]
+      )
+        .flat()
+        .sort((a, b) => b.score - a.score)
+        .slice(args.offset, wantedCount);
+    } finally {
+      isSettled = true;
+
+      if (args.lookupId) this.audioLookups.delete(args.lookupId);
+    }
 
     return {
       candidates: ranked.slice(0, args.limit).map((candidate, index) => ({
@@ -667,6 +709,11 @@ export class VectorSimilarityService {
       hasMore: ranked.length > args.limit,
       nextOffset: args.offset + Math.min(args.limit, ranked.length),
     };
+  }
+
+  /** A running audio lookup's progress, or null once it has finished or before it searches. */
+  getAudioLookupProgress(args: { lookupId: string }) {
+    return this.audioLookups.get(args.lookupId) ?? null;
   }
 
   /**

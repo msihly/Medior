@@ -45,6 +45,10 @@ export const CUSTOM_EVENTS: {
     args: "{ message: string; repairId: string; status: 'cancelled' | 'error' | 'info' | 'progress' | 'success' }",
     name: "onRepairProgress",
   },
+  {
+    args: "{ elapsed: number; lookupId: string; message: string; progress?: number }",
+    name: "onSimilarAudioProgress",
+  },
   { args: "{ newTagId: string; oldTagId: string }", name: "onTagMerged" },
   {
     args: "{ tags: Array<{ tagId: string; updates: Partial<models.TagSchema> }>; withFileReload: boolean }",

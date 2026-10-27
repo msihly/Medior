@@ -23,6 +23,8 @@ export const SimilarityModal = Comp(() => {
 
   const filesRef = useRef<HTMLDivElement>(null);
 
+  const isLoading = store.isLoading || store.search.isLoading || store.search.isSelecting;
+
   const handlePageChange = async (page: number) => {
     await store.search.loadFiltered({ page });
     filesRef.current?.scrollTo({ top: 0 });
@@ -40,8 +42,9 @@ export const SimilarityModal = Comp(() => {
   return (
     <Modal.Container height="100%" width="100%" onClose={store.close}>
       <SearchLoadingOverlay
-        isLoading={store.isLoading || store.search.isLoading || store.search.isSelecting}
+        isLoading={isLoading}
         onCancel={store.cancelLoad}
+        progress={store.progress}
         store={store.search}
       />
 
@@ -76,7 +79,7 @@ export const SimilarityModal = Comp(() => {
             />
           ))}
           bgColor={colors.custom.black}
-          noResultsText={store.error || "No similar files found"}
+          noResultsText={isLoading ? "" : store.error || "No similar files found"}
         />
 
         <Pagination

@@ -5,9 +5,9 @@ import { durationToSeconds } from "medior/utils/common";
 @model("medior/RepairAudioStore")
 export class RepairAudioStore extends Model({
   enabled: prop<boolean>(false).withSetter(),
-  maxDurationDisplay: prop<string>("20m").withSetter(),
+  maxDurationDisplay: prop<string>("").withSetter(),
   similarity: prop<boolean>(false).withSetter(),
-  similarityMaxDurationDisplay: prop<string>("20m").withSetter(),
+  similarityMaxDurationDisplay: prop<string>("").withSetter(),
   transcriptions: prop<boolean>(true).withSetter(),
   waveforms: prop<boolean>(true).withSetter(),
 }) {

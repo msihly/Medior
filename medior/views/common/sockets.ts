@@ -811,6 +811,12 @@ export const useSockets = ({ enabled = true, view }: UseSocketsProps) => {
       if (reason !== "created" || !store.search.forcePages) store.loadQueue({ isBackground: true });
     });
 
+    makeSocket("onSimilarAudioProgress", ({ elapsed, lookupId, message, progress }) => {
+      const store = stores.file.similarity;
+
+      if (store.lookupId === lookupId) store.setProgress({ elapsed, message, progress });
+    });
+
     if (view === "home") {
       makeSocket("onFileImportProgress", ({ batchId, elapsed, filePath, message, progress }) => {
         const store = stores.import.manager;

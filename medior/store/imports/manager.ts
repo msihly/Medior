@@ -11,6 +11,7 @@ import {
   ImportBatchOptions,
   ImportEntryInput,
   sleep,
+  TaskProgress,
 } from "medior/utils/common";
 import { trpc } from "medior/utils/server";
 import { FileImportBatch, FileImportBatchSearch } from ".";
@@ -19,9 +20,7 @@ import { FileImportBatch, FileImportBatchSearch } from ".";
 export class ImportManager extends Model({
   activeBatch: prop<FileImportBatch>(null).withSetter(),
   activeFilePath: prop<string>(null).withSetter(),
-  activeFileProgress: prop<{ elapsed: number; message: string; progress?: number }>(
-    null,
-  ).withSetter(),
+  activeFileProgress: prop<TaskProgress>(null).withSetter(),
   isImporting: prop<boolean>(false).withSetter(),
   isLoading: prop<boolean>(false).withSetter(),
   isOpen: prop<boolean>(false).withSetter(),

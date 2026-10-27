@@ -69,3 +69,75 @@ export const waitForWork = async (pending: Promise<unknown>, signals: AbortSigna
     for (const signal of activeSignals) signal.removeEventListener("abort", handleAbort);
   }
 };
+
+interface ResourceRequest {
+  grant: () => void;
+  priority: number;
+  resources: string[];
+}
+
+const busyResources = new Set<string>();
+const resourceRequests: ResourceRequest[] = [];
+
+const grantResourceRequests = () => {
+  for (const request of [...resourceRequests]) {
+    if (request.resources.some((resource) => busyResources.has(resource))) continue;
+
+    for (const resource of request.resources) busyResources.add(resource);
+
+    resourceRequests.splice(resourceRequests.indexOf(request), 1);
+    request.grant();
+  }
+};
+
+/**
+ * Runs work once every resource it needs is free, taking them together, lower priorities first.
+ * Waiting work holds nothing, so later work whose resources are free runs meanwhile. `release`
+ * frees the held resources besides those kept, handing them on before the work finishes.
+ */
+export const withResources = async <T>(
+  resources: string[],
+  priority: number,
+  signals: AbortSignal[],
+  run: (release: (kept?: string[]) => void) => Promise<T>,
+) => {
+  const held = new Set(resources);
+
+  const release = (kept: string[] = []) => {
+    for (const resource of held) {
+      if (kept.includes(resource)) continue;
+
+      held.delete(resource);
+      busyResources.delete(resource);
+    }
+
+    grantResourceRequests();
+  };
+
+  let grant: () => void;
+  const granted = new Promise<void>((resolve) => {
+    grant = resolve;
+  });
+
+  const request: ResourceRequest = { grant, priority, resources: [...held] };
+  const index = resourceRequests.findIndex((other) => other.priority > priority);
+
+  resourceRequests.splice(index === -1 ? resourceRequests.length : index, 0, request);
+  grantResourceRequests();
+
+  try {
+    await waitForWork(granted, signals);
+  } catch (error) {
+    if (resourceRequests.includes(request))
+      resourceRequests.splice(resourceRequests.indexOf(request), 1);
+    else release();
+
+    throw error;
+  }
+
+  try {
+    return await run(release);
+  } finally {
+    release();
+  }
+};

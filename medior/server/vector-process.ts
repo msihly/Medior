@@ -41,6 +41,9 @@ export const vectorRouter = trpc.router({
       }) => input,
     )
     .mutation(({ input }) => vectorSimilarityService.findSimilarVectorCandidates(input)),
+  getAudioLookupProgress: trpc.procedure
+    .input((input: { lookupId: string }) => input)
+    .mutation(({ input }) => vectorSimilarityService.getAudioLookupProgress(input)),
   getSearchIndexStatus: trpc.procedure.mutation(() =>
     vectorSimilarityService.getSearchIndexStatus(),
   ),

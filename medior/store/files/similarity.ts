@@ -2,7 +2,7 @@ import autoBind from "auto-bind";
 import { computed } from "mobx";
 import { Model, model, modelAction, modelFlow, prop } from "mobx-keystone";
 import { asyncAction, derefMobx, toast } from "medior/utils/client";
-import { CONSTANTS } from "medior/utils/common";
+import { CONSTANTS, TaskProgress, uuid } from "medior/utils/common";
 import { getConfig, trpc } from "medior/utils/server";
 import { DuplicateFileSearch } from "./search";
 
@@ -32,7 +32,10 @@ export class FileSimilarityStore extends Model({
   isLoading: prop<boolean>(false).withSetter(),
   isOpen: prop<boolean>(false).withSetter(),
   loadId: prop<number>(0).withSetter(),
+  /** Identifies the running audio lookup's progress among every window's lookups. */
+  lookupId: prop<string | null>(null).withSetter(),
   nextOffset: prop<number>(0).withSetter(),
+  progress: prop<TaskProgress | null>(null).withSetter(),
   /** Its filter menu only chooses matches; the lookup's ranked files fill its results. */
   search: prop<DuplicateFileSearch>(() => new DuplicateFileSearch({})),
 }) {
@@ -55,6 +58,8 @@ export class FileSimilarityStore extends Model({
     if (this.isLoading) this.search.setIds(this.candidates.map((candidate) => candidate.fileId));
 
     this.setIsLoading(false);
+    this.setLookupId(null);
+    this.setProgress(null);
   }
 
   @modelAction
@@ -129,9 +134,12 @@ export class FileSimilarityStore extends Model({
     this.search.cancelLoad();
 
     const loadId = this.loadId + 1;
+    const lookupId = this.audioRange ? uuid() : null;
     const selectedIds = [...this.search.selectedIds];
 
     this.setLoadId(loadId);
+    this.setLookupId(lookupId);
+    this.setProgress(null);
 
     try {
       const args = {
@@ -147,6 +155,7 @@ export class FileSimilarityStore extends Model({
         ? await trpc.findSimilarAudio.mutate({
             ...args,
             end: this.audioRange.end,
+            lookupId,
             start: this.audioRange.start,
           })
         : await trpc.findSimilarFiles.mutate(args);
@@ -154,6 +163,11 @@ export class FileSimilarityStore extends Model({
       if (loadId !== this.loadId) return;
 
       if (!res.success) throw new Error(res.error);
+
+      // Later progress from the server would be stale.
+      this.setLookupId(null);
+
+      if (lookupId) this.setProgress({ message: "Loading matched files." });
 
       const candidates = new Map(
         (append ? this.candidates : []).map((candidate) => [candidate.fileId, candidate]),
@@ -196,7 +210,11 @@ export class FileSimilarityStore extends Model({
         toast.error("Similarity lookup failed");
       }
     } finally {
-      if (loadId === this.loadId) this.setIsLoading(false);
+      if (loadId === this.loadId) {
+        this.setIsLoading(false);
+        this.setLookupId(null);
+        this.setProgress(null);
+      }
     }
   });
 

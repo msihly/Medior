@@ -18,6 +18,8 @@ export const genFileInfo = async (args: {
   filePath: string;
   hash: string;
   onProgress?: (message: string, progress?: number) => void;
+  /** Runs thumbnail generation, such as once a limit on concurrent ffmpeg work allows it. */
+  runThumbs?: (run: () => Promise<void>) => Promise<void>;
   signal?: AbortSignal;
   skipAudio?: boolean;
   skipThumbs?: boolean;
@@ -62,8 +64,7 @@ export const genFileInfo = async (args: {
   const dirPath = path.dirname(args.filePath);
   let thumbPath = path.resolve(dirPath, `${args.thumbId ?? args.hash}-thumb.jpg`);
 
-  if (!args.skipThumbs) {
-    args.signal?.throwIfAborted();
+  const generateThumb = async () => {
     args.onProgress?.("Generating thumbnail.");
 
     if (hasFrames) {
@@ -92,6 +93,13 @@ export const genFileInfo = async (args: {
         isCorrupted = true;
       }
     }
+  };
+
+  if (!args.skipThumbs) {
+    args.signal?.throwIfAborted();
+
+    if (args.runThumbs) await args.runThumbs(generateThumb);
+    else await generateThumb();
 
     args.signal?.throwIfAborted();
 

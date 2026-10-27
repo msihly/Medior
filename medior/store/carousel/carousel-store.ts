@@ -272,6 +272,7 @@ export class CarouselStore extends Model({
         ignorePrevDeleted: false,
         originalName: activeFile.originalName,
         originalPath: filePath,
+        sidecar: { rating: activeFile.rating },
         size,
         tagIds: activeFile.tagIds,
       });

@@ -847,13 +847,14 @@ export const embedAudioSegment = async (
   filePath: string,
   range: { end: number; start: number },
   signal = workSignal.getStore(),
+  onProgress?: ProgressReporter,
 ) => {
-  const audio = await decodeAudio(filePath, { range, signal });
+  const audio = await decodeAudio(filePath, { onProgress, range, signal });
 
   try {
     if (!audio.sampleCount) throw new Error("The selected range has no audio.");
 
-    const embedded = await embedAudioTokens(audio.read, audio.sampleCount, signal);
+    const embedded = await embedAudioTokens(audio.read, audio.sampleCount, signal, onProgress);
     const vector = poolAudioTokens(embedded, 0, embedded.tokenCount);
     if (!vector) throw new Error("The selected range's audio decoded to invalid values.");
 

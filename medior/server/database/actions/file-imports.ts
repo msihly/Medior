@@ -53,6 +53,7 @@ import {
   getIsImage,
   getIsStoragePath,
   getIsStorageScratchPath,
+  getIsVideo,
   leanModelToJson,
   makeAction,
   objectId,
@@ -1064,6 +1065,9 @@ export const isImporterPaused = () => importerStatus.getIsPaused();
 
 export const importMediaFile = makeAction(async (args: MediaImportInput) => importMedia(args));
 
+const getImportKind = (extension: string) =>
+  getIsImage(extension) ? "image" : getIsVideo(extension) ? "video" : null;
+
 export const runImportBatch = makeAction(async (args: { id: string }) => {
   if (isServerStopping()) throw new Error("Importer is shutting down");
 
@@ -1104,15 +1108,18 @@ export const runImportBatch = makeAction(async (args: { id: string }) => {
               if (importerStatus.getIsPaused() || isServerStopping()) break;
 
               const pending = [files[index++]];
+              const kind = getImportKind(pending[0].extension);
 
-              if (getIsImage(pending[0].extension)) {
-                while (index < files.length && getIsImage(files[index].extension))
+              if (kind) {
+                while (index < files.length && getImportKind(files[index].extension) === kind)
                   pending.push(files[index++]);
               }
 
+              // Videos take turns on the source drive, the library drive, and ffmpeg, so 3 at a time
+              // lets each be busy with a different file.
               await runConcurrent(
                 pending,
-                4,
+                kind === "image" ? 4 : 3,
                 (file) =>
                   importBatchFile({
                     batchId: id,

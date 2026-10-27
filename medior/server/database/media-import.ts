@@ -37,6 +37,7 @@ import {
   getIsStoragePath,
   getIsStorageScratchPath,
   getIsVideo,
+  getNtfsFileIdentity,
   getScratchFolder,
   leanModelToJson,
   socket,
@@ -50,7 +51,7 @@ import {
   syncMediaFile,
 } from "medior/utils/server/media-output";
 import { canEmbedSubtitle, getPartialMuxPath, muxSubtitles } from "medior/utils/server/subtitles";
-import { waitForWork, workSignal } from "medior/utils/server/work-signal";
+import { waitForWork, withResources, workSignal } from "medior/utils/server/work-signal";
 
 export interface MediaImportInput {
   batchId?: string;
@@ -72,6 +73,9 @@ export interface MediaImportInput {
 
 const activeImportHashes = new Map<string, Promise<void>>();
 const activeImports = new Set<string>();
+/** Video imports in the order they started. */
+const activeVideoImports = new Set<string>();
+let importSequence = 0;
 let importStorage: { bytesLeft: number; location: string };
 let importStorageCheck: Promise<{ bytesLeft: number; location: string }>;
 
@@ -305,9 +309,16 @@ export const importMedia = async (args: MediaImportInput, operationId?: string) 
 
   if (activeImports.has(id)) throw new Error("This file import is already active");
 
-  activeImports.add(id);
+  const isVideo = getIsVideo(args.ext);
+  const sequence = importSequence++;
 
-  socket.emit("onFileImportStarted", { filePath: args.originalPath });
+  activeImports.add(id);
+  if (isVideo) activeVideoImports.add(id);
+
+  // Only the earliest of overlapping video imports reports, so the active file doesn't flip.
+  const getIsReporting = () => !isVideo || activeVideoImports.values().next().value === id;
+
+  if (getIsReporting()) socket.emit("onFileImportStarted", { filePath: args.originalPath });
 
   let releaseHash: () => void;
   const startedAt = performance.now();
@@ -322,16 +333,18 @@ export const importMedia = async (args: MediaImportInput, operationId?: string) 
     progress = nextProgress;
   };
 
-  const emitProgress = () =>
-    socket.emitVolatile("onFileImportProgress", {
-      batchId: args.batchId,
-      elapsed: Math.floor((performance.now() - startedAt) / 1000),
-      filePath: args.originalPath,
-      message,
-      progress,
-    });
+  const emitProgress = () => {
+    if (getIsReporting())
+      socket.emitVolatile("onFileImportProgress", {
+        batchId: args.batchId,
+        elapsed: Math.floor((performance.now() - startedAt) / 1000),
+        filePath: args.originalPath,
+        message,
+        progress,
+      });
+  };
 
-  const progressTimer = getIsVideo(args.ext) ? setInterval(emitProgress, 1000) : null;
+  const progressTimer = isVideo ? setInterval(emitProgress, 1000) : null;
 
   if (progressTimer) emitProgress();
 
@@ -340,6 +353,50 @@ export const importMedia = async (args: MediaImportInput, operationId?: string) 
 
     timings.push(`${stage}: ${Math.round(now - stageStartedAt)}ms`);
     stageStartedAt = now;
+  };
+
+  /**
+   * Drives are told apart by volume, read from the nearest existing folder for unwritten outputs.
+   * A drive that can't be read isn't gated, leaving the failure to the import's own reads.
+   */
+  const getDiskResource = async (filePath: string) => {
+    if (!isVideo) return null;
+
+    for (let current = filePath; ; current = path.dirname(current)) {
+      try {
+        return `disk:${(await getNtfsFileIdentity(current)).volumeId}`;
+      } catch {
+        if (path.dirname(current) === current) return null;
+      }
+    }
+  };
+
+  /**
+   * Videos take turns on each drive and with ffmpeg, so stages bound by different resources overlap
+   * across files while each drive streams one file at a time. Among waiting imports, the earliest
+   * goes first. Stage timings include the wait, which is also logged on its own.
+   */
+  const withVideoResources = async <T>(
+    stage: string,
+    resources: string[],
+    run: (release: (kept?: string[]) => void) => Promise<T>,
+  ) => {
+    if (!isVideo) return await run(() => {});
+
+    const waitStartedAt = performance.now();
+
+    reportProgress("Waiting for another import.");
+
+    return await withResources(
+      resources.filter(Boolean),
+      sequence,
+      [serverShutdownSignal, workSignal.getStore()],
+      async (release) => {
+        timings.push(`${stage} wait: ${Math.round(performance.now() - waitStartedAt)}ms`);
+
+        return await run(release);
+      },
+    );
   };
 
   try {
@@ -407,14 +464,18 @@ export const importMedia = async (args: MediaImportInput, operationId?: string) 
         );
     }
 
-    reportProgress("Calculating checksum.", 0);
+    const sourceDisk = await getDiskResource(args.originalPath);
 
-    const sourceHash = await hashMediaFile(args.originalPath, workSignal.getStore(), (bytes) =>
-      reportProgress(
-        "Calculating checksum.",
-        args.size > 0 ? Math.min(100, (bytes / args.size) * 100) : undefined,
-      ),
-    );
+    const sourceHash = await withVideoResources("source checksum", [sourceDisk], async () => {
+      reportProgress("Calculating checksum.", 0);
+
+      return await hashMediaFile(args.originalPath, workSignal.getStore(), (bytes) =>
+        reportProgress(
+          "Calculating checksum.",
+          args.size > 0 ? Math.min(100, (bytes / args.size) * 100) : undefined,
+        ),
+      );
+    });
 
     reportProgress("Checking for duplicates.");
     recordTiming("source checksum");
@@ -471,6 +532,7 @@ export const importMedia = async (args: MediaImportInput, operationId?: string) 
           : null);
 
       const isEmbedding = Boolean(storage && contentPath);
+      let outputHash = sourceHash;
 
       if (isEmbedding) {
         // Record the scratch output first so an abandoned import still cleans it up.
@@ -486,13 +548,22 @@ export const importMedia = async (args: MediaImportInput, operationId?: string) 
           state: "PREPARED",
         });
 
-        // Remuxes only take their final name once finished, so an existing one is complete.
-        if (!(await checkFileExists(contentPath))) await embedSubtitles(contentPath);
-      }
+        const contentDisk = await getDiskResource(contentPath);
 
-      const outputHash = isEmbedding
-        ? await hashMediaFile(contentPath, workSignal.getStore())
-        : sourceHash;
+        outputHash = await withVideoResources(
+          "subtitle embedding",
+          [sourceDisk, contentDisk],
+          async (release) => {
+            // Remuxes only take their final name once finished, so an existing one is complete.
+            if (!(await checkFileExists(contentPath))) await embedSubtitles(contentPath);
+
+            release([contentDisk]);
+            reportProgress("Calculating checksum.");
+
+            return await hashMediaFile(contentPath, workSignal.getStore());
+          },
+        );
+      }
 
       const outputPath = storage
         ? path.join(
@@ -549,78 +620,97 @@ export const importMedia = async (args: MediaImportInput, operationId?: string) 
       if (!operation.outputPath)
         throw new Error("Import eligibility changed; cancel and requeue this import");
 
-      let recovered: Awaited<ReturnType<typeof recoverMediaOutput>>;
+      // Remuxed media is copied from scratch, so the source is only read to rebuild a missing remux.
+      const isSourceRead =
+        !operation.contentPath || !(await checkFileExists(operation.contentPath));
 
-      reportProgress("Verifying existing media.");
+      const contentDisk = operation.contentPath
+        ? await getDiskResource(operation.contentPath)
+        : null;
+      const outputDisk = await getDiskResource(operation.outputPath);
 
-      try {
-        recovered = await recoverMediaOutput({
-          hash,
-          path: operation.outputPath,
-          tempPath: operation.tempPath,
-        });
-      } catch (error) {
-        if (
-          error?.name !== "MediaChecksumMismatchError" ||
-          error.filePath !== operation.tempPath ||
-          operation.tempPath !== `${operation.outputPath}.${id}.tmp` ||
-          mediaPathKey(operation.tempPath) === mediaPathKey(args.originalPath)
-        )
-          throw error;
+      await withVideoResources(
+        "publish media",
+        [isSourceRead ? sourceDisk : null, contentDisk, outputDisk],
+        async (release) => {
+          let recovered: Awaited<ReturnType<typeof recoverMediaOutput>>;
 
-        await withMetadataMutation(async () => {
-          let isPublished = false;
+          reportProgress("Verifying existing media.");
 
           try {
-            await fs.lstat(operation.outputPath);
-            isPublished = true;
-          } catch (statError) {
-            if (statError.code !== "ENOENT") throw statError;
+            recovered = await recoverMediaOutput({
+              hash,
+              path: operation.outputPath,
+              tempPath: operation.tempPath,
+            });
+          } catch (error) {
+            if (
+              error?.name !== "MediaChecksumMismatchError" ||
+              error.filePath !== operation.tempPath ||
+              operation.tempPath !== `${operation.outputPath}.${id}.tmp` ||
+              mediaPathKey(operation.tempPath) === mediaPathKey(args.originalPath)
+            )
+              throw error;
+
+            await withMetadataMutation(async () => {
+              let isPublished = false;
+
+              try {
+                await fs.lstat(operation.outputPath);
+                isPublished = true;
+              } catch (statError) {
+                if (statError.code !== "ENOENT") throw statError;
+              }
+
+              if (
+                isPublished ||
+                (await isMediaPathReferenced(operation.tempPath, { fileOperationId: id }))
+              )
+                throw error;
+
+              await assertMediaPathsAvailable([operation.tempPath]);
+              workSignal.getStore()?.throwIfAborted();
+              await fs.rm(operation.tempPath, { force: true });
+            });
           }
 
-          if (
-            isPublished ||
-            (await isMediaPathReferenced(operation.tempPath, { fileOperationId: id }))
-          )
-            throw error;
+          if (!recovered) {
+            if (operation.contentPath && !(await checkFileExists(operation.contentPath))) {
+              await embedSubtitles(operation.contentPath);
 
-          await assertMediaPathsAvailable([operation.tempPath]);
-          workSignal.getStore()?.throwIfAborted();
-          await fs.rm(operation.tempPath, { force: true });
-        });
-      }
+              if ((await hashMediaFile(operation.contentPath, workSignal.getStore())) !== hash)
+                throw new Error(
+                  "Embedding subtitles produced a different file; cancel and requeue this import",
+                );
+            }
 
-      if (!recovered) {
-        if (operation.contentPath && !(await checkFileExists(operation.contentPath))) {
-          await embedSubtitles(operation.contentPath);
-
-          if ((await hashMediaFile(operation.contentPath, workSignal.getStore())) !== hash)
-            throw new Error(
-              "Embedding subtitles produced a different file; cancel and requeue this import",
+            // Remuxed media is copied from scratch, freeing the source's drive.
+            release([operation.contentPath ? contentDisk : sourceDisk, outputDisk]);
+            await fs.mkdir(path.dirname(operation.outputPath), { recursive: true });
+            reportProgress("Copying media.", 0);
+            await copyMediaFile(
+              operation.contentPath ?? args.originalPath,
+              operation.tempPath,
+              true,
+              (bytes) =>
+                reportProgress(
+                  "Copying media.",
+                  args.size > 0 ? Math.min(100, (bytes / args.size) * 100) : undefined,
+                ),
             );
-        }
 
-        await fs.mkdir(path.dirname(operation.outputPath), { recursive: true });
-        reportProgress("Copying media.", 0);
-        await copyMediaFile(
-          operation.contentPath ?? args.originalPath,
-          operation.tempPath,
-          true,
-          (bytes) =>
-            reportProgress(
-              "Copying media.",
-              args.size > 0 ? Math.min(100, (bytes / args.size) * 100) : undefined,
-            ),
-        );
+            // Verifying reads only the copy, so the next import can read its source meanwhile.
+            release([outputDisk]);
+            reportProgress("Verifying and saving media.");
 
-        reportProgress("Verifying and saving media.");
-
-        await publishMediaOutput({
-          hash,
-          path: operation.outputPath,
-          tempPath: operation.tempPath,
-        });
-      }
+            await publishMediaOutput({
+              hash,
+              path: operation.outputPath,
+              tempPath: operation.tempPath,
+            });
+          }
+        },
+      );
     }
 
     recordTiming("publish media");
@@ -654,6 +744,11 @@ export const importMedia = async (args: MediaImportInput, operationId?: string) 
             filePath: operation.outputPath,
             hash,
             onProgress: reportProgress,
+            // Only thumbnails take turns with other videos; reading metadata doesn't.
+            runThumbs: async (run) => {
+              recordTiming("media probe");
+              await withVideoResources("thumbnail", ["ffmpeg"], run);
+            },
             signal: workSignal.getStore(),
             skipAudio: true,
             thumbId: path.basename(operation.thumbPath).replace(/-thumb\.jpg$/, ""),
@@ -668,7 +763,7 @@ export const importMedia = async (args: MediaImportInput, operationId?: string) 
     if (info?.thumb?.path && info.thumb.path !== operation.thumbPath)
       await FileOperationModel.updateOne({ _id: id }, { thumbPath: info.thumb.path });
 
-    recordTiming("metadata and thumbnail");
+    recordTiming("thumbnail");
 
     let keptCopies: Awaited<ReturnType<typeof copySubtitles>> = [];
 
@@ -748,6 +843,7 @@ export const importMedia = async (args: MediaImportInput, operationId?: string) 
 
     releaseHash?.();
     activeImports.delete(id);
+    activeVideoImports.delete(id);
 
     if (performance.now() - startedAt >= 250)
       fileLog(

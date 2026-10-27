@@ -156,6 +156,10 @@ export interface SocketEmitEvents {
     args: { id: string; updates: Partial<models.SavedSearchSchema> },
     options?: SocketEventOptions,
   ) => void;
+  onSimilarAudioProgress: (
+    args: { elapsed: number; lookupId: string; message: string; progress?: number },
+    options?: SocketEventOptions,
+  ) => void;
   onTagCreated: (args: models.TagSchema, options?: SocketEventOptions) => void;
   onTagDeleted: (args: { ids: string[] }, options?: SocketEventOptions) => void;
   onTagMerged: (args: { newTagId: string; oldTagId: string }, options?: SocketEventOptions) => void;
@@ -237,6 +241,7 @@ export const socketEvents: SocketEmitEvent[] = [
   "onReloadRegExMaps",
   "onReloadTags",
   "onRepairProgress",
+  "onSimilarAudioProgress",
   "onTagMerged",
   "onTagsUpdated",
 ];

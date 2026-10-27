@@ -50,9 +50,12 @@ const parseCueTime = (value: string) =>
 export const getIsSubtitle = (filePath: string) =>
   SUBTITLE_EXTS.includes(path.extname(filePath).slice(1).toLowerCase());
 
-/** VobSub .idx indexes travel with the .sub images beside them. */
-export const getSubtitleFilePaths = (subtitles: { path: string }[] = []) =>
-  subtitles.flatMap((subtitle) => {
+/**
+ * VobSub .idx indexes travel with the .sub images beside them. Files imported through a saved
+ * request before its input kept missing values missing can hold null subtitles.
+ */
+export const getSubtitleFilePaths = (subtitles?: { path: string }[] | null) =>
+  (subtitles ?? []).flatMap((subtitle) => {
     const { dir, ext, name } = path.parse(subtitle.path);
 
     return ext.toLowerCase() === ".idx"

@@ -667,7 +667,7 @@ export const RepairModal = Comp(() => {
                 />
 
                 <NumInput
-                  header="Max Length"
+                  placeholder="Max"
                   adornment="hms"
                   value={store.audio.similarityMaxDuration}
                   valueDisplay={store.audio.similarityMaxDurationDisplay}
@@ -689,7 +689,7 @@ export const RepairModal = Comp(() => {
                 />
 
                 <NumInput
-                  header="Max Length"
+                  placeholder="Max"
                   adornment="hms"
                   value={store.audio.maxDuration}
                   valueDisplay={store.audio.maxDurationDisplay}
