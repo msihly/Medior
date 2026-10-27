@@ -5,6 +5,7 @@ import { createInterface } from "readline";
 import { serverShutdownSignal } from "trabecula/utils/process";
 import { fileLog } from "trabecula/utils/server";
 import { stripVTControlCharacters } from "util";
+import { CONSTANTS } from "medior/utils/common";
 import { workSignal } from "medior/utils/server/work-signal";
 
 const busyWorkers = new WeakSet<ChildProcess>();
@@ -22,6 +23,17 @@ const workerEnv: Partial<Record<keyof typeof workerLimits, NodeJS.ProcessEnv>> =
     LANCEDB_LOG_STYLE: "never",
   },
 };
+/**
+ * Image tasks that limit their own threads run as many at once as there are file I/O threads to
+ * read their inputs; others, which use every core, are limited by `workerLimits`.
+ */
+export const IMAGE_TASK_CONCURRENCY = Math.max(
+  1,
+  Math.min(
+    CONSTANTS.FILE.IO_CONCURRENCY,
+    Number(process.env.UV_THREADPOOL_SIZE) || CONSTANTS.VECTOR.DEFAULT_THREAD_POOL_SIZE,
+  ),
+);
 const workerLimits = { audio: 1, image: 4, "search-index": 1, transcription: 1, visual: 1 };
 const workerPools = new Map<string, Set<ChildProcess>>();
 const workers = new WeakMap<AbortSignal, Map<string, Set<ChildProcess>>>();
@@ -100,6 +112,7 @@ export const runNativeTask = async <T>(
   signal = workSignal.getStore() ?? serverShutdownSignal,
   onProgress?: (message: string, progress?: number) => void,
   onOutput?: (line: string) => void,
+  poolLimit = workerLimits[name],
 ): Promise<T> => {
   let worker: ChildProcess;
 
@@ -114,7 +127,7 @@ export const runNativeTask = async <T>(
       (candidate) => candidate.connected && !candidate.killed && !busyWorkers.has(candidate),
     );
 
-    if (worker || pool.size < workerLimits[name]) break;
+    if (worker || pool.size < poolLimit) break;
 
     const available = [...pool].find((candidate) => !busyWorkers.has(candidate));
     const pending = waitForNativeWorker(name, signal);
@@ -197,12 +210,15 @@ export const runNativeTask = async <T>(
       busyWorkers.delete(worker);
       notifyWorkerAvailability(name);
 
-      const idleTimeout = setTimeout(() => {
-        if (!busyWorkers.has(worker)) worker.kill();
-      }, 30_000);
+      // An operation's models stay loaded until it ends, which kills them; others idle out.
+      if (signal === serverShutdownSignal) {
+        const idleTimeout = setTimeout(() => {
+          if (!busyWorkers.has(worker)) worker.kill();
+        }, 30_000);
 
-      idleTimeout.unref();
-      idleTimeouts.set(worker, idleTimeout);
+        idleTimeout.unref();
+        idleTimeouts.set(worker, idleTimeout);
+      }
     };
 
     const onError = (error: Error) => {

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import {
   Button,
+  Chip,
   Comp,
   LoadingOverlay,
   Modal,
@@ -11,7 +12,7 @@ import {
 } from "medior/components";
 import { useStores } from "medior/store";
 import { colors, toast } from "medior/utils/client";
-import { durationToSeconds, secondsToDuration } from "medior/utils/common";
+import { durationToSeconds, Fmt, secondsToDuration } from "medior/utils/common";
 import { ConfigKey, getConfig, ReencodeCandidateType } from "medior/utils/server";
 
 const QUEUE_MAX_DURATION_KEY = "file.reencode.queueMaxDuration" as ConfigKey;
@@ -30,6 +31,12 @@ export const ReencodeCandidates = Comp(() => {
   const config = getConfig().file.reencode;
   const maxDuration = maxDurationDisplay ? durationToSeconds(maxDurationDisplay) : null;
   const isMaxDurationInvalid = types.includes("video") && maxDuration === 0;
+  const progress = store.candidateProgress;
+
+  const handleCancel = async () => {
+    const res = await store.cancelCandidateSearch();
+    if (!res.success) toast.error(res.error);
+  };
 
   const handleClose = () => {
     if (!isSaving) setIsOpen(false);
@@ -57,6 +64,9 @@ export const ReencodeCandidates = Comp(() => {
         const res = await store.queueReencodeCandidates(types);
         if (!res.success) return toast.error(res.error);
 
+        // A cancelled search adds nothing and leaves the options open.
+        if (res.data === null) return;
+
         toast.success(`Added ${res.data.toLocaleString()} files to the re-encode queue`);
       }
 
@@ -82,7 +92,24 @@ export const ReencodeCandidates = Comp(() => {
 
       {isOpen && (
         <Modal.Container onClose={handleClose} width="30rem">
-          <LoadingOverlay isLoading={isSaving} />
+          <LoadingOverlay
+            isLoading={isSaving}
+            sub={
+              progress && (
+                <View column align="center" spacing="1rem">
+                  <Text textAlign="center">{progress.message}</Text>
+
+                  {progress.elapsed != null && (
+                    <Chip label={Fmt.duration(progress.elapsed)} icon="Timer" />
+                  )}
+
+                  {store.candidateLookupId && (
+                    <Button text="Cancel" icon="Close" onClick={handleCancel} />
+                  )}
+                </View>
+              )
+            }
+          />
 
           <Modal.Header>
             <Text preset="title">{"Add Re-encodes"}</Text>

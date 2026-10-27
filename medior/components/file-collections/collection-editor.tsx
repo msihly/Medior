@@ -167,10 +167,16 @@ export const FileCollectionEditor = Comp(
 
     const handleRating = async (rating: number) => {
       if (onRating) await onRating(rating);
-      else await stores.collection.updateCollRating({ id: store.collection.id, rating });
+      else {
+        const res = await stores.collection.updateCollRating({ id: store.collection.id, rating });
+        if (!res.success) toast.error(res.error);
+      }
     };
 
-    const handleRefreshMeta = () => stores.collection.regenCollMeta([store.collection.id]);
+    const handleRefreshMeta = async () => {
+      const res = await stores.collection.regenCollMeta([store.collection.id]);
+      if (!res.success) toast.error(res.error);
+    };
 
     const handleRemoveFiles = () => setIsConfirmRemoveFilesOpen(true);
 

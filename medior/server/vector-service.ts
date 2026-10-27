@@ -18,7 +18,7 @@ import { chunkArray, CONSTANTS, Fmt, round, TaskProgress } from "medior/utils/co
 import { AudioVectorWindow, getAudioWindowTokens } from "medior/utils/server/audio-analysis";
 import { getAudioSimilarityModel, getConfig, getIsAnimated } from "medior/utils/server/config";
 import { runImageTask } from "medior/utils/server/image-task";
-import { runNativeTask } from "medior/utils/server/native-task";
+import { IMAGE_TASK_CONCURRENCY, runNativeTask } from "medior/utils/server/native-task";
 import { getNtfsFileIdentity } from "medior/utils/server/ntfs";
 import { getScaledThumbSize } from "medior/utils/server/videos";
 import { runConcurrent, workSignal } from "medior/utils/server/work-signal";
@@ -244,13 +244,7 @@ const ORDERING_PROGRESS_INTERVAL = 512;
 // Batch and progress counts span a whole build step; k-means iteration counts restart per cluster.
 const SEARCH_INDEX_COUNT_REGEX = /(?:batch|progress)\D*?(\d+)\s*\/\s*(\d+)/i;
 
-const VISUAL_DECODE_CONCURRENCY = Math.max(
-  1,
-  Math.min(
-    CONSTANTS.FILE.IO_CONCURRENCY,
-    Number(process.env.UV_THREADPOOL_SIZE) || CONSTANTS.VECTOR.DEFAULT_THREAD_POOL_SIZE,
-  ),
-);
+const VISUAL_DECODE_CONCURRENCY = IMAGE_TASK_CONCURRENCY;
 
 const VISUAL_INPUT_SIZE = 224;
 
@@ -1250,6 +1244,9 @@ export class VectorSimilarityService {
           build.status = "error";
           fileLog(`[VECTOR] Similarity search index failed: ${error.message}`, { type: "error" });
         }
+      } finally {
+        // Ending the build releases its index-building process.
+        build.controller.abort();
       }
     })();
 

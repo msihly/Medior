@@ -173,6 +173,8 @@ export const startJob = ({
       // A stopped job reports what it finished rather than why it was interrupted.
       if (!job.controller.signal.aborted) job.state.error = error?.message ?? String(error);
     } finally {
+      // Ending the job releases what its work kept, such as loaded model processes.
+      job.controller.abort();
       serverShutdownSignal.removeEventListener("abort", abort);
       unlockFiles(owner.id);
       jobs.delete(id);

@@ -165,7 +165,7 @@ class FileTransformerStatus {
     this.lastPreviewAt = 0;
     socket.emit("onFileTransformerStatusUpdated");
 
-    return this.abortController.signal;
+    return this.abortController;
   }
 }
 
@@ -673,6 +673,15 @@ const REENCODE_BATCH_SIZES: Record<ReencodeCandidateType, number> = {
   video: 100,
 };
 
+const REENCODE_CANDIDATE_LABELS: Record<ReencodeCandidateType, string> = {
+  gif: "GIFs",
+  image: "images",
+  video: "videos",
+};
+
+/** Running candidate searches by lookup ID, so the window that started one can cancel it. */
+const reencodeCandidateSearches = new Map<string, AbortController>();
+
 /**
  * Matches uncorrupted files over the configured re-encode limits, excluding files with the
  * configured excluded tags or their descendants, and videos longer than the saved max length.
@@ -728,13 +737,20 @@ const getReencodeCandidateMatches = () => {
   } satisfies Record<ReencodeCandidateType, FilterQuery<models.FileSchema>>;
 };
 
+export const cancelReencodeCandidateSearch = makeAction(
+  async ({ lookupId }: { lookupId: string }) => {
+    reencodeCandidateSearches.get(lookupId)?.abort();
+  },
+);
+
 /**
  * Lists the next batch of never re-encoded candidates per type in queue order: images by size, then
- * GIFs and videos by stored bitrate, with missing bitrates last. Each scan walks its sort index
- * rather than sorting every match, and sparse types may still walk most of the index.
+ * GIFs and videos by stored bitrate, with missing bitrates last. Each scan walks only its own
+ * extensions in sort order rather than sorting every match. Progress is sent each second under
+ * `lookupId`, which also lets the search be cancelled.
  */
 export const listReencodeCandidateIds = makeAction(
-  async (args: { types: ReencodeCandidateType[] }) => {
+  async ({ lookupId, types }: { lookupId?: string; types: ReencodeCandidateType[] }) => {
     // The hinted sort indexes are created by media path indexing.
     await assertMediaPathIndexesReady();
 
@@ -744,33 +760,78 @@ export const listReencodeCandidateIds = makeAction(
     // Files another operation locks can't be queued, so the batch takes the next files instead.
     const lockedIds = objectIds(getFileLocks().flatMap(({ fileIds }) => fileIds));
 
-    for (const type of ["image", "gif", "video"] as const) {
-      if (!args.types.includes(type)) continue;
+    const controller = new AbortController();
+    const startedAt = performance.now();
+    const timings: string[] = [];
+    let message = "Finding files to re-encode.";
 
-      const sortKey = type === "image" ? "size" : "bitrate";
+    const emitProgress = () =>
+      socket.emitVolatile("onReencodeCandidateProgress", {
+        elapsed: Math.floor((performance.now() - startedAt) / 1000),
+        lookupId,
+        message,
+      });
 
-      const files = await withIndexHint(() =>
-        models.FileModel.aggregate<{ _id: MongoTypes.ObjectId }>([
-          { $match: { ...matches[type], _id: { $nin: lockedIds } } },
-          { $sort: { [sortKey]: -1, _id: -1 } },
-          {
-            $lookup: {
-              as: "reencodes",
-              foreignField: "fileId",
-              from: models.FileTransformModel.collection.name,
-              localField: "_id",
-              pipeline: [{ $match: { type: "reencode" } }, { $limit: 1 }, { $project: { _id: 1 } }],
-            },
-          },
-          { $match: { "reencodes.0": { $exists: false } } },
-          { $limit: REENCODE_BATCH_SIZES[type] },
-          { $project: { _id: 1 } },
-        ])
-          .hint({ [sortKey]: 1, _id: 1 })
-          .exec(),
+    const progressTimer = lookupId ? setInterval(emitProgress, 1000) : null;
+
+    if (lookupId) reencodeCandidateSearches.set(lookupId, controller);
+
+    try {
+      // Running as background work lets a cancel interrupt the scan in the database.
+      await runBackgroundExecution(
+        async () => {
+          for (const type of ["image", "gif", "video"] as const) {
+            if (!types.includes(type)) continue;
+
+            const label = REENCODE_CANDIDATE_LABELS[type];
+            const sortKey = type === "image" ? "size" : "bitrate";
+            const typeStartedAt = performance.now();
+
+            message = `Finding ${label} to re-encode.`;
+            if (lookupId) emitProgress();
+
+            const files = await withIndexHint(() =>
+              models.FileModel.aggregate<{ _id: MongoTypes.ObjectId }>([
+                { $match: { ...matches[type], _id: { $nin: lockedIds } } },
+                { $sort: { [sortKey]: -1, _id: -1 } },
+                {
+                  $lookup: {
+                    as: "reencodes",
+                    foreignField: "fileId",
+                    from: models.FileTransformModel.collection.name,
+                    localField: "_id",
+                    pipeline: [
+                      { $match: { type: "reencode" } },
+                      { $limit: 1 },
+                      { $project: { _id: 1 } },
+                    ],
+                  },
+                },
+                { $match: { "reencodes.0": { $exists: false } } },
+                { $limit: REENCODE_BATCH_SIZES[type] },
+                { $project: { _id: 1 } },
+              ])
+                .hint({ ext: 1, [sortKey]: 1, _id: 1 })
+                .exec(),
+            );
+
+            for (const file of files) ids.push(file._id.toString());
+
+            timings.push(
+              `${label}: ${files.length} in ${Math.round(performance.now() - typeStartedAt)}ms`,
+            );
+          }
+        },
+        controller.signal,
+        false,
       );
+    } finally {
+      if (progressTimer) clearInterval(progressTimer);
+      if (lookupId) reencodeCandidateSearches.delete(lookupId);
 
-      for (const file of files) ids.push(file._id.toString());
+      fileLog(
+        `[Re-encode candidates] ${Math.round(performance.now() - startedAt)}ms; ${timings.join("; ")}`,
+      );
     }
 
     return ids;
@@ -784,9 +845,12 @@ const refillReencodeQueue = async () => {
 
   const candidates = await listReencodeCandidateIds({ types });
   if (!candidates.success) throw new Error(candidates.error);
-  if (!candidates.data.length) return null;
 
-  const created = await createFileTransforms({ fileIds: candidates.data, type: "reencode" });
+  // Files locked while the candidates were found are left for a later refill.
+  const fileIds = candidates.data.filter((fileId) => !getForeignFileLock(fileId));
+  if (!fileIds.length) return null;
+
+  const created = await createFileTransforms({ fileIds, type: "reencode" });
   if (!created.success) throw new Error(created.error);
 
   return getQueueTransform("PENDING", "reencode");
@@ -1087,12 +1151,34 @@ const completeDuplicateMerge = async (id: string) => {
   socket.emitVolatile("onFileTransformUpdated", { id, updates });
 };
 
+/**
+ * Archiving a merged original removes its other transforms, which can't happen during a merge, so
+ * the merge is refused before any metadata moves.
+ */
+const assertNoOtherUnfinishedTransforms = async (
+  transform: Pick<models.FileTransformSchema, "fileId"> & { _id: MongoTypes.ObjectId },
+) => {
+  if (
+    await models.FileTransformModel.exists({
+      _id: { $ne: transform._id },
+      fileId: transform.fileId,
+      isCompleted: false,
+    })
+  )
+    throw new Error(
+      "The original file has another unfinished transform; remove it from the queue before merging",
+    );
+};
+
 const verifyDuplicateTransform = async (args: { id: string }) => {
   const verified = await models.FileTransformModel.findById(args.id).lean();
 
   if (!verified) throw new Error("Transform not found");
 
   if (verified.status !== "MERGED") {
+    // A merge that would be refused anyway doesn't read any files first.
+    await assertNoOtherUnfinishedTransforms(verified);
+
     const inspection = await inspectFileTransformDuplicate(args);
 
     if (!inspection.success) throw new Error(inspection.error);
@@ -1112,10 +1198,11 @@ const verifyDuplicateTransform = async (args: { id: string }) => {
 const mergeDuplicateTransform = async (
   args: { id: string },
   verified?: Awaited<ReturnType<typeof verifyDuplicateTransform>>,
-) =>
-  withMetadataMutation(async () => {
-    verified ??= await verifyDuplicateTransform(args);
+) => {
+  // Files are checksummed before taking the metadata lock, so edits elsewhere don't wait on them.
+  verified ??= await verifyDuplicateTransform(args);
 
+  return await withMetadataMutation(async () => {
     const transform = await models.FileTransformModel.findById(args.id).lean();
 
     if (transform?.status === "MERGED") {
@@ -1188,18 +1275,8 @@ const mergeDuplicateTransform = async (
       )
         throw new Error("The archived original has a merge targeting a different file");
 
-      // Archiving the original removes its other transforms, which can't happen mid-merge, so the
-      // merge is refused before any metadata moves.
-      if (
-        await models.FileTransformModel.exists({
-          _id: { $ne: transform._id },
-          fileId: original._id,
-          isCompleted: false,
-        })
-      )
-        throw new Error(
-          "The original file has another unfinished transform; remove it from the queue before merging",
-        );
+      // A transform queued for the original during verification is caught here.
+      await assertNoOtherUnfinishedTransforms(transform);
 
       await mergeDuplicateFile(original, match);
 
@@ -1238,6 +1315,7 @@ const mergeDuplicateTransform = async (
       });
     }
   });
+};
 
 const processDuplicateMergeQueue = async (operationId?: string, batchId?: string) => {
   while (operationId || canRunBackgroundQueues()) {
@@ -2161,9 +2239,11 @@ export const stopFileTransformer = async () => {
 const startFileTransform = (args: { id: string; type: Types.FileTransformType }) => {
   if (activeMediaFinalizations || isServerStopping()) return false;
 
-  const signal = fileTransformerStatus.tryRun(args.type);
+  const controller = fileTransformerStatus.tryRun(args.type);
 
-  if (!signal) return false;
+  if (!controller) return false;
+
+  const signal = controller.signal;
 
   const startupTimeout = setTimeout(() => {
     fileLog(`[TRANSFORM ${args.id}] Still loading or claiming work after 10 seconds.`);
@@ -2285,6 +2365,9 @@ const startFileTransform = (args: { id: string; type: Types.FileTransformType })
       await actions.recordNotification({ message: error.message, type: "error" });
     })
     .finally(() => {
+      // Ending the run releases what its work kept, such as image processes.
+      controller.abort();
+
       if (activeTransformExecution === execution) activeTransformExecution = null;
 
       runTransformRegenerationQueue();

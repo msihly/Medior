@@ -123,6 +123,10 @@ export interface SocketEmitEvents {
     args: { id: string; updates: Partial<models.NotificationSchema> },
     options?: SocketEventOptions,
   ) => void;
+  onReencodeCandidateProgress: (
+    args: { elapsed: number; lookupId: string; message: string },
+    options?: SocketEventOptions,
+  ) => void;
   onReloadBackgroundActivity: (options?: SocketEventOptions) => void;
   onReloadFileCollections: (options?: SocketEventOptions) => void;
   onReloadFiles: (options?: SocketEventOptions) => void;
@@ -233,6 +237,7 @@ export const socketEvents: SocketEmitEvent[] = [
   "onImporterStatusUpdated",
   "onJobUpdated",
   "onNotificationsRead",
+  "onReencodeCandidateProgress",
   "onReloadBackgroundActivity",
   "onReloadFileCollections",
   "onReloadFileTransforms",

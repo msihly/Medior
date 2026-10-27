@@ -15,7 +15,7 @@ import {
   View,
 } from "medior/components";
 import { useStores } from "medior/store";
-import { colors, makeClasses } from "medior/utils/client";
+import { colors, makeClasses, toast } from "medior/utils/client";
 import { CONSTANTS, Fmt, round } from "medior/utils/common";
 import { videoTranscoder } from "medior/utils/server/videos";
 import { VideoContext, ZoomContext } from "medior/views";
@@ -76,7 +76,7 @@ export const Carousel = Comp((_, videoRef: MutableRefObject<ReactPlayer>) => {
       store.setCurFrame(round(startTime * activeFile.frameRate, 0), activeFile.frameRate);
 
     store.transcodeVideo({ seekTime: startTime });
-    store.loadSubtitleTracks();
+    loadSubtitleTracks();
 
     return () => videoTranscoder.dispose();
   }, [activeFile?.path]);
@@ -88,6 +88,11 @@ export const Carousel = Comp((_, videoRef: MutableRefObject<ReactPlayer>) => {
         () => (videoRef.current?.getInternalPlayer() as HTMLMediaElement | undefined) ?? null,
       );
   }, [playbackUrl]);
+
+  const loadSubtitleTracks = async () => {
+    const res = await store.loadSubtitleTracks();
+    if (!res.success) toast.error(res.error);
+  };
 
   const isCurrentPlayback = () =>
     activeFile?.id === store.activeFileId &&

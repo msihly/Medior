@@ -17,7 +17,7 @@ export const RuntimeSync = ({ children }: RuntimeSyncProps) => {
       const previousConfig = getConfig();
 
       setConfig(config);
-      stores.applyConfig(config);
+      stores.applyConfig(config, previousConfig);
 
       if (previousConfig.ports.server !== config.ports.server) setupTRPC();
 

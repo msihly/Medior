@@ -32,6 +32,9 @@ model.addIndex({ duration: 1, _id: 1 });
 model.addProp("duration", "number", { sort: { icon: "HourglassBottom", label: "Duration" } });
 
 model.addIndex({ ext: 1 }, { unique: false });
+// Re-encode candidates walk only their own extensions in size or bitrate order.
+model.addIndex({ ext: 1, size: 1, _id: 1 }, { unique: false });
+model.addIndex({ ext: 1, bitrate: 1, _id: 1 }, { unique: false });
 model.addProp("ext", "string", { required: true });
 
 model.addProp("faceModels", "FaceModel[]", {

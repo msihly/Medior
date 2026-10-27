@@ -205,6 +205,9 @@ export const TagInput = Comp(
     ) => {
       if (disabled) return;
 
+      // Tags are removed from the list, not by backspacing in an empty input.
+      if (reason === "removeOption" && _.key === "Backspace") return;
+
       if (
         details?.option &&
         isUnavailableOption(details.option) &&
@@ -256,9 +259,12 @@ export const TagInput = Comp(
       else handleClose();
     };
 
-    /** Menus move focus to items matching typed characters, so typed characters stop here. */
+    /**
+     * Menus move focus to items matching typed characters, so typed characters stop here. Escape
+     * only closes the options, never the dialog around the input.
+     */
     const handleKeyDown = (event: KeyboardEvent<HTMLElement>) => {
-      if (event.key.length === 1) event.stopPropagation();
+      if (event.key.length === 1 || event.key === "Escape") event.stopPropagation();
     };
 
     const renderInput = (params: AutocompleteRenderInputParams) => (

@@ -40,11 +40,14 @@ export const VideoTransformerModal = Comp(() => {
 
   const closeComparison = () => setComparison(null);
 
-  const handleClose = () => {
-    if (!store.isUpdating) {
-      load.cancel();
-      store.setIsOpen(false);
-    }
+  const handleClose = async () => {
+    if (store.isUpdating) return;
+
+    load.cancel();
+    store.setIsOpen(false);
+
+    const res = await store.cancelCandidateSearch();
+    if (!res.success) toast.error(res.error);
   };
 
   const handleQueueType = async (type: FileTransformType) => {

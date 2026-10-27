@@ -86,6 +86,7 @@ export const serverRouter = trpc.router({
   beginImportBatchUpload: serverEndpoint(db.beginImportBatchUpload),
   cancelBackgroundOperation: serverEndpoint(db.cancelBackgroundOperation),
   cancelFileTransformDuplicateMerge: serverEndpoint(db.cancelFileTransformDuplicateMerge),
+  cancelReencodeCandidateSearch: serverEndpoint(db.cancelReencodeCandidateSearch),
   cancelRepair: serverEndpoint(db.cancelRepair),
   cancelSimilarityBackfill: serverEndpoint(db.cancelSimilarityBackfill),
   checkFileImportHashes: serverEndpoint(db.checkFileImportHashes),

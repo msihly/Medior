@@ -246,10 +246,6 @@ export class FileSimilarityStore extends Model({
     );
   }
 
-  get resultIds() {
-    return this.search.results.map((file) => file.id);
-  }
-
   getCandidate(fileId: string) {
     return this.candidatesById.get(fileId);
   }

@@ -13,7 +13,7 @@ import {
 } from "medior/components";
 import { makeTileClickHandler } from "medior/components/files/hooks";
 import { FileCollection as FileCollType, useStores } from "medior/store";
-import { colors } from "medior/utils/client";
+import { colors, toast } from "medior/utils/client";
 import { Fmt } from "medior/utils/common";
 
 export interface FileCollectionProps {
@@ -38,10 +38,15 @@ export const FileCollection = Comp(
       stores.collection.setIsConfirmDeleteOpen(true);
     };
 
-    const handleRating = (rating: number) =>
-      stores.collection.updateCollRating({ id: collection.id, rating });
+    const handleRating = async (rating: number) => {
+      const res = await stores.collection.updateCollRating({ id: collection.id, rating });
+      if (!res.success) toast.error(res.error);
+    };
 
-    const handleRefreshMeta = () => stores.collection.regenCollMeta([collection.id]);
+    const handleRefreshMeta = async () => {
+      const res = await stores.collection.regenCollMeta([collection.id]);
+      if (!res.success) toast.error(res.error);
+    };
 
     const openCollection = async () => {
       stores.collection.editor.setIsOpen(true);

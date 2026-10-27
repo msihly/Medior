@@ -5,7 +5,7 @@ import { extendFileName } from "trabecula/utils/server";
 import { deleteFiles, relinkFiles } from "medior/server/database/actions/files";
 import {
   assertMediaPathIndexesReady,
-  describeFileCleanup,
+  describeFileCleanupBySize,
   FileCleanup,
   FileOperationModel,
   finishFileOperation,
@@ -166,8 +166,9 @@ export const deleteUntrackedStorageFiles = makeAction(
 
             const cleanup: FileCleanup[] = [];
 
+            // Cleanup confirms each file by its size, so files aren't read while metadata waits.
             for (const filePath of untrackedPaths) {
-              const entry = await describeFileCleanup(filePath);
+              const entry = await describeFileCleanupBySize(filePath);
 
               if (entry) cleanup.push(entry);
             }

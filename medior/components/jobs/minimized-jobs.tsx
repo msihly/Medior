@@ -60,13 +60,13 @@ export const MinimizedJobs = Comp(() => {
   return (
     <View column position="fixed" className={css.root} spacing="0.5rem" width="24rem">
       {isRepairShown && (
-        <Card width="100%">
+        <Card elevated width="100%">
           <RepairProgress />
         </Card>
       )}
 
       {jobs.map((job) => (
-        <Card key={job.id} width="100%">
+        <Card key={job.id} elevated width="100%">
           <JobProgress job={job} onRestore={getRestore(job)} />
         </Card>
       ))}

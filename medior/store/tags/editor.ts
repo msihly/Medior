@@ -53,6 +53,8 @@ export class TagEditorStore extends Model({
   tag: prop<Tag>(null).withSetter(),
 }) {
   private loadingTagId: string;
+  /** The label's match mode while the label has no term of its own. */
+  private pendingLabelMode: TagRegExTermSetting = null;
   private tagLoadRevision = 0;
 
   onAttachedToRootStore(stores: RootStore) {
@@ -130,6 +132,7 @@ export class TagEditorStore extends Model({
   /* ---------------------------- STANDARD ACTIONS ---------------------------- */
   @modelAction
   clearRegEx() {
+    this.pendingLabelMode = null;
     this.regExCustom = "";
     this.regExTermModes = {};
     this.regExTestString = "";
@@ -167,6 +170,7 @@ export class TagEditorStore extends Model({
     this.isLoading = false;
     this.label = "";
     this.parentTags = [];
+    this.pendingLabelMode = null;
     this.regExCustom = "";
     this.regExOverlaps = null;
     this.regExTermModes = {};
@@ -176,6 +180,7 @@ export class TagEditorStore extends Model({
 
   @modelAction
   setAllRegExTermModes(mode: TagRegExTermSetting) {
+    this.pendingLabelMode = mode;
     this.regExTermModes = Object.fromEntries(this.regExTerms.map(({ key }) => [key, mode]));
   }
 
@@ -188,14 +193,24 @@ export class TagEditorStore extends Model({
         .filter(Boolean)
         .map(normalizeTagRegExKey),
     );
-    const prevKey = this.label.trim() && normalizeTagRegExKey(this.label.trim());
-    const nextKey = label.trim() && normalizeTagRegExKey(label.trim());
-    const mode = this.regExTermModes[prevKey];
 
-    if (mode && prevKey !== nextKey && !aliasKeys.has(prevKey)) {
-      delete this.regExTermModes[prevKey];
+    const getOwnKey = (term: string) => {
+      const key = term.trim() && normalizeTagRegExKey(term.trim());
+      return key && !aliasKeys.has(key) ? key : null;
+    };
 
-      if (nextKey && !aliasKeys.has(nextKey)) this.regExTermModes[nextKey] = mode;
+    const prevKey = getOwnKey(this.label);
+    const nextKey = getOwnKey(label);
+
+    if (prevKey !== nextKey) {
+      // While the label is empty or matches an alias, its mode waits for the next label.
+      const mode = prevKey ? this.regExTermModes[prevKey] : this.pendingLabelMode;
+
+      if (prevKey) delete this.regExTermModes[prevKey];
+
+      if (nextKey && mode) this.regExTermModes[nextKey] = mode;
+
+      this.pendingLabelMode = nextKey ? null : mode;
     }
 
     this.label = label;

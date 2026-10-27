@@ -27,6 +27,8 @@ export const SERVER_STAGES: ServerProcessDef[][] = [
 
         return {
           LANCE_CPU_THREADS: threads,
+          // Index statistics are read only for row counts, so they leave out the centroids.
+          LANCE_INCLUDE_VECTOR_CENTROIDS: "false",
           RAYON_NUM_THREADS: threads,
           TOKIO_WORKER_THREADS: threads,
           UV_THREADPOOL_SIZE: String(FILE_IO_THREAD_POOL_SIZE),

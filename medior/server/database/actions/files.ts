@@ -540,8 +540,13 @@ export const deleteFilesExternal = makeAction(
 
       for (const chunk of chunks) {
         const fileHashes: string[] = [];
+        const fileSizes: number[] = [];
 
-        for (const filePath of chunk) fileHashes.push(await md5File(filePath));
+        // The recorded size lets cleanup confirm each file without reading it a second time.
+        for (const filePath of chunk) {
+          fileHashes.push(await md5File(filePath));
+          fileSizes.push((await fs.stat(filePath)).size);
+        }
 
         fileLog(`[DFE] Hashed ${fileHashes.length} file hashes.`);
 
@@ -553,7 +558,9 @@ export const deleteFilesExternal = makeAction(
         );
 
         const operation = await FileOperationModel.create({
-          cleanup: chunk.map((filePath, index) => makeFileCleanup(fileHashes[index], filePath)),
+          cleanup: chunk.map((filePath, index) =>
+            makeFileCleanup(fileHashes[index], filePath, fileSizes[index]),
+          ),
           state: "COMMITTED",
         });
 

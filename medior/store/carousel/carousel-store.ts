@@ -295,23 +295,34 @@ export class CarouselStore extends Model({
     }
   });
 
+  /**
+   * Loads the active file and visible thumbs with 10 files on either side. Navigating only reloads
+   * once a shown file isn't loaded, rather than on every step.
+   */
   @modelFlow
   loadFiles = asyncAction(async () => {
     const stores = getRootStore<RootStore>(this);
-
-    const index = this.activeFileIndex;
-    const ids = [
-      ...new Set(
-        [
-          this.activeFileId,
-          ...this.selectedFileIds.slice(Math.max(0, index - 10), index + 11),
-          ...this.visibleFileIds,
-        ].filter(Boolean),
-      ),
-    ];
     const search = stores.file.search;
 
-    if (!ids.length) return;
+    const shownIds = [this.activeFileId, ...this.visibleFileIds].filter(Boolean);
+    if (shownIds.every((id) => search.getResult(id))) return;
+
+    // The thumbs can be scrolled far from the active file, so each keeps its own window.
+    const getWindowIds = (start: number, stop: number) =>
+      start > -1
+        ? this.selectedFileIds.slice(Math.max(0, start - 10), Math.max(start, stop) + 11)
+        : [];
+
+    const ids = [
+      ...new Set([
+        ...shownIds,
+        ...getWindowIds(this.activeFileIndex, this.activeFileIndex),
+        ...getWindowIds(
+          this.getFileIndex(this.visibleFileIds[0]),
+          this.getFileIndex(this.visibleFileIds.at(-1)),
+        ),
+      ]),
+    ];
 
     search.setForcePages(false);
     search.setIds(ids);

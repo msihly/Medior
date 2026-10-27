@@ -29,7 +29,7 @@ export const MediaProgramManager = Comp(() => {
   const pageCount = store.search.pageCount;
 
   useEffect(() => {
-    store.search.loadFiltered({ page: 1 });
+    handlePageChange(1);
   }, []);
 
   useEffect(() => {
@@ -57,7 +57,10 @@ export const MediaProgramManager = Comp(() => {
     stores.mediaProgram.setIsConfirmDeleteOpen(true);
   };
 
-  const handleFullPageLoad = () => store.search.loadFiltered({ toLastPage: true });
+  const handleFullPageLoad = async () => {
+    const res = await store.search.loadFiltered({ toLastPage: true });
+    if (!res.success) toast.error(res.error);
+  };
 
   const handleNew = async () => {
     store.setIsLoading(true);
@@ -79,7 +82,10 @@ export const MediaProgramManager = Comp(() => {
     }
   };
 
-  const handlePageChange = (page: number) => store.search.loadFiltered({ page });
+  const handlePageChange = async (page: number) => {
+    const res = await store.search.loadFiltered({ page });
+    if (!res.success) toast.error(res.error);
+  };
 
   const handleRefreshMeta = async () => {
     const res = await stores.mediaProgram.regenMediaProgramMeta([...store.search.selectedIds]);

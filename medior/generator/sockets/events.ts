@@ -34,6 +34,10 @@ export const CUSTOM_EVENTS: {
   { name: "onImporterStatusUpdated" },
   { args: "Types.JobState", name: "onJobUpdated" },
   { args: "{ ids: string[] }", name: "onNotificationsRead" },
+  {
+    args: "{ elapsed: number; lookupId: string; message: string }",
+    name: "onReencodeCandidateProgress",
+  },
   { name: "onReloadBackgroundActivity" },
   { name: "onReloadFileCollections" },
   { args: "{ reason: 'created' | 'reset' }", name: "onReloadFileTransforms" },

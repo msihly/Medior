@@ -128,9 +128,15 @@ export const FileCollectionManager = Comp(() => {
     stores.collection.setIsConfirmDeleteOpen(true);
   };
 
-  const handleFullPageLoad = () => store.search.loadFiltered({ toLastPage: true });
+  const handleFullPageLoad = async () => {
+    const res = await store.search.loadFiltered({ toLastPage: true });
+    if (!res.success) toast.error(res.error);
+  };
 
-  const handleRefreshMeta = () => stores.collection.regenCollMeta(store.search.selectedIds);
+  const handleRefreshMeta = async () => {
+    const res = await stores.collection.regenCollMeta(store.search.selectedIds);
+    if (!res.success) toast.error(res.error);
+  };
 
   // Merged collections leave the results and the kept one updates in place through sockets.
   const handleMerged = () => {
@@ -175,16 +181,22 @@ export const FileCollectionManager = Comp(() => {
         if (!res.success) throw new Error(res.error);
       } else store.setCurrentCollections([]);
 
-      const res = await store.loadFiles(signal);
+      // The selected files and the collection list don't depend on each other, so they load together.
+      const [files, search] = await Promise.all([
+        store.loadFiles(signal),
+        reloadSearch ? store.search.loadFiltered({ page: 1 }) : null,
+      ]);
 
       signal.throwIfAborted();
 
-      if (!res.success) throw new Error(res.error);
-
-      if (reloadSearch) await store.search.loadFiltered({ page: 1 });
+      if (!files.success) throw new Error(files.error);
+      if (search && !search.success) throw new Error(search.error);
     });
 
-  const handlePageChange = (page: number) => store.search.loadFiltered({ page });
+  const handlePageChange = async (page: number) => {
+    const res = await store.search.loadFiltered({ page });
+    if (!res.success) toast.error(res.error);
+  };
 
   const handleSelectedFilesPage = (page: number) => {
     store.setSelectedFilesPage(page);

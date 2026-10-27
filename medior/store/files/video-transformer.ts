@@ -5,7 +5,7 @@ import { Model, model, modelAction, modelFlow, prop } from "mobx-keystone";
 import { SortValue } from "medior/store/_generated";
 import type { SpliceMode } from "medior/server/database";
 import { asyncAction, derefMobx, openCarouselWindow, toast } from "medior/utils/client";
-import { dayjs } from "medior/utils/common";
+import { dayjs, Fmt, TaskProgress, uuid } from "medior/utils/common";
 import { ReencodeCandidateType, trpc } from "medior/utils/server";
 import { File, FileTransform, FileTransformSearch } from ".";
 
@@ -31,6 +31,9 @@ export class VideoTransformerStore extends Model({
   activeFile: prop<File>(null).withSetter(),
   activeTransform: prop<FileTransform>(null).withSetter(),
   activeType: prop<FileTransformType>(null).withSetter(),
+  /** Identifies the running re-encode candidate search, while it can still be cancelled. */
+  candidateLookupId: prop<string | null>(null).withSetter(),
+  candidateProgress: prop<TaskProgress | null>(null).withSetter(),
   fileIds: prop<string[]>(() => []).withSetter(),
   fnType: prop<FileTransformType>(null).withSetter(),
   focusedTransformId: prop<string>(null).withSetter(),
@@ -204,6 +207,18 @@ export class VideoTransformerStore extends Model({
 
   /* ------------------------------ ASYNC ACTIONS ----------------------------- */
   @modelFlow
+  cancelCandidateSearch = asyncAction(async () => {
+    const lookupId = this.candidateLookupId;
+    if (!lookupId) return;
+
+    // The search's result is ignored from here, even when it arrives before the cancel does.
+    this.setCandidateLookupId(null);
+
+    const res = await trpc.cancelReencodeCandidateSearch.mutate({ lookupId });
+    if (!res.success) throw new Error(res.error);
+  });
+
+  @modelFlow
   changeQueueType = asyncAction(async (type: FileTransformType) => {
     this.setQueueType(type);
     this.setFocusedTransformId(null);
@@ -320,8 +335,8 @@ export class VideoTransformerStore extends Model({
 
       try {
         const res = await trpc.getActiveFileTransform.mutate({ id, type: this.queueType });
-        if (!res.success) throw new Error(res.error);
         if (loadId !== this.activeTransformLoadId) return;
+        if (!res.success) throw new Error(res.error);
 
         if (!res.data) {
           this.setActiveTransform(null);
@@ -387,9 +402,9 @@ export class VideoTransformerStore extends Model({
     const loadId = ++this.queueCountLoadId;
     const res = await trpc.getFileTransformQueueCount.mutate({ type: this.queueType });
 
-    if (!res.success) throw new Error(res.error);
-
     if (loadId !== this.queueCountLoadId) return;
+
+    if (!res.success) throw new Error(res.error);
 
     this.setPendingCount(res.data.pendingCount);
 
@@ -416,8 +431,8 @@ export class VideoTransformerStore extends Model({
         type: this.queueType,
       });
 
-      if (!res.success) throw new Error(res.error);
       if (loadId !== this.sizeHistoryLoadId) return;
+      if (!res.success) throw new Error(res.error);
 
       this.setSizeHistory(
         lastDate
@@ -434,25 +449,54 @@ export class VideoTransformerStore extends Model({
     }
   });
 
+  /**
+   * Finds and queues the next re-encode candidates, returning how many were queued, or null when
+   * the search was cancelled. Queueing itself continues in Activity once it starts.
+   */
   @modelFlow
   queueReencodeCandidates = asyncAction(async (types: ReencodeCandidateType[]) => {
-    const res = await trpc.listReencodeCandidateIds.mutate({ types });
-    if (!res.success) throw new Error(res.error);
-    if (!res.data.length) throw new Error("No qualifying files to add");
+    const lookupId = uuid();
 
-    // Creating transforms is skipped while another transformer update runs.
-    if (this.isUpdating) throw new Error("Wait for the current transformer action to finish");
+    this.setCandidateLookupId(lookupId);
+    this.setCandidateProgress({ message: "Finding files to re-encode." });
 
-    // The server returns queue order, so no source sort may reorder it.
-    this.setQueueType("reencode");
-    this.setFileIds(res.data);
-    this.setFnType("reencode");
-    this.setSourceSortValue(null);
+    try {
+      const res = await trpc.listReencodeCandidateIds.mutate({ lookupId, types });
+      if (this.candidateLookupId !== lookupId) return null;
+      if (!res.success) throw new Error(res.error);
+      if (!res.data.length) throw new Error("No qualifying files to add");
 
-    const created = await this.createTransforms();
-    if (!created.success) throw new Error(created.error);
+      // Creating transforms is skipped while another transformer update runs.
+      if (this.isUpdating) throw new Error("Wait for the current transformer action to finish");
 
-    return res.data.length;
+      // Later progress from the search would be stale.
+      this.setCandidateLookupId(null);
+      this.setCandidateProgress({
+        message: `Adding ${Fmt.commas(res.data.length)} files to the queue.`,
+      });
+
+      const isQueueTypeChanged = this.queueType !== "reencode";
+
+      // The server returns queue order, so no source sort may reorder it.
+      this.setQueueType("reencode");
+      this.setFileIds(res.data);
+      this.setFnType("reencode");
+      this.setSourceSortValue(null);
+
+      const created = await this.createTransforms();
+      if (!created.success) throw new Error(created.error);
+
+      // Another tab's storage graph would otherwise stay showing.
+      if (isQueueTypeChanged) {
+        const history = await this.loadSizeHistory();
+        if (!history.success) throw new Error(history.error);
+      }
+
+      return res.data.length;
+    } finally {
+      this.setCandidateLookupId(null);
+      this.setCandidateProgress(null);
+    }
   });
 
   @modelFlow

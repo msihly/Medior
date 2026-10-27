@@ -73,7 +73,7 @@ export const SimilarityModal = Comp(() => {
               key={file.id}
               file={file}
               store={store.search}
-              carouselFileIds={store.resultIds}
+              carouselFileIds={store.search.ids}
               carouselStartTimes={store.carouselStartTimes}
               similarity={store.getCandidate(file.id)}
             />

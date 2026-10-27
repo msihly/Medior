@@ -283,6 +283,8 @@ FileSchema.index({ dateImported: 1, _id: 1 }, { unique: true });
 FileSchema.index({ dateModified: 1, _id: 1 }, { unique: true });
 FileSchema.index({ duration: 1, _id: 1 }, { unique: true });
 FileSchema.index({ ext: 1 }, { unique: false });
+FileSchema.index({ ext: 1, size: 1, _id: 1 }, { unique: false });
+FileSchema.index({ ext: 1, bitrate: 1, _id: 1 }, { unique: false });
 FileSchema.index({ hash: 1 }, { unique: true });
 FileSchema.index({ hasTranscript: 1 }, { unique: false });
 FileSchema.index({ height: 1, _id: 1 }, { unique: true });

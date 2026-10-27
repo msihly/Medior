@@ -10,7 +10,7 @@ import type {
 } from "sharp";
 import { serverShutdownSignal } from "trabecula/utils/process";
 import { getFfmpegPath } from "medior/utils/server/ffmpeg";
-import { runNativeTask } from "medior/utils/server/native-task";
+import { IMAGE_TASK_CONCURRENCY, runNativeTask } from "medior/utils/server/native-task";
 import { workSignal } from "medior/utils/server/work-signal";
 
 export interface ImageTask {
@@ -44,8 +44,18 @@ export const runImageTask = async (
   task: ImageTask,
   signal = workSignal.getStore() ?? serverShutdownSignal,
 ): Promise<ImageTaskResult> => {
+  // Tasks that limit their own threads can run as many at once as their inputs can be read.
+  const poolLimit = task.concurrency ? IMAGE_TASK_CONCURRENCY : undefined;
+
   try {
-    return await runNativeTask<ImageTaskResult>("image", task, signal);
+    return await runNativeTask<ImageTaskResult>(
+      "image",
+      task,
+      signal,
+      undefined,
+      undefined,
+      poolLimit,
+    );
   } catch (error) {
     signal.throwIfAborted();
 
@@ -82,6 +92,13 @@ export const runImageTask = async (
       );
     });
 
-    return runNativeTask<ImageTaskResult>("image", { ...task, input }, signal);
+    return runNativeTask<ImageTaskResult>(
+      "image",
+      { ...task, input },
+      signal,
+      undefined,
+      undefined,
+      poolLimit,
+    );
   }
 };

@@ -317,6 +317,13 @@ export type GetActiveFileTransformOutput = ReturnType<typeof db.getActiveFileTra
 export type CreateFileTransformsInput = Parameters<typeof db.createFileTransforms>[0];
 export type CreateFileTransformsOutput = ReturnType<typeof db.createFileTransforms>;
 
+export type CancelReencodeCandidateSearchInput = Parameters<
+  typeof db.cancelReencodeCandidateSearch
+>[0];
+export type CancelReencodeCandidateSearchOutput = ReturnType<
+  typeof db.cancelReencodeCandidateSearch
+>;
+
 export type ListReencodeCandidateIdsInput = Parameters<typeof db.listReencodeCandidateIds>[0];
 export type ListReencodeCandidateIdsOutput = ReturnType<typeof db.listReencodeCandidateIds>;
 

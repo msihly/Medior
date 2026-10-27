@@ -166,8 +166,10 @@ export class SettingsStore extends Model({
 
     if (!result.success) throw new Error(result.error);
 
+    const previous = getConfig();
+
     setConfig(config);
-    getRootStore<RootStore>(this).applyConfig(config);
+    getRootStore<RootStore>(this).applyConfig(config, previous);
   });
 
   /* ----------------------------- DYNAMIC GETTERS ---------------------------- */

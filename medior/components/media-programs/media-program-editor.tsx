@@ -108,7 +108,10 @@ export const MediaProgramEditor = Comp(() => {
 
   const handleName = (name: string) => store.updateDraft({ name });
 
-  const handlePageChange = (page: number) => store.search.loadFiltered({ page });
+  const handlePageChange = async (page: number) => {
+    const res = await store.search.loadFiltered({ page });
+    if (!res.success) toast.error(res.error);
+  };
 
   const handlePlay = async () => {
     const res = await store.play();
