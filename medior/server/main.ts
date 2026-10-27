@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, screen } from "electron";
+import { app, BrowserWindow, dialog, ipcMain, screen } from "electron";
 import { registerMainProcess } from "trabecula/utils/electron";
 import { fileLog } from "trabecula/utils/server";
 import { SERVER_STAGES } from "medior/server/server";
@@ -200,6 +200,7 @@ const createMainWindow = async () => {
     await createMainWindow();
   } catch (error) {
     fileLog(`Startup failed: ${error.message}`, { type: "error" });
+    dialog.showErrorBox("Failed to start Medior", error.message);
     app.quit();
   }
 })();

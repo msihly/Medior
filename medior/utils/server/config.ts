@@ -683,19 +683,7 @@ export const loadConfig = async (filePath: string) => {
     }
 
     const fileText = await fs.readFile(filePath, "utf-8");
-    let loadedConfig: Config;
-
-    try {
-      loadedConfig = JSON.parse(fileText);
-    } catch (error) {
-      // The unreadable file is set aside, since saving settings would replace it with defaults.
-      const backupPath = `${filePath}.invalid-${Date.now()}`;
-
-      await fs.rename(filePath, backupPath);
-      fileLog(`Config file could not be parsed and was moved to ${backupPath}.`, { type: "error" });
-
-      throw error;
-    }
+    const loadedConfig: Config = JSON.parse(fileText);
 
     const migratedDimensions = migrateReencodeDimensions(loadedConfig);
 
@@ -766,10 +754,10 @@ export const loadConfig = async (filePath: string) => {
 
     return config;
   } catch (err) {
-    fileLog(`Failed to load config: ${err}`, { type: "error" });
-    setConfig(DEFAULT_CONFIG);
-
-    return config;
+    // Starting on defaults would show an empty library, and saving settings would overwrite the file.
+    const message = `The config at ${filePath} could not be loaded: ${err.message}`;
+    fileLog(message, { type: "error" });
+    throw new Error(message);
   }
 };
 

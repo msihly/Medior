@@ -44,7 +44,7 @@ export class TagEditorStore extends Model({
   isDuplicate: prop<boolean>(false).withSetter(),
   isLoading: prop<boolean>(false).withSetter(),
   isOpen: prop<boolean>(false).withSetter(),
-  label: prop<string>("").withSetter(),
+  label: prop<string>(""),
   parentTags: prop<Tag[]>(() => []).withSetter(),
   regExCustom: prop<string>("").withSetter(),
   regExOverlaps: prop<Awaited<ListTagRegExOverlapsOutput>["data"]>(null).withSetter(),
@@ -177,6 +177,28 @@ export class TagEditorStore extends Model({
   @modelAction
   setAllRegExTermModes(mode: TagRegExTermSetting) {
     this.regExTermModes = Object.fromEntries(this.regExTerms.map(({ key }) => [key, mode]));
+  }
+
+  /** A renamed label moves its match mode to its new term. Alias terms keep their own modes. */
+  @modelAction
+  setLabel(label: string) {
+    const aliasKeys = new Set(
+      this.aliases
+        .map((alias) => alias?.trim())
+        .filter(Boolean)
+        .map(normalizeTagRegExKey),
+    );
+    const prevKey = this.label.trim() && normalizeTagRegExKey(this.label.trim());
+    const nextKey = label.trim() && normalizeTagRegExKey(label.trim());
+    const mode = this.regExTermModes[prevKey];
+
+    if (mode && prevKey !== nextKey && !aliasKeys.has(prevKey)) {
+      delete this.regExTermModes[prevKey];
+
+      if (nextKey && !aliasKeys.has(nextKey)) this.regExTermModes[nextKey] = mode;
+    }
+
+    this.label = label;
   }
 
   @modelAction

@@ -60,6 +60,11 @@ export const Splicer = Comp(() => {
     else startRender();
   };
 
+  const handleSave = async () => {
+    const res = await store.saveTimestamps();
+    if (!res.success) toast.error(res.error);
+  };
+
   const startRender = async () => {
     try {
       stores.file.videoTransformer.setTimestampPairs(
@@ -160,7 +165,7 @@ export const Splicer = Comp(() => {
             <Button
               text="Save"
               icon="Check"
-              onClick={store.saveTimestamps}
+              onClick={handleSave}
               disabled={!store.hasChanges || store.isLoading}
               color={colors.custom.green}
             />

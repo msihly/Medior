@@ -23,11 +23,13 @@ export const useHotkeys = ({ embedded = false, rootRef, videoRef, view }: UseHot
   const handleKeyPress = async (event: KeyboardEvent) => {
     /**
      * The carousel listens at its root, so keys pressed in its modals bubble up through portals.
+     * Keys from outside its root, such as in a confirmation dialog, never act on the file behind it.
      * Embedded in the Collection Triager, it sits inside the manager and renders only tag modals.
      */
     const isCarouselModalOpen =
       view === "carousel" &&
-      ((stores.tag.manager.isOpen && !stores.tag.manager.isMinimized) ||
+      (!rootRef?.current?.contains(event.target as Node) ||
+        (stores.tag.manager.isOpen && !stores.tag.manager.isMinimized) ||
         stores.tag.manager.isMultiTagEditorOpen ||
         (!embedded &&
           (stores._getIsBlockingModalOpen() ||

@@ -38,8 +38,7 @@ export class RootStore extends Model({
     this.file.videoTransformer.search.setSortValue(config.file.transforms.search.sort);
     this.home.setFileCardFit(config.file.fileCardFit);
     this.home.setShowFileName(config.file.showFileName);
-    this.home.settings.update(config);
-    this.home.settings.setHasUnsavedChanges(false);
+    this.home.settings.applyConfig(config);
     this.import.manager.search.setPageSize(config.imports.manager.search.pageSize);
     this.import.manager.search.setSortValue(config.imports.manager.search.sort);
     this.mediaProgram.manager.search.setPageSize(config.mediaPrograms.manager.search.pageSize);

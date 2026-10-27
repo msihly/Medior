@@ -577,6 +577,8 @@ export const deleteImportBatches = makeAction(
       await assertImportEntriesReady();
       await stopImporter();
 
+      const abandonedIds: string[] = [];
+
       for await (const operation of FileOperationModel.find({
         batchId: { $in: args.ids },
         importResult: { $exists: false },
@@ -585,8 +587,11 @@ export const deleteImportBatches = makeAction(
         .lean()
         .cursor({ batchSize: 100 })) {
         await abandonPreparedImport(operation);
-        finishFileOperation(operation._id).catch(console.error);
+        abandonedIds.push(operation._id);
       }
+
+      // Cleanup started here would stop when this request ends, so it is queued to finish later.
+      if (abandonedIds.length) await queueImportCleanup(abandonedIds);
 
       const result = await models.FileImportBatchModel.deleteMany({ _id: { $in: args.ids } });
 

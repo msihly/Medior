@@ -1,7 +1,7 @@
 import { EJSON } from "bson";
 import { createHash } from "crypto";
 import { Schema } from "mongoose";
-import { isPlainObject } from "medior/utils/common";
+import { omitUndefined } from "medior/utils/server/mongo";
 import { checkBackgroundExecution } from "./background-execution";
 import { backgroundExecutionPlugin } from "./database-context";
 import { metadataWriteOptions } from "./metadata-work";
@@ -24,18 +24,6 @@ schema.plugin(backgroundExecutionPlugin);
 schema.index({ ownerId: 1 });
 
 const MetadataPayloadModel = registerPersistenceModel("MetadataPayload", schema);
-
-/** EJSON saves missing values as null, so they're left out to stay missing when read back. */
-const omitUndefined = (value: unknown): unknown => {
-  if (Array.isArray(value)) return value.map(omitUndefined);
-  else if (isPlainObject(value))
-    return Object.fromEntries(
-      Object.entries(value)
-        .filter(([, entry]) => entry !== undefined)
-        .map(([key, entry]) => [key, omitUndefined(entry)]),
-    );
-  else return value;
-};
 
 export const readMetadataPayload = async <T>(payload: MetadataPayload): Promise<T> => {
   const data = Buffer.allocUnsafe(payload.bytes);

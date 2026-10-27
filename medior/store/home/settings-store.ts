@@ -43,6 +43,13 @@ export class SettingsStore extends Model({
     this.setHasUnsavedChanges(true);
   }
 
+  /** Replaces the settings with a saved config, leaving nothing unsaved. */
+  @modelAction
+  applyConfig(config: Config) {
+    this.update(config);
+    this.setHasUnsavedChanges(false);
+  }
+
   @modelAction
   removeFileStorageLocation(index: number) {
     this.db.fileStorage.locations.splice(index, 1);

@@ -30,7 +30,7 @@ export const VideoTransformerModal = Comp(() => {
       const config = await loadConfig(await ipcRenderer.invoke("getConfigPath"));
 
       signal.throwIfAborted();
-      stores.applyConfig(config);
+      stores.home.settings.applyConfig(config);
 
       const res = await store.createTransforms();
 

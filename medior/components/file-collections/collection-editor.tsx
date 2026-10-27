@@ -151,9 +151,14 @@ export const FileCollectionEditor = Comp(
 
     const handleFullPageLoad = () => store.search.loadFiltered({ toLastPage: true });
 
-    const handleMoveFilesDown = () => store.moveFileIndexes({ down: true, maxDelta });
+    const moveFiles = async (down: boolean) => {
+      const res = await store.moveFileIndexes({ down, maxDelta });
+      if (!res.success) toast.error(res.error);
+    };
 
-    const handleMoveFilesUp = () => store.moveFileIndexes({ down: false, maxDelta });
+    const handleMoveFilesDown = () => moveFiles(true);
+
+    const handleMoveFilesUp = () => moveFiles(false);
 
     const handlePageChange = (page: number) => {
       store.search.setPage(page);
@@ -173,7 +178,10 @@ export const FileCollectionEditor = Comp(
       if (!store.title) return toast.error("Title is required!");
 
       if (onSave) await onSave();
-      else await store.saveCollection();
+      else {
+        const res = await store.saveCollection();
+        if (!res.success) toast.error(res.error);
+      }
     };
 
     const handleSplitFiles = async () => {

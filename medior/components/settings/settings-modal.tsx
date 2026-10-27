@@ -85,7 +85,7 @@ export const SettingsModal = Comp(() => {
 
   const handleClose = async () => {
     load.cancel();
-    if (store.hasUnsavedChanges) stores.applyConfig(getConfig());
+    if (store.hasUnsavedChanges) store.applyConfig(getConfig());
 
     store.setIsOpen(false);
     store.setHasUnsavedChanges(false);
@@ -98,7 +98,7 @@ export const SettingsModal = Comp(() => {
       const config = await loadConfig(await ipcRenderer.invoke("getConfigPath"));
 
       signal.throwIfAborted();
-      stores.applyConfig(config);
+      store.applyConfig(config);
     });
 
   const handleFolderToCollection = (checked: boolean) =>

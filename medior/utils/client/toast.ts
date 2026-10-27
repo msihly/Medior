@@ -49,7 +49,8 @@ const toastByType = {
 const showToast = (content: ToastContent, options: ToastOptions, type: NotificationType) => {
   persistNotification(content, type);
 
-  return toastByType[type](content, options);
+  // Toasts can't render errors themselves, so they show the error's message.
+  return toastByType[type]((content as Error)?.message ?? content, options);
 };
 
 export const toast = {

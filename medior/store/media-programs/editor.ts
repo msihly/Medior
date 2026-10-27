@@ -106,12 +106,13 @@ export class MediaProgramEditorStore extends Model({
     const existingIds = new Set(this.program.collectionIdIndexes.map((c) => c.collectionId));
     const lastIndex = Math.max(-1, ...this.program.collectionIdIndexes.map((c) => c.index));
 
-    await this.saveSeasons([
+    const res = await this.saveSeasons([
       ...this.program.collectionIdIndexes,
       ...collectionIds
         .filter((collectionId) => !existingIds.has(collectionId))
         .map((collectionId, index) => ({ collectionId, index: lastIndex + 1 + index })),
     ]);
+    if (!res.success) throw new Error(res.error);
   });
 
   @modelFlow
@@ -209,7 +210,8 @@ export class MediaProgramEditorStore extends Model({
 
     [ids[index], ids[newIndex]] = [ids[newIndex], ids[index]];
 
-    await this.saveSeasons(ids.map((collectionId, index) => ({ collectionId, index })));
+    const res = await this.saveSeasons(ids.map((collectionId, index) => ({ collectionId, index })));
+    if (!res.success) throw new Error(res.error);
   });
 
   /** Opens the carousel on every episode in order, starting from the given or next episode. */
@@ -233,9 +235,10 @@ export class MediaProgramEditorStore extends Model({
 
   @modelFlow
   removeSeason = asyncAction(async (id: string) => {
-    await this.saveSeasons(
+    const res = await this.saveSeasons(
       this.program.collectionIdIndexes.filter(({ collectionId }) => collectionId !== id),
     );
+    if (!res.success) throw new Error(res.error);
   });
 
   @modelFlow

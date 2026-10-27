@@ -863,7 +863,7 @@ export const useImportEditor = (store: Ingester | Reingester) => {
           .split(path.sep)
           .slice(0, store.rootFolderIndex + 1)
           .join(path.sep),
-        subtitleMode: savedConfig?.options.subtitleMode ?? store.options.subtitleMode,
+        subtitleMode: store.options.subtitleMode,
         tagIds,
       });
 
@@ -1237,19 +1237,15 @@ export const useImportEditor = (store: Ingester | Reingester) => {
     store.setMediaPrograms([...plans.values()].sort((a, b) => naturalCompare(a.name, b.name)));
   };
 
-  /** Attaches the subtitles found among the scanned files to videos in folders that keep them. */
+  /** Attaches the subtitles found among the scanned files to videos, unless imports skip them. */
   const matchSubtitles = async (folders: Map<string, FlatFolder>) => {
+    if (store.options.subtitleMode === "none") return;
+
     const subtitlePaths = makeSubtitlePathMap(store.filePaths.values());
 
     if (!subtitlePaths.size) return;
 
     for (const folder of folders.values()) {
-      const savedConfig = store.options.useSavedConfigs
-        ? stores.import.getSavedConfigForFolder(folder.folderName)
-        : null;
-
-      if ((savedConfig?.options.subtitleMode ?? store.options.subtitleMode) === "none") continue;
-
       for (const imp of folder.imports) {
         await cache.current.checkpoint();
 

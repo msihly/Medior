@@ -6,7 +6,7 @@ import { getBackgroundSession } from "medior/server/database/database-context";
 import { FileOperationModel, makeFileCleanup } from "medior/server/database/file-operations";
 import { metadataWriteOptions } from "medior/server/database/metadata-work";
 import { chunkArray } from "medior/utils/common";
-import { getNtfsFileIdentity } from "medior/utils/server";
+import { getNtfsFileIdentity, omitUndefined } from "medior/utils/server";
 import { genFileInfo, isGeneratedMediaUnreadable } from "medior/utils/server/files";
 import {
   hashMediaFile,
@@ -68,11 +68,11 @@ export const prepareTransformMetadata = async (
       throw new Error("Transform output could not be read; preparation retained");
 
     operation.outputHash = await hashMediaFile(operation.tempPath);
-    operation.outputMetadata = info;
+    operation.outputMetadata = omitUndefined(info);
 
     await FileOperationModel.updateOne(
       { _id: operation._id, state: "PREPARED" },
-      { outputHash: operation.outputHash, outputMetadata: info },
+      { outputHash: operation.outputHash, outputMetadata: operation.outputMetadata },
     );
 
     await publishMediaOutput({

@@ -12,7 +12,7 @@ import {
 } from "medior/server/database/file-operations";
 import { metadataWriteOptions } from "medior/server/database/metadata-work";
 import { dayjs } from "medior/utils/common";
-import { getNtfsFileIdentity, leanModelToJson, socket } from "medior/utils/server";
+import { getNtfsFileIdentity, leanModelToJson, omitUndefined, socket } from "medior/utils/server";
 import { genFileInfo, isGeneratedMediaUnreadable } from "medior/utils/server/files";
 import {
   copyMediaFile,
@@ -171,7 +171,7 @@ export const repairThumbnail = async (
             "Thumbnail generation could not read the source; original thumbnails retained",
           );
 
-        operation.outputMetadata = refresh ? info : { thumb: info.thumb };
+        operation.outputMetadata = omitUndefined(refresh ? info : { thumb: info.thumb });
       }
 
       operation.outputHash = await hashMediaFile(

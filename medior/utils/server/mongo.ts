@@ -2,7 +2,7 @@ import type { SocketEventOptions } from "medior/_generated/server/socket";
 import mongoose, { LeanDocument, PipelineStage, Types } from "mongoose";
 import { objectIds } from "trabecula/utils/server/mongo";
 import { metadataWork } from "medior/server/database/metadata-context";
-import { handleErrors } from "medior/utils/common";
+import { handleErrors, isPlainObject } from "medior/utils/common";
 
 export { leanModelToJson, objectId, objectIds } from "trabecula/utils/server/mongo";
 
@@ -186,3 +186,18 @@ export const makeAction =
       ? { data: await execute(), success: true as const }
       : await handleErrors(execute);
   };
+
+/**
+ * EJSON payloads and nested values written to MongoDB save missing values as null, so they're left
+ * out to stay missing when read back.
+ */
+export const omitUndefined = <T>(value: T): T => {
+  if (Array.isArray(value)) return value.map(omitUndefined) as T;
+  else if (isPlainObject(value))
+    return Object.fromEntries(
+      Object.entries(value)
+        .filter(([, entry]) => entry !== undefined)
+        .map(([key, entry]) => [key, omitUndefined(entry)]),
+    ) as T;
+  else return value;
+};

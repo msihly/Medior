@@ -200,7 +200,8 @@ export const CollectionTriager = Comp(() => {
   const handleSave = async () => {
     if (!stores.collection.editor.title) return toast.error("Title is required!");
 
-    await stores.collection.editor.saveCollection();
+    const res = await stores.collection.editor.saveCollection();
+    if (!res.success) toast.error(res.error);
   };
 
   return (

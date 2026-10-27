@@ -17,7 +17,11 @@ import {
 } from "medior/server/database/background-execution";
 import { getBackgroundSession } from "medior/server/database/database-context";
 import { mergeDuplicateFile } from "medior/server/database/duplicate-merge";
-import { assertFilesUnlocked, getForeignFileLock } from "medior/server/database/file-locks";
+import {
+  assertFilesUnlocked,
+  getFileLocks,
+  getForeignFileLock,
+} from "medior/server/database/file-locks";
 import {
   assertMediaPathIndexesReady,
   assertMediaPathsAvailable,
@@ -737,6 +741,9 @@ export const listReencodeCandidateIds = makeAction(
     const matches = getReencodeCandidateMatches();
     const ids: string[] = [];
 
+    // Files another operation locks can't be queued, so the batch takes the next files instead.
+    const lockedIds = objectIds(getFileLocks().flatMap(({ fileIds }) => fileIds));
+
     for (const type of ["image", "gif", "video"] as const) {
       if (!args.types.includes(type)) continue;
 
@@ -744,7 +751,7 @@ export const listReencodeCandidateIds = makeAction(
 
       const files = await withIndexHint(() =>
         models.FileModel.aggregate<{ _id: MongoTypes.ObjectId }>([
-          { $match: matches[type] },
+          { $match: { ...matches[type], _id: { $nin: lockedIds } } },
           { $sort: { [sortKey]: -1, _id: -1 } },
           {
             $lookup: {
@@ -1180,6 +1187,19 @@ const mergeDuplicateTransform = async (
         }))
       )
         throw new Error("The archived original has a merge targeting a different file");
+
+      // Archiving the original removes its other transforms, which can't happen mid-merge, so the
+      // merge is refused before any metadata moves.
+      if (
+        await models.FileTransformModel.exists({
+          _id: { $ne: transform._id },
+          fileId: original._id,
+          isCompleted: false,
+        })
+      )
+        throw new Error(
+          "The original file has another unfinished transform; remove it from the queue before merging",
+        );
 
       await mergeDuplicateFile(original, match);
 
