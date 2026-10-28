@@ -24,6 +24,7 @@ import {
 } from "medior/server/database/import-search";
 import {
   getMetadataCreateId,
+  metadataSaveOptions,
   metadataWriteOptions,
   registerMetadataWork,
 } from "medior/server/database/metadata-work";
@@ -2424,7 +2425,7 @@ export const createBackgroundOperation = makeAction(
       transformIds: [],
     };
 
-    const res = await new models.BackgroundOperationModel(model).save(metadataWriteOptions());
+    const res = await new models.BackgroundOperationModel(model).save(metadataSaveOptions());
     const created = { ...model, id: res._id.toString() };
 
     socket.emitVolatile("onBackgroundOperationCreated", created, socketOpts);
@@ -2522,7 +2523,7 @@ export const createDeletedFile = makeAction(
   }) => {
     const model = { ...args };
 
-    const res = await new models.DeletedFileModel(model).save(metadataWriteOptions());
+    const res = await new models.DeletedFileModel(model).save(metadataSaveOptions());
     const created = { ...model, id: res._id.toString() };
 
     socket.emitVolatile("onDeletedFileCreated", created, socketOpts);
@@ -2890,7 +2891,7 @@ export const createFileImportBatch = makeAction(
       tagIdsWithAncestors: [],
     };
 
-    const res = await new models.FileImportBatchModel(model).save(metadataWriteOptions());
+    const res = await new models.FileImportBatchModel(model).save(metadataSaveOptions());
     const created = { ...model, id: res._id.toString() };
 
     socket.emitVolatile("onFileImportBatchCreated", created, socketOpts);
@@ -2996,7 +2997,7 @@ export const createFileTransform = makeAction(
       timestampPairs: [],
     };
 
-    const res = await new models.FileTransformModel(model).save(metadataWriteOptions());
+    const res = await new models.FileTransformModel(model).save(metadataSaveOptions());
     const created = { ...model, id: res._id.toString() };
 
     socket.emitVolatile("onFileTransformCreated", created, socketOpts);
@@ -3108,7 +3109,7 @@ export const _createMediaProgram = makeAction(
       watchedFileIds: [],
     };
 
-    const res = await new models.MediaProgramModel(model).save(metadataWriteOptions());
+    const res = await new models.MediaProgramModel(model).save(metadataSaveOptions());
     const created = { ...model, id: res._id.toString() };
 
     socket.emitVolatile("onMediaProgramCreated", created, socketOpts);
@@ -3202,7 +3203,7 @@ export const createNotification = makeAction(
   }) => {
     const model = { ...args, dateCreated: dayjs().toISOString(), isRead: false };
 
-    const res = await new models.NotificationModel(model).save(metadataWriteOptions());
+    const res = await new models.NotificationModel(model).save(metadataSaveOptions());
     const created = { ...model, id: res._id.toString() };
 
     socket.emitVolatile("onNotificationCreated", created, socketOpts);
@@ -3296,7 +3297,7 @@ export const createSavedImportConfig = makeAction(
   }) => {
     const model = { ...args, dateCreated: dayjs().toISOString() };
 
-    const res = await new models.SavedImportConfigModel(model).save(metadataWriteOptions());
+    const res = await new models.SavedImportConfigModel(model).save(metadataSaveOptions());
     const created = { ...model, id: res._id.toString() };
 
     socket.emitVolatile("onSavedImportConfigCreated", created, socketOpts);
@@ -3393,7 +3394,7 @@ export const createSavedSearch = makeAction(
   }) => {
     const model = { ...args, dateCreated: dayjs().toISOString() };
 
-    const res = await new models.SavedSearchModel(model).save(metadataWriteOptions());
+    const res = await new models.SavedSearchModel(model).save(metadataSaveOptions());
     const created = { ...model, id: res._id.toString() };
 
     socket.emitVolatile("onSavedSearchCreated", created, socketOpts);
@@ -3498,7 +3499,7 @@ export const _createTag = makeAction(
       thumb: null,
     };
 
-    const res = await new models.TagModel(model).save(metadataWriteOptions());
+    const res = await new models.TagModel(model).save(metadataSaveOptions());
     const created = { ...model, id: res._id.toString() };
 
     socket.emitVolatile("onTagCreated", created, socketOpts);

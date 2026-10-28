@@ -1,7 +1,7 @@
 import fs from "fs/promises";
 import { createHash, randomUUID } from "crypto";
 import * as models from "medior/_generated/server/models";
-import { FilterQuery, LeanDocument, Types as MongoTypes } from "mongoose";
+import { FilterQuery, Types as MongoTypes } from "mongoose";
 import { isServerStopping } from "trabecula/utils/process";
 import { deleteFile, fileLog } from "trabecula/utils/server";
 import * as actions from "medior/server/database/actions";
@@ -1948,7 +1948,7 @@ export const replaceFileTransformOutput = makeAction(async (args: { id: string }
 const executeFileTransform = async (args: { id: string }, signal: AbortSignal) => {
   let output: { hash: string; info?: MediaInfo; path: string } = null;
   let withNextTransform = true;
-  let transform: LeanDocument<models.FileTransformSchema & { _id: MongoTypes.ObjectId }>;
+  let transform: models.FileTransformSchema & { _id: MongoTypes.ObjectId };
   let stageTimeout: ReturnType<typeof setTimeout>;
 
   const clearStage = () => clearTimeout(stageTimeout);

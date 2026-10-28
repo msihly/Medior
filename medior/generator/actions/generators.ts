@@ -70,7 +70,7 @@ export const makeActionsDef = (
       return `${makeFnPrefix(fnName, typeName)}
         const model = { ...args${defaultProps.length ? `, ${defaultProps.join(", ")}` : ""} };
 
-        const res = await new models.${modelDef.name}Model(model).save(metadataWriteOptions());
+        const res = await new models.${modelDef.name}Model(model).save(metadataSaveOptions());
         const created = { ...model, id: res._id.toString() };
 
         socket.emitVolatile("on${modelDef.name}Created", created, socketOpts);

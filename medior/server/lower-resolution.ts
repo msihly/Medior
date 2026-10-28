@@ -1203,7 +1203,7 @@ export const startDuplicateScan = async (options: DuplicateSearchOptions) => {
     // Grouping already underway finishes its step first, so it never runs alongside the search.
     await waitForDuplicateGroupingSteps();
 
-    let scan = await DuplicateScanModel.findOne({ scope: "library" }).lean();
+    let scan = await DuplicateScanModel.findOne({ scope: "library" }).lean<DuplicateScan>();
 
     if (!scan || scan.status === "complete" || !("groupCursor" in scan)) {
       if (scan && findJob("mergeDuplicates", scan._id))

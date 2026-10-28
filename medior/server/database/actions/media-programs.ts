@@ -3,7 +3,7 @@ import * as models from "medior/_generated/server/models";
 import * as actions from "medior/server/database/actions";
 import { normalizeSourceFolderPath } from "medior/server/database/actions/collections";
 import { withMetadataMutation } from "medior/server/database/metadata-mutations";
-import { metadataWriteOptions } from "medior/server/database/metadata-work";
+import { metadataSaveOptions, metadataWriteOptions } from "medior/server/database/metadata-work";
 import {
   dayjs,
   isDeepEqual,
@@ -465,7 +465,7 @@ export const createMediaProgram = makeAction(
         year: args.year,
       };
 
-      const res = await new models.MediaProgramModel(program).save(metadataWriteOptions());
+      const res = await new models.MediaProgramModel(program).save(metadataSaveOptions());
       const id = res._id.toString();
 
       socket.emitVolatile("onMediaProgramCreated", { ...program, id });

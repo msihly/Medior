@@ -3,8 +3,7 @@ import path from "path";
 import checkDiskSpace from "check-disk-space";
 import { randomUUID } from "crypto";
 import * as models from "medior/_generated/server/models";
-import { AnyBulkWriteOperation } from "mongodb";
-import mongoose from "mongoose";
+import mongoose, { AnyBulkWriteOperation } from "mongoose";
 import os from "os";
 import { isServerStopping } from "trabecula/utils/process";
 import {
@@ -2571,7 +2570,7 @@ class ThumbRepairer {
 
   private getFilesWithThumbPaths = async () =>
     (
-      await models.FileModel.find({ thumbPaths: { $exists: true } }, null, { strict: false })
+      await models.FileModel.find({ thumbPaths: { $exists: true } }, null, { strictQuery: false })
         .limit(this.chunkSize)
         .allowDiskUse(true)
         .lean()
@@ -2622,7 +2621,7 @@ class ThumbRepairer {
     while (true) {
       this.checkCancelled();
 
-      const tags = await models.TagModel.find(filter, null, { strict: false })
+      const tags = await models.TagModel.find(filter, null, { strictQuery: false })
         .select({ _id: 1 })
         .sort({ _id: 1 })
         .limit(100)
@@ -2723,7 +2722,7 @@ class ThumbRepairer {
     if (lockFilters.length)
       this.lock(
         (
-          await models.FileModel.find({ $or: lockFilters }, null, { strict: false })
+          await models.FileModel.find({ $or: lockFilters }, null, { strictQuery: false })
             .allowDiskUse(true)
             .select({ _id: 1 })
             .lean()

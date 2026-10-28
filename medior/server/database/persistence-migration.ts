@@ -17,6 +17,7 @@ import {
   ensurePersistenceIndexes,
   isPersistenceReady,
   PERSISTENCE_MIGRATION_ID,
+  persistenceCollection,
   PersistenceModel,
 } from "medior/server/database/persistence";
 import { socket } from "medior/utils/server/trpc";
@@ -85,7 +86,7 @@ const updateProgress = (updates: Partial<BackgroundOperationSchema>) => {
 };
 
 const writeCheckpoint = async (updates: Partial<MigrationCheckpoint>) => {
-  await PersistenceModel.collection.updateOne(
+  await persistenceCollection.updateOne(
     { _id: PERSISTENCE_MIGRATION_ID, recordType: "PersistenceMigration" },
     { $set: updates },
     { ...WRITE_OPTIONS, session: getBackgroundSession(), upsert: true },
@@ -105,7 +106,7 @@ const consolidatePersistence = async (retry: boolean) => {
   execution.label = "recovery storage consolidation";
   execution.operationId = PERSISTENCE_ACTIVITY_ID;
 
-  const checkpoint = (await PersistenceModel.collection.findOne(
+  const checkpoint = (await persistenceCollection.findOne(
     { _id: PERSISTENCE_MIGRATION_ID, recordType: "PersistenceMigration" },
     { session: getBackgroundSession() },
   )) as MigrationCheckpoint;
@@ -251,7 +252,7 @@ const consolidatePersistence = async (retry: boolean) => {
       status: "COMPLETE",
     })
   ) {
-    await PersistenceModel.collection.updateOne(
+    await persistenceCollection.updateOne(
       { _id: IMPORT_ENTRY_CHECKPOINT_ID, recordType: "Checkpoint" },
       { $set: { complete: true } },
       { ...WRITE_OPTIONS, session: getBackgroundSession(), upsert: true },

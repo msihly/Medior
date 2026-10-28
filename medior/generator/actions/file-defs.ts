@@ -28,7 +28,7 @@ export const FILE_DEF_ACTIONS: FileDef = {
       import { assertMediaPathsAvailable } from "medior/server/database/file-operations";
       import { countFileSearchResults, createFileSearchPlan, createFileSearchSortStages } from "medior/server/database/file-search";
       import { countImportBatchSearchResults, createImportBatchSearchPipeline } from "medior/server/database/import-search";
-      import { getMetadataCreateId, metadataWriteOptions, registerMetadataWork } from "medior/server/database/metadata-work";
+      import { getMetadataCreateId, metadataSaveOptions, metadataWriteOptions, registerMetadataWork } from "medior/server/database/metadata-work";
       import * as Types from "medior/server/database/types";
       import { SortMenuProps } from "medior/components";
       import { addRegexSearchFilter, dayjs, hasTranscription, isDeepEqual, LogicalOp, logicOpsToMongo, normalizeTimestampPairs, parseTimestampPairs, setObj } from "medior/utils/common";

@@ -1,5 +1,5 @@
 import type { SocketEventOptions } from "medior/_generated/server/socket";
-import mongoose, { LeanDocument, PipelineStage, Types } from "mongoose";
+import mongoose, { PipelineStage, Types } from "mongoose";
 import { objectIds } from "trabecula/utils/server/mongo";
 import { metadataWork } from "medior/server/database/metadata-context";
 import { handleErrors, isPlainObject } from "medior/utils/common";
@@ -122,7 +122,7 @@ export const listItemsByIds = async <ModelType>({
   pageSize?: number;
   select?: Record<string, number>;
 }) => {
-  type Item = LeanDocument<ModelType & { _id: Types.ObjectId }>;
+  type Item = ModelType & { _id: Types.ObjectId };
 
   const requestedIds = [...new Set(ids)];
   const items: Item[] = [];

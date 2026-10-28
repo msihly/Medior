@@ -149,9 +149,18 @@ const schema = new Schema<FileOperation>({
   thumbPath: String,
 });
 
+interface MediaOwnership {
+  _id: string;
+  complete?: boolean;
+  indexVersion?: string;
+  lastId?: unknown;
+  processedCount?: number;
+  revision?: number;
+}
+
 export const MediaOwnershipModel = registerPersistenceModel(
   "MediaOwnership",
-  new Schema({
+  new Schema<MediaOwnership>({
     _id: String,
     complete: Boolean,
     indexVersion: String,

@@ -7,6 +7,7 @@ registerMongoProcess(async () => {
   const { db, ports } = getConfig();
   return {
     args: ["--wiredTigerCacheSizeGB", "2"],
+    binary: { version: "5.0.19" },
     dbName: "test",
     dbPath: db.path,
     port: ports.db,

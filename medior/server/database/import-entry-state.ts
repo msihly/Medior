@@ -1,6 +1,6 @@
 import { createHash } from "crypto";
 import { Schema, Types } from "mongoose";
-import { PersistenceModel } from "medior/server/database/persistence";
+import { persistenceCollection } from "medior/server/database/persistence";
 
 export const IMPORT_ENTRY_CHECKPOINT_ID = "checkpoint:import-entries:v1";
 export const IMPORT_ENTRY_MIGRATION_ID = new Types.ObjectId(
@@ -12,7 +12,7 @@ let importEntriesReady = false;
 export const areImportEntriesReady = async () => {
   if (
     !importEntriesReady &&
-    (await PersistenceModel.collection.findOne({
+    (await persistenceCollection.findOne({
       _id: IMPORT_ENTRY_CHECKPOINT_ID,
       complete: true,
       recordType: "Checkpoint",

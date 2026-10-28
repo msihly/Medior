@@ -19,7 +19,11 @@ import {
   readMediaPath,
 } from "medior/server/database/media-paths";
 import { metadataWriteOptions } from "medior/server/database/metadata-work";
-import { ensurePersistenceIndexes, PersistenceModel } from "medior/server/database/persistence";
+import {
+  ensurePersistenceIndexes,
+  PersistenceModel,
+  toCreateIndexOptions,
+} from "medior/server/database/persistence";
 import { dayjs } from "medior/utils/common";
 import { objectId } from "medior/utils/server";
 
@@ -121,7 +125,7 @@ export const runMediaPathIndexQueue = async () => {
           checkBackgroundExecution();
 
           await models[name].collection.createIndex(keys, {
-            ...options,
+            ...toCreateIndexOptions(options),
             session: getBackgroundSession(),
           });
         }

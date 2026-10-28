@@ -3,7 +3,7 @@ import {
   BackgroundOperationModel,
   BackgroundOperationSchema,
 } from "medior/_generated/server/models";
-import { Types } from "mongoose";
+import { mongo, SaveOptions, Types } from "mongoose";
 import {
   backgroundExecution,
   checkBackgroundExecution,
@@ -30,7 +30,11 @@ const activeWork = new Map<string, Promise<unknown>>();
 const fileIdGetters = new Map<string, (input: any) => Promise<string[]> | string[]>();
 const handlers = new Map<string, (input: any) => Promise<unknown>>();
 
-export const metadataWriteOptions = () => ({ j: true, w: "majority" as const });
+export const metadataWriteOptions = () => ({ writeConcern: { j: true, w: "majority" as const } });
+
+/** `save()` applies `writeConcern` as well, though mongoose's `SaveOptions` type omits it. */
+export const metadataSaveOptions = (): SaveOptions & mongo.WriteConcernOptions =>
+  metadataWriteOptions();
 
 export const readSavedMetadataSnapshot = async <T>(
   key: string,
@@ -265,7 +269,7 @@ export const registerMetadataWork = <Input, Output>(
         totalCount: 1,
         type: "metadataAction",
         work: { inputPayload, name, snapshotPayloads: {} },
-      }).save(metadataWriteOptions());
+      }).save(metadataSaveOptions());
 
       return (await runBackgroundExecution(() =>
         runMetadataWork({ ...operation.toObject(), id: String(operation._id) }),

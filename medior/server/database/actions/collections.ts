@@ -990,7 +990,7 @@ export const regenCollAttrs = makeAction(
                   : {})),
           },
           { _id: 1 },
-          { strict: false },
+          { strictQuery: false },
         ).lean()
       ).map(({ _id }) => _id.toString());
 

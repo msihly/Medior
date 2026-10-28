@@ -17,7 +17,7 @@ import {
   IMPORT_ENTRY_CHECKPOINT_ID,
   IMPORT_ENTRY_MIGRATION_ID,
 } from "medior/server/database/import-entry-state";
-import { PersistenceModel } from "medior/server/database/persistence";
+import { persistenceCollection } from "medior/server/database/persistence";
 import { dayjs } from "medior/utils/common";
 import { socket } from "medior/utils/server";
 import { getCommonSourceFolder, mergeSourceFolders } from "medior/utils/server/source-folders";
@@ -255,7 +255,7 @@ export const runImportEntryMigrationQueue = async () => {
   }
 
   checkBackgroundExecution();
-  await PersistenceModel.collection.updateOne(
+  await persistenceCollection.updateOne(
     { _id: IMPORT_ENTRY_CHECKPOINT_ID, recordType: "Checkpoint" },
     { $set: { complete: true } },
     { session, upsert: true, writeConcern: { j: true, w: "majority" } },

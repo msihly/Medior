@@ -1,4 +1,4 @@
-import { IndexDefinition, IndexOptions, Model, model, Schema } from "mongoose";
+import { IndexDefinition, IndexOptions, Model, model, mongo, Schema } from "mongoose";
 import { checkBackgroundExecution } from "medior/server/database/background-execution";
 import { getBackgroundSession } from "medior/server/database/database-context";
 
@@ -28,11 +28,15 @@ const schema = new Schema(
 /** All auxiliary state shares this collection; domain schemas are typed views of it. */
 export const PersistenceModel = model("Persistence", schema, "persistence");
 
+export const persistenceCollection = PersistenceModel.collection as unknown as mongo.Collection<{
+  _id: string | mongo.ObjectId;
+}>;
+
 let persistenceReady = false;
 
 export const isPersistenceReady = async () => {
   if (!persistenceReady) {
-    const checkpoint = await PersistenceModel.collection.findOne(
+    const checkpoint = await persistenceCollection.findOne(
       { _id: PERSISTENCE_MIGRATION_ID, recordType: "PersistenceMigration", status: "COMPLETE" },
       { projection: { _id: 1 }, session: getBackgroundSession() },
     );
@@ -62,8 +66,17 @@ export const registerPersistenceModel = <T>(
   recordSchema.pre("insertMany", assertPersistenceReady);
   recordSchema.pre("save", assertPersistenceReady);
 
-  return PersistenceModel.discriminator<T>(name, recordSchema);
+  return PersistenceModel.discriminator<T, Model<T, any, any, any>>(
+    name,
+    recordSchema,
+  ) as unknown as Model<T>;
 };
+
+/** The driver accepts only a boolean `unique`, not mongoose's `[true, message]` form. */
+export const toCreateIndexOptions = <T extends IndexOptions>({ unique, ...options }: T) => ({
+  ...options,
+  ...(unique !== undefined ? { unique: Array.isArray(unique) ? unique[0] : unique } : {}),
+});
 
 /** Shared-collection indexes must isolate both lookups and uniqueness by record type. */
 export const ensurePersistenceIndexes = async () => {
@@ -87,7 +100,7 @@ export const ensurePersistenceIndexes = async () => {
           `Persistence index ${name} (${Object.keys(keys).join(", ")}) must define an explicit partial filter instead of sparse.`,
         );
 
-      const indexOptions: IndexOptions & { _autoIndex?: boolean } = { ...options };
+      const indexOptions = toCreateIndexOptions<IndexOptions & { _autoIndex?: boolean }>(options);
 
       delete indexOptions._autoIndex;
       delete indexOptions.sparse;

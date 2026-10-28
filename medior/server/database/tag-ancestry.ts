@@ -306,7 +306,7 @@ export const mediaAncestryPlugin = (
     },
   );
 
-  schema.post(/^find/, async function (documents) {
+  schema.post(/^find/, async function (this: Query<unknown, unknown>, documents) {
     await deriveSelectedAncestors(documents, projections.get(this), this.getOptions().session);
   });
 
@@ -383,7 +383,7 @@ export const tagAncestryPlugin = (schema: Schema) => {
     },
   );
 
-  schema.post(/^find/, async function (documents) {
+  schema.post(/^find/, async function (this: Query<unknown, unknown>, documents) {
     if (this.getOptions().storedHierarchy) return;
 
     const projection = projections.get(this);
