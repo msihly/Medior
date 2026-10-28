@@ -5,7 +5,7 @@ import { DiskStatus } from "./disk-status";
 
 export interface StorageInputProps extends Omit<InputProps, "setValue" | "value"> {
   index: number;
-  selectLocation: () => Promise<string | undefined>;
+  selectLocation: (defaultPath?: string) => Promise<string | undefined>;
 }
 
 export const StorageInput = Comp(({ index, selectLocation, ...props }: StorageInputProps) => {
@@ -19,7 +19,7 @@ export const StorageInput = Comp(({ index, selectLocation, ...props }: StorageIn
   const handleLocationClick = async (event: React.MouseEvent) => {
     event.preventDefault();
 
-    const location = await selectLocation();
+    const location = await selectLocation(value);
 
     if (location) setLocationValue(location);
   };

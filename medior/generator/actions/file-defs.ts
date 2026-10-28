@@ -19,7 +19,7 @@ export const FILE_DEF_ACTIONS: FileDef = {
     const makeImports = () =>
       `import * as models from "medior/_generated/server/models";
       import { SocketEventOptions } from "medior/_generated/server/socket";
-      import { FilterQuery } from "mongoose";
+      import { QueryFilter } from "mongoose";
       import { removeFileCollectionIds, syncCollectionFileIds } from "medior/server/database/actions/collections";
       import { deleteImportBatches } from "medior/server/database/actions/file-imports";
       import { deleteFileTransforms } from "medior/server/database/actions/file-transforms";
@@ -75,7 +75,7 @@ export const FILE_DEF_TYPES: FileDef = {
     const actions = await getActions();
 
     const makeImports = () =>
-      `import { QuerySelector, SortOrder } from "mongoose";
+      `import { mongo, SortOrder } from "mongoose";
       import * as db from "medior/server/database";`;
 
     const makeCustomActions = () => makeCustomActionTypes(actions.custom);

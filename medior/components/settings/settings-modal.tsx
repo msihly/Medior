@@ -116,13 +116,14 @@ export const SettingsModal = Comp(() => {
   const handleMediaProgramType = (type: string) =>
     store.update({ imports: { mediaProgramType: type } });
 
-  const handlePathClick = (setPath: (path: string) => void) => async (event: React.MouseEvent) => {
-    event.preventDefault();
+  const handlePathClick =
+    (setPath: (path: string) => void, defaultPath: string) => async (event: React.MouseEvent) => {
+      event.preventDefault();
 
-    const location = await selectStorageLocation();
+      const location = await selectStorageLocation(defaultPath);
 
-    if (location) setPath(location);
-  };
+      if (location) setPath(location);
+    };
 
   const handleRepair = () => store.repair.setIsOpen(true);
 
@@ -174,8 +175,8 @@ export const SettingsModal = Comp(() => {
     }
   };
 
-  const selectStorageLocation = async () => {
-    const res = await dialog.showOpenDialog({ properties: ["openDirectory"] });
+  const selectStorageLocation = async (defaultPath?: string) => {
+    const res = await dialog.showOpenDialog({ defaultPath, properties: ["openDirectory"] });
 
     return res.canceled ? undefined : res.filePaths[0];
   };
@@ -240,7 +241,7 @@ export const SettingsModal = Comp(() => {
                   <Settings.Field label="Path" description="Changing it restarts the servers." wide>
                     <Settings.Input
                       configKey="db.path"
-                      onClick={handlePathClick(store.setDbPath)}
+                      onClick={handlePathClick(store.setDbPath, store.db.path)}
                       flex={1}
                     />
                   </Settings.Field>
@@ -311,7 +312,7 @@ export const SettingsModal = Comp(() => {
                   >
                     <Settings.Input
                       configKey="db.vector.path"
-                      onClick={handlePathClick(store.setVectorDbPath)}
+                      onClick={handlePathClick(store.setVectorDbPath, store.db.vector.path)}
                       flex={1}
                     />
                   </Settings.Field>
@@ -346,7 +347,10 @@ export const SettingsModal = Comp(() => {
                   >
                     <Settings.Input
                       configKey="file.similarity.modelCachePath"
-                      onClick={handlePathClick(store.setSimilarityModelCachePath)}
+                      onClick={handlePathClick(
+                        store.setSimilarityModelCachePath,
+                        store.file.similarity.modelCachePath,
+                      )}
                       flex={1}
                     />
                   </Settings.Field>
@@ -590,7 +594,10 @@ export const SettingsModal = Comp(() => {
                   <Settings.Field label="Model Cache Path" wide>
                     <Settings.Input
                       configKey="file.transcription.modelCachePath"
-                      onClick={handlePathClick(store.setTranscriptionModelCachePath)}
+                      onClick={handlePathClick(
+                        store.setTranscriptionModelCachePath,
+                        store.file.transcription.modelCachePath,
+                      )}
                       flex={1}
                     />
                   </Settings.Field>

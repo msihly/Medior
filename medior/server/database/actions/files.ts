@@ -133,7 +133,7 @@ export const listAllArchivedFileIds = makeAction(async () =>
 
 export const listFileIdsByTagIds = makeAction(async (args: { tagIds: string[] }) => {
   return (
-    await models.FileModel.find({ tagIds: { $in: objectIds(args.tagIds) } })
+    await models.FileModel.find({ tagIds: { $in: args.tagIds } })
       .select({ _id: 1 })
       .lean()
   ).map((f) => f._id.toString());
@@ -761,7 +761,7 @@ export const importFile = makeAction(
       const res = await models.FileModel.findOneAndUpdate(
         { hash: file.hash },
         { $setOnInsert: file },
-        { ...metadataWriteOptions(), new: true, upsert: true },
+        { ...metadataWriteOptions(), returnDocument: "after", upsert: true },
       ).select("-tagIdsWithAncestors");
 
       const id = res._id.toString();
@@ -876,11 +876,11 @@ export const listSortedFileIds = makeAction(
 const missingVideoInfoFilter = {
   $or: [
     { audioBitrate: { $exists: false } },
-    { audioBitrate: "" },
+    { audioBitrate: null },
     { audioCodec: { $exists: false } },
     { audioCodec: "" },
     { bitrate: { $exists: false } },
-    { bitrate: "" },
+    { bitrate: null },
     { videoCodec: { $exists: false } },
     { videoCodec: "" },
   ],
@@ -1212,7 +1212,7 @@ export const repairPreviousHashes = makeAction(async ({ repairId }: { repairId: 
   );
 
   return run(async () => {
-    const filter: mongoose.FilterQuery<models.FileTransformSchema> = {
+    const filter: mongoose.QueryFilter<models.FileTransformSchema> = {
       beforeHash: { $type: "string" },
       status: "REPLACED",
     };
@@ -1275,7 +1275,7 @@ export const repairFilesWithMissingInfo = makeAction(async ({ repairId }: { repa
   const { checkCancelled, lock, report, run, unlock } = makeRepairReporter(repairId, "repairFiles");
 
   return run(async () => {
-    const filter: mongoose.FilterQuery<models.FileSchema> = {
+    const filter: mongoose.QueryFilter<models.FileSchema> = {
       ext: { $in: CONSTANTS.VIDEO.EXTS },
       isArchived: { $ne: true },
       $or: ["bitrate", "size", "videoCodec"].map((name) => ({
@@ -1375,7 +1375,7 @@ export const repairMissingAudioAnalysis = makeAction(
       // Every stale video needs the exported model, so a missing one stops the repair up front.
       if (repairAudioVectors) await assertAudioSimilarityModel();
 
-      const missingFilters: mongoose.FilterQuery<models.FileSchema>[] = [];
+      const missingFilters: mongoose.QueryFilter<models.FileSchema>[] = [];
 
       if (repairTranscriptions)
         missingFilters.push({
@@ -1403,7 +1403,7 @@ export const repairMissingAudioAnalysis = makeAction(
           .join(" "),
       );
 
-      const findCandidates = (filter: mongoose.FilterQuery<models.FileSchema>) =>
+      const findCandidates = (filter: mongoose.QueryFilter<models.FileSchema>) =>
         models.FileModel.find({
           ...filter,
           audioCodec: { $exists: true, $nin: ["", "None", null] },
@@ -2570,7 +2570,8 @@ class ThumbRepairer {
 
   private getFilesWithThumbPaths = async () =>
     (
-      await models.FileModel.find({ thumbPaths: { $exists: true } }, null, { strictQuery: false })
+      await models.FileModel.find({ thumbPaths: { $exists: true } })
+        .setOptions({ strictQuery: false })
         .limit(this.chunkSize)
         .allowDiskUse(true)
         .lean()
@@ -2712,7 +2713,7 @@ class ThumbRepairer {
   }) => {
     this.checkCancelled();
 
-    const lockFilters: mongoose.FilterQuery<models.FileSchema>[] = [
+    const lockFilters: mongoose.QueryFilter<models.FileSchema>[] = [
       ...(repairPaths
         ? [{ "thumb.path": { $regex: "\\\\.jpg$" } }, { thumbPaths: { $exists: true } }]
         : []),

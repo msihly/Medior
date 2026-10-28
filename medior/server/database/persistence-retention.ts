@@ -1,4 +1,5 @@
-import { BackgroundOperationModel } from "medior/_generated/server/models";
+import { BackgroundOperationModel, BackgroundOperationSchema } from "medior/_generated/server/models";
+import { QueryFilter } from "mongoose";
 import { checkBackgroundExecution } from "medior/server/database/background-execution";
 import { getBackgroundSession } from "medior/server/database/database-context";
 import { assertPersistenceReady, PersistenceModel } from "medior/server/database/persistence";
@@ -9,7 +10,7 @@ export const pruneCompletedOperations = async () => {
   await assertPersistenceReady();
 
   const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-  const filter = {
+  const filter: QueryFilter<BackgroundOperationSchema> = {
     $or: [{ completedAt: { $lt: cutoff } }, { completedAt: null, dateModified: { $lt: cutoff } }],
     status: "COMPLETE",
   };

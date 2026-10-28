@@ -17,7 +17,7 @@ export const ScratchInput = Comp(
     const handleLocationClick = async (event: React.MouseEvent) => {
       event.preventDefault();
 
-      const location = await selectLocation();
+      const location = await selectLocation(value);
 
       if (location) store.setScratchPath(location);
     };

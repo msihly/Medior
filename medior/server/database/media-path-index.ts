@@ -83,7 +83,7 @@ export const ensureMediaPathIndexOperation = async () => {
         type: "mediaPathIndex",
       },
     },
-    { new: true, upsert: true },
+    { returnDocument: "after", upsert: true },
   ).lean();
 };
 

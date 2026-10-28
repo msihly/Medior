@@ -106,7 +106,7 @@ const updateRepairOperation = async (
       type: "repair",
     },
     { $set: { ...updates, dateModified: dayjs().toISOString() } },
-    { new: true },
+    { returnDocument: "after" },
   );
 
   if (operation) await emitRepairOperation(operation._id.toString());

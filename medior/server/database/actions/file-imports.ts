@@ -987,8 +987,8 @@ export const reprocessStoredImports = makeAction(
         if (uniqueJunkIds.length)
           await models.FileImportModel.updateMany(
             {
-              fileId: { $in: objectIds(uniqueJunkIds) },
-              $nor: [{ batchId: objectId(args.id), index: { $in: requeuedIndexes } }],
+              fileId: { $in: uniqueJunkIds },
+              $nor: [{ batchId: args.id, index: { $in: requeuedIndexes } }],
             },
             {
               $set: {
@@ -1017,9 +1017,11 @@ export const reprocessStoredImports = makeAction(
 
             if (!requeued) return 0;
 
-            await models.FileImportModel.updateMany(filter, {
-              $set: { errorMsg: null, fileId: null, status: "PENDING" },
-            });
+            // Model queries cast string IDs; the aggregation match above needs the ObjectId.
+            await models.FileImportModel.updateMany(
+              { ...filter, batchId: args.id },
+              { $set: { errorMsg: null, fileId: null, status: "PENDING" } },
+            );
 
             await models.FileImportBatchModel.updateOne(
               { _id: args.id },
@@ -1290,16 +1292,17 @@ export const updateFileImportByPath = makeAction(
             progressRevision: 1,
           },
         },
-        { new: true },
+        { returnDocument: "after" },
       )
         .select({ processedCount: 1, processedSize: 1, progressRevision: 1 })
         .lean();
 
       if (!batch) throw new Error(`Import batch for ${filePath} is unavailable`);
 
-      await models.FileImportModel.updateMany(filter, {
-        $set: { ...updates, progressRevision: batch.progressRevision },
-      });
+      await models.FileImportModel.updateMany(
+        { batchId, path: filePath },
+        { $set: { ...updates, progressRevision: batch.progressRevision } },
+      );
 
       return {
         processedCount: batch.processedCount,

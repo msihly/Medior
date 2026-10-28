@@ -1,7 +1,7 @@
 import fs from "fs/promises";
 import { createHash, randomUUID } from "crypto";
 import * as models from "medior/_generated/server/models";
-import { FilterQuery, Types as MongoTypes } from "mongoose";
+import { PipelineStage, Types as MongoTypes } from "mongoose";
 import { isServerStopping } from "trabecula/utils/process";
 import { deleteFile, fileLog } from "trabecula/utils/server";
 import * as actions from "medior/server/database/actions";
@@ -464,7 +464,7 @@ const runTransformQueueCreation = makeBackgroundOperationRunner(
             $or: [
               ...(type === "splice"
                 ? []
-                : [{ fileId: { $in: objectIds(request.targetIds) }, isCompleted: false, type }]),
+                : [{ fileId: { $in: request.targetIds }, isCompleted: false, type }]),
               { _id: { $in: request.targetIds.map((id) => getQueueTransformId(request._id, id)) } },
             ],
           })
@@ -713,7 +713,7 @@ const getReencodeCandidateMatches = () => {
     { $gt: [shortEdge, config.maxShortEdge] },
   ];
 
-  const makeMatch = (exts: string[], limits: object[]): FilterQuery<models.FileSchema> => ({
+  const makeMatch = (exts: string[], limits: object[]): PipelineStage.Match["$match"] => ({
     $expr: { $or: limits },
     ext: { $in: exts },
     isArchived: false,
@@ -734,7 +734,7 @@ const getReencodeCandidateMatches = () => {
       ...makeMatch(file.videoExts, videoLimits),
       ...(config.queueMaxDuration ? { duration: { $lte: config.queueMaxDuration } } : {}),
     },
-  } satisfies Record<ReencodeCandidateType, FilterQuery<models.FileSchema>>;
+  } satisfies Record<ReencodeCandidateType, PipelineStage.Match["$match"]>;
 };
 
 export const cancelReencodeCandidateSearch = makeAction(
@@ -977,7 +977,7 @@ export const deleteFileTransforms = makeAction(
 
 export const deleteFileTransformsByFileIds = makeAction(async (args: { fileIds: string[] }) => {
   const transforms = await models.FileTransformModel.find({
-    fileId: { $in: objectIds(args.fileIds) },
+    fileId: { $in: args.fileIds },
     isCompleted: false,
   })
     .select({ _id: 1 })
@@ -1268,8 +1268,8 @@ const mergeDuplicateTransform = async (
       if (
         original.isArchived &&
         (await models.FileTransformModel.exists({
-          duplicateFileId: { $ne: match._id },
-          fileId: original._id,
+          duplicateFileId: { $ne: match._id.toString() },
+          fileId: original._id.toString(),
           status: { $in: ["DUPLICATE", "MERGED"] },
         }))
       )
@@ -2304,7 +2304,7 @@ const startFileTransform = (args: { id: string; type: Types.FileTransformType })
                   const claimed = await models.FileTransformModel.findOneAndUpdate(
                     { _id: candidate.id, isCompleted: false, status: "PENDING" },
                     { $set: { startedAt: dayjs().toISOString(), status: "RUNNING" } },
-                    { new: true },
+                    { returnDocument: "after" },
                   ).lean();
 
                   candidate = null;

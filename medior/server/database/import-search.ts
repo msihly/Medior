@@ -3,10 +3,10 @@ import {
   FileImportBatchSchema,
   FileImportModel,
 } from "medior/_generated/server/models";
-import type { FilterQuery, PipelineStage } from "mongoose";
+import type { PipelineStage, QueryFilter } from "mongoose";
 
 /** Resolve file-path clauses against entries without materializing a library-sized ID list. */
-export const createImportBatchSearchPipeline = (filter: FilterQuery<FileImportBatchSchema>) => {
+export const createImportBatchSearchPipeline = (filter: QueryFilter<FileImportBatchSchema>) => {
   const aliases: string[] = [];
   const lookups: PipelineStage[] = [];
 
@@ -52,7 +52,7 @@ export const createImportBatchSearchPipeline = (filter: FilterQuery<FileImportBa
 };
 
 export const countImportBatchSearchResults = async (
-  filter: FilterQuery<FileImportBatchSchema>,
+  filter: QueryFilter<FileImportBatchSchema>,
   limit?: number,
 ) => {
   const pipeline = createImportBatchSearchPipeline(filter);

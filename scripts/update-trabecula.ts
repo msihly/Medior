@@ -8,8 +8,8 @@ const branchFile = "update-trabecula.branch.txt";
 
 const run = (command: string, args: string[], capture = false) =>
   new Promise<string>((resolve, reject) => {
-    const child = spawn(command, args, {
-      shell: process.platform === "win32",
+    const child = spawn([command, ...args].join(" "), {
+      shell: true,
       stdio: capture ? ["inherit", "pipe", "inherit"] : "inherit",
     });
 

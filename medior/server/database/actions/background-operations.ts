@@ -1,5 +1,6 @@
 import { randomUUID } from "crypto";
 import * as models from "medior/_generated/server/models";
+import { QueryFilter } from "mongoose";
 import { isServerStopping } from "trabecula/utils/process";
 import { fileLog } from "trabecula/utils/server";
 import {
@@ -193,7 +194,7 @@ export const completeBackgroundOperationTargets = async (
         },
       },
     ],
-    metadataWriteOptions(),
+    { ...metadataWriteOptions(), updatePipeline: true },
   );
 
   return emitBackgroundOperation(id);
@@ -444,7 +445,12 @@ export const queueBackgroundOperation = async ({
             },
             { $set: { totalCount: { $add: ["$processedCount", { $size: "$targetIds" }] } } },
           ],
-          { new: true, upsert: true, ...metadataWriteOptions() },
+          {
+            returnDocument: "after",
+            updatePipeline: true,
+            upsert: true,
+            ...metadataWriteOptions(),
+          },
         ).lean(),
       );
       break;
@@ -552,7 +558,7 @@ export const completeEmptyBackgroundOperation = async (id: string, message: stri
       },
       { $unset: "queueKey" },
     ],
-    metadataWriteOptions(),
+    { ...metadataWriteOptions(), updatePipeline: true },
   );
 
   await emitBackgroundOperation(id);
@@ -614,19 +620,26 @@ export const listBackgroundActivity = makeAction(async () => {
       metadataWriteOptions(),
     );
 
-    const actionable = { status: { $in: ["PENDING", "RUNNING", "CANCELLED", "ERROR"] } };
-    const prerequisiteTypes = ["importEntryMigration", "mediaPathIndex"];
+    const actionable: QueryFilter<models.BackgroundOperationSchema> = {
+      status: { $in: ["PENDING", "RUNNING", "CANCELLED", "ERROR"] },
+    };
+    const prerequisiteTypes: models.BackgroundOperationSchema["type"][] = [
+      "importEntryMigration",
+      "mediaPathIndex",
+    ];
 
     const operations = await Promise.all(
-      [
-        { ...actionable, type: { $in: prerequisiteTypes } },
-        { status: { $in: ["PENDING", "RUNNING"] }, type: { $nin: prerequisiteTypes } },
-        { status: { $in: ["CANCELLED", "ERROR"] }, type: { $nin: prerequisiteTypes } },
-        {
-          $nor: [actionable],
-          $or: [{ type: { $ne: "metadataAction" } }, { status: { $ne: "COMPLETE" } }],
-        },
-      ].map((filter) =>
+      (
+        [
+          { ...actionable, type: { $in: prerequisiteTypes } },
+          { status: { $in: ["PENDING", "RUNNING"] }, type: { $nin: prerequisiteTypes } },
+          { status: { $in: ["CANCELLED", "ERROR"] }, type: { $nin: prerequisiteTypes } },
+          {
+            $nor: [actionable],
+            $or: [{ type: { $ne: "metadataAction" } }, { status: { $ne: "COMPLETE" } }],
+          },
+        ] satisfies QueryFilter<models.BackgroundOperationSchema>[]
+      ).map((filter) =>
         models.BackgroundOperationModel.find({ $and: [filter, { dismissedAt: null }] })
           .select(ACTIVITY_PROJECTION)
           .sort({ dateCreated: -1, _id: -1 })

@@ -90,7 +90,7 @@ export const makeActionsDef = (
         const res = await models.${modelDef.name}Model.findOneAndUpdate(
           { _id: getMetadataCreateId("generated:${fnName}") },
           { $setOnInsert: model },
-          { ...metadataWriteOptions(), new: true, upsert: true }
+          { ...metadataWriteOptions(), returnDocument: "after", upsert: true }
         );
 
         const id = res._id.toString();
@@ -193,7 +193,7 @@ export const makeActionsDef = (
           await models.${modelDef.name}Model.findByIdAndUpdate(
             args.id,
             updates,
-            { new: true, ...metadataWriteOptions() }
+            { returnDocument: "after", ...metadataWriteOptions() }
           ).lean()
         );
 
@@ -249,7 +249,7 @@ export const makeActionsDef = (
               : `await models.${modelDef.name}Model.findByIdAndUpdate(
             args.id,
             ${modelDef.name === "FileCollection" ? "{ $inc: { __v: 1 }, $set: updates }" : withDateModified ? "updates" : "args.updates"},
-            { new: true, ...metadataWriteOptions() }
+            { returnDocument: "after", ...metadataWriteOptions() }
           ).lean()`
           }
         );
@@ -331,7 +331,7 @@ export const makeSearchActionsDef = (
     return `export type ${filterFn.typeName} = { ${interfaceProps.map((prop) => `${prop.name}?: ${prop.type};`).join("\n")} }
 
     export const ${filterFn.fnName} = async (args: ${filterFn.typeName}) => {
-      const $match: FilterQuery<${schemaName}> = {};
+      const $match: QueryFilter<${schemaName}> = {};
 
       ${defaultProps
         .filter((prop) => !prop.filterGroup)
@@ -344,7 +344,7 @@ export const makeSearchActionsDef = (
         .sort()
         .map(
           (group) => `{
-          const filter: FilterQuery<${schemaName}> = {};
+          const filter: QueryFilter<${schemaName}> = {};
 
           ${defaultProps
             .filter((prop) => prop.filterGroup === group)

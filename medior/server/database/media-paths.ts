@@ -120,7 +120,7 @@ export const mediaPathPlugin = (
     schema.index({ [key]: 1 }, { partialFilterExpression: { [key]: { $type: "string" } } });
   }
 
-  schema.pre("save", function (next) {
+  schema.pre("save", function () {
     this.set(
       getMediaPathKeys(
         this,
@@ -129,21 +129,16 @@ export const mediaPathPlugin = (
         ),
       ),
     );
-
-    next();
   });
 
-  schema.pre("insertMany", function (next, documents) {
+  schema.pre("insertMany", function (documents) {
     for (const document of documents) Object.assign(document, getMediaPathKeys(document, fields));
-
-    next();
   });
 
   schema.pre(
     /^(findOneAnd(?:Replace|Update)|replaceOne|update)/,
-    function (this: Query<unknown, unknown>, next) {
+    function (this: Query<unknown, unknown>) {
       normalizeMediaPathUpdate(this.getUpdate(), fields);
-      next();
     },
   );
 };

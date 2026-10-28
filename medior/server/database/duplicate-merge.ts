@@ -48,7 +48,7 @@ export const mergeDuplicateFile = async (original: DuplicateFile, match: Duplica
   }
 
   const collections = await models.FileCollectionModel.find({
-    "fileIdIndexes.fileId": original._id,
+    "fileIdIndexes.fileId": original._id.toString(),
   }).lean();
 
   for (const collection of collections) {

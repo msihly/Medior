@@ -206,7 +206,7 @@ export const editImage = makeAction(
               sourceHash: null,
             },
           },
-          { ...metadataWriteOptions(), new: true, upsert: true },
+          { ...metadataWriteOptions(), returnDocument: "after", upsert: true },
         ).lean();
 
         file = leanModelToJson<FileSchema>(model);
@@ -238,7 +238,7 @@ export const editImage = makeAction(
             ],
           },
           { $set: updates },
-          { ...metadataWriteOptions(), new: true },
+          { ...metadataWriteOptions(), returnDocument: "after" },
         ).lean();
 
         if (!model)

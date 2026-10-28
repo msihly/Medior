@@ -1,5 +1,5 @@
 import * as models from "medior/_generated/server/models";
-import { FilterQuery } from "mongoose";
+import { QueryFilter } from "mongoose";
 import { fileLog } from "trabecula/utils/server";
 import { startRepairChild } from "medior/server/database/repair-progress";
 import { getFileFilterMatch } from "medior/server/lower-resolution";
@@ -11,7 +11,7 @@ import { workSignal } from "medior/utils/server/work-signal";
 /** Leaves out candidates that are archived, deleted, or not chosen by the filter menu's filter. */
 const filterAvailableCandidates = async <Candidate extends { fileId: string }>(
   candidates: Candidate[],
-  filterMatch: FilterQuery<models.FileSchema> | null,
+  filterMatch: QueryFilter<models.FileSchema> | null,
 ) => {
   const files = await models.FileModel.find({
     $and: [

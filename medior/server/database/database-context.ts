@@ -10,28 +10,22 @@ export const getBackgroundSession = () => backgroundExecution.getStore()?.sessio
 export const backgroundExecutionPlugin = (schema: Schema) => {
   schema.pre(
     /^(find|count|distinct|update|delete|replace)/,
-    function (this: Query<unknown, unknown>, next) {
+    function (this: Query<unknown, unknown>) {
       checkBackgroundExecution();
 
       if (getBackgroundSession()) this.session(getBackgroundSession());
-
-      next();
     },
   );
 
-  schema.pre("aggregate", function (next) {
+  schema.pre("aggregate", function () {
     checkBackgroundExecution();
 
     if (getBackgroundSession()) this.session(getBackgroundSession());
-
-    next();
   });
 
-  schema.pre("save", function (next) {
+  schema.pre("save", function () {
     checkBackgroundExecution();
 
     if (getBackgroundSession()) this.$session(getBackgroundSession());
-
-    next();
   });
 };

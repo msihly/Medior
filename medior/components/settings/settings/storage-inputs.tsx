@@ -9,7 +9,7 @@ export const StorageInputs = Comp(
     const store = stores.home.settings;
 
     const handleAdd = async () => {
-      const location = await selectLocation();
+      const location = await selectLocation(store.db.fileStorage.locations.at(-1));
 
       if (location) store.addFileStorageLocation(location);
     };

@@ -15,7 +15,7 @@ export const getShiftSelectedItems = async <ModelType>({
   selectedIds,
 }: {
   clickedId: string;
-  filterPipeline: { $match: mongoose.FilterQuery<ModelType>; $sort: Record<string, 1 | -1> };
+  filterPipeline: { $match: mongoose.QueryFilter<ModelType>; $sort: Record<string, 1 | -1> };
   ids?: string[];
   model: mongoose.Model<ModelType>;
   searchPlan?: { options: Record<string, unknown>; pipeline: PipelineStage[] };

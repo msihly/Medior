@@ -940,7 +940,7 @@ export class VectorSimilarityService {
             progress: job.progress,
           },
         },
-        { new: true, upsert: true },
+        { returnDocument: "after", upsert: true },
       ).lean();
     } catch (error) {
       if (error.code !== 11000) throw error;
@@ -1029,7 +1029,7 @@ export class VectorSimilarityService {
         },
         $unset: { queueKey: 1 },
       },
-      { new: true },
+      { returnDocument: "after" },
     ).lean();
     const progress =
       persisted?.progress ?? (await SimilarityBackfillModel.findById(args.jobId).lean())?.progress;

@@ -327,7 +327,7 @@ export const attachImportedMediaProgramSeason = (args: {
           watchStatus: "unwatched",
         },
       },
-      { ...metadataWriteOptions(), new: true, upsert: true },
+      { ...metadataWriteOptions(), returnDocument: "after", upsert: true },
     ).lean();
 
     const program = leanModelToJson<models.MediaProgramSchema>(updated);
@@ -365,7 +365,7 @@ export const regenMediaProgramsByCollectionIds = (collectionIds: string[]) =>
     if (!collectionIds.length) return;
 
     const programs = await models.MediaProgramModel.find({
-      "collectionIdIndexes.collectionId": { $in: objectIds(collectionIds) },
+      "collectionIdIndexes.collectionId": { $in: collectionIds },
     })
       .select({ _id: 1 })
       .lean();
@@ -376,10 +376,8 @@ export const regenMediaProgramsByCollectionIds = (collectionIds: string[]) =>
 // @generator-ignore-export
 export const removeMediaProgramCollectionIds = (collectionIds: string[]) =>
   withMetadataMutation(async () => {
-    const ids = objectIds(collectionIds);
-
     const programs = await models.MediaProgramModel.find({
-      "collectionIdIndexes.collectionId": { $in: ids },
+      "collectionIdIndexes.collectionId": { $in: collectionIds },
     })
       .select({ _id: 1 })
       .lean();
@@ -388,7 +386,7 @@ export const removeMediaProgramCollectionIds = (collectionIds: string[]) =>
 
     await models.MediaProgramModel.updateMany(
       { _id: { $in: programs.map((program) => program._id) } },
-      { $pull: { collectionIdIndexes: { collectionId: { $in: ids } } } },
+      { $pull: { collectionIdIndexes: { collectionId: { $in: objectIds(collectionIds) } } } },
       metadataWriteOptions(),
     );
 
@@ -406,7 +404,7 @@ export const replaceMediaProgramCollectionIds = (collectionIds: string[], target
     const replacedIds = new Set(collectionIds);
 
     const programs = await models.MediaProgramModel.find({
-      "collectionIdIndexes.collectionId": { $in: objectIds(collectionIds) },
+      "collectionIdIndexes.collectionId": { $in: collectionIds },
     })
       .select({ collectionIdIndexes: 1 })
       .lean();

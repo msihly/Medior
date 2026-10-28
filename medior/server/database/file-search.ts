@@ -1,12 +1,12 @@
 import { FileModel, FileSchema } from "medior/_generated/server/models";
-import { FilterQuery, PipelineStage } from "mongoose";
+import { PipelineStage, QueryFilter } from "mongoose";
 import { getBackgroundSession } from "medior/server/database/database-context";
 import { resolveAncestorFilter } from "medior/server/database/tag-ancestry";
 import { FILE_PATH_SEARCH_INDEX } from "medior/utils/common/constants";
 
 let originalPathIndexPromise: Promise<string>;
 
-export const countFileSearchResults = async (filter: FilterQuery<FileSchema>, limit?: number) => {
+export const countFileSearchResults = async (filter: QueryFilter<FileSchema>, limit?: number) => {
   const searchPlan = await createFileSearchPlan(filter, { _id: 1 });
   let count: number;
 
@@ -29,7 +29,7 @@ export const countFileSearchResults = async (filter: FilterQuery<FileSchema>, li
 };
 
 export const createFileSearchPlan = async (
-  filter: FilterQuery<FileSchema>,
+  filter: QueryFilter<FileSchema>,
   projection?: Record<string, 1>,
 ) => {
   const plan: {
@@ -151,23 +151,23 @@ export const createFileSearchSortStages = (
 };
 
 const getRequiredFileSearchFilters = (
-  filter: FilterQuery<FileSchema>,
-): FilterQuery<FileSchema>[] => [
+  filter: PipelineStage.Match["$match"],
+): PipelineStage.Match["$match"][] => [
   filter,
   ...(filter.$and ?? []).flatMap(getRequiredFileSearchFilters),
   ...(filter.$or?.length === 1 ? getRequiredFileSearchFilters(filter.$or[0]) : []),
 ];
 
 const hasFileSearchRegex = (
-  filter: FilterQuery<FileSchema>,
+  filter: QueryFilter<FileSchema>,
   fields = ["diffusionParams", "originalPath", "transcription.text"],
 ): boolean =>
   fields.some((field) => filter[field]?.$regex instanceof RegExp) ||
   ["$and", "$nor", "$or"].some((operator) =>
-    filter[operator]?.some((part: FilterQuery<FileSchema>) => hasFileSearchRegex(part, fields)),
+    filter[operator]?.some((part: QueryFilter<FileSchema>) => hasFileSearchRegex(part, fields)),
   );
 
-const isCoveredFileSearchFilter = (filter: FilterQuery<FileSchema>): boolean =>
+const isCoveredFileSearchFilter = (filter: QueryFilter<FileSchema>): boolean =>
   Object.entries(filter).every(([field, condition]) =>
     ["$and", "$nor", "$or"].includes(field)
       ? condition.every(isCoveredFileSearchFilter)

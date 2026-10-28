@@ -38,7 +38,7 @@ import path from "path";
     outbase: "medior",
     outdir: "extraResources/medior",
     platform: "node",
-    target: "node18",
+    target: "node24",
     tsconfig: "medior/server/tsconfig.build.json",
   });
 })();

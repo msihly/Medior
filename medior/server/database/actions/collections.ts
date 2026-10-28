@@ -1,6 +1,6 @@
 import path from "path";
 import * as models from "medior/_generated/server/models";
-import mongoose, { FilterQuery, UpdateQuery } from "mongoose";
+import mongoose, { QueryFilter, UpdateQuery } from "mongoose";
 import * as actions from "medior/server/database/actions";
 import {
   canRunBackgroundQueues,
@@ -26,7 +26,7 @@ import { getCommonSourceFolder, mergeSourceFolders } from "medior/utils/server/s
 /*                              HELPER FUNCTIONS                              */
 /* -------------------------------------------------------------------------- */
 const updateFileCollectionIds = async (
-  filter: FilterQuery<models.FileSchema>,
+  filter: QueryFilter<models.FileSchema>,
   updates: UpdateQuery<models.FileSchema>,
 ) => {
   const files = await models.FileModel.find(filter).select({ _id: 1 }).lean();
@@ -73,7 +73,7 @@ export const syncCollectionFileIds = async (collectionId: string, fileIds: strin
 // @generator-ignore-export
 export const removeFileCollectionIds = async (collectionIds: string[]) => {
   await updateFileCollectionIds(
-    { collectionIds: { $in: objectIds(collectionIds) } },
+    { collectionIds: { $in: collectionIds } },
     { $pull: { collectionIds: { $in: objectIds(collectionIds) } } },
   );
 
@@ -424,7 +424,7 @@ export const createCollection = makeAction(
       const res = await models.FileCollectionModel.findOneAndUpdate(
         { _id: args.id ?? getMetadataCreateId(`collection:${args.title}`) },
         { $setOnInsert: collection },
-        { ...metadataWriteOptions(), new: true, upsert: true },
+        { ...metadataWriteOptions(), returnDocument: "after", upsert: true },
       );
 
       await syncCollectionFileIds(
@@ -458,7 +458,7 @@ export const upsertImportedCollection = makeAction(
       if (!candidates.length && incomingFileIds.length) {
         const overlapping = (
           await models.FileCollectionModel.find({
-            "fileIdIndexes.fileId": { $in: objectIds(incomingFileIds) },
+            "fileIdIndexes.fileId": { $in: incomingFileIds },
           }).lean()
         ).map((collection) => leanModelToJson<models.FileCollectionSchema>(collection));
 
@@ -938,7 +938,7 @@ export const listCollectionsByFileIds = makeAction(async (args: { fileIds: strin
 
 export const listCollectionIdsByTagIds = makeAction(async (args: { tagIds: string[] }) => {
   return (
-    await models.FileCollectionModel.find({ tagIds: { $in: objectIds(args.tagIds) } })
+    await models.FileCollectionModel.find({ tagIds: { $in: args.tagIds } })
       .select({ _id: 1 })
       .lean()
   ).map((f) => f._id.toString());
@@ -948,7 +948,7 @@ export const listFileSelectionCollections = makeAction(
   async ({ fileIds, page }: { fileIds: string[]; page: number }) => {
     if (!Number.isSafeInteger(page) || page < 1) throw new Error("Invalid collection page.");
 
-    const filter = { "fileIdIndexes.fileId": { $in: objectIds(fileIds) } };
+    const filter = { "fileIdIndexes.fileId": { $in: fileIds } };
     const items = await models.FileCollectionModel.find(filter)
       .sort({ dateCreated: -1, _id: -1 })
       .skip(page - 1)
@@ -966,7 +966,7 @@ export const regenCollAttrs = makeAction(
     "regenCollAttrs",
     async (
       args: {
-        collFilter?: FilterQuery<models.FileCollectionSchema>;
+        collFilter?: QueryFilter<models.FileCollectionSchema>;
         collIds?: string[];
         fileIds?: string[];
       } = {},
@@ -1151,7 +1151,7 @@ export const repairCollections = makeAction(
             if (!file) return;
 
             const collectionIds = (
-              await models.FileCollectionModel.find({ "fileIdIndexes.fileId": file._id })
+              await models.FileCollectionModel.find({ "fileIdIndexes.fileId": file._id.toString() })
                 .select({ _id: 1 })
                 .lean()
             )

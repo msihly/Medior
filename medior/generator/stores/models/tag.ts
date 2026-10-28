@@ -41,7 +41,7 @@ model.addProp("fileTags", "Stores.TagOption[]", "() => []", {
       name: "fileTagId",
       objPath: ["$and"],
       objValue: `[{ _id: {
-        $in: await models.FileModel.distinct("tagIds", { tagIds: objectId(args.fileTagId) }),
+        $in: await models.FileModel.distinct("tagIds", { tagIds: args.fileTagId }),
         $ne: objectId(args.fileTagId),
       } }]`,
       type: "string",

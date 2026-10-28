@@ -52,7 +52,7 @@ export const runImportEntryMigrationQueue = async () => {
         type: "importEntryMigration",
       },
     },
-    { new: true, upsert: true },
+    { returnDocument: "after", upsert: true },
   ).lean();
 
   if (!["PENDING", "RUNNING"].includes(operation.status)) return false;

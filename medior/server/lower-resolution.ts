@@ -1,6 +1,6 @@
 import { randomUUID } from "crypto";
 import { FileModel, FileSchema, TagSchema } from "medior/_generated/server/models";
-import { FilterQuery, Schema } from "mongoose";
+import { QueryFilter, Schema } from "mongoose";
 import { serverShutdownSignal } from "trabecula/utils/process";
 import * as actions from "medior/server/database/actions";
 import { findJob } from "medior/server/database/jobs";
@@ -126,7 +126,7 @@ type GroupState = Pick<DuplicateScan, "found" | "groupCursor" | "groupError" | "
 interface GroupTask extends GroupState {
   claimedIds: Set<string>;
   /** Query for the files the filter chooses, apart from archived ones; null when every file passes. */
-  filter: FilterQuery<FileSchema>;
+  filter: QueryFilter<FileSchema>;
   options: DuplicateSearchOptions;
   /** Grouping stops after its current step and keeps its progress. */
   paused: boolean;
@@ -432,7 +432,7 @@ const scoreGroups = async (scanId: string, groups: Pick<ScanGroup, "_id" | "file
  * archived check is dropped because it would also exclude files missing the field.
  */
 export const getFileFilterMatch = async (filter: string | null) => {
-  const match: FilterQuery<FileSchema> = filter
+  const match: QueryFilter<FileSchema> = filter
     ? (
         await actions.createFileFilterPipeline({
           ...JSON.parse(filter),
@@ -1329,7 +1329,7 @@ export const listNearbyFiles = async (
         dateCreated: { $gte: dayjs(start).toISOString(), $lte: dayjs(end).toISOString() },
       }));
 
-      const query: FilterQuery<FileSchema> = {
+      const query: QueryFilter<FileSchema> = {
         $and: [
           ...(filter ? [filter] : []),
           { $or: windows },

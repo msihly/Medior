@@ -43,8 +43,8 @@ export const readTagMetadata = async (
 
   checkBackgroundExecution();
 
-  const relatedIds = objectIds([...descendants.keys()]);
-  const parents = new Map([...descendants.keys()].map((id) => [id, [] as string[]]));
+  const relatedIds = [...descendants.keys()];
+  const parents = new Map(relatedIds.map((id) => [id, [] as string[]]));
   const targetIds = new Set(tagIds);
   const targetsByDirectTag = new Map<string, string[]>();
   const metadata = new Map<string, TagMetadata>();

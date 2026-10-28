@@ -7,7 +7,7 @@ import {
   FileTransformModel,
   TagModel,
 } from "medior/_generated/server/models";
-import { Schema } from "mongoose";
+import { QueryFilter, Schema } from "mongoose";
 import { isServerStopping, serverShutdownSignal } from "trabecula/utils/process";
 import {
   deleteFile,
@@ -210,7 +210,7 @@ export const mediaPathPattern = (filePath: string) =>
   );
 
 /** Committed cleanups own the paths they will delete or still write. */
-const makeCleanupOwnerFilter = (keys: string[]) => ({
+const makeCleanupOwnerFilter = (keys: string[]): QueryFilter<FileOperation> => ({
   $or: [{ "cleanup.pathKey": { $in: keys } }, { tempPathKey: { $in: keys, $type: "string" } }],
   state: "COMMITTED",
 });

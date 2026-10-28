@@ -245,7 +245,7 @@ export const repairThumbnail = async (
         "thumb.path": current.thumb?.path ?? null,
       },
       { $set: updates },
-      { ...metadataWriteOptions(), new: true },
+      { ...metadataWriteOptions(), returnDocument: "after" },
     ).lean();
 
     if (!updated)

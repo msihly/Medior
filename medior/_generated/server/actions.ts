@@ -3,7 +3,7 @@
 /* --------------------------------------------------------------------------- */
 import * as models from "medior/_generated/server/models";
 import { SocketEventOptions } from "medior/_generated/server/socket";
-import { FilterQuery } from "mongoose";
+import { QueryFilter } from "mongoose";
 import {
   removeFileCollectionIds,
   syncCollectionFileIds,
@@ -119,7 +119,7 @@ export type CreateFileFilterPipelineInput = {
 };
 
 export const createFileFilterPipeline = async (args: CreateFileFilterPipelineInput) => {
-  const $match: FilterQuery<models.FileSchema> = {};
+  const $match: QueryFilter<models.FileSchema> = {};
 
   if (args.excludedFileIds != null && !isDeepEqual(args.excludedFileIds, []))
     setObj($match, ["_id", "$nin"], objectIds(args.excludedFileIds));
@@ -216,7 +216,7 @@ export const createFileFilterPipeline = async (args: CreateFileFilterPipelineInp
     setObj($match, ["tagIds", "$all"], objectIds(args.requiredTagIds));
 
   {
-    const filter: FilterQuery<models.FileSchema> = {};
+    const filter: QueryFilter<models.FileSchema> = {};
 
     if (args.bitrate?.logOp && args.bitrate?.value != null)
       setObj(filter, ["bitrate", logicOpsToMongo(args.bitrate.logOp)], args.bitrate.value);
@@ -229,7 +229,7 @@ export const createFileFilterPipeline = async (args: CreateFileFilterPipelineInp
   }
 
   {
-    const filter: FilterQuery<models.FileSchema> = {};
+    const filter: QueryFilter<models.FileSchema> = {};
 
     if (
       args.dateCreatedEnd != null &&
@@ -253,7 +253,7 @@ export const createFileFilterPipeline = async (args: CreateFileFilterPipelineInp
   }
 
   {
-    const filter: FilterQuery<models.FileSchema> = {};
+    const filter: QueryFilter<models.FileSchema> = {};
 
     if (
       args.dateImportedEnd != null &&
@@ -277,7 +277,7 @@ export const createFileFilterPipeline = async (args: CreateFileFilterPipelineInp
   }
 
   {
-    const filter: FilterQuery<models.FileSchema> = {};
+    const filter: QueryFilter<models.FileSchema> = {};
 
     if (
       args.dateModifiedEnd != null &&
@@ -301,7 +301,7 @@ export const createFileFilterPipeline = async (args: CreateFileFilterPipelineInp
   }
 
   {
-    const filter: FilterQuery<models.FileSchema> = {};
+    const filter: QueryFilter<models.FileSchema> = {};
 
     if (
       args.diffusionParams != null &&
@@ -318,7 +318,7 @@ export const createFileFilterPipeline = async (args: CreateFileFilterPipelineInp
   }
 
   {
-    const filter: FilterQuery<models.FileSchema> = {};
+    const filter: QueryFilter<models.FileSchema> = {};
 
     if (args.duration?.logOp && args.duration?.value != null)
       setObj(filter, ["duration", logicOpsToMongo(args.duration.logOp)], args.duration.value);
@@ -331,7 +331,7 @@ export const createFileFilterPipeline = async (args: CreateFileFilterPipelineInp
   }
 
   {
-    const filter: FilterQuery<models.FileSchema> = {};
+    const filter: QueryFilter<models.FileSchema> = {};
 
     if (args.frameRate?.logOp && args.frameRate?.value != null)
       setObj(filter, ["frameRate", logicOpsToMongo(args.frameRate.logOp)], args.frameRate.value);
@@ -344,7 +344,7 @@ export const createFileFilterPipeline = async (args: CreateFileFilterPipelineInp
   }
 
   {
-    const filter: FilterQuery<models.FileSchema> = {};
+    const filter: QueryFilter<models.FileSchema> = {};
 
     if (args.maxHeight != null && !isDeepEqual(args.maxHeight, null))
       setObj(filter, ["height", "$lte"], args.maxHeight);
@@ -360,7 +360,7 @@ export const createFileFilterPipeline = async (args: CreateFileFilterPipelineInp
   }
 
   {
-    const filter: FilterQuery<models.FileSchema> = {};
+    const filter: QueryFilter<models.FileSchema> = {};
 
     if (args.maxLongEdge != null && !isDeepEqual(args.maxLongEdge, null))
       (filter.$and ??= []).push(
@@ -380,7 +380,7 @@ export const createFileFilterPipeline = async (args: CreateFileFilterPipelineInp
   }
 
   {
-    const filter: FilterQuery<models.FileSchema> = {};
+    const filter: QueryFilter<models.FileSchema> = {};
 
     if (args.numOfCollections?.logOp && args.numOfCollections?.value != null)
       (filter.$and ??= []).push(
@@ -404,7 +404,7 @@ export const createFileFilterPipeline = async (args: CreateFileFilterPipelineInp
   }
 
   {
-    const filter: FilterQuery<models.FileSchema> = {};
+    const filter: QueryFilter<models.FileSchema> = {};
 
     if (args.numOfTags?.logOp && args.numOfTags?.value != null)
       (filter.$and ??= []).push(
@@ -423,7 +423,7 @@ export const createFileFilterPipeline = async (args: CreateFileFilterPipelineInp
   }
 
   {
-    const filter: FilterQuery<models.FileSchema> = {};
+    const filter: QueryFilter<models.FileSchema> = {};
 
     if (
       args.originalPath != null &&
@@ -440,7 +440,7 @@ export const createFileFilterPipeline = async (args: CreateFileFilterPipelineInp
   }
 
   {
-    const filter: FilterQuery<models.FileSchema> = {};
+    const filter: QueryFilter<models.FileSchema> = {};
 
     if (args.rating?.logOp && args.rating?.value != null)
       setObj(filter, ["rating", logicOpsToMongo(args.rating.logOp)], args.rating.value);
@@ -453,7 +453,7 @@ export const createFileFilterPipeline = async (args: CreateFileFilterPipelineInp
   }
 
   {
-    const filter: FilterQuery<models.FileSchema> = {};
+    const filter: QueryFilter<models.FileSchema> = {};
 
     if (args.maxShortEdge != null && !isDeepEqual(args.maxShortEdge, null))
       (filter.$and ??= []).push(
@@ -473,7 +473,7 @@ export const createFileFilterPipeline = async (args: CreateFileFilterPipelineInp
   }
 
   {
-    const filter: FilterQuery<models.FileSchema> = {};
+    const filter: QueryFilter<models.FileSchema> = {};
 
     if (args.maxSize != null && !isDeepEqual(args.maxSize, null))
       setObj(filter, ["size", "$lte"], args.maxSize);
@@ -489,7 +489,7 @@ export const createFileFilterPipeline = async (args: CreateFileFilterPipelineInp
   }
 
   {
-    const filter: FilterQuery<models.FileSchema> = {};
+    const filter: QueryFilter<models.FileSchema> = {};
 
     if (
       args.transcription != null &&
@@ -506,7 +506,7 @@ export const createFileFilterPipeline = async (args: CreateFileFilterPipelineInp
   }
 
   {
-    const filter: FilterQuery<models.FileSchema> = {};
+    const filter: QueryFilter<models.FileSchema> = {};
 
     if (args.maxWidth != null && !isDeepEqual(args.maxWidth, null))
       setObj(filter, ["width", "$lte"], args.maxWidth);
@@ -716,7 +716,7 @@ export type CreateFileCollectionFilterPipelineInput = {
 export const createFileCollectionFilterPipeline = async (
   args: CreateFileCollectionFilterPipelineInput,
 ) => {
-  const $match: FilterQuery<models.FileCollectionSchema> = {};
+  const $match: QueryFilter<models.FileCollectionSchema> = {};
 
   if (args.ids != null && !isDeepEqual(args.ids, []))
     ($match.$and ??= []).push(setObj({}, ["_id", "$in"], objectIds(args.ids)));
@@ -737,7 +737,7 @@ export const createFileCollectionFilterPipeline = async (
     setObj($match, ["tagIds", "$all"], objectIds(args.requiredTagIds));
 
   {
-    const filter: FilterQuery<models.FileCollectionSchema> = {};
+    const filter: QueryFilter<models.FileCollectionSchema> = {};
 
     if (
       args.dateCreatedEnd != null &&
@@ -761,7 +761,7 @@ export const createFileCollectionFilterPipeline = async (
   }
 
   {
-    const filter: FilterQuery<models.FileCollectionSchema> = {};
+    const filter: QueryFilter<models.FileCollectionSchema> = {};
 
     if (
       args.dateModifiedEnd != null &&
@@ -785,7 +785,7 @@ export const createFileCollectionFilterPipeline = async (
   }
 
   {
-    const filter: FilterQuery<models.FileCollectionSchema> = {};
+    const filter: QueryFilter<models.FileCollectionSchema> = {};
 
     if (args.fileCount?.logOp && args.fileCount?.value != null)
       setObj(filter, ["fileCount", logicOpsToMongo(args.fileCount.logOp)], args.fileCount.value);
@@ -798,7 +798,7 @@ export const createFileCollectionFilterPipeline = async (
   }
 
   {
-    const filter: FilterQuery<models.FileCollectionSchema> = {};
+    const filter: QueryFilter<models.FileCollectionSchema> = {};
 
     if (args.rating?.logOp && args.rating?.value != null)
       setObj(filter, ["rating", logicOpsToMongo(args.rating.logOp)], args.rating.value);
@@ -811,7 +811,7 @@ export const createFileCollectionFilterPipeline = async (
   }
 
   {
-    const filter: FilterQuery<models.FileCollectionSchema> = {};
+    const filter: QueryFilter<models.FileCollectionSchema> = {};
 
     if (args.maxSize != null && !isDeepEqual(args.maxSize, null))
       setObj(filter, ["size", "$lte"], args.maxSize);
@@ -827,7 +827,7 @@ export const createFileCollectionFilterPipeline = async (
   }
 
   {
-    const filter: FilterQuery<models.FileCollectionSchema> = {};
+    const filter: QueryFilter<models.FileCollectionSchema> = {};
 
     if (args.title != null && args.title !== "" && !isDeepEqual(args.title, ""))
       addRegexSearchFilter(filter, ["title", "$regex"], args.title);
@@ -988,7 +988,7 @@ export type CreateFileImportBatchFilterPipelineInput = {
 export const createFileImportBatchFilterPipeline = async (
   args: CreateFileImportBatchFilterPipelineInput,
 ) => {
-  const $match: FilterQuery<models.FileImportBatchSchema> = {};
+  const $match: QueryFilter<models.FileImportBatchSchema> = {};
 
   if (args.ids != null && !isDeepEqual(args.ids, []))
     ($match.$and ??= []).push(setObj({}, ["_id", "$in"], objectIds(args.ids)));
@@ -1014,7 +1014,7 @@ export const createFileImportBatchFilterPipeline = async (
     setObj($match, ["tagIds", "$all"], objectIds(args.requiredTagIds));
 
   {
-    const filter: FilterQuery<models.FileImportBatchSchema> = {};
+    const filter: QueryFilter<models.FileImportBatchSchema> = {};
 
     if (
       args.collectionTitle != null &&
@@ -1031,7 +1031,7 @@ export const createFileImportBatchFilterPipeline = async (
   }
 
   {
-    const filter: FilterQuery<models.FileImportBatchSchema> = {};
+    const filter: QueryFilter<models.FileImportBatchSchema> = {};
 
     if (
       args.completedAtEnd != null &&
@@ -1055,7 +1055,7 @@ export const createFileImportBatchFilterPipeline = async (
   }
 
   {
-    const filter: FilterQuery<models.FileImportBatchSchema> = {};
+    const filter: QueryFilter<models.FileImportBatchSchema> = {};
 
     if (
       args.dateCreatedEnd != null &&
@@ -1079,7 +1079,7 @@ export const createFileImportBatchFilterPipeline = async (
   }
 
   {
-    const filter: FilterQuery<models.FileImportBatchSchema> = {};
+    const filter: QueryFilter<models.FileImportBatchSchema> = {};
 
     if (args.fileCount?.logOp && args.fileCount?.value != null)
       setObj(filter, ["fileCount", logicOpsToMongo(args.fileCount.logOp)], args.fileCount.value);
@@ -1092,7 +1092,7 @@ export const createFileImportBatchFilterPipeline = async (
   }
 
   {
-    const filter: FilterQuery<models.FileImportBatchSchema> = {};
+    const filter: QueryFilter<models.FileImportBatchSchema> = {};
 
     if (args.filePath != null && args.filePath !== "" && !isDeepEqual(args.filePath, null))
       addRegexSearchFilter(filter, ["imports", "$elemMatch", "path", "$regex"], args.filePath);
@@ -1105,7 +1105,7 @@ export const createFileImportBatchFilterPipeline = async (
   }
 
   {
-    const filter: FilterQuery<models.FileImportBatchSchema> = {};
+    const filter: QueryFilter<models.FileImportBatchSchema> = {};
 
     if (
       args.startedAtEnd != null &&
@@ -1278,7 +1278,7 @@ export type CreateFileTransformFilterPipelineInput = {
 export const createFileTransformFilterPipeline = async (
   args: CreateFileTransformFilterPipelineInput,
 ) => {
-  const $match: FilterQuery<models.FileTransformSchema> = {};
+  const $match: QueryFilter<models.FileTransformSchema> = {};
 
   if (args.ids != null && !isDeepEqual(args.ids, []))
     ($match.$and ??= []).push(setObj({}, ["_id", "$in"], objectIds(args.ids)));
@@ -1286,7 +1286,7 @@ export const createFileTransformFilterPipeline = async (
   setObj($match, ["isCompleted"], args.isCompleted);
 
   {
-    const filter: FilterQuery<models.FileTransformSchema> = {};
+    const filter: QueryFilter<models.FileTransformSchema> = {};
 
     if (args.afterSize?.logOp && args.afterSize?.value != null)
       setObj(filter, ["afterSize", logicOpsToMongo(args.afterSize.logOp)], args.afterSize.value);
@@ -1299,7 +1299,7 @@ export const createFileTransformFilterPipeline = async (
   }
 
   {
-    const filter: FilterQuery<models.FileTransformSchema> = {};
+    const filter: QueryFilter<models.FileTransformSchema> = {};
 
     if (args.beforePath != null && args.beforePath !== "" && !isDeepEqual(args.beforePath, null))
       addRegexSearchFilter(filter, ["beforePath", "$regex"], args.beforePath);
@@ -1312,7 +1312,7 @@ export const createFileTransformFilterPipeline = async (
   }
 
   {
-    const filter: FilterQuery<models.FileTransformSchema> = {};
+    const filter: QueryFilter<models.FileTransformSchema> = {};
 
     if (args.beforeSize?.logOp && args.beforeSize?.value != null)
       setObj(filter, ["beforeSize", logicOpsToMongo(args.beforeSize.logOp)], args.beforeSize.value);
@@ -1325,7 +1325,7 @@ export const createFileTransformFilterPipeline = async (
   }
 
   {
-    const filter: FilterQuery<models.FileTransformSchema> = {};
+    const filter: QueryFilter<models.FileTransformSchema> = {};
 
     if (
       args.completedAtEnd != null &&
@@ -1349,7 +1349,7 @@ export const createFileTransformFilterPipeline = async (
   }
 
   {
-    const filter: FilterQuery<models.FileTransformSchema> = {};
+    const filter: QueryFilter<models.FileTransformSchema> = {};
 
     if (
       args.dateCreatedEnd != null &&
@@ -1373,7 +1373,7 @@ export const createFileTransformFilterPipeline = async (
   }
 
   {
-    const filter: FilterQuery<models.FileTransformSchema> = {};
+    const filter: QueryFilter<models.FileTransformSchema> = {};
 
     if (
       args.startedAtEnd != null &&
@@ -1397,7 +1397,7 @@ export const createFileTransformFilterPipeline = async (
   }
 
   {
-    const filter: FilterQuery<models.FileTransformSchema> = {};
+    const filter: QueryFilter<models.FileTransformSchema> = {};
 
     if (args.status != null && args.status !== "" && !isDeepEqual(args.status, ""))
       setObj(filter, ["status"], args.status);
@@ -1410,7 +1410,7 @@ export const createFileTransformFilterPipeline = async (
   }
 
   {
-    const filter: FilterQuery<models.FileTransformSchema> = {};
+    const filter: QueryFilter<models.FileTransformSchema> = {};
 
     if (args.type != null && args.type !== "" && !isDeepEqual(args.type, ""))
       setObj(filter, ["type"], args.type);
@@ -1582,7 +1582,7 @@ export type CreateMediaProgramFilterPipelineInput = {
 export const createMediaProgramFilterPipeline = async (
   args: CreateMediaProgramFilterPipelineInput,
 ) => {
-  const $match: FilterQuery<models.MediaProgramSchema> = {};
+  const $match: QueryFilter<models.MediaProgramSchema> = {};
 
   if (args.ids != null && !isDeepEqual(args.ids, []))
     ($match.$and ??= []).push(setObj({}, ["_id", "$in"], objectIds(args.ids)));
@@ -1633,7 +1633,7 @@ export const createMediaProgramFilterPipeline = async (
     setObj($match, ["tagIds", "$all"], objectIds(args.requiredTagIds));
 
   {
-    const filter: FilterQuery<models.MediaProgramSchema> = {};
+    const filter: QueryFilter<models.MediaProgramSchema> = {};
 
     if (
       args.dateCreatedEnd != null &&
@@ -1657,7 +1657,7 @@ export const createMediaProgramFilterPipeline = async (
   }
 
   {
-    const filter: FilterQuery<models.MediaProgramSchema> = {};
+    const filter: QueryFilter<models.MediaProgramSchema> = {};
 
     if (
       args.dateLastWatchedEnd != null &&
@@ -1681,7 +1681,7 @@ export const createMediaProgramFilterPipeline = async (
   }
 
   {
-    const filter: FilterQuery<models.MediaProgramSchema> = {};
+    const filter: QueryFilter<models.MediaProgramSchema> = {};
 
     if (
       args.dateModifiedEnd != null &&
@@ -1705,7 +1705,7 @@ export const createMediaProgramFilterPipeline = async (
   }
 
   {
-    const filter: FilterQuery<models.MediaProgramSchema> = {};
+    const filter: QueryFilter<models.MediaProgramSchema> = {};
 
     if (args.fileCount?.logOp && args.fileCount?.value != null)
       setObj(filter, ["fileCount", logicOpsToMongo(args.fileCount.logOp)], args.fileCount.value);
@@ -1718,7 +1718,7 @@ export const createMediaProgramFilterPipeline = async (
   }
 
   {
-    const filter: FilterQuery<models.MediaProgramSchema> = {};
+    const filter: QueryFilter<models.MediaProgramSchema> = {};
 
     if (args.name != null && args.name !== "" && !isDeepEqual(args.name, ""))
       addRegexSearchFilter(filter, ["name", "$regex"], args.name);
@@ -1731,7 +1731,7 @@ export const createMediaProgramFilterPipeline = async (
   }
 
   {
-    const filter: FilterQuery<models.MediaProgramSchema> = {};
+    const filter: QueryFilter<models.MediaProgramSchema> = {};
 
     if (args.rating?.logOp && args.rating?.value != null)
       setObj(filter, ["rating", logicOpsToMongo(args.rating.logOp)], args.rating.value);
@@ -1744,7 +1744,7 @@ export const createMediaProgramFilterPipeline = async (
   }
 
   {
-    const filter: FilterQuery<models.MediaProgramSchema> = {};
+    const filter: QueryFilter<models.MediaProgramSchema> = {};
 
     if (args.maxYear != null && !isDeepEqual(args.maxYear, null))
       setObj(filter, ["year", "$lte"], args.maxYear);
@@ -1891,7 +1891,7 @@ export type CreateSavedImportConfigFilterPipelineInput = {
 export const createSavedImportConfigFilterPipeline = async (
   args: CreateSavedImportConfigFilterPipelineInput,
 ) => {
-  const $match: FilterQuery<models.SavedImportConfigSchema> = {};
+  const $match: QueryFilter<models.SavedImportConfigSchema> = {};
 
   if (args.folderPath != null && args.folderPath !== "" && !isDeepEqual(args.folderPath, ""))
     addRegexSearchFilter($match, ["folderPath", "$regex"], args.folderPath);
@@ -1903,7 +1903,7 @@ export const createSavedImportConfigFilterPipeline = async (
     addRegexSearchFilter($match, ["label", "$regex"], args.label);
 
   {
-    const filter: FilterQuery<models.SavedImportConfigSchema> = {};
+    const filter: QueryFilter<models.SavedImportConfigSchema> = {};
 
     if (
       args.dateModifiedEnd != null &&
@@ -2081,7 +2081,7 @@ export type CreateTagFilterPipelineInput = {
 };
 
 export const createTagFilterPipeline = async (args: CreateTagFilterPipelineInput) => {
-  const $match: FilterQuery<models.TagSchema> = {};
+  const $match: QueryFilter<models.TagSchema> = {};
 
   if (args.hasRegEx != null && !isDeepEqual(args.hasRegEx, null))
     ($match.$and ??= []).push(
@@ -2096,7 +2096,7 @@ export const createTagFilterPipeline = async (args: CreateTagFilterPipelineInput
       ...[
         {
           _id: {
-            $in: await models.FileModel.distinct("tagIds", { tagIds: objectId(args.fileTagId) }),
+            $in: await models.FileModel.distinct("tagIds", { tagIds: args.fileTagId }),
             $ne: objectId(args.fileTagId),
           },
         },
@@ -2117,7 +2117,7 @@ export const createTagFilterPipeline = async (args: CreateTagFilterPipelineInput
   if (args.requiredTagIds?.length) setObj($match, ["_id", "$all"], objectIds(args.requiredTagIds));
 
   {
-    const filter: FilterQuery<models.TagSchema> = {};
+    const filter: QueryFilter<models.TagSchema> = {};
 
     if (args.alias != null && args.alias !== "" && !isDeepEqual(args.alias, ""))
       addRegexSearchFilter(filter, ["aliases", "$elemMatch", "$regex"], args.alias);
@@ -2130,7 +2130,7 @@ export const createTagFilterPipeline = async (args: CreateTagFilterPipelineInput
   }
 
   {
-    const filter: FilterQuery<models.TagSchema> = {};
+    const filter: QueryFilter<models.TagSchema> = {};
 
     if (args.count?.logOp && args.count?.value != null)
       setObj(filter, ["count", logicOpsToMongo(args.count.logOp)], args.count.value);
@@ -2143,7 +2143,7 @@ export const createTagFilterPipeline = async (args: CreateTagFilterPipelineInput
   }
 
   {
-    const filter: FilterQuery<models.TagSchema> = {};
+    const filter: QueryFilter<models.TagSchema> = {};
 
     if (
       args.dateCreatedEnd != null &&
@@ -2167,7 +2167,7 @@ export const createTagFilterPipeline = async (args: CreateTagFilterPipelineInput
   }
 
   {
-    const filter: FilterQuery<models.TagSchema> = {};
+    const filter: QueryFilter<models.TagSchema> = {};
 
     if (
       args.dateModifiedEnd != null &&
@@ -2191,7 +2191,7 @@ export const createTagFilterPipeline = async (args: CreateTagFilterPipelineInput
   }
 
   {
-    const filter: FilterQuery<models.TagSchema> = {};
+    const filter: QueryFilter<models.TagSchema> = {};
 
     if (
       args.dateOfInceptionEnd != null &&
@@ -2215,7 +2215,7 @@ export const createTagFilterPipeline = async (args: CreateTagFilterPipelineInput
   }
 
   {
-    const filter: FilterQuery<models.TagSchema> = {};
+    const filter: QueryFilter<models.TagSchema> = {};
 
     if (args.label != null && args.label !== "" && !isDeepEqual(args.label, ""))
       addRegexSearchFilter(filter, ["label", "$regex"], args.label);
@@ -2228,7 +2228,7 @@ export const createTagFilterPipeline = async (args: CreateTagFilterPipelineInput
   }
 
   {
-    const filter: FilterQuery<models.TagSchema> = {};
+    const filter: QueryFilter<models.TagSchema> = {};
 
     if (args.numOfChildTags?.logOp && args.numOfChildTags?.value != null)
       (filter.$and ??= []).push(
@@ -2247,7 +2247,7 @@ export const createTagFilterPipeline = async (args: CreateTagFilterPipelineInput
   }
 
   {
-    const filter: FilterQuery<models.TagSchema> = {};
+    const filter: QueryFilter<models.TagSchema> = {};
 
     if (args.numOfParentTags?.logOp && args.numOfParentTags?.value != null)
       (filter.$and ??= []).push(
@@ -2266,7 +2266,7 @@ export const createTagFilterPipeline = async (args: CreateTagFilterPipelineInput
   }
 
   {
-    const filter: FilterQuery<models.TagSchema> = {};
+    const filter: QueryFilter<models.TagSchema> = {};
 
     if (args.rating?.logOp && args.rating?.value != null)
       setObj(filter, ["rating", logicOpsToMongo(args.rating.logOp)], args.rating.value);
@@ -2279,7 +2279,7 @@ export const createTagFilterPipeline = async (args: CreateTagFilterPipelineInput
   }
 
   {
-    const filter: FilterQuery<models.TagSchema> = {};
+    const filter: QueryFilter<models.TagSchema> = {};
 
     if (args.size?.logOp && args.size?.value != null)
       setObj(filter, ["size", logicOpsToMongo(args.size.logOp)], args.size.value);
@@ -2502,7 +2502,7 @@ export const updateBackgroundOperation = makeAction(
 
     const updated = leanModelToJson<models.BackgroundOperationSchema>(
       await models.BackgroundOperationModel.findByIdAndUpdate(args.id, updates, {
-        new: true,
+        returnDocument: "after",
         ...metadataWriteOptions(),
       }).lean(),
     );
@@ -2596,7 +2596,7 @@ export const updateDeletedFile = makeAction(
 
     const updated = leanModelToJson<models.DeletedFileSchema>(
       await models.DeletedFileModel.findByIdAndUpdate(args.id, updates, {
-        new: true,
+        returnDocument: "after",
         ...metadataWriteOptions(),
       }).lean(),
     );
@@ -2624,7 +2624,7 @@ export const createFile = makeAction(
       const res = await models.FileModel.findOneAndUpdate(
         { _id: getMetadataCreateId("generated:createFile") },
         { $setOnInsert: model },
-        { ...metadataWriteOptions(), new: true, upsert: true },
+        { ...metadataWriteOptions(), returnDocument: "after", upsert: true },
       );
 
       const id = res._id.toString();
@@ -2723,7 +2723,7 @@ export const updateFile = makeAction(
 
       const updated = leanModelToJson<models.FileSchema>(
         await models.FileModel.findByIdAndUpdate(args.id, updates, {
-          new: true,
+          returnDocument: "after",
           ...metadataWriteOptions(),
         }).lean(),
       );
@@ -2761,7 +2761,7 @@ export const createFileCollection = makeAction(
       const res = await models.FileCollectionModel.findOneAndUpdate(
         { _id: getMetadataCreateId("generated:createFileCollection") },
         { $setOnInsert: model },
-        { ...metadataWriteOptions(), new: true, upsert: true },
+        { ...metadataWriteOptions(), returnDocument: "after", upsert: true },
       );
 
       const id = res._id.toString();
@@ -2853,7 +2853,7 @@ export const updateFileCollection = makeAction(
         await models.FileCollectionModel.findByIdAndUpdate(
           args.id,
           { $inc: { __v: 1 }, $set: updates },
-          { new: true, ...metadataWriteOptions() },
+          { returnDocument: "after", ...metadataWriteOptions() },
         ).lean(),
       );
 
@@ -2966,7 +2966,7 @@ export const updateFileImportBatch = makeAction(
 
     const updated = leanModelToJson<models.FileImportBatchSchema>(
       await models.FileImportBatchModel.findByIdAndUpdate(args.id, updates, {
-        new: true,
+        returnDocument: "after",
         ...metadataWriteOptions(),
       }).lean(),
     );
@@ -3072,7 +3072,7 @@ export const updateFileTransform = makeAction(
 
     const updated = leanModelToJson<models.FileTransformSchema>(
       await models.FileTransformModel.findByIdAndUpdate(args.id, updates, {
-        new: true,
+        returnDocument: "after",
         ...metadataWriteOptions(),
       }).lean(),
     );
@@ -3182,7 +3182,7 @@ export const _updateMediaProgram = makeAction(
 
     const updated = leanModelToJson<models.MediaProgramSchema>(
       await models.MediaProgramModel.findByIdAndUpdate(args.id, updates, {
-        new: true,
+        returnDocument: "after",
         ...metadataWriteOptions(),
       }).lean(),
     );
@@ -3276,7 +3276,7 @@ export const updateNotification = makeAction(
 
     const updated = leanModelToJson<models.NotificationSchema>(
       await models.NotificationModel.findByIdAndUpdate(args.id, updates, {
-        new: true,
+        returnDocument: "after",
         ...metadataWriteOptions(),
       }).lean(),
     );
@@ -3373,7 +3373,7 @@ export const updateSavedImportConfig = makeAction(
 
     const updated = leanModelToJson<models.SavedImportConfigSchema>(
       await models.SavedImportConfigModel.findByIdAndUpdate(args.id, updates, {
-        new: true,
+        returnDocument: "after",
         ...metadataWriteOptions(),
       }).lean(),
     );
@@ -3467,7 +3467,7 @@ export const updateSavedSearch = makeAction(
 
     const updated = leanModelToJson<models.SavedSearchSchema>(
       await models.SavedSearchModel.findByIdAndUpdate(args.id, updates, {
-        new: true,
+        returnDocument: "after",
         ...metadataWriteOptions(),
       }).lean(),
     );

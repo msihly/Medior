@@ -371,7 +371,7 @@ export const handleIngest = async ({
   fileList,
   store,
 }: {
-  fileList: FileList | Pick<File, "name" | "path" | "type">[];
+  fileList: { name: string; path: string; type: string }[];
   store: Ingester;
 }) => {
   const isCancelled = getIsCancelled(store, store.ingestCancelToken);

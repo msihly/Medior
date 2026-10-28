@@ -1,14 +1,14 @@
 /* --------------------------------------------------------------------------- */
 /*                               THIS IS A GENERATED FILE. DO NOT EDIT.
 /* --------------------------------------------------------------------------- */
-import { QuerySelector, SortOrder } from "mongoose";
+import { mongo, SortOrder } from "mongoose";
 import * as db from "medior/server/database";
 
 export type _FilterQuery<Schema> = {
   [SchemaKey in keyof Schema]?:
-    Schema[SchemaKey] | Array<Schema[SchemaKey]> | QuerySelector<Schema[SchemaKey]>;
+    Schema[SchemaKey] | Array<Schema[SchemaKey]> | mongo.FilterOperators<Schema[SchemaKey]>;
 } & {
-  _id?: string | Array<string> | QuerySelector<string>;
+  _id?: string | Array<string> | mongo.FilterOperators<string>;
   $and?: Array<_FilterQuery<Schema>>;
   $comment?: string;
   $nor?: Array<_FilterQuery<Schema>>;

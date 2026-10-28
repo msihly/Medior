@@ -1,6 +1,6 @@
 import * as models from "medior/_generated/server/models";
 import { SocketEmitEvent } from "medior/_generated/server/socket";
-import { AnyBulkWriteOperation, FilterQuery, UpdateQuery } from "mongoose";
+import { AnyBulkWriteOperation, QueryFilter, UpdateQuery } from "mongoose";
 import { fileLog, makePerfLog } from "trabecula/utils/server";
 import * as actions from "medior/server/database/actions";
 import {
@@ -25,6 +25,7 @@ import { getRelatedTags, loadTagGraph } from "medior/server/database/tag-ancestr
 import { readTagMetadata, writeTagMetadata } from "medior/server/database/tag-metadata";
 import { assertTagRelationships } from "medior/server/database/tag-relationships";
 import * as Types from "medior/server/database/types";
+import type { CssColor } from "medior/utils/client";
 import {
   bisectArrayChanges,
   chunkArray,
@@ -998,7 +999,7 @@ export const mergeTags = makeAction(
           $addToSet: { tagIds: _tagIdToKeep },
         };
 
-        const updateManyFilter: FilterQuery<Collections> = { tagIds: _tagIdToMerge };
+        const updateManyFilter: QueryFilter<Collections> = { tagIds: args.tagIdToMerge };
         const updateManyPull: UpdateQuery<Collections> = { $pull: { tagIds: _tagIdToMerge } };
 
         await models.FileCollectionModel.updateMany(updateManyFilter, {
@@ -1031,8 +1032,8 @@ export const mergeTags = makeAction(
           );
         }
 
-        const relationsFilter: FilterQuery<models.TagSchema> = {
-          $or: [{ childIds: _tagIdToMerge }, { parentIds: _tagIdToMerge }],
+        const relationsFilter: QueryFilter<models.TagSchema> = {
+          $or: [{ childIds: args.tagIdToMerge }, { parentIds: args.tagIdToMerge }],
         };
 
         const tagIdsToUpdate = await readMetadataSnapshot(
@@ -1737,8 +1738,8 @@ export const repairTags = makeAction(
               _id: { $ne: tag._id },
               $or: [
                 { _id: { $in: [...(tag.childIds ?? []), ...(tag.parentIds ?? [])] } },
-                { childIds: tag._id },
-                { parentIds: tag._id },
+                { childIds: tag._id.toString() },
+                { parentIds: tag._id.toString() },
               ],
             })
               .select({ childIds: 1, parentIds: 1 })
@@ -1847,13 +1848,13 @@ export const repairTags = makeAction(
       }
 
       if (remapColors) {
-        const paletteColors: string[] = PALETTE_SWATCHES.flat();
+        const paletteColors: CssColor[] = PALETTE_SWATCHES.flat();
 
         report("Remapping tag colors to the closest palette colors.");
         progress("Tag repair: remapping colors.");
 
         await repairMetadata(
-          models.TagModel.find({ "category.color": { $nin: [null, "", ...paletteColors] } })
+          models.TagModel.find({ "category.color": { $nin: [null, ...paletteColors] } })
             .select({ _id: 1 })
             .sort({ _id: 1 })
             .lean()

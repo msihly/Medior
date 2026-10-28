@@ -1,3 +1,4 @@
+import electron from "electron";
 import { Comp, DropOverlay, View } from "medior/components";
 import { handleIngest, useStores } from "medior/store";
 
@@ -20,7 +21,14 @@ export const ImportDnD = Comp(({ children }: { children: JSX.Element | JSX.Eleme
 
   const handleFileDrop = (event: React.DragEvent) => {
     store.setIsDraggingIn(false);
-    handleIngest({ fileList: event.dataTransfer.files, store: stores.import.ingester });
+    handleIngest({
+      fileList: [...event.dataTransfer.files].map((file) => ({
+        name: file.name,
+        path: electron.webUtils.getPathForFile(file),
+        type: file.type,
+      })),
+      store: stores.import.ingester,
+    });
   };
 
   return (
