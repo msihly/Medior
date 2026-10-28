@@ -1109,7 +1109,7 @@ export const runImportBatch = makeAction(async (args: { id: string }) => {
           actions.runMetadataRecoveryQueue();
 
           const processImports = async (files: models.FileImportSchema[]) => {
-            for (let index = 0; index < files.length; ) {
+            for (let index = 0; index < files.length;) {
               if (importerStatus.getIsPaused() || isServerStopping()) break;
 
               const pending = [files[index++]];

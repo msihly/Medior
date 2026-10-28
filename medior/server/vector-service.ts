@@ -28,13 +28,7 @@ export type VectorScope = "file" | "region" | "segment";
 export type VectorTableStatus = "active" | "backfilling" | "deprecated";
 
 export type SimilarityVectorType =
-  | "audio"
-  | "description"
-  | "face"
-  | "params"
-  | "tags"
-  | "transcript"
-  | "visual";
+  "audio" | "description" | "face" | "params" | "tags" | "transcript" | "visual";
 
 export type VectorDType = "float16" | "float32";
 

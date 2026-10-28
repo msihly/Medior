@@ -319,9 +319,11 @@ export class TagStore extends Model({
     return Object.fromEntries(
       Object.entries(ids).map(([key, value]) => [key.replace("Tag", label), value]),
     ) as {
-      [Key in keyof typeof ids as Key extends `${infer Start}Tag${infer End}`
-        ? `${Start}${Label}${End}`
-        : Key]: (typeof ids)[Key];
+      [
+        Key in keyof typeof ids as Key extends `${infer Start}Tag${infer End}`
+          ? `${Start}${Label}${End}`
+          : Key
+      ]: (typeof ids)[Key];
     };
   }
 }

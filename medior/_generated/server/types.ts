@@ -6,9 +6,7 @@ import * as db from "medior/server/database";
 
 export type _FilterQuery<Schema> = {
   [SchemaKey in keyof Schema]?:
-    | Schema[SchemaKey]
-    | Array<Schema[SchemaKey]>
-    | QuerySelector<Schema[SchemaKey]>;
+    Schema[SchemaKey] | Array<Schema[SchemaKey]> | QuerySelector<Schema[SchemaKey]>;
 } & {
   _id?: string | Array<string> | QuerySelector<string>;
   $and?: Array<_FilterQuery<Schema>>;

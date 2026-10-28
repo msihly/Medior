@@ -11,8 +11,10 @@ const WATCH_STATUS_COLORS: Record<MediaProgramWatchStatus, CssColor> = {
   watching: colors.custom.blue,
 };
 
-export interface WatchStatusChipProps
-  extends Omit<ComponentProps<typeof FileBase.Chip>, "bgColor" | "icon" | "label"> {
+export interface WatchStatusChipProps extends Omit<
+  ComponentProps<typeof FileBase.Chip>,
+  "bgColor" | "icon" | "label"
+> {
   isRewatching: boolean;
   watchStatus: MediaProgramWatchStatus;
 }

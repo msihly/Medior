@@ -1,4 +1,4 @@
-import { HTMLAttributes, KeyboardEvent, MouseEvent, useEffect, useRef, useState } from "react";
+import { HTMLAttributes, Key, KeyboardEvent, MouseEvent, useEffect, useRef, useState } from "react";
 import type { AutocompleteChangeReason, AutocompleteRenderInputParams } from "@mui/material";
 import {
   AutoComplete,
@@ -301,7 +301,7 @@ export const TagInput = Comp(
     );
 
     const renderOption = (
-      props: HTMLAttributes<HTMLLIElement> & HTMLAttributes<HTMLDivElement>,
+      props: HTMLAttributes<HTMLLIElement> & HTMLAttributes<HTMLDivElement> & { key: Key },
       option: TagOption,
     ) => {
       const handleClick = (event: MouseEvent<HTMLDivElement>) => {

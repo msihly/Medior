@@ -993,9 +993,7 @@ export const mergeTags = makeAction(
         const ratingSource = actions.getMergeRatingSource([tagToKeep, tagToMerge]);
 
         type Collections =
-          | models.FileCollectionSchema
-          | models.FileImportBatchSchema
-          | models.FileSchema;
+          models.FileCollectionSchema | models.FileImportBatchSchema | models.FileSchema;
 
         const updateManyAddToSet: UpdateQuery<Collections> = {
           $addToSet: { tagIds: _tagIdToKeep },

@@ -501,7 +501,7 @@ export class CarouselStore extends Model({
 
     return Boolean(
       activeFile?.isVideo &&
-        (this.transcodingFileId === activeFile.id || !activeFile.isWebPlayable),
+      (this.transcodingFileId === activeFile.id || !activeFile.isWebPlayable),
     );
   }
 

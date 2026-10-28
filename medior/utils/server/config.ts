@@ -80,14 +80,7 @@ export type TranscriptionModel =
   | "onnx-community/whisper-tiny_timestamped";
 
 export type TranscriptionQuantization =
-  | "bnb4"
-  | "fp16"
-  | "fp32"
-  | "int8"
-  | "q4"
-  | "q4f16"
-  | "q8"
-  | "uint8";
+  "bnb4" | "fp16" | "fp32" | "int8" | "q4" | "q4f16" | "q8" | "uint8";
 
 const COMMON_TRANSCRIPTION_QUANTIZATIONS: TranscriptionQuantization[] = [
   "bnb4",
@@ -724,8 +717,7 @@ export const loadConfig = async (filePath: string) => {
       +config.file.similarity.index.ivfPq.maxIterations;
     config.file.similarity.index.ivfPq.nprobes = +config.file.similarity.index.ivfPq.nprobes;
     config.file.similarity.index.ivfPq.numBits = +config.file.similarity.index.ivfPq.numBits as
-      | 4
-      | 8;
+      4 | 8;
     config.file.similarity.index.ivfPq.numPartitions =
       +config.file.similarity.index.ivfPq.numPartitions;
     config.file.similarity.index.ivfPq.numSubVectors =

@@ -1,8 +1,10 @@
 import { Comp, Dropdown, DropdownProps } from "medior/components";
 import { useStores } from "medior/store";
 
-export interface MediaProgramDropdownProps
-  extends Omit<DropdownProps, "options" | "setValue" | "value"> {
+export interface MediaProgramDropdownProps extends Omit<
+  DropdownProps,
+  "options" | "setValue" | "value"
+> {
   field: "languages" | "mediums" | "types";
   setValue: (value: string) => void;
   value: string;

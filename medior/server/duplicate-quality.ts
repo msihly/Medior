@@ -134,7 +134,7 @@ const readJpegCompression = async (filePath: string): Promise<JpegCompression> =
         if (segmentBytes < segment.length) return null;
 
         if (marker === 0xdb) {
-          for (let offset = 0; offset < segment.length; ) {
+          for (let offset = 0; offset < segment.length;) {
             const is16Bit = segment[offset] >> 4 === 1;
             const tableSize = 1 + (is16Bit ? 128 : 64);
             if (offset + tableSize > segment.length) return null;
@@ -569,12 +569,10 @@ export const getJpegCompression = async (filePath: string) => {
 export const rankDuplicateQuality = async <File extends QualityFile>(files: File[]) => {
   const compressions = new Map(
     await Promise.all(
-      files.map(
-        async (file): Promise<[string, JpegCompression]> => [
-          file.id,
-          await getJpegCompression(file.path),
-        ],
-      ),
+      files.map(async (file): Promise<[string, JpegCompression]> => [
+        file.id,
+        await getJpegCompression(file.path),
+      ]),
     ),
   );
   const watermarks = await countWatermarks(files, compressions);

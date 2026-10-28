@@ -365,21 +365,19 @@ export const listLowerResolutionCopies = makeAction(
     const selectTags = makeTagSelector(tags.map((tag) => leanModelToJson<TagSchema>(tag)));
 
     return {
-      items: items.map(
-        (item, index): DuplicateGroup => ({
-          ...item,
-          files: item.files.map((file) => ({
-            ...file,
-            jpeg: jpegById.get(file.id),
-            tags: selectTags(file.tagIds.map(String)),
-          })),
-          nearby: (nearby[index]?.files ?? []).map((file) => ({
-            ...file,
-            tags: selectTags(file.tagIds.map(String)),
-          })),
-          nearbyCount: nearby[index]?.count ?? 0,
-        }),
-      ),
+      items: items.map((item, index): DuplicateGroup => ({
+        ...item,
+        files: item.files.map((file) => ({
+          ...file,
+          jpeg: jpegById.get(file.id),
+          tags: selectTags(file.tagIds.map(String)),
+        })),
+        nearby: (nearby[index]?.files ?? []).map((file) => ({
+          ...file,
+          tags: selectTags(file.tagIds.map(String)),
+        })),
+        nearbyCount: nearby[index]?.count ?? 0,
+      })),
       page: currentPage,
       total: total - hiddenCount,
     };

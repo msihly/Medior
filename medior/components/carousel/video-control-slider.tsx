@@ -3,11 +3,10 @@ import { Slider, SliderProps, View } from "medior/components";
 import { makeClasses } from "medior/utils/client";
 import { CONSTANTS } from "medior/utils/common";
 
-interface CustomSliderProps
-  extends Pick<
-    SliderProps,
-    "disabled" | "max" | "min" | "onCommit" | "setValue" | "step" | "value"
-  > {
+interface CustomSliderProps extends Pick<
+  SliderProps,
+  "disabled" | "max" | "min" | "onCommit" | "setValue" | "step" | "value"
+> {
   children: JSX.Element;
 }
 

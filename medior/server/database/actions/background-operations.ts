@@ -317,9 +317,8 @@ makeBackgroundOperationRunner(
 makeBackgroundOperationRunner(
   "import history upgrade",
   async () => {
-    const { runImportEntryMigrationQueue } = await import(
-      "medior/server/database/import-entry-migration"
-    );
+    const { runImportEntryMigrationQueue } =
+      await import("medior/server/database/import-entry-migration");
 
     if (!(await runImportEntryMigrationQueue()) || !canRunBackgroundQueues()) return;
 
@@ -597,9 +596,8 @@ export const listBackgroundActivity = makeAction(async () => {
       operations: [getPersistenceMigrationProgress()],
     };
   } else {
-    const { ensureMediaPathIndexOperation } = await import(
-      "medior/server/database/media-path-index"
-    );
+    const { ensureMediaPathIndexOperation } =
+      await import("medior/server/database/media-path-index");
 
     await ensureMediaPathIndexOperation();
 

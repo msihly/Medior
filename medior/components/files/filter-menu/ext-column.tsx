@@ -1,8 +1,10 @@
 import { useMemo } from "react";
 import { Checkbox, Comp, FileFilter, FileFilterProps, View } from "medior/components";
 
-export interface ExtColumnProps
-  extends Pick<FileFilterProps["ExtCheckbox"], "selected" | "setSelected"> {
+export interface ExtColumnProps extends Pick<
+  FileFilterProps["ExtCheckbox"],
+  "selected" | "setSelected"
+> {
   configTypes: FileFilterProps["ExtCheckbox"]["ext"][];
   label: string;
 }

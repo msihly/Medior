@@ -206,9 +206,8 @@ export const runMetadataWork = async (operation: BackgroundOperationSchema) => {
       activeWork.delete(operation.id);
       backgroundExecution.exit(async () => {
         try {
-          const { emitBackgroundOperation } = await import(
-            "medior/server/database/actions/background-operations"
-          );
+          const { emitBackgroundOperation } =
+            await import("medior/server/database/actions/background-operations");
 
           await emitBackgroundOperation(operation.id);
         } catch (error) {
