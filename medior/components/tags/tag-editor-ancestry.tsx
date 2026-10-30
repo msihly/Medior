@@ -11,7 +11,7 @@ import {
 } from "medior/components/imports/editor/tag-hierarchy";
 import { TagEditorStore } from "medior/store";
 import { colors, toast } from "medior/utils/client";
-import { socket, trpc } from "medior/utils/server";
+import { rpc, socket } from "medior/utils/server";
 
 type AncestryTag = Pick<TagSchema, "category" | "count" | "id" | "label" | "parentIds">;
 
@@ -130,7 +130,7 @@ export const TagEditorAncestry = Comp(({ onTagClick, store }: TagEditorAncestryP
       setIsLoading(true);
 
       try {
-        const res = await trpc.listTagAncestry.mutate({ ids });
+        const res = await rpc.listTagAncestry({ ids });
 
         if (!active || request !== revision) return;
 

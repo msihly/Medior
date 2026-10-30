@@ -2,7 +2,7 @@ import autoBind from "auto-bind";
 import { Model, model, modelFlow, prop } from "mobx-keystone";
 import * as Types from "medior/server/database/types";
 import { asyncAction, toast } from "medior/utils/client";
-import { trpc } from "medior/utils/server";
+import { rpc } from "medior/utils/server";
 import { CollectionEditor, CollectionManager } from ".";
 
 @model("medior/FileCollectionStore")
@@ -20,7 +20,7 @@ export class FileCollectionStore extends Model({
   @modelFlow
   createCollection = asyncAction(
     async ({ fileIdIndexes, title, withSub = true }: Types.CreateCollectionInput) => {
-      const res = await trpc.createCollection.mutate({ fileIdIndexes, title, withSub });
+      const res = await rpc.createCollection({ fileIdIndexes, title, withSub });
 
       if (!res.success) throw new Error(res.error);
 
@@ -30,7 +30,7 @@ export class FileCollectionStore extends Model({
 
   @modelFlow
   deleteCollections = asyncAction(async (ids: string[]) => {
-    const res = await trpc.deleteCollections.mutate({ ids });
+    const res = await rpc.deleteCollections({ ids });
 
     if (!res.success) throw new Error(res.error);
   });
@@ -41,7 +41,7 @@ export class FileCollectionStore extends Model({
     this.manager.setIsLoading(true);
 
     try {
-      const res = await trpc.regenCollAttrs.mutate({ collIds });
+      const res = await rpc.regenCollAttrs({ collIds });
       if (!res.success) throw new Error(res.error);
 
       toast.success("Collection metadata refresh queued in Activity");
@@ -56,7 +56,7 @@ export class FileCollectionStore extends Model({
     this.manager.setIsLoading(true);
 
     try {
-      const res = await trpc.updateCollection.mutate({
+      const res = await rpc.updateCollection({
         id: args.id,
         rating: args.rating,
         ratingIsManual: args.rating > 0,

@@ -1,7 +1,7 @@
 import { getCurrentWebContents } from "@electron/remote";
 import { File, useStores } from "medior/store";
 import { openCarouselWindow, toast } from "medior/utils/client";
-import { trpc } from "medior/utils/server";
+import { rpc } from "medior/utils/server";
 
 type TileSelect = (args: {
   hasCtrl: boolean;
@@ -46,7 +46,7 @@ export const useFileDrag = (file: File, selectedIds: string[]) => {
   const stores = useStores();
 
   const loadSelectedFiles = async () => {
-    const res = await trpc.listFile.mutate({ args: { filter: { id: selectedIds } } });
+    const res = await rpc.listFile({ args: { filter: { id: selectedIds } } });
 
     if (!res?.success) throw new Error(res.error);
 

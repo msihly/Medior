@@ -14,7 +14,7 @@ import {
 import { tagToOption, useStores } from "medior/store";
 import { colors, useCancellableLoad } from "medior/utils/client";
 import { Fmt } from "medior/utils/common";
-import { trpc } from "medior/utils/server";
+import { rpc } from "medior/utils/server";
 
 type RegExOverlaps = Awaited<ListAllTagRegExOverlapsOutput>["data"];
 
@@ -34,7 +34,7 @@ export const RegExOverlapsModal = Comp(({ setVisible }: RegExOverlapsModalProps)
 
   const loadOverlaps = () =>
     load.run(async (signal) => {
-      const res = await trpc.listAllTagRegExOverlaps.mutate(undefined, { signal });
+      const res = await rpc.listAllTagRegExOverlaps(undefined, { signal });
       if (!res.success) throw new Error(res.error);
 
       setResult(res.data);
@@ -58,7 +58,7 @@ export const RegExOverlapsModal = Comp(({ setVisible }: RegExOverlapsModalProps)
 
   const handleMerge = (overlap: RegExOverlaps["overlaps"][number]) =>
     load.run(async (signal) => {
-      const res = await trpc.listTag.mutate({ filter: { id: overlap.matchedTag.id } }, { signal });
+      const res = await rpc.listTag({ filter: { id: overlap.matchedTag.id } }, { signal });
       if (!res.success) throw new Error(res.error);
 
       const mergeTag = res.data[0];

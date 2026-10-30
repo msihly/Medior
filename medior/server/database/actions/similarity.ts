@@ -5,7 +5,7 @@ import { startRepairChild } from "medior/server/database/repair-progress";
 import { getFileFilterMatch } from "medior/server/lower-resolution";
 import type { SimilarityVectorType } from "medior/server/vector-service";
 import { embedAudioSegment, getConfig, makeAction, objectIds, socket } from "medior/utils/server";
-import { vectorTrpc } from "medior/utils/server/trpc";
+import { vectorRpc } from "medior/utils/server/rpc";
 import { workSignal } from "medior/utils/server/work-signal";
 
 /** Leaves out candidates that are archived, deleted, or not chosen by the filter menu's filter. */
@@ -95,7 +95,7 @@ export const findSimilarAudio = makeAction(
 
       try {
         if (isSearching) {
-          const searchProgress = await vectorTrpc.getAudioLookupProgress.mutate({ lookupId });
+          const searchProgress = await vectorRpc.getAudioLookupProgress({ lookupId });
 
           if (isSearching && searchProgress)
             reportProgress(searchProgress.message, searchProgress.progress);
@@ -146,7 +146,7 @@ export const findSimilarAudio = makeAction(
       reportProgress("Searching audio vectors.");
       isSearching = true;
 
-      const { candidates, hasMore, nextOffset } = await vectorTrpc.findSimilarAudio.mutate({
+      const { candidates, hasMore, nextOffset } = await vectorRpc.findSimilarAudio({
         exclude: { end, fileId, start },
         fileIds,
         limit,
@@ -188,8 +188,7 @@ export const findSimilarFiles = makeAction(
     offset?: number;
     vectorType?: SimilarityVectorType;
   }) => {
-    const { candidates, hasMore, nextOffset } =
-      await vectorTrpc.findSimilarVectorCandidates.mutate(args);
+    const { candidates, hasMore, nextOffset } = await vectorRpc.findSimilarVectorCandidates(args);
 
     return {
       candidates: await filterAvailableCandidates(candidates, await getFileFilterMatch(filter)),
@@ -209,24 +208,24 @@ export const listFilesNeedingSimilarityIndex = makeAction(
       scanLimit?: number;
       vectorTypes?: SimilarityVectorType[];
     } = {},
-  ) => await vectorTrpc.listFilesNeedingSimilarityIndex.mutate(args),
+  ) => await vectorRpc.listFilesNeedingSimilarityIndex(args),
 );
 
 export const optimizeFileSimilarityIndex = makeAction(
   async (args: { vectorTypes?: SimilarityVectorType[] } = {}) =>
-    await vectorTrpc.optimizeSimilarityTables.mutate(args),
+    await vectorRpc.optimizeSimilarityTables(args),
 );
 
 export const cancelSimilarityBackfill = makeAction(
-  async (args: { jobId: string }) => await vectorTrpc.cancelSimilarityBackfill.mutate(args),
+  async (args: { jobId: string }) => await vectorRpc.cancelSimilarityBackfill(args),
 );
 
 export const getSimilarityBackfillProgress = makeAction(
-  async (args: { jobId: string }) => await vectorTrpc.getSimilarityBackfillProgress.mutate(args),
+  async (args: { jobId: string }) => await vectorRpc.getSimilarityBackfillProgress(args),
 );
 
 export const getSimilaritySearchIndexStatus = makeAction(
-  async () => await vectorTrpc.getSearchIndexStatus.mutate(),
+  async () => await vectorRpc.getSearchIndexStatus(),
 );
 
 export const rebuildFileSimilarityIndex = makeAction(
@@ -236,7 +235,7 @@ export const rebuildFileSimilarityIndex = makeAction(
       force?: boolean;
       vectorTypes?: SimilarityVectorType[];
     } = {},
-  ) => await vectorTrpc.startSimilarityBackfill.mutate(args),
+  ) => await vectorRpc.startSimilarityBackfill(args),
 );
 
 export const startSimilarityBackfill = makeAction(
@@ -250,11 +249,11 @@ export const startSimilarityBackfill = makeAction(
   ) => {
     const { repairId, ...options } = args;
 
-    const start = () => vectorTrpc.startSimilarityBackfill.mutate(options);
+    const start = () => vectorRpc.startSimilarityBackfill(options);
 
     return repairId
       ? startRepairChild(repairId, start, (job) =>
-          vectorTrpc.cancelSimilarityBackfill.mutate({ jobId: job.jobId }),
+          vectorRpc.cancelSimilarityBackfill({ jobId: job.jobId }),
         )
       : start();
   },
@@ -264,7 +263,7 @@ export const startSimilaritySearchIndexBuild = makeAction(
   async ({ repairId }: { repairId: string }) =>
     await startRepairChild(
       repairId,
-      () => vectorTrpc.startSearchIndexBuild.mutate(),
-      () => vectorTrpc.cancelSearchIndexBuild.mutate(),
+      () => vectorRpc.startSearchIndexBuild(),
+      () => vectorRpc.cancelSearchIndexBuild(),
     ),
 );

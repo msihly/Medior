@@ -1,7 +1,7 @@
 import type { TagSchema } from "medior/_generated/server/models";
 import type { RootStore } from "medior/store";
 import { preferredTagLabel, sleep, TagRegExMatcher } from "medior/utils/common";
-import { trpc } from "medior/utils/server";
+import { rpc } from "medior/utils/server";
 
 type TagDirectory = {
   ancestorLabels: Map<string, { count: number; label: string }>;
@@ -79,7 +79,7 @@ class ImportTagIndex {
   }
 
   private async loadDirectory() {
-    const res = await trpc.listImportTags.mutate({});
+    const res = await rpc.listImportTags({});
 
     if (!res.success) throw new Error(res.error);
 

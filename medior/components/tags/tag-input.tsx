@@ -25,7 +25,7 @@ import {
   useDeepMemo,
 } from "medior/utils/client";
 import { bisectArrayChanges, dayjs } from "medior/utils/common";
-import { trpc } from "medior/utils/server";
+import { rpc } from "medior/utils/server";
 
 export type TagInputProps = Omit<
   AutoCompleteProps<TagOption, true, true>,
@@ -128,7 +128,7 @@ export const TagInput = Comp(
 
       const searchTags = async () => {
         try {
-          const res = await trpc.searchTags.mutate(searchParams, { signal: controller.signal });
+          const res = await rpc.searchTags(searchParams, { signal: controller.signal });
 
           if (controller.signal.aborted) return;
 
@@ -226,7 +226,7 @@ export const TagInput = Comp(
           const { added } = bisectArrayChanges(value, val);
 
           if (added?.length)
-            trpc.updateTag.mutate({
+            rpc.updateTag({
               args: { id: added[0].id, updates: { lastSearchedAt: dayjs().toISOString() } },
             });
         }

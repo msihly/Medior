@@ -88,7 +88,7 @@ import {
   retainTranscriptionModel,
   socket,
   sortByStoredNtfsIdentity,
-  vectorTrpc,
+  vectorRpc,
 } from "medior/utils/server";
 import { getMediaInfo, getVideoInfo } from "medior/utils/server/videos";
 import { workSignal } from "medior/utils/server/work-signal";
@@ -1441,7 +1441,7 @@ export const repairMissingAudioAnalysis = makeAction(
         // vectors are deleted with it, so the repair's writes only append. Vectors with more
         // windows than the stored duration allows are redone, as those decoded past the audio's
         // timestamps before the decode followed them have.
-        const { currentFileIds, overLimitCount } = await vectorTrpc.pruneAudioVectors.mutate({
+        const { currentFileIds, overLimitCount } = await vectorRpc.pruneAudioVectors({
           files: vectorCandidates.map((file) => ({
             fileId: String(file._id),
             hash: file.hash,
@@ -1538,7 +1538,7 @@ export const repairMissingAudioAnalysis = makeAction(
         }
 
         try {
-          await vectorTrpc.storeAudioVectors.mutate({
+          await vectorRpc.storeAudioVectors({
             files: files.map((file) => ({
               fileId: file.fileId,
               sourceHash: file.sourceHash,

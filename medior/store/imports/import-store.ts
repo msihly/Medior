@@ -2,7 +2,7 @@ import autoBind from "auto-bind";
 import { Model, model, modelFlow, prop } from "mobx-keystone";
 import { asyncAction } from "medior/utils/client";
 import { dayjs } from "medior/utils/common";
-import { trpc } from "medior/utils/server";
+import { rpc } from "medior/utils/server";
 import type { SavedImportConfigOptions } from "../saved-import-config";
 import {
   getImportConfigMatch,
@@ -27,7 +27,7 @@ export class ImportStore extends Model({
   /* ------------------------------ ASYNC ACTIONS ----------------------------- */
   @modelFlow
   deleteSavedConfig = asyncAction(async (id: string) => {
-    const res = await trpc.deleteSavedImportConfig.mutate({ args: { ids: [id] } });
+    const res = await rpc.deleteSavedImportConfig({ args: { ids: [id] } });
 
     if (!res.success) throw new Error(res.error);
 
@@ -38,7 +38,7 @@ export class ImportStore extends Model({
 
   @modelFlow
   loadSavedConfigs = asyncAction(async () => {
-    const res = await trpc.listSavedImportConfig.mutate({
+    const res = await rpc.listSavedImportConfig({
       args: { page: 1, pageSize: 1000, sort: { dateModified: "desc" } },
     });
 
@@ -51,7 +51,7 @@ export class ImportStore extends Model({
 
   @modelFlow
   renameSavedConfig = asyncAction(async ({ id, label }: { id: string; label: string }) => {
-    const res = await trpc.updateSavedImportConfig.mutate({
+    const res = await rpc.updateSavedImportConfig({
       args: { id, updates: { dateModified: dayjs().toISOString(), label } },
     });
 
@@ -85,13 +85,13 @@ export class ImportStore extends Model({
 
       const res =
         id || existing
-          ? await trpc.updateSavedImportConfig.mutate({
+          ? await rpc.updateSavedImportConfig({
               args: {
                 id: id || existing.id,
                 updates: { dateModified, folderPath, label, options },
               },
             })
-          : await trpc.createSavedImportConfig.mutate({
+          : await rpc.createSavedImportConfig({
               args: { dateCreated: dateModified, dateModified, folderPath, label, options },
             });
 

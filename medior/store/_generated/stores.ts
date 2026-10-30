@@ -26,7 +26,7 @@ import {
   LogicalOp,
   makeTagSelector,
 } from "medior/utils/common";
-import { getConfig, trpc } from "medior/utils/server";
+import { getConfig, rpc } from "medior/utils/server";
 
 /* --------------------------------------------------------------------------- */
 /*                               SEARCH STORES
@@ -393,7 +393,7 @@ export class _FileSearch extends Model({
   deleteSavedSearch = asyncAction(async (id: string = this.selectedSavedSearchId) => {
     if (!id) return;
 
-    const res = await trpc.deleteSavedSearch.mutate({ args: { ids: [id] } });
+    const res = await rpc.deleteSavedSearch({ args: { ids: [id] } });
 
     if (!res.success) throw new Error(res.error);
 
@@ -422,7 +422,7 @@ export class _FileSearch extends Model({
       this.setIsSelecting(true);
 
       try {
-        const res = await trpc.getShiftSelectedFile.mutate({
+        const res = await rpc.getShiftSelectedFile({
           ...this.cachedFilterProps,
           clickedId: id,
           selectedIds,
@@ -476,7 +476,7 @@ export class _FileSearch extends Model({
     this.setIsSelecting(true);
 
     try {
-      const res = await trpc.listFileSearchIds.mutate({
+      const res = await rpc.listFileSearchIds({
         ...filterProps,
         forcePages: this.forcePages,
         limit,
@@ -528,7 +528,7 @@ export class _FileSearch extends Model({
         let nextPageCount = this.pageCount;
 
         if (exactCount) {
-          const countRes = await trpc.getFilteredFileCount.mutate({
+          const countRes = await rpc.getFilteredFileCount({
             ...filterProps,
             curMaxPage: this.pageCount,
             forcePages: this.forcePages,
@@ -550,7 +550,7 @@ export class _FileSearch extends Model({
             ? Math.min(page ?? this.page, Math.max(nextPageCount, 1))
             : (page ?? this.page);
 
-        const itemsRes = await trpc.listFilteredFile.mutate({
+        const itemsRes = await rpc.listFilteredFile({
           ...filterProps,
           forcePages: this.forcePages,
           page: newPage,
@@ -566,7 +566,7 @@ export class _FileSearch extends Model({
         const tagIds = [...new Set(items.flatMap((item) => item.tagIds))];
 
         if (tagIds.length) {
-          const tagRes = await trpc.listTag.mutate({ filter: { id: tagIds } });
+          const tagRes = await rpc.listTag({ filter: { id: tagIds } });
 
           if (loadId !== this.loadId) return;
 
@@ -595,7 +595,7 @@ export class _FileSearch extends Model({
         if (!exactCount) {
           (async () => {
             try {
-              const countRes = await trpc.getFilteredFileCount.mutate({
+              const countRes = await rpc.getFilteredFileCount({
                 ...filterProps,
                 curMaxPage: this.pageCount,
                 forcePages: this.forcePages,
@@ -633,7 +633,7 @@ export class _FileSearch extends Model({
 
   @modelFlow
   loadSavedSearches = asyncAction(async () => {
-    const res = await trpc.listSavedSearch.mutate({
+    const res = await rpc.listSavedSearch({
       args: {
         filter: { searchType: "File" },
         page: 1,
@@ -658,20 +658,18 @@ export class _FileSearch extends Model({
     const existing = this.savedSearches.find((s) => s.label === trimmedLabel);
     const selected = this.savedSearches.find((s) => s.id === this.selectedSavedSearchId);
     const filterProps = this.getSearchProps();
-    let res: Awaited<
-      ReturnType<typeof trpc.createSavedSearch.mutate | typeof trpc.updateSavedSearch.mutate>
-    >;
+    let res: Awaited<ReturnType<typeof rpc.createSavedSearch | typeof rpc.updateSavedSearch>>;
 
     if (selected)
-      res = await trpc.updateSavedSearch.mutate({
+      res = await rpc.updateSavedSearch({
         args: { id: selected.id, updates: { filterProps, label: trimmedLabel } },
       });
     else if (existing)
-      res = await trpc.updateSavedSearch.mutate({
+      res = await rpc.updateSavedSearch({
         args: { id: existing.id, updates: { filterProps } },
       });
     else
-      res = await trpc.createSavedSearch.mutate({
+      res = await rpc.createSavedSearch({
         args: {
           dateCreated: dayjs().toISOString(),
           filterProps,
@@ -1101,7 +1099,7 @@ export class _FileCollectionSearch extends Model({
   deleteSavedSearch = asyncAction(async (id: string = this.selectedSavedSearchId) => {
     if (!id) return;
 
-    const res = await trpc.deleteSavedSearch.mutate({ args: { ids: [id] } });
+    const res = await rpc.deleteSavedSearch({ args: { ids: [id] } });
 
     if (!res.success) throw new Error(res.error);
 
@@ -1130,7 +1128,7 @@ export class _FileCollectionSearch extends Model({
       this.setIsSelecting(true);
 
       try {
-        const res = await trpc.getShiftSelectedFileCollection.mutate({
+        const res = await rpc.getShiftSelectedFileCollection({
           ...this.cachedFilterProps,
           clickedId: id,
           selectedIds,
@@ -1184,7 +1182,7 @@ export class _FileCollectionSearch extends Model({
     this.setIsSelecting(true);
 
     try {
-      const countRes = await trpc.getFilteredFileCollectionCount.mutate({
+      const countRes = await rpc.getFilteredFileCollectionCount({
         ...filterProps,
         curMaxPage: this.pageCount,
         forcePages: this.forcePages,
@@ -1199,7 +1197,7 @@ export class _FileCollectionSearch extends Model({
 
       if (countRes.data.count === 0) return 0;
 
-      const res = await trpc.listFilteredFileCollection.mutate({
+      const res = await rpc.listFilteredFileCollection({
         ...filterProps,
         forcePages: this.forcePages,
         page: 1,
@@ -1253,7 +1251,7 @@ export class _FileCollectionSearch extends Model({
         let nextPageCount = this.pageCount;
 
         if (exactCount) {
-          const countRes = await trpc.getFilteredFileCollectionCount.mutate({
+          const countRes = await rpc.getFilteredFileCollectionCount({
             ...filterProps,
             curMaxPage: this.pageCount,
             forcePages: this.forcePages,
@@ -1275,7 +1273,7 @@ export class _FileCollectionSearch extends Model({
             ? Math.min(page ?? this.page, Math.max(nextPageCount, 1))
             : (page ?? this.page);
 
-        const itemsRes = await trpc.listFilteredFileCollection.mutate({
+        const itemsRes = await rpc.listFilteredFileCollection({
           ...filterProps,
           forcePages: this.forcePages,
           page: newPage,
@@ -1291,7 +1289,7 @@ export class _FileCollectionSearch extends Model({
         const tagIds = [...new Set(items.flatMap((item) => item.tagIds))];
 
         if (tagIds.length) {
-          const tagRes = await trpc.listTag.mutate({ filter: { id: tagIds } });
+          const tagRes = await rpc.listTag({ filter: { id: tagIds } });
 
           if (loadId !== this.loadId) return;
 
@@ -1319,7 +1317,7 @@ export class _FileCollectionSearch extends Model({
         if (!exactCount) {
           (async () => {
             try {
-              const countRes = await trpc.getFilteredFileCollectionCount.mutate({
+              const countRes = await rpc.getFilteredFileCollectionCount({
                 ...filterProps,
                 curMaxPage: this.pageCount,
                 forcePages: this.forcePages,
@@ -1357,7 +1355,7 @@ export class _FileCollectionSearch extends Model({
 
   @modelFlow
   loadSavedSearches = asyncAction(async () => {
-    const res = await trpc.listSavedSearch.mutate({
+    const res = await rpc.listSavedSearch({
       args: {
         filter: { searchType: "FileCollection" },
         page: 1,
@@ -1382,20 +1380,18 @@ export class _FileCollectionSearch extends Model({
     const existing = this.savedSearches.find((s) => s.label === trimmedLabel);
     const selected = this.savedSearches.find((s) => s.id === this.selectedSavedSearchId);
     const filterProps = this.getSearchProps();
-    let res: Awaited<
-      ReturnType<typeof trpc.createSavedSearch.mutate | typeof trpc.updateSavedSearch.mutate>
-    >;
+    let res: Awaited<ReturnType<typeof rpc.createSavedSearch | typeof rpc.updateSavedSearch>>;
 
     if (selected)
-      res = await trpc.updateSavedSearch.mutate({
+      res = await rpc.updateSavedSearch({
         args: { id: selected.id, updates: { filterProps, label: trimmedLabel } },
       });
     else if (existing)
-      res = await trpc.updateSavedSearch.mutate({
+      res = await rpc.updateSavedSearch({
         args: { id: existing.id, updates: { filterProps } },
       });
     else
-      res = await trpc.createSavedSearch.mutate({
+      res = await rpc.createSavedSearch({
         args: {
           dateCreated: dayjs().toISOString(),
           filterProps,
@@ -1686,7 +1682,7 @@ export class _FileImportBatchSearch extends Model({
   deleteSavedSearch = asyncAction(async (id: string = this.selectedSavedSearchId) => {
     if (!id) return;
 
-    const res = await trpc.deleteSavedSearch.mutate({ args: { ids: [id] } });
+    const res = await rpc.deleteSavedSearch({ args: { ids: [id] } });
 
     if (!res.success) throw new Error(res.error);
 
@@ -1715,7 +1711,7 @@ export class _FileImportBatchSearch extends Model({
       this.setIsSelecting(true);
 
       try {
-        const res = await trpc.getShiftSelectedFileImportBatch.mutate({
+        const res = await rpc.getShiftSelectedFileImportBatch({
           ...this.cachedFilterProps,
           clickedId: id,
           selectedIds,
@@ -1769,7 +1765,7 @@ export class _FileImportBatchSearch extends Model({
     this.setIsSelecting(true);
 
     try {
-      const countRes = await trpc.getFilteredFileImportBatchCount.mutate({
+      const countRes = await rpc.getFilteredFileImportBatchCount({
         ...filterProps,
         curMaxPage: this.pageCount,
         forcePages: this.forcePages,
@@ -1784,7 +1780,7 @@ export class _FileImportBatchSearch extends Model({
 
       if (countRes.data.count === 0) return 0;
 
-      const res = await trpc.listFilteredFileImportBatch.mutate({
+      const res = await rpc.listFilteredFileImportBatch({
         ...filterProps,
         forcePages: this.forcePages,
         page: 1,
@@ -1838,7 +1834,7 @@ export class _FileImportBatchSearch extends Model({
         let nextPageCount = this.pageCount;
 
         if (exactCount) {
-          const countRes = await trpc.getFilteredFileImportBatchCount.mutate({
+          const countRes = await rpc.getFilteredFileImportBatchCount({
             ...filterProps,
             curMaxPage: this.pageCount,
             forcePages: this.forcePages,
@@ -1860,7 +1856,7 @@ export class _FileImportBatchSearch extends Model({
             ? Math.min(page ?? this.page, Math.max(nextPageCount, 1))
             : (page ?? this.page);
 
-        const itemsRes = await trpc.listFilteredFileImportBatch.mutate({
+        const itemsRes = await rpc.listFilteredFileImportBatch({
           ...filterProps,
           forcePages: this.forcePages,
           page: newPage,
@@ -1876,7 +1872,7 @@ export class _FileImportBatchSearch extends Model({
         const tagIds = [...new Set(items.flatMap((item) => item.tagIds))];
 
         if (tagIds.length) {
-          const tagRes = await trpc.listTag.mutate({ filter: { id: tagIds } });
+          const tagRes = await rpc.listTag({ filter: { id: tagIds } });
 
           if (loadId !== this.loadId) return;
 
@@ -1904,7 +1900,7 @@ export class _FileImportBatchSearch extends Model({
         if (!exactCount) {
           (async () => {
             try {
-              const countRes = await trpc.getFilteredFileImportBatchCount.mutate({
+              const countRes = await rpc.getFilteredFileImportBatchCount({
                 ...filterProps,
                 curMaxPage: this.pageCount,
                 forcePages: this.forcePages,
@@ -1942,7 +1938,7 @@ export class _FileImportBatchSearch extends Model({
 
   @modelFlow
   loadSavedSearches = asyncAction(async () => {
-    const res = await trpc.listSavedSearch.mutate({
+    const res = await rpc.listSavedSearch({
       args: {
         filter: { searchType: "FileImportBatch" },
         page: 1,
@@ -1967,20 +1963,18 @@ export class _FileImportBatchSearch extends Model({
     const existing = this.savedSearches.find((s) => s.label === trimmedLabel);
     const selected = this.savedSearches.find((s) => s.id === this.selectedSavedSearchId);
     const filterProps = this.getSearchProps();
-    let res: Awaited<
-      ReturnType<typeof trpc.createSavedSearch.mutate | typeof trpc.updateSavedSearch.mutate>
-    >;
+    let res: Awaited<ReturnType<typeof rpc.createSavedSearch | typeof rpc.updateSavedSearch>>;
 
     if (selected)
-      res = await trpc.updateSavedSearch.mutate({
+      res = await rpc.updateSavedSearch({
         args: { id: selected.id, updates: { filterProps, label: trimmedLabel } },
       });
     else if (existing)
-      res = await trpc.updateSavedSearch.mutate({
+      res = await rpc.updateSavedSearch({
         args: { id: existing.id, updates: { filterProps } },
       });
     else
-      res = await trpc.createSavedSearch.mutate({
+      res = await rpc.createSavedSearch({
         args: {
           dateCreated: dayjs().toISOString(),
           filterProps,
@@ -2288,7 +2282,7 @@ export class _FileTransformSearch extends Model({
   deleteSavedSearch = asyncAction(async (id: string = this.selectedSavedSearchId) => {
     if (!id) return;
 
-    const res = await trpc.deleteSavedSearch.mutate({ args: { ids: [id] } });
+    const res = await rpc.deleteSavedSearch({ args: { ids: [id] } });
 
     if (!res.success) throw new Error(res.error);
 
@@ -2317,7 +2311,7 @@ export class _FileTransformSearch extends Model({
       this.setIsSelecting(true);
 
       try {
-        const res = await trpc.getShiftSelectedFileTransform.mutate({
+        const res = await rpc.getShiftSelectedFileTransform({
           ...this.cachedFilterProps,
           clickedId: id,
           selectedIds,
@@ -2371,7 +2365,7 @@ export class _FileTransformSearch extends Model({
     this.setIsSelecting(true);
 
     try {
-      const countRes = await trpc.getFilteredFileTransformCount.mutate({
+      const countRes = await rpc.getFilteredFileTransformCount({
         ...filterProps,
         curMaxPage: this.pageCount,
         forcePages: this.forcePages,
@@ -2386,7 +2380,7 @@ export class _FileTransformSearch extends Model({
 
       if (countRes.data.count === 0) return 0;
 
-      const res = await trpc.listFilteredFileTransform.mutate({
+      const res = await rpc.listFilteredFileTransform({
         ...filterProps,
         forcePages: this.forcePages,
         page: 1,
@@ -2440,7 +2434,7 @@ export class _FileTransformSearch extends Model({
         let nextPageCount = this.pageCount;
 
         if (exactCount) {
-          const countRes = await trpc.getFilteredFileTransformCount.mutate({
+          const countRes = await rpc.getFilteredFileTransformCount({
             ...filterProps,
             curMaxPage: this.pageCount,
             forcePages: this.forcePages,
@@ -2462,7 +2456,7 @@ export class _FileTransformSearch extends Model({
             ? Math.min(page ?? this.page, Math.max(nextPageCount, 1))
             : (page ?? this.page);
 
-        const itemsRes = await trpc.listFilteredFileTransform.mutate({
+        const itemsRes = await rpc.listFilteredFileTransform({
           ...filterProps,
           forcePages: this.forcePages,
           page: newPage,
@@ -2492,7 +2486,7 @@ export class _FileTransformSearch extends Model({
         if (!exactCount) {
           (async () => {
             try {
-              const countRes = await trpc.getFilteredFileTransformCount.mutate({
+              const countRes = await rpc.getFilteredFileTransformCount({
                 ...filterProps,
                 curMaxPage: this.pageCount,
                 forcePages: this.forcePages,
@@ -2530,7 +2524,7 @@ export class _FileTransformSearch extends Model({
 
   @modelFlow
   loadSavedSearches = asyncAction(async () => {
-    const res = await trpc.listSavedSearch.mutate({
+    const res = await rpc.listSavedSearch({
       args: {
         filter: { searchType: "FileTransform" },
         page: 1,
@@ -2555,20 +2549,18 @@ export class _FileTransformSearch extends Model({
     const existing = this.savedSearches.find((s) => s.label === trimmedLabel);
     const selected = this.savedSearches.find((s) => s.id === this.selectedSavedSearchId);
     const filterProps = this.getSearchProps();
-    let res: Awaited<
-      ReturnType<typeof trpc.createSavedSearch.mutate | typeof trpc.updateSavedSearch.mutate>
-    >;
+    let res: Awaited<ReturnType<typeof rpc.createSavedSearch | typeof rpc.updateSavedSearch>>;
 
     if (selected)
-      res = await trpc.updateSavedSearch.mutate({
+      res = await rpc.updateSavedSearch({
         args: { id: selected.id, updates: { filterProps, label: trimmedLabel } },
       });
     else if (existing)
-      res = await trpc.updateSavedSearch.mutate({
+      res = await rpc.updateSavedSearch({
         args: { id: existing.id, updates: { filterProps } },
       });
     else
-      res = await trpc.createSavedSearch.mutate({
+      res = await rpc.createSavedSearch({
         args: {
           dateCreated: dayjs().toISOString(),
           filterProps,
@@ -2895,7 +2887,7 @@ export class _MediaProgramSearch extends Model({
   deleteSavedSearch = asyncAction(async (id: string = this.selectedSavedSearchId) => {
     if (!id) return;
 
-    const res = await trpc.deleteSavedSearch.mutate({ args: { ids: [id] } });
+    const res = await rpc.deleteSavedSearch({ args: { ids: [id] } });
 
     if (!res.success) throw new Error(res.error);
 
@@ -2924,7 +2916,7 @@ export class _MediaProgramSearch extends Model({
       this.setIsSelecting(true);
 
       try {
-        const res = await trpc.getShiftSelectedMediaProgram.mutate({
+        const res = await rpc.getShiftSelectedMediaProgram({
           ...this.cachedFilterProps,
           clickedId: id,
           selectedIds,
@@ -2978,7 +2970,7 @@ export class _MediaProgramSearch extends Model({
     this.setIsSelecting(true);
 
     try {
-      const countRes = await trpc.getFilteredMediaProgramCount.mutate({
+      const countRes = await rpc.getFilteredMediaProgramCount({
         ...filterProps,
         curMaxPage: this.pageCount,
         forcePages: this.forcePages,
@@ -2993,7 +2985,7 @@ export class _MediaProgramSearch extends Model({
 
       if (countRes.data.count === 0) return 0;
 
-      const res = await trpc.listFilteredMediaProgram.mutate({
+      const res = await rpc.listFilteredMediaProgram({
         ...filterProps,
         forcePages: this.forcePages,
         page: 1,
@@ -3047,7 +3039,7 @@ export class _MediaProgramSearch extends Model({
         let nextPageCount = this.pageCount;
 
         if (exactCount) {
-          const countRes = await trpc.getFilteredMediaProgramCount.mutate({
+          const countRes = await rpc.getFilteredMediaProgramCount({
             ...filterProps,
             curMaxPage: this.pageCount,
             forcePages: this.forcePages,
@@ -3069,7 +3061,7 @@ export class _MediaProgramSearch extends Model({
             ? Math.min(page ?? this.page, Math.max(nextPageCount, 1))
             : (page ?? this.page);
 
-        const itemsRes = await trpc.listFilteredMediaProgram.mutate({
+        const itemsRes = await rpc.listFilteredMediaProgram({
           ...filterProps,
           forcePages: this.forcePages,
           page: newPage,
@@ -3085,7 +3077,7 @@ export class _MediaProgramSearch extends Model({
         const tagIds = [...new Set(items.flatMap((item) => [item.tagIds, item.genreIds].flat()))];
 
         if (tagIds.length) {
-          const tagRes = await trpc.listTag.mutate({ filter: { id: tagIds } });
+          const tagRes = await rpc.listTag({ filter: { id: tagIds } });
 
           if (loadId !== this.loadId) return;
 
@@ -3117,7 +3109,7 @@ export class _MediaProgramSearch extends Model({
         if (!exactCount) {
           (async () => {
             try {
-              const countRes = await trpc.getFilteredMediaProgramCount.mutate({
+              const countRes = await rpc.getFilteredMediaProgramCount({
                 ...filterProps,
                 curMaxPage: this.pageCount,
                 forcePages: this.forcePages,
@@ -3155,7 +3147,7 @@ export class _MediaProgramSearch extends Model({
 
   @modelFlow
   loadSavedSearches = asyncAction(async () => {
-    const res = await trpc.listSavedSearch.mutate({
+    const res = await rpc.listSavedSearch({
       args: {
         filter: { searchType: "MediaProgram" },
         page: 1,
@@ -3180,20 +3172,18 @@ export class _MediaProgramSearch extends Model({
     const existing = this.savedSearches.find((s) => s.label === trimmedLabel);
     const selected = this.savedSearches.find((s) => s.id === this.selectedSavedSearchId);
     const filterProps = this.getSearchProps();
-    let res: Awaited<
-      ReturnType<typeof trpc.createSavedSearch.mutate | typeof trpc.updateSavedSearch.mutate>
-    >;
+    let res: Awaited<ReturnType<typeof rpc.createSavedSearch | typeof rpc.updateSavedSearch>>;
 
     if (selected)
-      res = await trpc.updateSavedSearch.mutate({
+      res = await rpc.updateSavedSearch({
         args: { id: selected.id, updates: { filterProps, label: trimmedLabel } },
       });
     else if (existing)
-      res = await trpc.updateSavedSearch.mutate({
+      res = await rpc.updateSavedSearch({
         args: { id: existing.id, updates: { filterProps } },
       });
     else
-      res = await trpc.createSavedSearch.mutate({
+      res = await rpc.createSavedSearch({
         args: {
           dateCreated: dayjs().toISOString(),
           filterProps,
@@ -3480,7 +3470,7 @@ export class _SavedImportConfigSearch extends Model({
   deleteSavedSearch = asyncAction(async (id: string = this.selectedSavedSearchId) => {
     if (!id) return;
 
-    const res = await trpc.deleteSavedSearch.mutate({ args: { ids: [id] } });
+    const res = await rpc.deleteSavedSearch({ args: { ids: [id] } });
 
     if (!res.success) throw new Error(res.error);
 
@@ -3509,7 +3499,7 @@ export class _SavedImportConfigSearch extends Model({
       this.setIsSelecting(true);
 
       try {
-        const res = await trpc.getShiftSelectedSavedImportConfig.mutate({
+        const res = await rpc.getShiftSelectedSavedImportConfig({
           ...this.cachedFilterProps,
           clickedId: id,
           selectedIds,
@@ -3563,7 +3553,7 @@ export class _SavedImportConfigSearch extends Model({
     this.setIsSelecting(true);
 
     try {
-      const countRes = await trpc.getFilteredSavedImportConfigCount.mutate({
+      const countRes = await rpc.getFilteredSavedImportConfigCount({
         ...filterProps,
         curMaxPage: this.pageCount,
         forcePages: this.forcePages,
@@ -3578,7 +3568,7 @@ export class _SavedImportConfigSearch extends Model({
 
       if (countRes.data.count === 0) return 0;
 
-      const res = await trpc.listFilteredSavedImportConfig.mutate({
+      const res = await rpc.listFilteredSavedImportConfig({
         ...filterProps,
         forcePages: this.forcePages,
         page: 1,
@@ -3632,7 +3622,7 @@ export class _SavedImportConfigSearch extends Model({
         let nextPageCount = this.pageCount;
 
         if (exactCount) {
-          const countRes = await trpc.getFilteredSavedImportConfigCount.mutate({
+          const countRes = await rpc.getFilteredSavedImportConfigCount({
             ...filterProps,
             curMaxPage: this.pageCount,
             forcePages: this.forcePages,
@@ -3654,7 +3644,7 @@ export class _SavedImportConfigSearch extends Model({
             ? Math.min(page ?? this.page, Math.max(nextPageCount, 1))
             : (page ?? this.page);
 
-        const itemsRes = await trpc.listFilteredSavedImportConfig.mutate({
+        const itemsRes = await rpc.listFilteredSavedImportConfig({
           ...filterProps,
           forcePages: this.forcePages,
           page: newPage,
@@ -3684,7 +3674,7 @@ export class _SavedImportConfigSearch extends Model({
         if (!exactCount) {
           (async () => {
             try {
-              const countRes = await trpc.getFilteredSavedImportConfigCount.mutate({
+              const countRes = await rpc.getFilteredSavedImportConfigCount({
                 ...filterProps,
                 curMaxPage: this.pageCount,
                 forcePages: this.forcePages,
@@ -3722,7 +3712,7 @@ export class _SavedImportConfigSearch extends Model({
 
   @modelFlow
   loadSavedSearches = asyncAction(async () => {
-    const res = await trpc.listSavedSearch.mutate({
+    const res = await rpc.listSavedSearch({
       args: {
         filter: { searchType: "SavedImportConfig" },
         page: 1,
@@ -3747,20 +3737,18 @@ export class _SavedImportConfigSearch extends Model({
     const existing = this.savedSearches.find((s) => s.label === trimmedLabel);
     const selected = this.savedSearches.find((s) => s.id === this.selectedSavedSearchId);
     const filterProps = this.getSearchProps();
-    let res: Awaited<
-      ReturnType<typeof trpc.createSavedSearch.mutate | typeof trpc.updateSavedSearch.mutate>
-    >;
+    let res: Awaited<ReturnType<typeof rpc.createSavedSearch | typeof rpc.updateSavedSearch>>;
 
     if (selected)
-      res = await trpc.updateSavedSearch.mutate({
+      res = await rpc.updateSavedSearch({
         args: { id: selected.id, updates: { filterProps, label: trimmedLabel } },
       });
     else if (existing)
-      res = await trpc.updateSavedSearch.mutate({
+      res = await rpc.updateSavedSearch({
         args: { id: existing.id, updates: { filterProps } },
       });
     else
-      res = await trpc.createSavedSearch.mutate({
+      res = await rpc.createSavedSearch({
         args: {
           dateCreated: dayjs().toISOString(),
           filterProps,
@@ -4085,7 +4073,7 @@ export class _TagSearch extends Model({
   deleteSavedSearch = asyncAction(async (id: string = this.selectedSavedSearchId) => {
     if (!id) return;
 
-    const res = await trpc.deleteSavedSearch.mutate({ args: { ids: [id] } });
+    const res = await rpc.deleteSavedSearch({ args: { ids: [id] } });
 
     if (!res.success) throw new Error(res.error);
 
@@ -4114,7 +4102,7 @@ export class _TagSearch extends Model({
       this.setIsSelecting(true);
 
       try {
-        const res = await trpc.getShiftSelectedTag.mutate({
+        const res = await rpc.getShiftSelectedTag({
           ...this.cachedFilterProps,
           clickedId: id,
           selectedIds,
@@ -4168,7 +4156,7 @@ export class _TagSearch extends Model({
     this.setIsSelecting(true);
 
     try {
-      const countRes = await trpc.getFilteredTagCount.mutate({
+      const countRes = await rpc.getFilteredTagCount({
         ...filterProps,
         curMaxPage: this.pageCount,
         forcePages: this.forcePages,
@@ -4183,7 +4171,7 @@ export class _TagSearch extends Model({
 
       if (countRes.data.count === 0) return 0;
 
-      const res = await trpc.listFilteredTag.mutate({
+      const res = await rpc.listFilteredTag({
         ...filterProps,
         forcePages: this.forcePages,
         page: 1,
@@ -4237,7 +4225,7 @@ export class _TagSearch extends Model({
         let nextPageCount = this.pageCount;
 
         if (exactCount) {
-          const countRes = await trpc.getFilteredTagCount.mutate({
+          const countRes = await rpc.getFilteredTagCount({
             ...filterProps,
             curMaxPage: this.pageCount,
             forcePages: this.forcePages,
@@ -4259,7 +4247,7 @@ export class _TagSearch extends Model({
             ? Math.min(page ?? this.page, Math.max(nextPageCount, 1))
             : (page ?? this.page);
 
-        const itemsRes = await trpc.listFilteredTag.mutate({
+        const itemsRes = await rpc.listFilteredTag({
           ...filterProps,
           forcePages: this.forcePages,
           page: newPage,
@@ -4272,7 +4260,7 @@ export class _TagSearch extends Model({
 
         let items = itemsRes.data;
 
-        const results = await trpc.deriveTagCategories.mutate(items);
+        const results = await rpc.deriveTagCategories(items);
 
         if (loadId !== this.loadId) return;
 
@@ -4293,7 +4281,7 @@ export class _TagSearch extends Model({
         if (!exactCount) {
           (async () => {
             try {
-              const countRes = await trpc.getFilteredTagCount.mutate({
+              const countRes = await rpc.getFilteredTagCount({
                 ...filterProps,
                 curMaxPage: this.pageCount,
                 forcePages: this.forcePages,
@@ -4331,7 +4319,7 @@ export class _TagSearch extends Model({
 
   @modelFlow
   loadSavedSearches = asyncAction(async () => {
-    const res = await trpc.listSavedSearch.mutate({
+    const res = await rpc.listSavedSearch({
       args: {
         filter: { searchType: "Tag" },
         page: 1,
@@ -4356,20 +4344,18 @@ export class _TagSearch extends Model({
     const existing = this.savedSearches.find((s) => s.label === trimmedLabel);
     const selected = this.savedSearches.find((s) => s.id === this.selectedSavedSearchId);
     const filterProps = this.getSearchProps();
-    let res: Awaited<
-      ReturnType<typeof trpc.createSavedSearch.mutate | typeof trpc.updateSavedSearch.mutate>
-    >;
+    let res: Awaited<ReturnType<typeof rpc.createSavedSearch | typeof rpc.updateSavedSearch>>;
 
     if (selected)
-      res = await trpc.updateSavedSearch.mutate({
+      res = await rpc.updateSavedSearch({
         args: { id: selected.id, updates: { filterProps, label: trimmedLabel } },
       });
     else if (existing)
-      res = await trpc.updateSavedSearch.mutate({
+      res = await rpc.updateSavedSearch({
         args: { id: existing.id, updates: { filterProps } },
       });
     else
-      res = await trpc.createSavedSearch.mutate({
+      res = await rpc.createSavedSearch({
         args: {
           dateCreated: dayjs().toISOString(),
           filterProps,
@@ -4569,7 +4555,7 @@ export class _BackgroundOperationStore extends Model({
     this.setIsLoading(true);
 
     try {
-      const res = await trpc.createBackgroundOperation.mutate({ args });
+      const res = await rpc.createBackgroundOperation({ args });
       if (!res.success) throw new Error(res.error);
       return res.data;
     } finally {
@@ -4582,7 +4568,7 @@ export class _BackgroundOperationStore extends Model({
     this.setIsLoading(true);
 
     try {
-      const res = await trpc.deleteBackgroundOperation.mutate({ args });
+      const res = await rpc.deleteBackgroundOperation({ args });
       if (!res.success) throw new Error(res.error);
       return res.data;
     } finally {
@@ -4595,7 +4581,7 @@ export class _BackgroundOperationStore extends Model({
     this.setIsLoading(true);
 
     try {
-      const res = await trpc.updateBackgroundOperation.mutate({ args });
+      const res = await rpc.updateBackgroundOperation({ args });
       if (!res.success) throw new Error(res.error);
       return res.data;
     } finally {
@@ -4627,7 +4613,7 @@ export class _DeletedFileStore extends Model({ isLoading: prop<boolean>(false).w
     this.setIsLoading(true);
 
     try {
-      const res = await trpc.createDeletedFile.mutate({ args });
+      const res = await rpc.createDeletedFile({ args });
       if (!res.success) throw new Error(res.error);
       return res.data;
     } finally {
@@ -4640,7 +4626,7 @@ export class _DeletedFileStore extends Model({ isLoading: prop<boolean>(false).w
     this.setIsLoading(true);
 
     try {
-      const res = await trpc.deleteDeletedFile.mutate({ args });
+      const res = await rpc.deleteDeletedFile({ args });
       if (!res.success) throw new Error(res.error);
       return res.data;
     } finally {
@@ -4653,7 +4639,7 @@ export class _DeletedFileStore extends Model({ isLoading: prop<boolean>(false).w
     this.setIsLoading(true);
 
     try {
-      const res = await trpc.updateDeletedFile.mutate({ args });
+      const res = await rpc.updateDeletedFile({ args });
       if (!res.success) throw new Error(res.error);
       return res.data;
     } finally {
@@ -4743,7 +4729,7 @@ export class _FileStore extends Model({ isLoading: prop<boolean>(false).withSett
     this.setIsLoading(true);
 
     try {
-      const res = await trpc.createFile.mutate({ args });
+      const res = await rpc.createFile({ args });
       if (!res.success) throw new Error(res.error);
       return res.data;
     } finally {
@@ -4756,7 +4742,7 @@ export class _FileStore extends Model({ isLoading: prop<boolean>(false).withSett
     this.setIsLoading(true);
 
     try {
-      const res = await trpc.deleteFile.mutate({ args });
+      const res = await rpc.deleteFile({ args });
       if (!res.success) throw new Error(res.error);
       return res.data;
     } finally {
@@ -4769,7 +4755,7 @@ export class _FileStore extends Model({ isLoading: prop<boolean>(false).withSett
     this.setIsLoading(true);
 
     try {
-      const res = await trpc.updateFile.mutate({ args });
+      const res = await rpc.updateFile({ args });
       if (!res.success) throw new Error(res.error);
       return res.data;
     } finally {
@@ -4811,7 +4797,7 @@ export class _FileCollectionStore extends Model({ isLoading: prop<boolean>(false
     this.setIsLoading(true);
 
     try {
-      const res = await trpc.createFileCollection.mutate({ args });
+      const res = await rpc.createFileCollection({ args });
       if (!res.success) throw new Error(res.error);
       return res.data;
     } finally {
@@ -4824,7 +4810,7 @@ export class _FileCollectionStore extends Model({ isLoading: prop<boolean>(false
     this.setIsLoading(true);
 
     try {
-      const res = await trpc.deleteFileCollection.mutate({ args });
+      const res = await rpc.deleteFileCollection({ args });
       if (!res.success) throw new Error(res.error);
       return res.data;
     } finally {
@@ -4837,7 +4823,7 @@ export class _FileCollectionStore extends Model({ isLoading: prop<boolean>(false
     this.setIsLoading(true);
 
     try {
-      const res = await trpc.updateFileCollection.mutate({ args });
+      const res = await rpc.updateFileCollection({ args });
       if (!res.success) throw new Error(res.error);
       return res.data;
     } finally {
@@ -4926,7 +4912,7 @@ export class _FileImportBatchStore extends Model({ isLoading: prop<boolean>(fals
     this.setIsLoading(true);
 
     try {
-      const res = await trpc.createFileImportBatch.mutate({ args });
+      const res = await rpc.createFileImportBatch({ args });
       if (!res.success) throw new Error(res.error);
       return res.data;
     } finally {
@@ -4939,7 +4925,7 @@ export class _FileImportBatchStore extends Model({ isLoading: prop<boolean>(fals
     this.setIsLoading(true);
 
     try {
-      const res = await trpc.deleteFileImportBatch.mutate({ args });
+      const res = await rpc.deleteFileImportBatch({ args });
       if (!res.success) throw new Error(res.error);
       return res.data;
     } finally {
@@ -4952,7 +4938,7 @@ export class _FileImportBatchStore extends Model({ isLoading: prop<boolean>(fals
     this.setIsLoading(true);
 
     try {
-      const res = await trpc.updateFileImportBatch.mutate({ args });
+      const res = await rpc.updateFileImportBatch({ args });
       if (!res.success) throw new Error(res.error);
       return res.data;
     } finally {
@@ -5049,7 +5035,7 @@ export class _FileTransformStore extends Model({ isLoading: prop<boolean>(false)
     this.setIsLoading(true);
 
     try {
-      const res = await trpc.createFileTransform.mutate({ args });
+      const res = await rpc.createFileTransform({ args });
       if (!res.success) throw new Error(res.error);
       return res.data;
     } finally {
@@ -5062,7 +5048,7 @@ export class _FileTransformStore extends Model({ isLoading: prop<boolean>(false)
     this.setIsLoading(true);
 
     try {
-      const res = await trpc.deleteFileTransform.mutate({ args });
+      const res = await rpc.deleteFileTransform({ args });
       if (!res.success) throw new Error(res.error);
       return res.data;
     } finally {
@@ -5075,7 +5061,7 @@ export class _FileTransformStore extends Model({ isLoading: prop<boolean>(false)
     this.setIsLoading(true);
 
     try {
-      const res = await trpc.updateFileTransform.mutate({ args });
+      const res = await rpc.updateFileTransform({ args });
       if (!res.success) throw new Error(res.error);
       return res.data;
     } finally {
@@ -5132,7 +5118,7 @@ export class _MediaProgramStore extends Model({ isLoading: prop<boolean>(false).
     this.setIsLoading(true);
 
     try {
-      const res = await trpc._createMediaProgram.mutate({ args });
+      const res = await rpc._createMediaProgram({ args });
       if (!res.success) throw new Error(res.error);
       return res.data;
     } finally {
@@ -5145,7 +5131,7 @@ export class _MediaProgramStore extends Model({ isLoading: prop<boolean>(false).
     this.setIsLoading(true);
 
     try {
-      const res = await trpc.deleteMediaProgram.mutate({ args });
+      const res = await rpc.deleteMediaProgram({ args });
       if (!res.success) throw new Error(res.error);
       return res.data;
     } finally {
@@ -5158,7 +5144,7 @@ export class _MediaProgramStore extends Model({ isLoading: prop<boolean>(false).
     this.setIsLoading(true);
 
     try {
-      const res = await trpc._updateMediaProgram.mutate({ args });
+      const res = await rpc._updateMediaProgram({ args });
       if (!res.success) throw new Error(res.error);
       return res.data;
     } finally {
@@ -5192,7 +5178,7 @@ export class _NotificationStore extends Model({ isLoading: prop<boolean>(false).
     this.setIsLoading(true);
 
     try {
-      const res = await trpc.createNotification.mutate({ args });
+      const res = await rpc.createNotification({ args });
       if (!res.success) throw new Error(res.error);
       return res.data;
     } finally {
@@ -5205,7 +5191,7 @@ export class _NotificationStore extends Model({ isLoading: prop<boolean>(false).
     this.setIsLoading(true);
 
     try {
-      const res = await trpc.deleteNotification.mutate({ args });
+      const res = await rpc.deleteNotification({ args });
       if (!res.success) throw new Error(res.error);
       return res.data;
     } finally {
@@ -5218,7 +5204,7 @@ export class _NotificationStore extends Model({ isLoading: prop<boolean>(false).
     this.setIsLoading(true);
 
     try {
-      const res = await trpc.updateNotification.mutate({ args });
+      const res = await rpc.updateNotification({ args });
       if (!res.success) throw new Error(res.error);
       return res.data;
     } finally {
@@ -5255,7 +5241,7 @@ export class _SavedImportConfigStore extends Model({
     this.setIsLoading(true);
 
     try {
-      const res = await trpc.createSavedImportConfig.mutate({ args });
+      const res = await rpc.createSavedImportConfig({ args });
       if (!res.success) throw new Error(res.error);
       return res.data;
     } finally {
@@ -5268,7 +5254,7 @@ export class _SavedImportConfigStore extends Model({
     this.setIsLoading(true);
 
     try {
-      const res = await trpc.deleteSavedImportConfig.mutate({ args });
+      const res = await rpc.deleteSavedImportConfig({ args });
       if (!res.success) throw new Error(res.error);
       return res.data;
     } finally {
@@ -5281,7 +5267,7 @@ export class _SavedImportConfigStore extends Model({
     this.setIsLoading(true);
 
     try {
-      const res = await trpc.updateSavedImportConfig.mutate({ args });
+      const res = await rpc.updateSavedImportConfig({ args });
       if (!res.success) throw new Error(res.error);
       return res.data;
     } finally {
@@ -5315,7 +5301,7 @@ export class _SavedSearchStore extends Model({ isLoading: prop<boolean>(false).w
     this.setIsLoading(true);
 
     try {
-      const res = await trpc.createSavedSearch.mutate({ args });
+      const res = await rpc.createSavedSearch({ args });
       if (!res.success) throw new Error(res.error);
       return res.data;
     } finally {
@@ -5328,7 +5314,7 @@ export class _SavedSearchStore extends Model({ isLoading: prop<boolean>(false).w
     this.setIsLoading(true);
 
     try {
-      const res = await trpc.deleteSavedSearch.mutate({ args });
+      const res = await rpc.deleteSavedSearch({ args });
       if (!res.success) throw new Error(res.error);
       return res.data;
     } finally {
@@ -5341,7 +5327,7 @@ export class _SavedSearchStore extends Model({ isLoading: prop<boolean>(false).w
     this.setIsLoading(true);
 
     try {
-      const res = await trpc.updateSavedSearch.mutate({ args });
+      const res = await rpc.updateSavedSearch({ args });
       if (!res.success) throw new Error(res.error);
       return res.data;
     } finally {
@@ -5393,7 +5379,7 @@ export class _TagStore extends Model({ isLoading: prop<boolean>(false).withSette
     this.setIsLoading(true);
 
     try {
-      const res = await trpc._createTag.mutate({ args });
+      const res = await rpc._createTag({ args });
       if (!res.success) throw new Error(res.error);
       return res.data;
     } finally {
@@ -5406,7 +5392,7 @@ export class _TagStore extends Model({ isLoading: prop<boolean>(false).withSette
     this.setIsLoading(true);
 
     try {
-      const res = await trpc._deleteTag.mutate({ args });
+      const res = await rpc._deleteTag({ args });
       if (!res.success) throw new Error(res.error);
       return res.data;
     } finally {
@@ -5419,7 +5405,7 @@ export class _TagStore extends Model({ isLoading: prop<boolean>(false).withSette
     this.setIsLoading(true);
 
     try {
-      const res = await trpc.updateTag.mutate({ args });
+      const res = await rpc.updateTag({ args });
       if (!res.success) throw new Error(res.error);
       return res.data;
     } finally {

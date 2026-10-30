@@ -9,7 +9,7 @@ import {
 import { FileSchema, SocketEvents } from "medior/_generated/server";
 import { Icon, View } from "medior/components";
 import { colors, CSS, makeClasses, useElementResize, useLazyLoad } from "medior/utils/client";
-import { socket, trpc } from "medior/utils/server";
+import { rpc, socket } from "medior/utils/server";
 import { getScaledThumbSize } from "medior/utils/server/videos";
 
 const POS_INTERVAL = 300;
@@ -196,7 +196,7 @@ export const Image = ({
     isRepairWaiting.current = false;
 
     try {
-      const res = await trpc.repairFileThumbnail.mutate({ fileId });
+      const res = await rpc.repairFileThumbnail({ fileId });
 
       if (revision !== repairRevision.current) return;
 

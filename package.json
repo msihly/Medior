@@ -42,8 +42,6 @@
     "@huggingface/transformers": "3.8.1",
     "@lancedb/lancedb": "^0.31.0",
     "@panzoom/panzoom": "^4.5.1",
-    "@trpc/client": "^10.45.4",
-    "@trpc/server": "^10.45.4",
     "aws-sdk": "^2.1450.0",
     "bson": "^7.3.2",
     "check-disk-space": "^3.4.0",
@@ -61,7 +59,7 @@
     "sharp-bmp": "^0.1.5",
     "socket.io": "^4.8.4",
     "socket.io-client": "^4.8.4",
-    "trabecula": "github:msihly/trabecula#96f783cdc3dec481e39c28ad621116171b512b3b",
+    "trabecula": "github:msihly/trabecula#ce3787a2a419169d9962f039dda39bc1848e8f89",
     "util": "^0.12.5",
     "vite-plugin-electron-renderer": "0.10.1",
     "wavesurfer.js": "^7.12.11"

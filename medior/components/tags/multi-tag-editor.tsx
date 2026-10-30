@@ -16,7 +16,7 @@ import {
 } from "medior/components";
 import { TagOption, tagToOption, useStores } from "medior/store";
 import { colors, toast, useCancellableLoad } from "medior/utils/client";
-import { trpc } from "medior/utils/server";
+import { rpc } from "medior/utils/server";
 
 interface MultiTagEditorProps {
   initialTags?: TagOption[];
@@ -47,10 +47,7 @@ export const MultiTagEditor = Comp(({ initialTags, onClose }: MultiTagEditorProp
   useEffect(() => {
     if (!initialTags) {
       load.run(async (signal) => {
-        const res = await trpc.listTag.mutate(
-          { filter: { id: store.search.selectedIds } },
-          { signal },
-        );
+        const res = await rpc.listTag({ filter: { id: store.search.selectedIds } }, { signal });
 
         signal.throwIfAborted();
 

@@ -29,7 +29,7 @@ import { pruneCompletedOperations } from "medior/server/database/persistence-ret
 import { cancelRepair, pauseRepairs } from "medior/server/database/repair-progress";
 import { dayjs } from "medior/utils/common";
 import { leanModelToJson, makeAction, objectId, objectIds, socket } from "medior/utils/server";
-import { vectorTrpc } from "medior/utils/server/trpc";
+import { vectorRpc } from "medior/utils/server/rpc";
 import { workSignal } from "medior/utils/server/work-signal";
 
 /** Activity only needs to know whether targets remain; the full queue stays in the database. */
@@ -73,7 +73,7 @@ export const stopBackgroundQueues = () => {
       cancelBackgroundExecutions(),
       pauseRepairs(),
       stoppingCleanups,
-      !isServerStopping() && vectorTrpc.pauseSimilarityBackfills.mutate(),
+      !isServerStopping() && vectorRpc.pauseSimilarityBackfills(),
     ]);
   })().finally(() => {
     stoppingQueues = null;

@@ -13,7 +13,7 @@ import {
   parseTagRegEx,
   TagRegExTermMode,
 } from "medior/utils/common";
-import { trpc } from "medior/utils/server";
+import { rpc } from "medior/utils/server";
 
 export type TagRegExTermSetting = TagRegExTermMode | "off";
 
@@ -234,7 +234,7 @@ export class TagEditorStore extends Model({
       if (!preserveChanges) this.setIsLoading(true);
 
       try {
-        const res = await trpc.getTagWithRelations.mutate({ id });
+        const res = await rpc.getTagWithRelations({ id });
 
         if (!res.success) throw new Error(res.error);
 
@@ -294,7 +294,7 @@ export class TagEditorStore extends Model({
   @modelFlow
   loadRegExOverlaps = asyncAction(async (signal: AbortSignal) => {
     try {
-      const res = await trpc.listTagRegExOverlaps.mutate(
+      const res = await rpc.listTagRegExOverlaps(
         {
           regEx: this.regExValue,
           tagId: this.tag?.id,

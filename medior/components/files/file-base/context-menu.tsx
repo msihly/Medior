@@ -13,7 +13,7 @@ import {
 import { FileCollectionSearch, FileSearch, FileTransformSearch, useStores } from "medior/store";
 import { colors, copyToClipboard, toast, useCancellableLoad } from "medior/utils/client";
 import { CONSTANTS, durationToSeconds, VideoExt } from "medior/utils/common";
-import { getConfig, getIsImage, getIsRemuxable, trpc } from "medior/utils/server";
+import { getConfig, getIsImage, getIsRemuxable, rpc } from "medior/utils/server";
 
 export interface ContextMenuProps extends Omit<ContextMenuBaseProps, "id" | "menuItems"> {
   carouselFileIds?: string[];
@@ -108,7 +108,7 @@ export const ContextMenu = Comp(
             if (!orderedFileIds?.length) throw new Error("No files found");
 
             const fileIds = new Map(orderedFileIds.map((id, i) => [id, i]));
-            const filesRes = await trpc.listFile.mutate(
+            const filesRes = await rpc.listFile(
               { args: { filter: { id: [...fileIds.keys()] }, page: 1, pageSize: fileIds.size } },
               { signal },
             );

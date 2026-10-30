@@ -1,7 +1,7 @@
 import autoBind from "auto-bind";
 import { Model, model, modelAction, ModelCreationData, modelFlow, prop } from "mobx-keystone";
 import { asyncAction, toast } from "medior/utils/client";
-import { trpc } from "medior/utils/server";
+import { rpc } from "medior/utils/server";
 import { MediaProgram, MediaProgramEditorStore, MediaProgramManagerStore } from ".";
 
 export type MediaProgramStatusUpdates = Partial<
@@ -30,7 +30,7 @@ export class MediaProgramStore extends Model({
   /* ------------------------------ ASYNC ACTIONS ----------------------------- */
   @modelFlow
   createMediaProgram = asyncAction(async (name: string) => {
-    const res = await trpc.createMediaProgram.mutate({ name });
+    const res = await rpc.createMediaProgram({ name });
 
     if (!res.success) throw new Error(res.error);
 
@@ -40,7 +40,7 @@ export class MediaProgramStore extends Model({
   @modelFlow
   deleteMediaPrograms = asyncAction(
     async ({ ids, withCollections }: { ids: string[]; withCollections: boolean }) => {
-      const res = await trpc.deleteMediaPrograms.mutate({ ids, withCollections });
+      const res = await rpc.deleteMediaPrograms({ ids, withCollections });
 
       if (!res.success) throw new Error(res.error);
 
@@ -56,7 +56,7 @@ export class MediaProgramStore extends Model({
 
   @modelFlow
   regenMediaProgramMeta = asyncAction(async (ids: string[]) => {
-    const res = await trpc.regenMediaProgramAttrs.mutate({ ids });
+    const res = await rpc.regenMediaProgramAttrs({ ids });
 
     if (!res.success) throw new Error(res.error);
 
@@ -67,7 +67,7 @@ export class MediaProgramStore extends Model({
   @modelFlow
   updateMediaProgram = asyncAction(
     async ({ id, updates }: { id: string; updates: MediaProgramStatusUpdates }) => {
-      const res = await trpc.updateMediaProgram.mutate({
+      const res = await rpc.updateMediaProgram({
         id,
         updates: {
           ...updates,

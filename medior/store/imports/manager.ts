@@ -13,7 +13,7 @@ import {
   sleep,
   TaskProgress,
 } from "medior/utils/common";
-import { trpc } from "medior/utils/server";
+import { rpc } from "medior/utils/server";
 import { FileImportBatch, FileImportBatchSearch } from ".";
 
 @model("medior/ImportManager")
@@ -143,7 +143,7 @@ export class ImportManager extends Model({
   deleteBatches = asyncAction(async (ids: string[]) => {
     await this.pauseImporter();
 
-    const deleteRes = await trpc.deleteImportBatches.mutate({ ids });
+    const deleteRes = await rpc.deleteImportBatches({ ids });
 
     if (!deleteRes.success) throw new Error(deleteRes.error);
 
@@ -156,7 +156,7 @@ export class ImportManager extends Model({
 
   @modelFlow
   getImporterStatus = asyncAction(async () => {
-    const res = await trpc.getImporterStatus.mutate();
+    const res = await rpc.getImporterStatus();
 
     if (!res.success) throw new Error(res.error);
 
@@ -180,7 +180,7 @@ export class ImportManager extends Model({
     this.setIsLoading(true);
 
     try {
-      const batchRes = await trpc.getNextImportBatch.mutate();
+      const batchRes = await rpc.getNextImportBatch();
 
       if (!batchRes.success) throw new Error(batchRes.error);
 
@@ -204,7 +204,7 @@ export class ImportManager extends Model({
 
       const tagIds = batch?.tagIds ?? [];
       const tagRes = tagIds.length
-        ? await trpc.listTag.mutate({ filter: { id: tagIds } })
+        ? await rpc.listTag({ filter: { id: tagIds } })
         : { data: [], error: null, success: true };
 
       if (!tagRes.success) throw new Error(tagRes.error);
@@ -224,7 +224,7 @@ export class ImportManager extends Model({
 
     for (const id of ids) this.statusCountsRevisions.set(id, revision);
 
-    const res = await trpc.getImportBatchStatusCounts.mutate({ ids });
+    const res = await rpc.getImportBatchStatusCounts({ ids });
     if (!res.success) throw new Error(res.error);
 
     // Counts apply only from each batch's latest request.
@@ -239,7 +239,7 @@ export class ImportManager extends Model({
 
   @modelFlow
   pauseImporter = asyncAction(async () => {
-    const res = await trpc.pauseImporter.mutate();
+    const res = await rpc.pauseImporter();
 
     if (res.error) throw new Error(res.error);
 
@@ -250,7 +250,7 @@ export class ImportManager extends Model({
   reprocessStoredImports = asyncAction(async (args: { id: string }) => {
     await this.pauseImporter();
 
-    const res = await trpc.reprocessStoredImports.mutate({ id: args.id });
+    const res = await rpc.reprocessStoredImports({ id: args.id });
 
     if (!res.success) throw new Error(res.error);
 
@@ -272,7 +272,7 @@ export class ImportManager extends Model({
 
     if (!this.activeBatch) return;
 
-    const res = await trpc.runImportBatch.mutate({ id: this.activeBatch.id });
+    const res = await rpc.runImportBatch({ id: this.activeBatch.id });
 
     if (res.error) throw new Error(res.error);
 
@@ -283,9 +283,7 @@ export class ImportManager extends Model({
   togglePaused = asyncAction(async () => {
     if (this.isPaused && !this.isImporting) return this.runImporter();
     else {
-      const res = await (this.isPaused
-        ? trpc.resumeImporter.mutate()
-        : trpc.pauseImporter.mutate());
+      const res = await (this.isPaused ? rpc.resumeImporter() : rpc.pauseImporter());
 
       if (res.error) throw new Error(res.error);
 
@@ -324,7 +322,7 @@ export class ImportManager extends Model({
 
         if (entries.length) {
           const result = await retryUploadRequest(() =>
-            trpc.appendImportBatchEntries.mutate({ id, imports: entries, offset: count }),
+            rpc.appendImportBatchEntries({ id, imports: entries, offset: count }),
           );
 
           if (!result.success) throw new Error(result.error);
@@ -339,7 +337,7 @@ export class ImportManager extends Model({
 
       try {
         const started = await retryUploadRequest(() =>
-          trpc.beginImportBatchUpload.mutate({ ...options, id }),
+          rpc.beginImportBatchUpload({ ...options, id }),
         );
 
         if (!started.success) throw new Error(started.error);
@@ -374,22 +372,22 @@ export class ImportManager extends Model({
 
         if (count) {
           const finished = await retryUploadRequest(() =>
-            trpc.finishImportBatchUpload.mutate({ count, id }),
+            rpc.finishImportBatchUpload({ count, id }),
           );
 
           if (!finished.success) throw new Error(finished.error);
         } else {
-          const discarded = await trpc.discardImportBatchUpload.mutate({ id });
+          const discarded = await rpc.discardImportBatchUpload({ id });
 
           if (!discarded.success) throw new Error(discarded.error);
         }
 
         return { count, id: count ? id : null };
       } catch (error) {
-        let batch: Awaited<ReturnType<typeof trpc.getImportBatch.mutate>>;
+        let batch: Awaited<ReturnType<typeof rpc.getImportBatch>>;
 
         try {
-          batch = await trpc.getImportBatch.mutate({ id });
+          batch = await rpc.getImportBatch({ id });
         } catch {
           throw new Error(
             `${error.message}. Could not confirm upload ${id}; check Import Manager before retrying.`,
@@ -399,7 +397,7 @@ export class ImportManager extends Model({
         if (batch.success && batch.data?.isReady && batch.data.fileCount === count) {
           return { count, id };
         } else {
-          const discarded = await trpc.discardImportBatchUpload.mutate({ id });
+          const discarded = await rpc.discardImportBatchUpload({ id });
 
           if (!discarded.success)
             throw new Error(

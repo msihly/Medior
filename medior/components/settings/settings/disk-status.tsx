@@ -3,7 +3,7 @@ import { DiskSpace } from "check-disk-space";
 import { Comp, Icon, IconName, Text, View } from "medior/components";
 import { colors, CssColor } from "medior/utils/client";
 import { Fmt } from "medior/utils/common";
-import { trpc } from "medior/utils/server";
+import { rpc } from "medior/utils/server";
 
 interface Status {
   color: CssColor;
@@ -64,7 +64,7 @@ export const DiskStatus = Comp(({ diskPath, threshold }: DiskStatusProps) => {
     (async () => {
       if (diskPath) {
         try {
-          const res = await trpc.getDiskStats.mutate({ diskPath });
+          const res = await rpc.getDiskStats({ diskPath });
 
           if (!res.success) throw new Error(res.error);
 

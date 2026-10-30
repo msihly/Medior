@@ -1,5 +1,5 @@
 import { toast as baseToast } from "trabecula/utils/client";
-import { trpc } from "medior/utils/server";
+import { rpc } from "medior/utils/server";
 
 type NotificationType = "error" | "info" | "success" | "warning";
 
@@ -19,7 +19,7 @@ const saveNotificationHistory = () => {
 
   notificationSavePromise = (async () => {
     while (pendingNotifications.length) {
-      const res = await trpc.recordNotification.mutate(pendingNotifications[0]);
+      const res = await rpc.recordNotification(pendingNotifications[0]);
 
       if (!res.success) throw new Error(res.error);
 

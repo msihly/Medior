@@ -4,7 +4,6 @@ export {
   createFiles,
   makeFilterQueryType,
   makeSectionComment,
-  makeServerEndpointDefs,
   makeSocketDefs,
   makeStoreDefaultValue,
   parseExportsFromIndex,

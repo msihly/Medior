@@ -4,7 +4,7 @@ import type { EditMultiTagRelationsInput, JobState } from "medior/server/databas
 import { RootStore, TagOption, TagSearch } from "medior/store";
 import { asyncAction, toast } from "medior/utils/client";
 import { Fmt } from "medior/utils/common";
-import { trpc } from "medior/utils/server";
+import { rpc } from "medior/utils/server";
 
 @model("medior/TagManagerStore")
 export class TagManagerStore extends Model({
@@ -49,7 +49,7 @@ export class TagManagerStore extends Model({
   deleteTags = asyncAction(async (tagIds: string[]) => {
     if (this.jobId) return;
 
-    const res = await trpc.startTagDeletion.mutate({ tagIds });
+    const res = await rpc.startTagDeletion({ tagIds });
     if (!res.success) throw new Error(res.error);
 
     this.followJob(res.data, tagIds);
@@ -57,7 +57,7 @@ export class TagManagerStore extends Model({
 
   @modelFlow
   editMultiTagRelations = asyncAction(async (args: EditMultiTagRelationsInput) => {
-    const res = await trpc.editMultiTagRelations.mutate(args);
+    const res = await rpc.editMultiTagRelations(args);
 
     if (!res.success) throw new Error(res.error);
 
@@ -91,7 +91,7 @@ export class TagManagerStore extends Model({
         .map((tag) => tag.id);
 
       if (visibleIds.length) {
-        const res = await trpc.listTag.mutate({ filter: { id: visibleIds } });
+        const res = await rpc.listTag({ filter: { id: visibleIds } });
 
         if (!res.success) toast.error(res.error);
         else for (const tag of res.data) this.search.getResult(tag.id)?.update(tag);
@@ -109,7 +109,7 @@ export class TagManagerStore extends Model({
 
   @modelFlow
   refreshSelectedTags = asyncAction(async () => {
-    const result = await trpc.refreshTag.mutate({ tagIds: this.search.selectedIds });
+    const result = await rpc.refreshTag({ tagIds: this.search.selectedIds });
 
     if (!result.success) throw new Error(result.error);
 
@@ -120,7 +120,7 @@ export class TagManagerStore extends Model({
   regenerateRegEx = asyncAction(async (tagIds: string[]) => {
     if (this.jobId) return;
 
-    const res = await trpc.startTagRegExRegeneration.mutate({ tagIds });
+    const res = await rpc.startTagRegExRegeneration({ tagIds });
     if (!res.success) throw new Error(res.error);
 
     this.followJob(res.data, tagIds);

@@ -3,7 +3,7 @@ import { MouseEvent, useState } from "react";
 import { Button, Comp, Detail, Modal, Text, View } from "medior/components";
 import { FileTransform, useStores } from "medior/store";
 import { makeClasses, toast } from "medior/utils/client";
-import { trpc } from "medior/utils/server";
+import { rpc } from "medior/utils/server";
 import { ComparisonViewer } from "./comparison-viewer";
 
 export const DuplicateReview = Comp(({ transform }: { transform: FileTransform }) => {
@@ -42,7 +42,7 @@ export const DuplicateReview = Comp(({ transform }: { transform: FileTransform }
     setIsLoading(true);
 
     try {
-      const res = await trpc.inspectFileTransformDuplicate.mutate({ id: transform.id });
+      const res = await rpc.inspectFileTransformDuplicate({ id: transform.id });
 
       if (!res.success) return toast.error(res.error);
 
@@ -68,7 +68,7 @@ export const DuplicateReview = Comp(({ transform }: { transform: FileTransform }
     setIsLoading(true);
 
     try {
-      const res = await trpc.mergeFileTransformDuplicate.mutate({ id: transform.id });
+      const res = await rpc.mergeFileTransformDuplicate({ id: transform.id });
 
       if (!res.success) throw new Error(res.error);
 

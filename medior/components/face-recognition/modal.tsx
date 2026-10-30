@@ -15,7 +15,7 @@ import {
 } from "medior/components";
 import { FaceModel, tagToOption, useStores } from "medior/store";
 import { colors, makeClasses, toast, useElementResize } from "medior/utils/client";
-import { trpc } from "medior/utils/server";
+import { rpc } from "medior/utils/server";
 import { FaceBox } from ".";
 
 type FaceModelWithImage = { dataUrl: string; faceModel: FaceModel };
@@ -111,7 +111,7 @@ export const FaceRecognitionModal = Comp(() => {
 
   const fileToDetectedFaces = async (fileFaceModels: ModelCreationData<FaceModel>[]) => {
     const tagIds = fileFaceModels.map((face) => face.tagId);
-    const res = await trpc.listTag.mutate({ filter: { id: tagIds } });
+    const res = await rpc.listTag({ filter: { id: tagIds } });
 
     if (!res.success) throw new Error(res.error);
 
@@ -153,7 +153,7 @@ export const FaceRecognitionModal = Comp(() => {
       if (!res.success) throw new Error(res.error);
 
       const tagIds = res.data.map((f) => f.tagId);
-      const tagsRes = await trpc.listTag.mutate({ filter: { id: tagIds } });
+      const tagsRes = await rpc.listTag({ filter: { id: tagIds } });
 
       if (revision !== loadRevision.current) return;
 

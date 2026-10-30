@@ -5,7 +5,7 @@ import { SortMenuProps } from "medior/components";
 import { File, FileSearch, Tag } from "medior/store";
 import { asyncAction, derefMobx, toast } from "medior/utils/client";
 import { isDeepEqual } from "medior/utils/common";
-import { getConfig, trpc } from "medior/utils/server";
+import { getConfig, rpc } from "medior/utils/server";
 import { FileCollection } from ".";
 
 @model("medior/CollectionEditor")
@@ -121,7 +121,7 @@ export class CollectionEditor extends Model({
       let orderedIds = [...fileIds, ...this.fileIndexes.map(({ fileId }) => fileId)];
 
       if (this.search.sortValue.key !== "custom") {
-        const res = await trpc.listSortedFileIds.mutate({
+        const res = await rpc.listSortedFileIds({
           ids: orderedIds,
           sortValue: this.search.sortValue,
         });
@@ -167,7 +167,7 @@ export class CollectionEditor extends Model({
     this.setIsSaving(true);
 
     try {
-      const res = await trpc.addFilesToCollection.mutate(args);
+      const res = await rpc.addFilesToCollection(args);
 
       if (!res.success) throw new Error(res.error);
 
@@ -212,7 +212,7 @@ export class CollectionEditor extends Model({
     this.search.setResults([]);
 
     try {
-      const collRes = await trpc.listFileCollection.mutate({ args: { filter: { id } } });
+      const collRes = await rpc.listFileCollection({ args: { filter: { id } } });
 
       if (revision !== this.collectionLoadRevision) return false;
 
@@ -229,7 +229,7 @@ export class CollectionEditor extends Model({
           .sort((a, b) => (this.search.sortValue.isDesc ? b.index - a.index : a.index - b.index))
           .map((file, index) => ({ fileId: file.fileId, index }));
       } else {
-        const indexesRes = await trpc.listSortedFileIds.mutate({
+        const indexesRes = await rpc.listSortedFileIds({
           ids: collection.fileIdIndexes.map((file) => file.fileId),
           sortValue: this.search.sortValue,
         });
@@ -242,7 +242,7 @@ export class CollectionEditor extends Model({
       }
 
       const fileIds = [...new Set(fileIndexes.map((file) => file.fileId))];
-      const tagsRes = await trpc.listTag.mutate({ filter: { id: collection.tagIds } });
+      const tagsRes = await rpc.listTag({ filter: { id: collection.tagIds } });
 
       if (revision !== this.collectionLoadRevision) return false;
 
@@ -302,7 +302,7 @@ export class CollectionEditor extends Model({
       this.search.setIds(this.fileIndexes.map(({ fileId }) => fileId));
       this.search.setSortValue({ isDesc: false, key: "custom" });
 
-      const tagsRes = await trpc.listTag.mutate({ filter: { id: collection.tagIds } });
+      const tagsRes = await rpc.listTag({ filter: { id: collection.tagIds } });
 
       if (revision !== this.collectionLoadRevision) return;
 
@@ -333,7 +333,7 @@ export class CollectionEditor extends Model({
     const tagIds = [...(this.collection?.tagIds ?? [])];
 
     const res = tagIds.length
-      ? await trpc.listTag.mutate({ filter: { id: tagIds } })
+      ? await rpc.listTag({ filter: { id: tagIds } })
       : { data: [], error: null, success: true };
     if (!res.success) throw new Error(res.error);
 
@@ -410,7 +410,7 @@ export class CollectionEditor extends Model({
     this.setIsSaving(true);
 
     try {
-      const res = await trpc.updateCollection.mutate({
+      const res = await rpc.updateCollection({
         fileIdIndexes: fileIndexes,
         id: this.collection.id,
       });
@@ -445,7 +445,7 @@ export class CollectionEditor extends Model({
     this.setIsSaving(true);
 
     try {
-      const res = await trpc.updateCollection.mutate({
+      const res = await rpc.updateCollection({
         fileIdIndexes: this.fileIndexes.map((f, i) => ({ ...f, index: i })),
         id: this.collection.id,
         title: this.title,
@@ -482,7 +482,7 @@ export class CollectionEditor extends Model({
         this.setFileIndexes(fileIdIndexes);
         this.search.setIds(fileIdIndexes.map((f) => f.fileId));
       } else {
-        const indexesRes = await trpc.listSortedFileIds.mutate({ ids: this.search.ids, sortValue });
+        const indexesRes = await rpc.listSortedFileIds({ ids: this.search.ids, sortValue });
 
         if (revision !== this.collectionLoadRevision) return;
 

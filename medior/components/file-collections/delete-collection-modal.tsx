@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Button, Comp, Icon, LoadingOverlay, Modal, Text } from "medior/components";
 import { useStores } from "medior/store";
 import { colors, toast, useCancellableLoad } from "medior/utils/client";
-import { trpc } from "medior/utils/server";
+import { rpc } from "medior/utils/server";
 
 export const DeleteCollectionModal = Comp(() => {
   const stores = useStores();
@@ -19,7 +19,7 @@ export const DeleteCollectionModal = Comp(() => {
 
   useEffect(() => {
     load.run(async (signal) => {
-      const collRes = await trpc.listFileCollection.mutate(
+      const collRes = await rpc.listFileCollection(
         { args: { filter: { id: store.idsForConfirmDelete } } },
         { signal },
       );

@@ -10,7 +10,7 @@ import {
 } from "mobx-keystone";
 import { asyncAction, colors, CssColor } from "medior/utils/client";
 import { dayjs } from "medior/utils/common";
-import { trpc } from "medior/utils/server";
+import { rpc } from "medior/utils/server";
 import { RepairAudioStore } from "./audio";
 import { RepairCollectionsStore } from "./collections";
 import { RepairFilesStore } from "./files";
@@ -79,7 +79,7 @@ export class RepairStore extends Model({
     this.log("[INFO] Cancelling the current operation.");
 
     if (repairId) {
-      const res = await trpc.cancelRepair.mutate({ repairId });
+      const res = await rpc.cancelRepair({ repairId });
 
       if (!res.success) {
         this.log(`[ERROR] Failed to request repair cancellation: ${res.error}`, colors.custom.red);

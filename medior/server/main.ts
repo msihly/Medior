@@ -2,7 +2,7 @@ import { app, BrowserWindow, dialog, ipcMain, screen } from "electron";
 import { registerMainProcess } from "trabecula/utils/electron";
 import { fileLog } from "trabecula/utils/server";
 import { SERVER_STAGES } from "medior/server/server";
-import { Config, getConfig, loadConfig, saveConfig, setupTRPC } from "medior/utils/server";
+import { Config, getConfig, loadConfig, saveConfig, setupRpc } from "medior/utils/server";
 
 const remoteMain = require("@electron/remote/main");
 
@@ -89,7 +89,7 @@ ipcMain.handle("saveConfig", async (_, config: Config) => {
 
     if (isShuttingDown()) throw new Error("Medior is shutting down.");
 
-    setupTRPC();
+    setupRpc();
 
     try {
       if (restartedServers) await getServers().restart();
@@ -196,7 +196,7 @@ const createMainWindow = async () => {
 
     if (isShuttingDown()) return;
 
-    setupTRPC();
+    setupRpc();
     await createMainWindow();
   } catch (error) {
     fileLog(`Startup failed: ${error.message}`, { type: "error" });

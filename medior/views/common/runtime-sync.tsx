@@ -3,7 +3,7 @@ import { ReactNode, useEffect } from "react";
 import { ServerStatusSync, WindowTitleBar } from "medior/components";
 import { useStores } from "medior/store";
 import { persistNotification } from "medior/utils/client";
-import { Config, getConfig, setConfig, setupTRPC, socket } from "medior/utils/server";
+import { Config, getConfig, setConfig, setupRpc, socket } from "medior/utils/server";
 
 export interface RuntimeSyncProps {
   children: ReactNode;
@@ -19,7 +19,7 @@ export const RuntimeSync = ({ children }: RuntimeSyncProps) => {
       setConfig(config);
       stores.applyConfig(config, previousConfig);
 
-      if (previousConfig.ports.server !== config.ports.server) setupTRPC();
+      if (previousConfig.ports.server !== config.ports.server) setupRpc();
 
       if (previousConfig.ports.socket !== config.ports.socket) socket.reconnect();
     };

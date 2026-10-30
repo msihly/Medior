@@ -11,7 +11,7 @@ import {
   secondsToDuration,
   uuid,
 } from "medior/utils/common";
-import { trpc } from "medior/utils/server";
+import { rpc } from "medior/utils/server";
 
 export type FileTimestamp = FileSchema["timestamps"][number];
 
@@ -131,7 +131,7 @@ export class Splicer extends Model({
       const timestamps = derefMobx(file.timestamps).filter(
         (timestamp: FileTimestamp) => timestamp.id !== this.timestampId,
       );
-      const res = await trpc.updateFile.mutate({
+      const res = await rpc.updateFile({
         args: {
           id: file.id,
           updates: { timestamps },
@@ -176,7 +176,7 @@ export class Splicer extends Model({
     this.setIsLoading(true);
 
     try {
-      const res = await trpc.updateFile.mutate({
+      const res = await rpc.updateFile({
         args: {
           id: file.id,
           updates: { timestamps },

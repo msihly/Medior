@@ -3,7 +3,7 @@ import { reaction } from "mobx";
 import { Model, model, modelAction, modelFlow, prop } from "mobx-keystone";
 import { asyncAction } from "medior/utils/client";
 import { FILE_SIDECAR_FIELDS, FileSidecarField } from "medior/utils/common";
-import { trpc } from "medior/utils/server";
+import { rpc } from "medior/utils/server";
 
 @model("medior/FileExporterStore")
 export class FileExporterStore extends Model({
@@ -84,7 +84,7 @@ export class FileExporterStore extends Model({
     this.setIsPreparing(true);
 
     try {
-      const res = await trpc.createFileExportSidecars.mutate({
+      const res = await rpc.createFileExportSidecars({
         fields: [...this.fields],
         fileIds: [...this.fileIds],
       });

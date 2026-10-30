@@ -1,6 +1,6 @@
 import { MODEL_DEFS } from "medior/generator/schema/models";
 import { MODEL_SEARCH_STORE_DEFS } from "medior/generator/stores/models";
-import { makeServerEndpointDefs, parseExportsFromIndex, ROOT_PATH } from "medior/generator/utils";
+import { parseExportsFromIndex, ROOT_PATH } from "medior/generator/utils";
 import { Fmt } from "medior/utils/common";
 
 const MODEL_ACTIONS = ["create", "delete", "list", "update"];
@@ -578,7 +578,7 @@ export const makeSearchActionsDef = (
 /* -------------------------------------------------------------------------- */
 /*                                  ENDPOINTS                                 */
 /* -------------------------------------------------------------------------- */
-export const makeCustomEndpoint = (name: string) => `${name}: serverEndpoint(db.${name})`;
+export const makeCustomEndpoint = (name: string) => `${name}: db.${name}`;
 
 export const makeModelEndpoint = (
   modelName: string,
@@ -587,7 +587,7 @@ export const makeModelEndpoint = (
   return MODEL_ACTIONS.map((action) => {
     const { fnName } = makeFnAndTypeNames(`${action}${Fmt.capitalize(modelName)}`, actions);
 
-    return `${fnName}: serverEndpoint(db.${fnName})`;
+    return `${fnName}: db.${fnName}`;
   });
 };
 
@@ -597,7 +597,7 @@ export const makeSearchEndpoint = (
 ) => {
   const { fnName } = makeFnAndTypeNames(name, actions);
 
-  return `${fnName}: serverEndpoint(db.${fnName})`;
+  return `${fnName}: db.${fnName}`;
 };
 
 export const makeServerRouter = async () => {
@@ -624,15 +624,14 @@ export const makeServerRouter = async () => {
       .sort()
       .join(",");
 
-  return `${makeServerEndpointDefs()}\n
-    export const serverRouter = trpc.router({
+  return `export const serverRouter = {
       /** Model actions */
       ${makeModelEndpoints()},
       /** Search store actions */
       ${makeSearchStoreEndpoints()},
       /** Custom actions */
       ${makeCustomEndpoints()}
-    });`;
+    };`;
 };
 
 /* -------------------------------------------------------------------------- */

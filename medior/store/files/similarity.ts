@@ -3,7 +3,7 @@ import { computed } from "mobx";
 import { Model, model, modelAction, modelFlow, prop } from "mobx-keystone";
 import { asyncAction, derefMobx, toast } from "medior/utils/client";
 import { CONSTANTS, TaskProgress, uuid } from "medior/utils/common";
-import { getConfig, trpc } from "medior/utils/server";
+import { getConfig, rpc } from "medior/utils/server";
 import { DuplicateFileSearch } from "./search";
 
 interface LoadSimilarArgs {
@@ -152,13 +152,13 @@ export class FileSimilarityStore extends Model({
       };
 
       const res = this.audioRange
-        ? await trpc.findSimilarAudio.mutate({
+        ? await rpc.findSimilarAudio({
             ...args,
             end: this.audioRange.end,
             lookupId,
             start: this.audioRange.start,
           })
-        : await trpc.findSimilarFiles.mutate(args);
+        : await rpc.findSimilarFiles(args);
 
       if (loadId !== this.loadId) return;
 

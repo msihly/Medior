@@ -3,7 +3,7 @@ import { QueryFilter } from "mongoose";
 import { checkBackgroundExecution } from "medior/server/database/background-execution";
 import { getBackgroundSession } from "medior/server/database/database-context";
 import { assertPersistenceReady, PersistenceModel } from "medior/server/database/persistence";
-import { socket } from "medior/utils/server/trpc";
+import { socket } from "medior/utils/server/rpc";
 
 /** Retain recovery state; discard successful activity and its payloads after one day. */
 export const pruneCompletedOperations = async () => {

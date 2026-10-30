@@ -1,4 +1,3 @@
-import { createHTTPServer } from "@trpc/server/adapters/standalone";
 import Mongoose from "mongoose";
 import {
   checkServerShutdown,
@@ -8,6 +7,7 @@ import {
   reportStartupProgress,
 } from "trabecula/utils/process";
 import { connectMongoPrimary } from "trabecula/utils/process/mongo-client";
+import { createRpcServer } from "trabecula/utils/process/rpc";
 import { fileLog } from "trabecula/utils/server";
 import {
   startBackgroundQueues,
@@ -15,10 +15,10 @@ import {
 } from "medior/server/database/actions/background-operations";
 import { stopImporter } from "medior/server/database/actions/file-imports";
 import { stopFileTransformer } from "medior/server/database/actions/file-transforms";
-import { serverRouter } from "medior/server/trpc";
-import { getConfig, loadConfig, setupTRPC, setupVectorTRPC, socket } from "medior/utils/server";
+import { serverRouter } from "medior/server/rpc";
+import { getConfig, loadConfig, setupRpc, setupVectorRpc, socket } from "medior/utils/server";
 
-let server: ReturnType<typeof createHTTPServer>;
+let server: ReturnType<typeof createRpcServer>;
 
 Mongoose.connection.on("error", (error) =>
   fileLog(`[API] DB Error: ${error.message}`, { type: "error" }),
@@ -37,11 +37,11 @@ registerProcessLifecycle({
     await connectMongoPrimary(message.uri, "rs0");
 
     reportStartupProgress("Opening the API listener...");
-    setupTRPC();
-    setupVectorTRPC();
+    setupRpc();
+    setupVectorRpc();
 
-    server = createHTTPServer({ router: serverRouter });
-    await listenHttpServer(server.server, getConfig().ports.server);
+    server = createRpcServer(serverRouter);
+    await listenHttpServer(server, getConfig().ports.server);
 
     checkServerShutdown();
     startBackgroundQueues();
@@ -52,7 +52,7 @@ registerProcessLifecycle({
     fileLog("[API] Closing HTTP connections and stopping the transformer...");
 
     await Promise.all([
-      closeHttpServer(server?.server).then(() => fileLog("[API] HTTP connections closed.")),
+      closeHttpServer(server).then(() => fileLog("[API] HTTP connections closed.")),
       stopFileTransformer().then(() => fileLog("[API] Transformer stopped.")),
       stopImporter().then(() => fileLog("[API] Importer stopped.")),
       stopBackgroundQueues().then(() => fileLog("[API] Background queues stopped.")),

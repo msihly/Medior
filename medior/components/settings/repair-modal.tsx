@@ -21,7 +21,7 @@ import {
 import { filePathsToImports, useStores } from "medior/store";
 import { colors, CssColor } from "medior/utils/client";
 import { Fmt, sleep } from "medior/utils/common";
-import { socket, trpc } from "medior/utils/server";
+import { rpc, socket } from "medior/utils/server";
 
 const SIMILARITY_PROGRESS_TIME_INTERVAL_MS = 30_000;
 const checkboxColumnProps: ViewProps = {
@@ -131,7 +131,7 @@ export const RepairModal = Comp(() => {
 
     store.log("Starting similarity index job...", colors.custom.lightBlue);
 
-    const startRes = await trpc.startSimilarityBackfill.mutate({ repairId: store.repairId });
+    const startRes = await rpc.startSimilarityBackfill({ repairId: store.repairId });
 
     if (!startRes.success) throw new Error(startRes.error);
 
@@ -162,9 +162,7 @@ export const RepairModal = Comp(() => {
     while (store.similarity.jobId) {
       if (store.isCancellationRequested) throw new Error("Repair cancelled by user.");
 
-      const res = await trpc.getSimilarityBackfillProgress.mutate({
-        jobId: store.similarity.jobId,
-      });
+      const res = await rpc.getSimilarityBackfillProgress({ jobId: store.similarity.jobId });
 
       if (!res.success) throw new Error(res.error);
 
@@ -299,9 +297,7 @@ export const RepairModal = Comp(() => {
   };
 
   const buildSimilaritySearchIndex = async () => {
-    const startRes = await trpc.startSimilaritySearchIndexBuild.mutate({
-      repairId: store.repairId,
-    });
+    const startRes = await rpc.startSimilaritySearchIndexBuild({ repairId: store.repairId });
 
     if (!startRes.success) throw new Error(startRes.error);
 
@@ -315,7 +311,7 @@ export const RepairModal = Comp(() => {
     while (true) {
       if (store.isCancellationRequested) throw new Error("Repair cancelled by user.");
 
-      const res = await trpc.getSimilaritySearchIndexStatus.mutate();
+      const res = await rpc.getSimilaritySearchIndexStatus();
 
       if (!res.success) throw new Error(res.error);
 
@@ -368,7 +364,7 @@ export const RepairModal = Comp(() => {
     try {
       store.setIsRunning(true);
 
-      const startRes = await trpc.startRepair.mutate({ repairId });
+      const startRes = await rpc.startRepair({ repairId });
 
       if (!startRes.success) throw new Error(startRes.error);
 
@@ -382,7 +378,7 @@ export const RepairModal = Comp(() => {
       else store.log(`[ERROR] Repair stopped: ${error.message}`, colors.custom.red);
     } finally {
       try {
-        const result = await trpc.finishRepair.mutate({ error: failure, repairId });
+        const result = await rpc.finishRepair({ error: failure, repairId });
 
         if (!result.success) throw new Error(result.error);
       } catch (error) {
@@ -396,7 +392,7 @@ export const RepairModal = Comp(() => {
 
   const handleDeleteUntrackedFiles = () =>
     runRepair(async (repairId) => {
-      const result = await trpc.deleteUntrackedStorageFiles.mutate({
+      const result = await rpc.deleteUntrackedStorageFiles({
         paths: storageResult.filesLeftInStorageOnly,
         repairId,
       });
@@ -471,7 +467,7 @@ export const RepairModal = Comp(() => {
 
   const handleRemoveMissingRecords = () =>
     runRepair(async (repairId) => {
-      const result = await trpc.removeMissingStorageRecords.mutate({
+      const result = await rpc.removeMissingStorageRecords({
         fileIds: storageResult.fileIdsLeftInDbOnly,
         repairId,
       });
@@ -492,7 +488,7 @@ export const RepairModal = Comp(() => {
         setStorageResult(null);
         store.log("[INFO] Reconciling storage before the selected repairs.");
 
-        const res = await trpc.scanFileStorage.mutate({ repairId });
+        const res = await rpc.scanFileStorage({ repairId });
 
         if (!res.success) throw new Error(res.error);
 
@@ -502,7 +498,7 @@ export const RepairModal = Comp(() => {
       if (store.audio.isSelected) {
         store.log("[INFO] Starting missing audio analysis repair.");
 
-        const res = await trpc.repairMissingAudioAnalysis.mutate({
+        const res = await rpc.repairMissingAudioAnalysis({
           maxAudioVectorDuration: store.audio.similarityMaxDuration,
           maxTranscriptionDuration: store.audio.maxDuration,
           repairAudioVectors: store.audio.similarity,
@@ -517,7 +513,7 @@ export const RepairModal = Comp(() => {
       if (store.collections.isSelected) {
         store.log("[INFO] Starting collection repair.");
 
-        const res = await trpc.repairCollections.mutate({
+        const res = await rpc.repairCollections({
           deleteEmptyCollections: store.collections.deleteEmpty,
           deleteExactDuplicates: store.collections.deleteDuplicates,
           deleteSubsetCollections: store.collections.deleteSubsets,
@@ -532,7 +528,7 @@ export const RepairModal = Comp(() => {
       if (store.tags.isSelected) {
         store.log("[INFO] Starting tag repair.");
 
-        const res = await trpc.repairTags.mutate({
+        const res = await rpc.repairTags({
           cleanNames: store.tags.cleanNames,
           decodeLabels: store.tags.decodeLabels,
           mergeDuplicateLabels: store.tags.mergeDuplicates,
@@ -548,7 +544,7 @@ export const RepairModal = Comp(() => {
       if (store.thumbnails.enabled && (store.thumbnails.paths || store.thumbnails.missing)) {
         store.log("[INFO] Starting thumbnail repair.");
 
-        const res = await trpc.repairThumbs.mutate({
+        const res = await rpc.repairThumbs({
           repairId,
           repairMissingThumbnails: store.thumbnails.missing,
           repairPaths: store.thumbnails.paths,
@@ -560,7 +556,7 @@ export const RepairModal = Comp(() => {
       if (store.thumbnails.enabled && store.thumbnails.ntfsMetadata) {
         store.log("[INFO] Starting thumbnail NTFS metadata repair.");
 
-        const res = await trpc.repairThumbnailNtfsMetadata.mutate({ repairId });
+        const res = await rpc.repairThumbnailNtfsMetadata({ repairId });
 
         if (!res.success) throw new Error(res.error);
       }
@@ -569,7 +565,7 @@ export const RepairModal = Comp(() => {
         store.log("[INFO] Starting file extension and codec repair.");
 
         if (store.files.extensions) {
-          const extRes = await trpc.repairFilesWithBrokenExt.mutate({ repairId });
+          const extRes = await rpc.repairFilesWithBrokenExt({ repairId });
 
           if (!extRes.success) throw new Error(extRes.error);
         }
@@ -577,7 +573,7 @@ export const RepairModal = Comp(() => {
         if (store.files.codecs) {
           store.log("[INFO] Starting video codec inspection.");
 
-          const res = await trpc.repairVideoCodecs.mutate({ repairId });
+          const res = await rpc.repairVideoCodecs({ repairId });
 
           if (!res.success) throw new Error(res.error);
         }
@@ -585,7 +581,7 @@ export const RepairModal = Comp(() => {
         if (store.files.originalInfo) {
           store.log("[INFO] Starting missing original video information repair.");
 
-          const missingInfoRes = await trpc.repairFilesWithMissingInfo.mutate({ repairId });
+          const missingInfoRes = await rpc.repairFilesWithMissingInfo({ repairId });
 
           if (!missingInfoRes.success) throw new Error(missingInfoRes.error);
         }
@@ -593,7 +589,7 @@ export const RepairModal = Comp(() => {
         if (store.files.previousHashes) {
           store.log("[INFO] Starting previous checksum repair.");
 
-          const res = await trpc.repairPreviousHashes.mutate({ repairId });
+          const res = await rpc.repairPreviousHashes({ repairId });
 
           if (!res.success) throw new Error(res.error);
         }
@@ -602,7 +598,7 @@ export const RepairModal = Comp(() => {
       if (store.indexes.isSelected) {
         store.log("[INFO] Starting the selected index repairs.");
 
-        const res = await trpc.rebuildIndexes.mutate({
+        const res = await rpc.rebuildIndexes({
           rebuildExisting: store.indexes.rebuild,
           repairId,
           syncDefinitions: store.indexes.sync,

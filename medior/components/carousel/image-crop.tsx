@@ -3,7 +3,7 @@ import Color from "color";
 import { Button, Comp, LoadingOverlay, Modal, Text, View } from "medior/components";
 import { useStores } from "medior/store";
 import { colors, makeClasses, toast, useElementResize } from "medior/utils/client";
-import { trpc } from "medior/utils/server";
+import { rpc } from "medior/utils/server";
 
 interface Crop {
   height: number;
@@ -57,7 +57,7 @@ export const ImageCrop = Comp(({ expectedHash, fileId, onClose }: ImageCropProps
 
     const load = async () => {
       try {
-        const result = await trpc.loadImageEditPreview.mutate({ expectedHash, fileId });
+        const result = await rpc.loadImageEditPreview({ expectedHash, fileId });
 
         if (!result.success) throw new Error(result.error);
 

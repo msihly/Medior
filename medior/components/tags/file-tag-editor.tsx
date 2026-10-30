@@ -18,7 +18,7 @@ import {
 import { TagOption, useStores } from "medior/store";
 import { colors, toast, useCancellableLoad } from "medior/utils/client";
 import { CONSTANTS } from "medior/utils/common";
-import { trpc } from "medior/utils/server";
+import { rpc } from "medior/utils/server";
 
 interface FileTagEditorProps {
   fileIds: string[];
@@ -160,7 +160,7 @@ export const FileTagEditor = Comp(({ fileIds }: FileTagEditorProps) => {
       for (let offset = 0; offset < fileIds.length; offset += batchSize) {
         signal.throwIfAborted();
 
-        const res = await trpc.listFileTagIds.mutate(
+        const res = await rpc.listFileTagIds(
           { fileIds: fileIds.slice(offset, offset + batchSize) },
           { signal },
         );
@@ -178,7 +178,7 @@ export const FileTagEditor = Comp(({ fileIds }: FileTagEditorProps) => {
       for (let offset = 0; offset < tagIds.length; offset += batchSize) {
         signal.throwIfAborted();
 
-        const res = await trpc.listTag.mutate(
+        const res = await rpc.listTag(
           { filter: { id: tagIds.slice(offset, offset + batchSize) } },
           { signal },
         );

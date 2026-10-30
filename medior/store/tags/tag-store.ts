@@ -13,7 +13,7 @@ import {
   TagCategorySource,
   tagsToRegEx,
 } from "medior/utils/common";
-import { trpc } from "medior/utils/server";
+import { rpc } from "medior/utils/server";
 import { TagEditorStore, TagManagerStore, TagMergerStore, TagOption } from ".";
 
 @model("medior/TagStore")
@@ -80,7 +80,7 @@ export class TagStore extends Model({
     }: db.CreateTagInput & { withRegEx?: boolean }) => {
       regEx = regEx || (withRegEx ? tagsToRegEx([{ aliases, label }]) : null);
 
-      const res = await trpc.createTag.mutate({
+      const res = await rpc.createTag({
         ...tag,
         aliases,
         label,
@@ -97,14 +97,14 @@ export class TagStore extends Model({
 
   @modelFlow
   deleteTag = asyncAction(async ({ id }: { id: string }) => {
-    const res = await trpc.deleteTag.mutate({ id });
+    const res = await rpc.deleteTag({ id });
 
     if (!res.success) throw new Error(res.error);
   });
 
   @modelFlow
   editTag = asyncAction(async ({ withSub = true, ...tag }: db.EditTagInput) => {
-    const editRes = await trpc.editTag.mutate({ ...tag, withSub });
+    const editRes = await rpc.editTag({ ...tag, withSub });
 
     if (!editRes.success) throw new Error(editRes.error);
   });
@@ -114,7 +114,7 @@ export class TagStore extends Model({
     if (!label) throw new Error("No label provided");
 
     try {
-      const res = await trpc.listTag.mutate(
+      const res = await rpc.listTag(
         { filter: { label: { $options: "i", $regex: `^${Fmt.regexEscape(label)}$` } } },
         { signal },
       );
@@ -129,7 +129,7 @@ export class TagStore extends Model({
 
   @modelFlow
   listByIds = asyncAction(async ({ ids }: { ids: string[] }) => {
-    const res = await trpc.listTag.mutate({ filter: { id: ids } });
+    const res = await rpc.listTag({ filter: { id: ids } });
 
     if (!res.success) throw new Error(res.error);
 
@@ -138,7 +138,7 @@ export class TagStore extends Model({
 
   @modelFlow
   listRegExMaps = asyncAction(async () => {
-    const res = await trpc.listRegExMaps.mutate();
+    const res = await rpc.listRegExMaps();
 
     if (!res.success) throw new Error(res.error);
 
@@ -158,7 +158,7 @@ export class TagStore extends Model({
       do {
         revision = this.categoryRevision;
 
-        const res = await trpc.listTagCategories.mutate();
+        const res = await rpc.listTagCategories();
 
         if (!res.success) throw new Error(res.error);
 
@@ -178,14 +178,14 @@ export class TagStore extends Model({
 
   @modelFlow
   mergeTags = asyncAction(async (args: db.MergeTagsInput) => {
-    const res = await trpc.mergeTags.mutate(args);
+    const res = await rpc.mergeTags(args);
 
     if (!res.success) throw new Error(res.error);
   });
 
   @modelFlow
   refreshTag = asyncAction(async ({ id }: { id: string }) => {
-    const res = await trpc.refreshTag.mutate({ tagId: id });
+    const res = await rpc.refreshTag({ tagId: id });
 
     if (!res.success) throw new Error(res.error);
 
@@ -197,7 +197,7 @@ export class TagStore extends Model({
     this.manager.setIsLoading(true);
 
     try {
-      const res = await trpc.editTag.mutate({
+      const res = await rpc.editTag({
         id,
         rating,
         ratingIsManual: rating > 0,
@@ -227,7 +227,7 @@ export class TagStore extends Model({
 
         const batch = tagsToUpsert.slice(idx, idx + 256);
 
-        const res = await trpc.upsertImportTags.mutate(
+        const res = await rpc.upsertImportTags(
           batch.map((t) => ({
             aliases: t.aliases?.length ? [...t.aliases] : [],
             category: t.category,

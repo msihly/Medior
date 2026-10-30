@@ -229,7 +229,7 @@ const createSchemaStore = async (modelDef: ModelDef) => {
       this.setIsLoading(true);
 
       try {
-        const res = await trpc.${args.fnName}.mutate({ args });
+        const res = await rpc.${args.fnName}({ args });
         if (!res.success) throw new Error(res.error);
         return res.data;
       } finally {
@@ -390,7 +390,7 @@ export const createSearchStore = (def: ModelSearchStore) => {
     deleteSavedSearch = asyncAction(async (id: string = this.selectedSavedSearchId) => {
       if (!id) return;
 
-      const res = await trpc.deleteSavedSearch.mutate({ args: { ids: [id] } });
+      const res = await rpc.deleteSavedSearch({ args: { ids: [id] } });
 
       if (!res.success) throw new Error(res.error);
 
@@ -420,7 +420,7 @@ export const createSearchStore = (def: ModelSearchStore) => {
         this.setIsSelecting(true);
 
         try {
-          const res = await trpc.getShiftSelected${def.name}.mutate({
+          const res = await rpc.getShiftSelected${def.name}({
             ...this.cachedFilterProps,
             clickedId: id,
             selectedIds,
@@ -477,9 +477,9 @@ export const createSearchStore = (def: ModelSearchStore) => {
       try {
         ${
           def.withCarouselIds
-            ? `const res = await trpc.listFileSearchIds.mutate({ ...filterProps, forcePages: this.forcePages, limit });`
+            ? `const res = await rpc.listFileSearchIds({ ...filterProps, forcePages: this.forcePages, limit });`
             : `
-        const countRes = await trpc.getFiltered${def.name}Count.mutate({
+        const countRes = await rpc.getFiltered${def.name}Count({
           ...filterProps,
           curMaxPage: this.pageCount,
           forcePages: this.forcePages,
@@ -494,7 +494,7 @@ export const createSearchStore = (def: ModelSearchStore) => {
 
         if (countRes.data.count === 0) return 0;
 
-        const res = await trpc.listFiltered${def.name}.mutate({
+        const res = await rpc.listFiltered${def.name}({
           ...filterProps,
           forcePages: this.forcePages,
           page: 1,
@@ -553,7 +553,7 @@ export const createSearchStore = (def: ModelSearchStore) => {
         let nextPageCount = this.pageCount;
 
         if (exactCount) {
-          const countRes = await trpc.getFiltered${def.name}Count.mutate({
+          const countRes = await rpc.getFiltered${def.name}Count({
             ...filterProps,
             curMaxPage: this.pageCount,
             forcePages: this.forcePages,
@@ -575,7 +575,7 @@ export const createSearchStore = (def: ModelSearchStore) => {
             ? Math.min(page ?? this.page, Math.max(nextPageCount, 1))
             : page ?? this.page;
 
-        const itemsRes = await trpc.listFiltered${def.name}.mutate({
+        const itemsRes = await rpc.listFiltered${def.name}({
           ...filterProps,
           forcePages: this.forcePages,
           page: newPage,
@@ -598,7 +598,7 @@ export const createSearchStore = (def: ModelSearchStore) => {
               }))];
 
               if (tagIds.length) {
-                const tagRes = await trpc.listTag.mutate({ filter: { id: tagIds } });
+                const tagRes = await rpc.listTag({ filter: { id: tagIds } });
 
                 if (loadId !== this.loadId) return;
 
@@ -638,7 +638,7 @@ export const createSearchStore = (def: ModelSearchStore) => {
         if (!exactCount) {
           (async () => {
             try {
-              const countRes = await trpc.getFiltered${def.name}Count.mutate({
+              const countRes = await rpc.getFiltered${def.name}Count({
                 ...filterProps,
                 curMaxPage: this.pageCount,
                 forcePages: this.forcePages,
@@ -677,7 +677,7 @@ export const createSearchStore = (def: ModelSearchStore) => {
   const makeLoadSavedSearchesAction = () =>
     `@modelFlow
     loadSavedSearches = asyncAction(async () => {
-      const res = await trpc.listSavedSearch.mutate({
+      const res = await rpc.listSavedSearch({
         args: {
           filter: { searchType: "${def.name}" },
           page: 1,
@@ -703,20 +703,18 @@ export const createSearchStore = (def: ModelSearchStore) => {
       const existing = this.savedSearches.find((s) => s.label === trimmedLabel);
       const selected = this.savedSearches.find((s) => s.id === this.selectedSavedSearchId);
       const filterProps = this.getSearchProps();
-      let res: Awaited<
-        ReturnType<typeof trpc.createSavedSearch.mutate | typeof trpc.updateSavedSearch.mutate>
-      >;
+      let res: Awaited<ReturnType<typeof rpc.createSavedSearch | typeof rpc.updateSavedSearch>>;
 
       if (selected)
-        res = await trpc.updateSavedSearch.mutate({
+        res = await rpc.updateSavedSearch({
           args: { id: selected.id, updates: { filterProps, label: trimmedLabel } },
         });
       else if (existing)
-        res = await trpc.updateSavedSearch.mutate({
+        res = await rpc.updateSavedSearch({
           args: { id: existing.id, updates: { filterProps } },
         });
       else
-        res = await trpc.createSavedSearch.mutate({
+        res = await rpc.createSavedSearch({
           args: {
             dateCreated: dayjs().toISOString(),
             filterProps,

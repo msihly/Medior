@@ -14,7 +14,7 @@ import * as db from "medior/server/database";
 import { FaceModel, RootStore } from "medior/store";
 import { asyncAction, toast } from "medior/utils/client";
 import { chunkArray, Fmt } from "medior/utils/common";
-import { trpc } from "medior/utils/server";
+import { rpc } from "medior/utils/server";
 import {
   File,
   FileExporterStore,
@@ -210,7 +210,7 @@ export class FileStore extends ExtendedModel(_FileStore, {
   /* ------------------------------ ASYNC ACTIONS ----------------------------- */
   @modelFlow
   archiveFiles = asyncAction(async (ids: string[]) => {
-    const res = await trpc.setFileIsArchived.mutate({ fileIds: ids, isArchived: true });
+    const res = await rpc.setFileIsArchived({ fileIds: ids, isArchived: true });
 
     if (!res.success) throw new Error(`Error archiving files: ${res.error}`);
 
@@ -239,7 +239,7 @@ export class FileStore extends ExtendedModel(_FileStore, {
     this.setIsActionPreparing(true);
 
     try {
-      const res = await trpc.listFile.mutate(
+      const res = await rpc.listFile(
         { args: { filter: { id: ids } } },
         { signal: abortController.signal },
       );
@@ -275,7 +275,7 @@ export class FileStore extends ExtendedModel(_FileStore, {
     this.setIsActionPreparing(true);
 
     try {
-      const res = await trpc.startFileDeletion.mutate({ fileIds });
+      const res = await rpc.startFileDeletion({ fileIds });
       if (!res.success) throw new Error(res.error);
 
       this.actionFileIds = fileIds;
@@ -298,7 +298,7 @@ export class FileStore extends ExtendedModel(_FileStore, {
       withToast = true,
     }: db.EditFileTagsInput & { withToast?: boolean }) => {
       for (const ids of chunkArray(fileIds, 1000)) {
-        const res = await trpc.editFileTags.mutate({
+        const res = await rpc.editFileTags({
           addedTagIds,
           batchId,
           fileIds: ids,
@@ -315,7 +315,7 @@ export class FileStore extends ExtendedModel(_FileStore, {
 
   @modelFlow
   loadArchivedFileIds = asyncAction(async () => {
-    const res = await trpc.listAllArchivedFileIds.mutate();
+    const res = await rpc.listAllArchivedFileIds();
 
     if (!res.success) throw new Error(res.error);
 
@@ -324,7 +324,7 @@ export class FileStore extends ExtendedModel(_FileStore, {
 
   @modelFlow
   loadFileLocks = asyncAction(async () => {
-    const res = await trpc.listFileLocks.mutate();
+    const res = await rpc.listFileLocks();
     if (!res.success) throw new Error(res.error);
 
     this.setFileLocks(res.data);
@@ -339,7 +339,7 @@ export class FileStore extends ExtendedModel(_FileStore, {
     if (!args.ids.length) return null;
 
     try {
-      const res = await trpc.startFileRefresh.mutate({ fileIds: args.ids });
+      const res = await rpc.startFileRefresh({ fileIds: args.ids });
       if (!res.success) throw new Error(res.error);
 
       this.setIsRefreshMinimized(false);
@@ -368,7 +368,7 @@ export class FileStore extends ExtendedModel(_FileStore, {
   setFileRating = asyncAction(async ({ fileIds = [], rating }: db.SetFileRatingInput) => {
     if (!fileIds.length) return;
 
-    const res = await trpc.setFileRating.mutate({ fileIds, rating });
+    const res = await rpc.setFileRating({ fileIds, rating });
 
     if (res.success) toast.success(`Rating updated to ${rating}`);
     else {
@@ -385,7 +385,7 @@ export class FileStore extends ExtendedModel(_FileStore, {
     this.setIsActionPreparing(true);
 
     try {
-      const res = await trpc.startFileUnarchive.mutate({ fileIds });
+      const res = await rpc.startFileUnarchive({ fileIds });
       if (!res.success) throw new Error(res.error);
 
       this.actionFileIds = fileIds;

@@ -17,7 +17,7 @@ import {
 } from "medior/components";
 import { TagOption, tagToOption, useStores } from "medior/store";
 import { colors, derefMobx, makeClasses, toast, useCancellableLoad } from "medior/utils/client";
-import { trpc } from "medior/utils/server";
+import { rpc } from "medior/utils/server";
 
 export const TagMerger = Comp(() => {
   const stores = useStores();
@@ -61,10 +61,7 @@ export const TagMerger = Comp(() => {
       mergeTag.current = null;
     } else {
       load.run(async (signal) => {
-        const res = await trpc.listTag.mutate(
-          { filter: { id: selectedTagValue[0].id } },
-          { signal },
-        );
+        const res = await rpc.listTag({ filter: { id: selectedTagValue[0].id } }, { signal });
 
         signal.throwIfAborted();
 
@@ -174,7 +171,7 @@ export const TagMerger = Comp(() => {
     const result: TagOption[] = [];
     const tagIdsToExcludeSet = new Set(tagIdsToExclude);
     const tagIdsSet = new Set(tagIds.filter((id) => !tagIdsToExcludeSet.has(id)));
-    const res = await trpc.listTag.mutate({ filter: { id: [...tagIdsSet] } }, { signal });
+    const res = await rpc.listTag({ filter: { id: [...tagIdsSet] } }, { signal });
 
     signal.throwIfAborted();
 

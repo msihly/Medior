@@ -23,7 +23,7 @@ import {
   leanModelToJson,
   sortByStoredNtfsIdentity,
 } from "medior/utils/server";
-import { vectorTrpc } from "medior/utils/server/trpc";
+import { vectorRpc } from "medior/utils/server/rpc";
 import { runConcurrent } from "medior/utils/server/work-signal";
 
 export interface DuplicateGroup {
@@ -399,7 +399,7 @@ const scoreGroups = async (scanId: string, groups: Pick<ScanGroup, "_id" | "file
     .filter((group) => group.fileIds.length);
 
   if (unscored.length) {
-    const vectorScores = await vectorTrpc.scoreFileSimilarities.mutate({
+    const vectorScores = await vectorRpc.scoreFileSimilarities({
       groups: unscored.map(({ fileIds, referenceId }) => ({ fileIds, referenceId })),
     });
 
@@ -782,7 +782,7 @@ const searchChunk = async (task: ScanTask, files: SearchFile[]): Promise<Searche
     .map((file) => ({ fileId: String(file._id), hash: file.hash }));
   const hashes = new Map(sources.map((file) => [file.fileId, file.hash]));
   const results = sources.length
-    ? await vectorTrpc.findDuplicateCandidates.mutate(
+    ? await vectorRpc.findDuplicateCandidates(
         { files: sources, minSimilarity: MIN_DUPLICATE_SIMILARITY },
         { signal: task.controller.signal },
       )
@@ -955,7 +955,7 @@ const runScan = async (task: ScanTask) => {
 
     signal.throwIfAborted();
 
-    if (!(await vectorTrpc.getSearchIndexStatus.mutate()).hasIndex)
+    if (!(await vectorRpc.getSearchIndexStatus()).hasIndex)
       throw new Error(
         "Searching the whole library requires the similarity search index. Build it in Settings → Repair, then search again.",
       );

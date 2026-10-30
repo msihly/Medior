@@ -14,7 +14,7 @@ import {
   MIN_DUPLICATE_SIMILARITY,
   validateDuplicateSearchOptions,
 } from "medior/utils/common/duplicate-search";
-import { trpc } from "medior/utils/server";
+import { rpc } from "medior/utils/server";
 import { DuplicateFileSearch } from "./search";
 
 const DEFAULT_TIME_WINDOW = 60;
@@ -252,7 +252,7 @@ export class LowerResolutionStore extends Model({
     try {
       validateDuplicateSearchOptions(options);
 
-      const result = await trpc.setLowerResolutionReviewOptions.mutate({ options, scanId });
+      const result = await rpc.setLowerResolutionReviewOptions({ options, scanId });
       if (!result.success) throw new Error(result.error);
 
       // Settings saved as another search loaded belong to the search they were made for.
@@ -305,7 +305,7 @@ export class LowerResolutionStore extends Model({
     this.setActionError("");
 
     try {
-      const result = await trpc.startLowerResolutionArchive.mutate({
+      const result = await rpc.startLowerResolutionArchive({
         groups: this.archiveGroups,
         mergeMetadata: this.mergeMetadata,
         scanId: this.scanId,
@@ -343,7 +343,7 @@ export class LowerResolutionStore extends Model({
     this.setActionError("");
 
     try {
-      const result = await trpc.dismissLowerResolutionDuplicates.mutate({
+      const result = await rpc.dismissLowerResolutionDuplicates({
         groups: this.selectedGroups,
         scanId: this.scanId,
       });
@@ -441,7 +441,7 @@ export class LowerResolutionStore extends Model({
     this.setIsSelecting(true);
 
     try {
-      const result = await trpc.listLowerResolutionDuplicateIds.mutate({
+      const result = await rpc.listLowerResolutionDuplicateIds({
         minSimilarity: this.minSimilarity,
         scanId: this.scanId,
       });
@@ -464,7 +464,7 @@ export class LowerResolutionStore extends Model({
   /** Searches use the opt-in search index, which misses files vectorized after its last update. */
   @modelFlow
   loadSearchIndexStatus = asyncAction(async () => {
-    const result = await trpc.getSimilaritySearchIndexStatus.mutate();
+    const result = await rpc.getSimilaritySearchIndexStatus();
 
     if (!result.success) throw new Error(result.error);
 
@@ -482,7 +482,7 @@ export class LowerResolutionStore extends Model({
     this.setIsPageLoading(true);
 
     try {
-      const result = await trpc.listLowerResolutionCopies.mutate(
+      const result = await rpc.listLowerResolutionCopies(
         {
           minSimilarity: this.minSimilarity,
           page,
@@ -551,7 +551,7 @@ export class LowerResolutionStore extends Model({
     this.setIsStarting(true);
 
     try {
-      const result = await trpc.getLowerResolutionScan.mutate({});
+      const result = await rpc.getLowerResolutionScan({});
 
       if (!result.success) throw new Error(result.error);
 
@@ -611,7 +611,7 @@ export class LowerResolutionStore extends Model({
 
     try {
       if (this.isScanning && this.scanId) {
-        const result = await trpc.pauseLowerResolutionScan.mutate({ scanId: this.scanId });
+        const result = await rpc.pauseLowerResolutionScan({ scanId: this.scanId });
 
         if (!result.success) throw new Error(result.error);
       }
@@ -624,7 +624,7 @@ export class LowerResolutionStore extends Model({
   /** Pauses grouping after its current step; the groups built so far stay reviewable. */
   @modelFlow
   pauseGrouping = asyncAction(async () => {
-    const result = await trpc.pauseLowerResolutionGrouping.mutate({ scanId: this.scanId });
+    const result = await rpc.pauseLowerResolutionGrouping({ scanId: this.scanId });
     if (!result.success) throw new Error(result.error);
 
     this.setIsGroupingPaused(true);
@@ -634,7 +634,7 @@ export class LowerResolutionStore extends Model({
   /** Resumes grouping from where it paused, then follows it; a running search groups afterwards. */
   @modelFlow
   resumeGrouping = asyncAction(async () => {
-    const result = await trpc.resumeLowerResolutionGrouping.mutate({ scanId: this.scanId });
+    const result = await rpc.resumeLowerResolutionGrouping({ scanId: this.scanId });
     if (!result.success) throw new Error(result.error);
 
     this.setIsGroupingPaused(false);
@@ -686,7 +686,7 @@ export class LowerResolutionStore extends Model({
       }
 
       // Paused or stopped searches resume; completed ones search again from the start.
-      const result = await trpc.startLowerResolutionScan.mutate({ options });
+      const result = await rpc.startLowerResolutionScan({ options });
       if (!result.success) throw new Error(result.error);
 
       this.setScanId(result.data.scanId);
@@ -715,7 +715,7 @@ export class LowerResolutionStore extends Model({
 
     while (isWatching && revision === this.pollRevision) {
       try {
-        const result = await trpc.getLowerResolutionScan.mutate({ scanId });
+        const result = await rpc.getLowerResolutionScan({ scanId });
 
         if (revision !== this.pollRevision) return;
 

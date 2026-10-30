@@ -4,7 +4,7 @@ import { ExtendedModel, model, modelAction, modelFlow, prop } from "mobx-keyston
 import { _FileSearch } from "medior/store/_generated";
 import { asyncAction, derefMobx, reloadItemTags } from "medior/utils/client";
 import { durationToSeconds, secondsToDuration } from "medior/utils/common";
-import { trpc } from "medior/utils/server";
+import { rpc } from "medior/utils/server";
 
 @model("medior/FileSearch")
 export class FileSearch extends ExtendedModel(_FileSearch, {
@@ -120,7 +120,7 @@ export class FileSearch extends ExtendedModel(_FileSearch, {
     const visibleIds = results.filter((file) => requestedIds.has(file.id)).map((file) => file.id);
 
     if (visibleIds.length) {
-      const res = await trpc.listFile.mutate({ args: { filter: { id: visibleIds } } });
+      const res = await rpc.listFile({ args: { filter: { id: visibleIds } } });
 
       if (!res.success) throw new Error(res.error);
 

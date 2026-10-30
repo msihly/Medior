@@ -35,7 +35,7 @@ import {
   TagRegExMatcher,
   VideoExt,
 } from "medior/utils/common";
-import { getConfig, getIsVideo, trpc } from "medior/utils/server";
+import { getConfig, getIsVideo, rpc } from "medior/utils/server";
 import { getImportTagIndex } from "./import-tag-index";
 
 const DEBUG = false;
@@ -214,7 +214,7 @@ class EditorImportsCache {
       this.onProgress?.(status, idx, missingIds.length);
 
       const batch = missingIds.slice(idx, idx + TAG_LOOKUP_BATCH_SIZE);
-      const res = await trpc.listImportTags.mutate({ ids: batch });
+      const res = await rpc.listImportTags({ ids: batch });
 
       if (!res.success) throw new Error(res.error);
 
@@ -436,7 +436,7 @@ export const handleIngest = async ({
     const pendingPaths = new Set<string>();
 
     for (const paths of chunkArray([...editorPaths], 1000)) {
-      const res = await trpc.listPendingCleanupPaths.mutate({ paths });
+      const res = await rpc.listPendingCleanupPaths({ paths });
       if (!res.success) throw new Error(res.error);
 
       for (const filePath of res.data) pendingPaths.add(filePath);
@@ -538,7 +538,7 @@ export const handleReingest = async ({
     store.setIsLoading(true);
     setInitProgress("Preparing re-import", 0, fileIds.length);
 
-    const res = await trpc.listFile.mutate({ args: { filter: { id: fileIds } } });
+    const res = await rpc.listFile({ args: { filter: { id: fileIds } } });
 
     if (!res.success) throw new Error(res.error);
 
@@ -1194,9 +1194,7 @@ export const useImportEditor = (store: Ingester | Reingester) => {
     }
 
     if (plans.size) {
-      const res = await trpc.listMediaProgramsBySourceFolders.mutate({
-        folderPaths: [...plans.keys()],
-      });
+      const res = await rpc.listMediaProgramsBySourceFolders({ folderPaths: [...plans.keys()] });
 
       if (!res.success) throw new Error(res.error);
 

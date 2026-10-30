@@ -85,7 +85,7 @@ export const FILE_DEF_STORES: FileDef = {
         LogicalOp,
         makeTagSelector,
       } from "medior/utils/common";
-      import { getConfig, trpc } from "medior/utils/server";`;
+      import { getConfig, rpc } from "medior/utils/server";`;
 
     const makeSchemaStores = async () => {
       const storeDefs = [];

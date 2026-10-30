@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useStores } from "medior/store";
 import { toast } from "medior/utils/client";
-import { trpc } from "medior/utils/server";
+import { rpc } from "medior/utils/server";
 
 export const useCollectionMerge = ({
   getSelectedIds,
@@ -55,7 +55,7 @@ export const useCollectionMerge = ({
       store.search.setIsLoading(true);
       setIsMergeEditorOpen(true);
 
-      const res = await trpc.previewCollectionMerge.mutate({ ids: mergeIds.current });
+      const res = await rpc.previewCollectionMerge({ ids: mergeIds.current });
 
       if (requestId !== loadId.current) return;
 
@@ -82,7 +82,7 @@ export const useCollectionMerge = ({
       setIsMergeSaving(true);
       store.setIsLoading(true);
 
-      const res = await trpc.mergeCollections.mutate({
+      const res = await rpc.mergeCollections({
         fileIdIndexes: store.fileIndexes,
         ids: mergeIds.current,
         title: store.title,
@@ -111,7 +111,7 @@ export const useCollectionMerge = ({
 
       setIsLoading(true);
 
-      const previewRes = await trpc.previewCollectionMerge.mutate({ ids });
+      const previewRes = await rpc.previewCollectionMerge({ ids });
 
       if (requestId !== loadId.current) return;
 
@@ -120,7 +120,7 @@ export const useCollectionMerge = ({
       setIsLoading(false);
       setIsQuickMergeSaving(true);
 
-      const res = await trpc.mergeCollections.mutate({
+      const res = await rpc.mergeCollections({
         fileIdIndexes: previewRes.data.collection.fileIdIndexes,
         ids,
         title: previewRes.data.collection.title,

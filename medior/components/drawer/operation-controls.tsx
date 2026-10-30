@@ -3,7 +3,7 @@ import { BackgroundOperationSchema } from "medior/_generated/server";
 import { Button, Comp, ConfirmModal } from "medior/components";
 import { useStores } from "medior/store";
 import { toast } from "medior/utils/client";
-import { trpc } from "medior/utils/server";
+import { rpc } from "medior/utils/server";
 
 export const OperationControls = Comp(({ operation }: { operation: BackgroundOperationSchema }) => {
   const stores = useStores();
@@ -17,7 +17,7 @@ export const OperationControls = Comp(({ operation }: { operation: BackgroundOpe
     setIsRemoving(true);
 
     try {
-      const result = await trpc.deleteFileTransforms.mutate({
+      const result = await rpc.deleteFileTransforms({
         ids: operation.failures.map((failure) => failure.targetId),
         retainMedia: true,
       });
@@ -40,7 +40,7 @@ export const OperationControls = Comp(({ operation }: { operation: BackgroundOpe
   const handleCancel = () => store.cancelBackgroundOperation(operation.id);
 
   const handleDismiss = async () => {
-    const result = await trpc.dismissBackgroundOperation.mutate({ id: operation.id });
+    const result = await rpc.dismissBackgroundOperation({ id: operation.id });
 
     if (!result.success) return toast.error(result.error);
 

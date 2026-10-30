@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Button, Comp, Icon, IconName, ProgressCircle, Text, View } from "medior/components";
 import { colors, CssColor, useCancellableLoad } from "medior/utils/client";
 import { Fmt } from "medior/utils/common";
-import { getIsVideo, trpc } from "medior/utils/server";
+import { getIsVideo, rpc } from "medior/utils/server";
 
 export interface SelectedFilesInfoProps {
   isLoading: boolean;
@@ -84,7 +84,7 @@ export const useFileInfo = () => {
 
   const loadFileInfo = (fileIds: string[]) =>
     load.run(async (signal) => {
-      const res = await trpc.listFile.mutate({ args: { filter: { id: fileIds } } }, { signal });
+      const res = await rpc.listFile({ args: { filter: { id: fileIds } } }, { signal });
 
       signal.throwIfAborted();
 

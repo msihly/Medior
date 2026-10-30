@@ -12,7 +12,7 @@ import {
 import { File, RootStore } from "medior/store";
 import { asyncAction, makeQueue, toast } from "medior/utils/client";
 import { PromiseQueue } from "medior/utils/common";
-import { getIsImage, trpc } from "medior/utils/server";
+import { getIsImage, rpc } from "medior/utils/server";
 import { FaceModel } from ".";
 
 // const DISTANCE_THRESHOLD = 0.45;
@@ -71,7 +71,7 @@ export class FaceRecognitionStore extends Model({
     this.setIsPreparingAutoDetect(true);
 
     try {
-      const filesRes = await trpc.listFile.mutate(
+      const filesRes = await rpc.listFile(
         { args: { filter: { id: fileIds } } },
         { signal: controller.signal },
       );
@@ -136,7 +136,7 @@ export class FaceRecognitionStore extends Model({
 
   @modelFlow
   detectFaces = asyncAction(async (imagePath: string) => {
-    const res = await trpc.detectFaces.mutate({ imagePath });
+    const res = await rpc.detectFaces({ imagePath });
 
     if (!res.success) throw new Error(res.error);
 
@@ -194,7 +194,7 @@ export class FaceRecognitionStore extends Model({
 
   @modelFlow
   init = asyncAction(async () => {
-    const netsRes = await trpc.loadFaceApiNets.mutate();
+    const netsRes = await rpc.loadFaceApiNets();
 
     if (!netsRes.success) throw new Error(netsRes.error);
 
@@ -212,7 +212,7 @@ export class FaceRecognitionStore extends Model({
         withOverwrite: true,
       },
     ) => {
-      const res = await trpc.listFaceModels.mutate({ ids: fileIds });
+      const res = await rpc.listFaceModels({ ids: fileIds });
 
       if (!res.success) throw new Error(res.error);
 
@@ -240,7 +240,7 @@ export class FaceRecognitionStore extends Model({
           tagId: f.selectedTag?.id ?? f.tagId,
         }));
 
-      const res = await trpc.setFileFaceModels.mutate({ faceModels, id: file.id });
+      const res = await rpc.setFileFaceModels({ faceModels, id: file.id });
 
       if (!res.success) throw new Error(res.error);
 

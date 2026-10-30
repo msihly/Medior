@@ -18,7 +18,7 @@ import {
 import { File, FileCollection as FileCollectionModel, useStores } from "medior/store";
 import { colors, derefMobx, toast } from "medior/utils/client";
 import { makeTagSelector } from "medior/utils/common";
-import { trpc } from "medior/utils/server";
+import { rpc } from "medior/utils/server";
 import { useCollectionMerge } from "./hooks";
 
 interface RelatedCollection {
@@ -143,7 +143,7 @@ export const RelatedCollectionsQueue = Comp(({ onClose }: RelatedCollectionsQueu
     try {
       setIsLoading(true);
 
-      const collectionRes = await trpc.listFileCollection.mutate({
+      const collectionRes = await rpc.listFileCollection({
         args: { filter: { id: ids } },
       });
 
@@ -156,7 +156,7 @@ export const RelatedCollectionsQueue = Comp(({ onClose }: RelatedCollectionsQueu
       );
 
       const nextCollections = ids.map((id) => new FileCollectionModel(collectionById.get(id)));
-      const tagsRes = await trpc.listTag.mutate({
+      const tagsRes = await rpc.listTag({
         filter: { id: [...new Set(nextCollections.flatMap(({ tagIds }) => tagIds))] },
       });
 
@@ -168,7 +168,7 @@ export const RelatedCollectionsQueue = Comp(({ onClose }: RelatedCollectionsQueu
 
       nextCollections.forEach((collection) => collection.setTags(selectTags(collection.tagIds)));
 
-      const filesRes = await trpc.listFile.mutate({
+      const filesRes = await rpc.listFile({
         args: {
           filter: { id: [...new Set(nextCollections.flatMap(({ previewIds }) => previewIds))] },
         },
@@ -199,7 +199,7 @@ export const RelatedCollectionsQueue = Comp(({ onClose }: RelatedCollectionsQueu
       setIsLoading(true);
       setLookupError("");
 
-      const res = await trpc.findRelatedCollectionGroups.mutate({
+      const res = await rpc.findRelatedCollectionGroups({
         ids: managerSelectedIds.current.length ? managerSelectedIds.current : undefined,
         includeFileOverlap,
         includeOriginalFolder,

@@ -11,7 +11,7 @@ import {
 } from "mobx-keystone";
 import { asyncAction, toast } from "medior/utils/client";
 import { chunkArray } from "medior/utils/common";
-import { trpc } from "medior/utils/server";
+import { rpc } from "medior/utils/server";
 import { FileImport } from "./file-import";
 import { ImportEditorStore } from "./import-editor-store";
 
@@ -43,13 +43,13 @@ export class Reingester extends ExtendedModel(ImportEditorStore, {
   @modelFlow
   loadFolder = asyncAction(async () => {
     const cancelToken = this.ingestCancelToken;
-    const files: Awaited<ReturnType<typeof trpc.listFileReingestMetadata.mutate>>["data"] = [];
+    const files: Awaited<ReturnType<typeof rpc.listFileReingestMetadata>>["data"] = [];
 
     this.setIsInitDone(false);
 
     while (this.folderFileIds.length && !files.length) {
       for (const fileIds of chunkArray(this.curFolderFileIds, 1000)) {
-        const res = await trpc.listFileReingestMetadata.mutate({ fileIds });
+        const res = await rpc.listFileReingestMetadata({ fileIds });
 
         if (cancelToken !== this.ingestCancelToken) return;
 
@@ -112,7 +112,7 @@ export class Reingester extends ExtendedModel(ImportEditorStore, {
       });
     }
 
-    const res = await trpc.reingestFolder.mutate({
+    const res = await rpc.reingestFolder({
       collectionTitle: this.getCurFolder().collectionTitle,
       fileTagIds,
     });

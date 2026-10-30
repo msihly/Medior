@@ -61,9 +61,7 @@ export const FILE_DEF_ACTIONS: FileDef = {
 export const FILE_DEF_ENDPOINTS: FileDef = {
   name: "endpoints",
   makeFile: async () => {
-    const makeImports = () =>
-      `import { initTRPC } from "@trpc/server";
-      import * as db from "medior/server/database/actions";`;
+    const makeImports = () => `import * as db from "medior/server/database/actions";`;
 
     return `${makeImports()}\n${await makeServerRouter()}`;
   },

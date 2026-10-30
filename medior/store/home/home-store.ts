@@ -5,7 +5,7 @@ import type { JobState, JobType } from "medior/server/database";
 import { SettingsStore } from "medior/store";
 import { asyncAction, derefMobx } from "medior/utils/client";
 import { isDeepEqual } from "medior/utils/common";
-import { getConfig, trpc } from "medior/utils/server";
+import { getConfig, rpc } from "medior/utils/server";
 
 const hasOperationAction = (operation: BackgroundOperationSchema) =>
   ["PENDING", "RUNNING", "CANCELLED", "ERROR"].includes(operation.status);
@@ -180,7 +180,7 @@ export class HomeStore extends Model({
   cancelBackgroundOperation = asyncAction(async (id: string) => {
     this.activityLoadRevision++;
 
-    const res = await trpc.cancelBackgroundOperation.mutate({ id });
+    const res = await rpc.cancelBackgroundOperation({ id });
 
     if (!res.success) throw new Error(res.error);
 
@@ -196,7 +196,7 @@ export class HomeStore extends Model({
 
       const notificationRevision = this.notificationRevision;
       const revision = ++this.activityLoadRevision;
-      const res = await trpc.listBackgroundActivity.mutate();
+      const res = await rpc.listBackgroundActivity();
 
       if (!res.success) throw new Error(res.error);
 
@@ -247,7 +247,7 @@ export class HomeStore extends Model({
       ...this.jobWaiters.keys(),
     ]);
 
-    const res = await trpc.listJobs.mutate();
+    const res = await rpc.listJobs();
     if (!res.success) throw new Error(res.error);
 
     const finishedById = new Map(res.data.finished.map((job) => [job.id, job]));
@@ -283,7 +283,7 @@ export class HomeStore extends Model({
 
     if (!ids.length) return;
 
-    const res = await trpc.markNotificationsRead.mutate({ ids });
+    const res = await rpc.markNotificationsRead({ ids });
 
     if (!res.success) throw new Error(res.error);
 
@@ -292,7 +292,7 @@ export class HomeStore extends Model({
 
   @modelFlow
   retryBackgroundOperation = asyncAction(async (id: string) => {
-    const res = await trpc.retryBackgroundOperation.mutate({ id });
+    const res = await rpc.retryBackgroundOperation({ id });
 
     if (!res.success) throw new Error(res.error);
 
@@ -301,7 +301,7 @@ export class HomeStore extends Model({
 
   @modelFlow
   stopJob = asyncAction(async (id: string) => {
-    const res = await trpc.stopJob.mutate({ id });
+    const res = await rpc.stopJob({ id });
     if (!res.success) throw new Error(res.error);
   });
 

@@ -19,7 +19,7 @@ import {
 import { File, useStores } from "medior/store";
 import { colors, useCancellableLoad } from "medior/utils/client";
 import { Fmt, round } from "medior/utils/common";
-import { trpc } from "medior/utils/server";
+import { rpc } from "medior/utils/server";
 
 export const InfoModal = Comp(() => {
   const stores = useStores();
@@ -50,7 +50,7 @@ export const InfoModal = Comp(() => {
 
   const loadFile = () =>
     load.run(async (signal) => {
-      const fileRes = await trpc.listFile.mutate(
+      const fileRes = await rpc.listFile(
         { args: { filter: { id: store.activeFileId } } },
         { signal },
       );
@@ -63,7 +63,7 @@ export const InfoModal = Comp(() => {
 
       if (!fileSchema) throw new Error("File no longer exists");
 
-      const tagsRes = await trpc.listTag.mutate({ filter: { id: fileSchema.tagIds } }, { signal });
+      const tagsRes = await rpc.listTag({ filter: { id: fileSchema.tagIds } }, { signal });
 
       signal.throwIfAborted();
 

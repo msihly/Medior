@@ -6,7 +6,7 @@ import { SortValue } from "medior/store/_generated";
 import type { SpliceMode } from "medior/server/database";
 import { asyncAction, derefMobx, openCarouselWindow, toast } from "medior/utils/client";
 import { dayjs, Fmt, TaskProgress, uuid } from "medior/utils/common";
-import { ReencodeCandidateType, trpc } from "medior/utils/server";
+import { ReencodeCandidateType, rpc } from "medior/utils/server";
 import { File, FileTransform, FileTransformSearch } from ".";
 
 export type FileTransformType = "reencode" | "remux" | "splice";
@@ -214,7 +214,7 @@ export class VideoTransformerStore extends Model({
     // The search's result is ignored from here, even when it arrives before the cancel does.
     this.setCandidateLookupId(null);
 
-    const res = await trpc.cancelReencodeCandidateSearch.mutate({ lookupId });
+    const res = await rpc.cancelReencodeCandidateSearch({ lookupId });
     if (!res.success) throw new Error(res.error);
   });
 
@@ -248,7 +248,7 @@ export class VideoTransformerStore extends Model({
     this.setIsUpdating(true);
 
     try {
-      const res = await trpc.createFileTransforms.mutate({
+      const res = await rpc.createFileTransforms({
         fileIds: this.fileIds,
         sortValue: this.sourceSortValue,
         spliceMode: isSplice ? this.spliceMode : undefined,
@@ -291,7 +291,7 @@ export class VideoTransformerStore extends Model({
       this.activeTransform && ids.includes(this.activeTransform.id),
     );
 
-    const res = await trpc.deleteFileTransforms.mutate({ ids });
+    const res = await rpc.deleteFileTransforms({ ids });
 
     if (!res.success) throw new Error(res.error);
 
@@ -308,7 +308,7 @@ export class VideoTransformerStore extends Model({
   @modelFlow
   getTransformerStatus = asyncAction(async () => {
     const loadId = ++this.transformerStatusLoadId;
-    const res = await trpc.getFileTransformerStatus.mutate();
+    const res = await rpc.getFileTransformerStatus();
 
     if (loadId !== this.transformerStatusLoadId) return;
 
@@ -334,7 +334,7 @@ export class VideoTransformerStore extends Model({
       if (!isBackground) this.setIsLoading(true);
 
       try {
-        const res = await trpc.getActiveFileTransform.mutate({ id, type: this.queueType });
+        const res = await rpc.getActiveFileTransform({ id, type: this.queueType });
         if (loadId !== this.activeTransformLoadId) return;
         if (!res.success) throw new Error(res.error);
 
@@ -400,7 +400,7 @@ export class VideoTransformerStore extends Model({
   @modelFlow
   loadQueueCount = asyncAction(async () => {
     const loadId = ++this.queueCountLoadId;
-    const res = await trpc.getFileTransformQueueCount.mutate({ type: this.queueType });
+    const res = await rpc.getFileTransformQueueCount({ type: this.queueType });
 
     if (loadId !== this.queueCountLoadId) return;
 
@@ -425,7 +425,7 @@ export class VideoTransformerStore extends Model({
     }
 
     try {
-      const res = await trpc.listFileTransformSizeHistory.mutate({
+      const res = await rpc.listFileTransformSizeHistory({
         since:
           lastDate ?? (rangeDays ? dayjs().subtract(rangeDays, "day").toISOString() : undefined),
         type: this.queueType,
@@ -461,7 +461,7 @@ export class VideoTransformerStore extends Model({
     this.setCandidateProgress({ message: "Finding files to re-encode." });
 
     try {
-      const res = await trpc.listReencodeCandidateIds.mutate({ lookupId, types });
+      const res = await rpc.listReencodeCandidateIds({ lookupId, types });
       if (this.candidateLookupId !== lookupId) return null;
       if (!res.success) throw new Error(res.error);
       if (!res.data.length) throw new Error("No qualifying files to add");
@@ -502,7 +502,7 @@ export class VideoTransformerStore extends Model({
   @modelFlow
   removeFilesFromQueue = asyncAction(async (fileIds: string[]) => {
     const fileIdSet = new Set(fileIds);
-    const res = await trpc.deleteFileTransformsByFileIds.mutate({ fileIds });
+    const res = await rpc.deleteFileTransformsByFileIds({ fileIds });
 
     if (!res.success) throw new Error(res.error);
 
@@ -524,12 +524,12 @@ export class VideoTransformerStore extends Model({
     this.setIsUpdating(true);
 
     try {
-      const res = await trpc.replaceFileTransformOutput.mutate({ id });
+      const res = await rpc.replaceFileTransformOutput({ id });
 
       if (!res.success) throw new Error(res.error);
 
       if (res.data.status === "DUPLICATE") {
-        const mergeRes = await trpc.mergeFileTransformDuplicate.mutate({ id });
+        const mergeRes = await rpc.mergeFileTransformDuplicate({ id });
 
         if (!mergeRes.success) throw new Error(mergeRes.error);
 
@@ -578,10 +578,7 @@ export class VideoTransformerStore extends Model({
     this.setIsUpdating(true);
 
     try {
-      const res = await trpc.runFileTransform.mutate({
-        id,
-        isAuto: withAuto ? this.isAuto : undefined,
-      });
+      const res = await rpc.runFileTransform({ id, isAuto: withAuto ? this.isAuto : undefined });
 
       if (!res.success) throw new Error(res.error);
 
@@ -610,10 +607,7 @@ export class VideoTransformerStore extends Model({
     this.setIsUpdating(true);
 
     try {
-      const res = await trpc.runFileTransformer.mutate({
-        isAuto: this.isAuto,
-        type: this.queueType,
-      });
+      const res = await rpc.runFileTransformer({ isAuto: this.isAuto, type: this.queueType });
 
       if (!res.success) throw new Error(res.error);
 
@@ -640,7 +634,7 @@ export class VideoTransformerStore extends Model({
     this.setIsUpdating(true);
 
     try {
-      const res = await trpc.saveFileTransformCopy.mutate({ id });
+      const res = await rpc.saveFileTransformCopy({ id });
 
       if (!res.success) throw new Error(res.error);
 
@@ -659,7 +653,7 @@ export class VideoTransformerStore extends Model({
     this.transformerStatusLoadId++;
     this.setIsAuto(isAuto);
 
-    const res = await trpc.setFileTransformerAuto.mutate({ isAuto });
+    const res = await rpc.setFileTransformerAuto({ isAuto });
 
     if (!res.success) throw new Error(res.error);
   });
@@ -676,7 +670,7 @@ export class VideoTransformerStore extends Model({
       this.setIsUpdating(true);
 
       try {
-        const res = await trpc.pauseFileTransformer.mutate();
+        const res = await rpc.pauseFileTransformer();
 
         if (!res.success) throw new Error(res.error);
 

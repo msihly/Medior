@@ -2,7 +2,7 @@ import { ipcRenderer } from "electron";
 import { ReactNode, useEffect, useState } from "react";
 import { Text, View } from "medior/components";
 import { colors, ToastContainer } from "medior/utils/client";
-import { loadConfig, setupTRPC } from "medior/utils/server";
+import { loadConfig, setupRpc } from "medior/utils/server";
 import { Views } from "medior/views";
 import { RuntimeSync } from "./runtime-sync";
 import "trabecula/css/react-toastify.css";
@@ -21,7 +21,7 @@ export const AppWrapper = ({ children }: AppWrapperProps) => {
     (async () => {
       try {
         await loadConfig(await ipcRenderer.invoke("getConfigPath"));
-        setupTRPC();
+        setupRpc();
       } catch (err) {
         console.error(err);
         setError(err?.message ?? String(err));

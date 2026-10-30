@@ -12,7 +12,7 @@ import {
 } from "medior/components";
 import { useStores } from "medior/store";
 import { colors, toast } from "medior/utils/client";
-import { trpc } from "medior/utils/server";
+import { rpc } from "medior/utils/server";
 import { CarouselWindow } from "medior/views";
 
 const TRIAGE_QUEUE_PAGE_SIZE = 1000;
@@ -65,7 +65,7 @@ export const CollectionTriager = Comp(() => {
       let page = 1;
 
       while (!disposed.current) {
-        const res = await trpc.listFilteredFileCollection.mutate({
+        const res = await rpc.listFilteredFileCollection({
           ...filters,
           page,
           pageSize: TRIAGE_QUEUE_PAGE_SIZE,

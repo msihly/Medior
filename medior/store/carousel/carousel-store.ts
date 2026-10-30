@@ -8,7 +8,7 @@ import { SliderMark } from "medior/components";
 import { RootStore, Splicer } from "medior/store";
 import { asyncAction, derefMobx, openCarouselWindow, toast } from "medior/utils/client";
 import { Fmt, SubtitleSegment, TEXT_SUBTITLE_CODECS } from "medior/utils/common";
-import { trpc } from "medior/utils/server";
+import { rpc } from "medior/utils/server";
 import { probeSubtitleStreams, readSubtitleSegments } from "medior/utils/server/subtitles";
 import { extractVideoFrame, videoTranscoder } from "medior/utils/server/videos";
 
@@ -213,7 +213,7 @@ export class CarouselStore extends Model({
     this.setIsEditingImage(true);
 
     try {
-      const result = await trpc.editImage.mutate(args);
+      const result = await rpc.editImage(args);
 
       if (!result.success) throw new Error(result.error);
 
@@ -266,7 +266,7 @@ export class CarouselStore extends Model({
       controller.signal.throwIfAborted();
       this.setIsSavingFrame(true);
 
-      const res = await trpc.importMediaFile.mutate({
+      const res = await rpc.importMediaFile({
         deleteOnImport: true,
         ext: "jpg",
         ignorePrevDeleted: false,
@@ -401,7 +401,7 @@ export class CarouselStore extends Model({
     this.watchedFileIds.add(activeFile.id);
 
     try {
-      const res = await trpc.markFileWatched.mutate({ fileId: activeFile.id });
+      const res = await rpc.markFileWatched({ fileId: activeFile.id });
 
       if (!res.success) throw new Error(res.error);
     } catch (error) {

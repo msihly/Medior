@@ -20,7 +20,7 @@ import {
   persistenceCollection,
   PersistenceModel,
 } from "medior/server/database/persistence";
-import { socket } from "medior/utils/server/trpc";
+import { socket } from "medior/utils/server/rpc";
 
 interface StoredRecord {
   _id: any;

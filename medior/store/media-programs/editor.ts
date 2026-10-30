@@ -4,7 +4,7 @@ import { Model, model, modelAction, ModelCreationData, modelFlow, prop } from "m
 import { FileCollection, FileSearch, TagOption, tagToOption } from "medior/store";
 import { asyncAction, openCarouselWindow } from "medior/utils/client";
 import { makeTagSelector } from "medior/utils/common";
-import { trpc } from "medior/utils/server";
+import { rpc } from "medior/utils/server";
 import { MediaProgram } from ".";
 
 type MediaProgramDraft = Pick<
@@ -141,7 +141,7 @@ export class MediaProgramEditorStore extends Model({
     this.setIsLoading(true);
 
     try {
-      const res = await trpc.listMediaProgram.mutate({ args: { filter: { id } } });
+      const res = await rpc.listMediaProgram({ args: { filter: { id } } });
       if (revision !== this.loadRevision) return false;
       if (!res.success) throw new Error(res.error);
 
@@ -149,10 +149,10 @@ export class MediaProgramEditorStore extends Model({
       if (!program) throw new Error("Media program no longer exists.");
 
       const [collectionsRes, tagsRes] = await Promise.all([
-        trpc.listFileCollection.mutate({
+        rpc.listFileCollection({
           args: { filter: { id: program.collectionIdIndexes.map((c) => c.collectionId) } },
         }),
-        trpc.listTag.mutate({ filter: { id: [...program.genreIds, ...program.tagIds] } }),
+        rpc.listTag({ filter: { id: [...program.genreIds, ...program.tagIds] } }),
       ]);
 
       if (revision !== this.loadRevision) return false;
@@ -222,7 +222,7 @@ export class MediaProgramEditorStore extends Model({
 
     if (!activeId) throw new Error("This program has no episodes.");
 
-    const res = await trpc.listFile.mutate({ args: { filter: { id: activeId } } });
+    const res = await rpc.listFile({ args: { filter: { id: activeId } } });
 
     if (!res.success) throw new Error(res.error);
 
@@ -248,7 +248,7 @@ export class MediaProgramEditorStore extends Model({
     this.setIsSaving(true);
 
     try {
-      const res = await trpc.updateMediaProgram.mutate({
+      const res = await rpc.updateMediaProgram({
         id: this.program.id,
         updates: {
           genreIds: this.genres.map((genre) => genre.id),
@@ -275,7 +275,7 @@ export class MediaProgramEditorStore extends Model({
     this.setIsSaving(true);
 
     try {
-      const res = await trpc.updateMediaProgram.mutate({
+      const res = await rpc.updateMediaProgram({
         id: this.program.id,
         updates: { collectionIdIndexes },
       });
@@ -291,7 +291,7 @@ export class MediaProgramEditorStore extends Model({
   @modelFlow
   setEpisodesWatched = asyncAction(
     async ({ fileIds, isWatched }: { fileIds: string[]; isWatched: boolean }) => {
-      const res = await trpc.setMediaProgramEpisodesWatched.mutate({
+      const res = await rpc.setMediaProgramEpisodesWatched({
         fileIds,
         id: this.program.id,
         isWatched,
@@ -315,7 +315,7 @@ export class MediaProgramEditorStore extends Model({
     );
     const collectionIds = collectionIdIndexes.map(({ collectionId }) => collectionId);
     const res = collectionIds.length
-      ? await trpc.listFileCollection.mutate({ args: { filter: { id: collectionIds } } })
+      ? await rpc.listFileCollection({ args: { filter: { id: collectionIds } } })
       : null;
 
     if (revision !== this.loadRevision) return;

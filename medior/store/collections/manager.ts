@@ -2,7 +2,7 @@ import autoBind from "auto-bind";
 import { getRootStore, Model, model, modelAction, modelFlow, prop } from "mobx-keystone";
 import { File, RootStore } from "medior/store";
 import { asyncAction } from "medior/utils/client";
-import { trpc } from "medior/utils/server";
+import { rpc } from "medior/utils/server";
 import { FileCollection, FileCollectionSearch } from ".";
 
 export const SELECTED_FILES_PAGE_SIZE = 3;
@@ -55,7 +55,7 @@ export class CollectionManager extends Model({
   /* ------------------------------ ASYNC ACTIONS ----------------------------- */
   @modelFlow
   loadCurrentCollections = asyncAction(async (signal: AbortSignal) => {
-    const res = await trpc.listFileSelectionCollections.mutate(
+    const res = await rpc.listFileSelectionCollections(
       { fileIds: this.selectedFileIds, page: this.currentCollectionsPage },
       { signal },
     );
@@ -70,7 +70,7 @@ export class CollectionManager extends Model({
 
   @modelFlow
   loadFiles = asyncAction(async (signal: AbortSignal) => {
-    const res = await trpc.listFile.mutate(
+    const res = await rpc.listFile(
       {
         args: {
           filter: {

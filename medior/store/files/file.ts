@@ -14,7 +14,7 @@ import {
 import { _File } from "medior/store/_generated";
 import { asyncAction, reloadItemTags } from "medior/utils/client";
 import { CONSTANTS, dayjs, WebVideoCodec, WebVideoExt } from "medior/utils/common";
-import { getIsVideo, trpc } from "medior/utils/server";
+import { getIsVideo, rpc } from "medior/utils/server";
 
 const WEB_AUDIO_CODECS: Record<string, string> = {
   aac: "mp4a.40.2",
@@ -71,7 +71,7 @@ export class File extends ExtendedModel(_File, {
   /* ------------------------------ ASYNC ACTIONS ----------------------------- */
   @modelFlow
   reload = asyncAction(async () => {
-    const res = await trpc.listFile.mutate({ args: { filter: { id: this.id } } });
+    const res = await rpc.listFile({ args: { filter: { id: this.id } } });
 
     if (!res.success) throw new Error(res.error);
 

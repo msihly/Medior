@@ -17,7 +17,7 @@ import type { TagToUpsert } from "medior/components";
 import type { RootStore } from "medior/store";
 import { asyncAction } from "medior/utils/client";
 import { IMPORT_PAGE_SIZE } from "medior/utils/common";
-import { trpc } from "medior/utils/server";
+import { rpc } from "medior/utils/server";
 import { FileImport } from ".";
 
 type ImportUpdate = Parameters<SocketEvents["onFileImportUpdated"]>[0];
@@ -109,7 +109,7 @@ export class FileImportBatch extends ExtendedModel(_FileImportBatch, {
     this.setLoadError(null);
 
     try {
-      const result = await trpc.getImportBatchEntries.mutate({
+      const result = await rpc.getImportBatchEntries({
         id: this.id,
         page,
         statuses: this.statuses,

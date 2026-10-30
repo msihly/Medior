@@ -19,7 +19,7 @@ import {
 import { FileImport } from "medior/store";
 import { colors, CssColor, makeClasses, openCarouselWindow, toast } from "medior/utils/client";
 import { CONSTANTS, Fmt, parseDiffParams } from "medior/utils/common";
-import { trpc } from "medior/utils/server";
+import { rpc } from "medior/utils/server";
 import { IMPORT_CHIP_STYLE, TooltipChip } from "./tooltip-chip";
 
 export const IMPORT_LIST_ITEM_HEIGHT = 30;
@@ -49,7 +49,7 @@ export const ImportListItem = Comp(
 
     const handleOpen = async () => {
       try {
-        const res = await trpc.listTag.mutate({ filter: { id: fileImport.tagIds } });
+        const res = await rpc.listTag({ filter: { id: fileImport.tagIds } });
         if (!res.success) throw new Error(res.error);
 
         setTags(res.data);
@@ -63,7 +63,7 @@ export const ImportListItem = Comp(
       setIsOpening(true);
 
       try {
-        const res = await trpc.listFile.mutate({ args: { filter: { id: fileImport.fileId } } });
+        const res = await rpc.listFile({ args: { filter: { id: fileImport.fileId } } });
 
         if (!res.success) throw new Error(res.error);
 
