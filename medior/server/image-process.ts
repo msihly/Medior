@@ -4,11 +4,11 @@ import { sharp } from "medior/utils/server/images";
 import { registerNativeWorker } from "medior/utils/server/native-worker";
 
 registerNativeWorker(async (task: ImageTask) => {
-  let image = sharp(task.input, task.options, task.concurrency);
+  const image = sharp(task.input, task.options, task.concurrency);
 
   const metadata = await image.metadata();
 
-  if (task.preview || task.edit) {
+  if (task.preview || task.edit || task.upright) {
     const swapsAxes = metadata.orientation >= 5 && metadata.orientation <= 8;
 
     if (swapsAxes) [metadata.width, metadata.height] = [metadata.height, metadata.width];
@@ -18,14 +18,7 @@ registerNativeWorker(async (task: ImageTask) => {
   }
 
   if (task.edit?.crop) image.extract(task.edit.crop);
-  else if (task.edit?.rotation) {
-    // Sharp permits one rotation per pipeline; normalize orientation without an encoded copy.
-    const oriented = await image.raw().toBuffer({ resolveWithObject: true });
-
-    image = sharp(oriented.data, { raw: oriented.info }, task.concurrency).rotate(
-      task.edit.rotation,
-    );
-  }
+  else if (task.edit?.rotation) image.rotate(task.edit.rotation);
 
   if (task.grayscale) {
     const decoded = await image
@@ -84,8 +77,9 @@ registerNativeWorker(async (task: ImageTask) => {
 
     if (task.composite) image.composite(task.composite);
 
-    if (task.format === "jpg" || task.format === "jpeg") image.jpeg({ quality: task.quality });
-    else if (task.format) image.toFormat(task.format, { quality: task.quality });
+    // A quality quantises PNG output to a palette, so PNGs stay lossless without one.
+    if (task.format)
+      image.toFormat(task.format, task.format === "png" ? {} : { quality: task.quality });
 
     const output = task.outputPath ? await image.toFile(task.outputPath) : undefined;
 

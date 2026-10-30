@@ -421,6 +421,7 @@ const compressImage = async (inputPath: string, outputDir: string, options?: Ffm
         options: { failOn: "none" },
         outputPath: tempPath,
         quality: imageJpgQuality,
+        upright: true,
       },
       options?.signal,
     );

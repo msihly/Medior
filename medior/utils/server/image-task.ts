@@ -30,6 +30,8 @@ export interface ImageTask {
   resize?: ResizeOptions;
   /** Decodes the upright image to sRGB colour at exactly this size. */
   rgb?: { height: number; width: number };
+  /** Writes the image upright, sizing it by its oriented dimensions. */
+  upright?: boolean;
   visualSize?: number;
 }
 
