@@ -5,6 +5,9 @@ type NotificationType = "error" | "info" | "success" | "warning";
 
 type ToastContent = Parameters<typeof baseToast.info>[0];
 
+/** Toasts also take errors, which they show by message. */
+type ToastInput = ToastContent | Error;
+
 type ToastOptions = Parameters<typeof baseToast.info>[1];
 
 const pendingNotifications: Array<{
@@ -34,7 +37,7 @@ const saveNotificationHistory = () => {
   return notificationSavePromise;
 };
 
-export const persistNotification = (content: ToastContent, type: NotificationType) => {
+export const persistNotification = (content: ToastInput, type: NotificationType) => {
   pendingNotifications.push({ message: (content as Error)?.message ?? String(content), type });
   saveNotificationHistory();
 };
@@ -46,18 +49,17 @@ const toastByType = {
   warning: baseToast.warn,
 };
 
-const showToast = (content: ToastContent, options: ToastOptions, type: NotificationType) => {
+const showToast = (content: ToastInput, options: ToastOptions, type: NotificationType) => {
   persistNotification(content, type);
 
   // Toasts can't render errors themselves, so they show the error's message.
-  return toastByType[type]((content as Error)?.message ?? content, options);
+  return toastByType[type]((content as Error)?.message ?? (content as ToastContent), options);
 };
 
 export const toast = {
   ...baseToast,
-  error: (content: ToastContent, options?: ToastOptions) => showToast(content, options, "error"),
-  info: (content: ToastContent, options?: ToastOptions) => showToast(content, options, "info"),
-  success: (content: ToastContent, options?: ToastOptions) =>
-    showToast(content, options, "success"),
-  warn: (content: ToastContent, options?: ToastOptions) => showToast(content, options, "warning"),
-} as typeof baseToast;
+  error: (content: ToastInput, options?: ToastOptions) => showToast(content, options, "error"),
+  info: (content: ToastInput, options?: ToastOptions) => showToast(content, options, "info"),
+  success: (content: ToastInput, options?: ToastOptions) => showToast(content, options, "success"),
+  warn: (content: ToastInput, options?: ToastOptions) => showToast(content, options, "warning"),
+};

@@ -8,7 +8,7 @@ export const StoreProvider = ({ children }: { children: React.ReactNode }) => {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    rootStore = createRootStore();
+    rootStore ??= createRootStore();
     setIsLoading(false);
   }, []);
 

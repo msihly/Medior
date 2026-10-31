@@ -116,7 +116,7 @@ export class CarouselStore extends Model({
   }
 
   @modelAction
-  handleTranscodeError(error: unknown) {
+  handleTranscodeError(error: Error) {
     this.setIsWaitingForFrames(false);
     this.setIsPlaying(false);
     this.setMediaSourceUrl(null);

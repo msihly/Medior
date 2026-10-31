@@ -43,7 +43,8 @@ const TAG_SEARCH_META: {
   },
 };
 
-export interface TagInputRowProps extends Omit<MultiInputRowProps<TagOption>, "value"> {
+export interface TagInputRowProps
+  extends Omit<MultiInputRowProps<TagOption>, "rightNode" | "value"> {
   hasEditor?: boolean;
   hasSearchMenu?: boolean;
   rightNode?: (tag: TagOption) => ReactNode;

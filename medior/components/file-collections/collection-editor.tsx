@@ -70,6 +70,9 @@ export const FileCollectionEditor = Comp(
 
     useEffect(() => {
       return () => {
+        // The modal editor cleans up when it closes; StrictMode's simulated unmount keeps its load.
+        if (store.isOpen) return;
+
         store.cancelLoad();
         store.search.reset();
         store.fileSearch.reset();

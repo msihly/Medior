@@ -46,10 +46,6 @@ export const MediaProgramEditor = Comp(() => {
   const pageOffset = (store.search.page - 1) * store.search.pageSize;
 
   useEffect(() => {
-    return () => store.cancelLoad();
-  }, []);
-
-  useEffect(() => {
     episodesRef.current?.scrollTo({ behavior: "instant", top: 0 });
   }, [store.activeSeasonId, store.search.page]);
 
