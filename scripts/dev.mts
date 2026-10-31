@@ -1,8 +1,7 @@
 import { ChildProcess, spawn } from "child_process";
 import { createRequire } from "module";
-import type { RollupWatcher } from "rollup";
 import { ownProcessTree, PROCESS_SHUTDOWN_TIMEOUT_MS } from "trabecula/utils/process";
-import { build, createServer, ViteDevServer } from "vite";
+import { build, createServer, Rolldown, ViteDevServer } from "vite";
 
 ownProcessTree();
 
@@ -11,7 +10,7 @@ let relaunch = false;
 let server: ViteDevServer;
 let shutdown: Promise<void>;
 let stopping = false;
-let watcher: RollupWatcher;
+let watcher: Rolldown.RolldownWatcher;
 
 const stop = () => {
   stopping = true;
@@ -102,14 +101,14 @@ process.on("SIGTERM", stop);
 
 (async () => {
   if (process.argv.includes("hmr")) {
-    server = await createServer({ configFile: "vite.config.hmr.ts" });
+    server = await createServer({ configFile: "vite.config.hmr.mts" });
     await server.listen();
     launch();
   } else {
     watcher = (await build({
-      configFile: "vite.config.watch.ts",
+      configFile: "vite.config.watch.mts",
       mode: "development",
-    })) as RollupWatcher;
+    })) as Rolldown.RolldownWatcher;
 
     watcher.on("event", (event) => {
       if (event.code === "BUNDLE_END") launch();

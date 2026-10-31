@@ -1,21 +1,15 @@
 import { defineConfig } from "vite";
 import pluginReact from "@vitejs/plugin-react";
-// @ts-expect-error
 import pluginRenderer from "vite-plugin-electron-renderer";
-import pluginSVGR from "vite-plugin-svgr";
-import pluginTsconfigPaths from "vite-tsconfig-paths";
 
 const EXTERNALS = [
   "@huggingface/transformers",
   "aws-sdk",
-  "crypto",
   "fdir",
   "fluent-ffmpeg",
-  "fs",
   "mock-aws-s3",
   "mongoose",
   "nock",
-  "path",
   "sharp",
   "trash",
 ];
@@ -23,17 +17,17 @@ const EXTERNALS = [
 export default defineConfig({
   build: {
     outDir: "build",
-    rollupOptions: { input: { app: "./index.hmr.html" } },
+    rolldownOptions: { input: { app: "./index.hmr.html" } },
   },
-  optimizeDeps: { exclude: EXTERNALS },
   plugins: [
     pluginReact(),
-    pluginRenderer({ nodeIntegration: true, resolve: () => EXTERNALS }),
-    pluginSVGR(),
-    pluginTsconfigPaths(),
+    pluginRenderer({
+      resolve: Object.fromEntries(EXTERNALS.map((name) => [name, { type: "cjs" as const }])),
+    }),
   ],
   resolve: {
     extensions: [".tsx", ".ts", ".jsx", ".js", ".mjs", ".mts", ".json"],
+    tsconfigPaths: true,
   },
   server: {
     open: "./index.hmr.html",

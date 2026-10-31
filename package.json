@@ -19,11 +19,11 @@
     "check": "pnpm run ts-check && pnpm run lint && pnpm run prettier",
     "check-fix": "pnpm run lint-fix && pnpm run prettier-fix",
     "copy-files": "copyfiles extraResources/**/* build",
-    "dev": "SET BUILD_DEV=true&& pnpm run pre-build && tsx scripts/dev.ts",
+    "dev": "SET BUILD_DEV=true&& pnpm run pre-build && tsx scripts/dev.mts",
     "dist": "rimraf build dist extraResources && pnpm run build && pnpm run electron-build && copyfiles config.json dist/win-unpacked",
     "electron-build": "electron-builder build --dir --win --publish never",
     "gen": "tsx medior/generator/generator.ts",
-    "hmr": "SET HMR=true&& SET BROWSER=none&& pnpm run pre-build && tsx scripts/dev.ts hmr",
+    "hmr": "SET HMR=true&& SET BROWSER=none&& pnpm run pre-build && tsx scripts/dev.mts hmr",
     "kill-ports": "kill-port 3333 3334 3335",
     "lint": "eslint medior/**/*{.ts,.tsx}",
     "lint-fix": "pnpm run lint --fix",
@@ -58,9 +58,8 @@
     "sharp-bmp": "^0.1.5",
     "socket.io": "^4.8.4",
     "socket.io-client": "^4.8.4",
-    "trabecula": "github:msihly/trabecula#808026e2627e802161cc91664298a381f11bf43b",
+    "trabecula": "github:msihly/trabecula#efdc33fa48a101a62ad94507c0ca921d4dd17f1d",
     "util": "^0.12.5",
-    "vite-plugin-electron-renderer": "0.10.1",
     "wavesurfer.js": "^7.12.11"
   },
   "devDependencies": {
@@ -75,7 +74,7 @@
     "@types/react-window": "^1.8.5",
     "@typescript-eslint/eslint-plugin": "^8.72.1",
     "@typescript-eslint/parser": "^8.72.1",
-    "@vitejs/plugin-react": "^4.0.3",
+    "@vitejs/plugin-react": "^6.1.2",
     "chalk": "^5.3.0",
     "concurrently": "^7.2.2",
     "copyfiles": "^2.4.1",
@@ -96,9 +95,8 @@
     "tsx": "4.23.15",
     "typescript": "5.9.x",
     "typescript-transform-paths": "^3.5.3",
-    "vite": "4.5.14",
-    "vite-plugin-svgr": "^3.2.0",
-    "vite-tsconfig-paths": "4.2.0"
+    "vite": "8.3.5",
+    "vite-plugin-electron-renderer": "1.0.0"
   },
   "build": {
     "appId": "com.msihly.medior",

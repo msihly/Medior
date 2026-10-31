@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Card, Comp, MinimizedJobs, RepairModal, View } from "medior/components";
+import { Card, Comp, MinimizedJobs, RepairModal, View, WindowTitleBar } from "medior/components";
 import { useStores } from "medior/store";
 import { makeClasses } from "medior/utils/client";
 import { useSockets, Views } from "./common";
@@ -21,21 +21,25 @@ export const HMR = Comp(() => {
   return isLoading ? null : (
     <Views.ImportDnD>
       <View column className={css.root}>
-        <Card height="100%" width="100%" />
+        <WindowTitleBar title="Medior" />
 
-        <Views.CollectionModals />
+        <View column flex={1} overflow="hidden" padding={{ all: "0.5rem" }} position="relative">
+          <Card height="100%" width="100%" />
 
-        <Views.FileModals />
+          <Views.CollectionModals />
 
-        <Views.ImportModals />
+          <Views.FileModals />
 
-        <Views.MediaProgramModals />
+          <Views.ImportModals />
 
-        <Views.TagModals view="home" />
+          <Views.MediaProgramModals />
 
-        <RepairModal />
+          <Views.TagModals view="home" />
 
-        <MinimizedJobs />
+          <RepairModal />
+
+          <MinimizedJobs />
+        </View>
       </View>
     </Views.ImportDnD>
   );
@@ -45,7 +49,6 @@ const useClasses = makeClasses({
   root: {
     height: "100vh",
     overflow: "hidden",
-    padding: "0.5rem",
     width: "100vw",
   },
 });
