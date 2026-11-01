@@ -1,7 +1,5 @@
 const tsEslintPlugin = require("@typescript-eslint/eslint-plugin");
 const tsEslintParser = require("@typescript-eslint/parser");
-const importPlugin = require("eslint-plugin-import");
-const prettierPlugin = require("eslint-plugin-prettier");
 const reactPlugin = require("eslint-plugin-react");
 const simpleImportSortPlugin = require("eslint-plugin-simple-import-sort");
 const tssUnusedClassesPlugin = require("eslint-plugin-tss-unused-classes");
@@ -39,21 +37,11 @@ module.exports = [
     },
     plugins: {
       "@typescript-eslint": tsEslintPlugin,
-      import: importPlugin,
-      prettier: prettierPlugin,
       react: reactPlugin,
       "simple-import-sort": simpleImportSortPlugin,
       "tss-unused-classes": tssUnusedClassesPlugin,
     },
-    settings: {
-      "import/resolver": {
-        typescript: {
-          project: "./tsconfig.json",
-        },
-      },
-    },
     rules: {
-      "import/order": "off",
       "padding-line-between-statements": [
         "warn",
         {

@@ -3,16 +3,7 @@ import pluginReact from "@vitejs/plugin-react";
 import pluginRenderer from "vite-plugin-electron-renderer";
 import pluginRendererCjsShim from "vite-plugin-electron-renderer/cjs-shim";
 
-const EXTERNALS = [
-  "@huggingface/transformers",
-  "aws-sdk",
-  "fdir",
-  "fluent-ffmpeg",
-  "mock-aws-s3",
-  "mongoose",
-  "nock",
-  "sharp",
-];
+const EXTERNALS = ["@huggingface/transformers", "fdir", "fluent-ffmpeg", "mongoose", "sharp"];
 
 export default defineConfig({
   build: {

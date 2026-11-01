@@ -7,7 +7,6 @@
     "paths": {
       "medior/*": ["../*"]
     },
-    "plugins": [{ "transform": "typescript-transform-paths" }],
     "types": ["node", "vite/client"]
   },
   "extends": "../../tsconfig.base.json",

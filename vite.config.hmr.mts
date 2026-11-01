@@ -4,12 +4,9 @@ import pluginRenderer from "vite-plugin-electron-renderer";
 
 const EXTERNALS = [
   "@huggingface/transformers",
-  "aws-sdk",
   "fdir",
   "fluent-ffmpeg",
-  "mock-aws-s3",
   "mongoose",
-  "nock",
   "sharp",
   "trash",
 ];
