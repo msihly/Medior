@@ -28,7 +28,11 @@ export default defineConfig({
   plugins: [
     pluginReact(),
     pluginRenderer({
-      resolve: Object.fromEntries(EXTERNALS.map((name) => [name, { type: "cjs" as const }])),
+      resolve: {
+        ...Object.fromEntries(EXTERNALS.map((name) => [name, { type: "cjs" as const }])),
+        // Bundling resolves trash's dependencies to their browser builds, so it loads at runtime.
+        trash: { bundle: false, type: "esm" },
+      },
     }),
     pluginRendererCjsShim(),
   ],

@@ -37,7 +37,7 @@
     "apache-arrow": "^21.2.0",
     "bson": "^7.3.2",
     "check-disk-space": "^3.4.0",
-    "color": "^4.2.3",
+    "color": "^5.0.3",
     "es-toolkit": "^1.53.1",
     "fastest-levenshtein": "^1.0.16",
     "fluent-ffmpeg": "2.1.3",
@@ -50,12 +50,11 @@
     "sharp-bmp": "^0.1.5",
     "socket.io": "^4.8.4",
     "socket.io-client": "^4.8.4",
-    "trabecula": "github:msihly/trabecula#12c85bf76cb8cfd0ef09303d8e6cb626b7098c5a",
+    "trabecula": "github:msihly/trabecula#486d37c8fc55c5c89466f43cfe9a9764489e05a8",
     "wavesurfer.js": "^7.12.11"
   },
   "devDependencies": {
     "@stylistic/eslint-plugin": "^5.10.0",
-    "@types/color": "^3.0.3",
     "@types/fluent-ffmpeg": "^2.1.20",
     "@types/kill-port": "^2.0.1",
     "@types/node": "^24.9.0",
@@ -75,7 +74,7 @@
     "prettier": "^3.9.10",
     "rimraf": "^6.1.3",
     "tsx": "4.23.15",
-    "typescript": "5.9.x",
+    "typescript": "6.0.x",
     "vite": "8.3.5",
     "vite-plugin-electron-renderer": "1.0.0"
   },

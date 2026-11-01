@@ -2,14 +2,7 @@ import { defineConfig } from "vite";
 import pluginReact from "@vitejs/plugin-react";
 import pluginRenderer from "vite-plugin-electron-renderer";
 
-const EXTERNALS = [
-  "@huggingface/transformers",
-  "fdir",
-  "fluent-ffmpeg",
-  "mongoose",
-  "sharp",
-  "trash",
-];
+const EXTERNALS = ["@huggingface/transformers", "fdir", "fluent-ffmpeg", "mongoose", "sharp"];
 
 export default defineConfig({
   build: {
@@ -19,7 +12,11 @@ export default defineConfig({
   plugins: [
     pluginReact(),
     pluginRenderer({
-      resolve: Object.fromEntries(EXTERNALS.map((name) => [name, { type: "cjs" as const }])),
+      resolve: {
+        ...Object.fromEntries(EXTERNALS.map((name) => [name, { type: "cjs" as const }])),
+        // Bundling resolves trash's dependencies to their browser builds, so it loads at runtime.
+        trash: { bundle: false, type: "esm" },
+      },
     }),
   ],
   resolve: {
