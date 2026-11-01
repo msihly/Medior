@@ -1,8 +1,8 @@
+const stylisticPlugin = require("@stylistic/eslint-plugin");
 const tsEslintPlugin = require("@typescript-eslint/eslint-plugin");
 const tsEslintParser = require("@typescript-eslint/parser");
-const reactPlugin = require("eslint-plugin-react");
 const simpleImportSortPlugin = require("eslint-plugin-simple-import-sort");
-const tssUnusedClassesPlugin = require("eslint-plugin-tss-unused-classes");
+const tssUnusedClassesPlugin = require("trabecula/plugins/tss-unused-classes");
 
 const PROJECT = "medior";
 
@@ -16,7 +16,6 @@ module.exports = [
       "logs/**",
       "MongoDB/**",
       "node_modules/**",
-      "patches/**",
       "public/**",
       `${PROJECT}/face-models/**`,
       "scripts/update-trabecula.ts",
@@ -36,13 +35,13 @@ module.exports = [
       reportUnusedDisableDirectives: "off",
     },
     plugins: {
+      "@stylistic": stylisticPlugin,
       "@typescript-eslint": tsEslintPlugin,
-      react: reactPlugin,
       "simple-import-sort": simpleImportSortPlugin,
       "tss-unused-classes": tssUnusedClassesPlugin,
     },
     rules: {
-      "padding-line-between-statements": [
+      "@stylistic/padding-line-between-statements": [
         "warn",
         {
           blankLine: "always",
@@ -55,7 +54,7 @@ module.exports = [
           next: "*",
         },
       ],
-      "react/jsx-newline": "warn",
+      "@stylistic/jsx-newline": "warn",
       "simple-import-sort/imports": [
         "warn",
         {
