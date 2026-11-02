@@ -72,17 +72,19 @@ export const RegExMapCard = Comp(({ disabled = false, onTagClick, store }: RegEx
             disabled={disabled}
             error={!store.isRegExValid}
             width="100%"
-            InputProps={{
-              endAdornment: (
-                <View flex="none" margins={{ left: "0.5rem" }}>
-                  <Text>{"/"}</Text>
-                </View>
-              ),
-              startAdornment: (
-                <View flex="none" margins={{ right: "0.5rem" }}>
-                  <Text>{"/"}</Text>
-                </View>
-              ),
+            slotProps={{
+              input: {
+                endAdornment: (
+                  <View flex="none" margins={{ left: "0.5rem" }}>
+                    <Text>{"/"}</Text>
+                  </View>
+                ),
+                startAdornment: (
+                  <View flex="none" margins={{ right: "0.5rem" }}>
+                    <Text>{"/"}</Text>
+                  </View>
+                ),
+              },
             }}
           />
 

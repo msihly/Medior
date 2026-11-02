@@ -16,7 +16,7 @@ export const RootFolderButton = Comp(({ folderPart, index, store }: RootFolderBu
 
   return (
     <>
-      {index !== 0 && <Text margin="0 0.3em">{"\\"}</Text>}
+      {index !== 0 && <Text margins={{ all: "0 0.3em" }}>{"\\"}</Text>}
 
       <Button
         type="link"

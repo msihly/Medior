@@ -88,7 +88,7 @@ export const TagSelector = Comp(({ options, store }: TagSelectorProps) => {
   return !shouldDisplay ? null : (
     <Card width="100%">
       <View row wrap="wrap" align="center" margins={{ bottom: "0.3rem" }}>
-        <Text fontWeight={500} fontSize="0.9em" marginRight="0.5rem">
+        <Text fontWeight={500} fontSize="0.9em" margins={{ right: "0.5rem" }}>
           {"Select Root Tag"}
         </Text>
 

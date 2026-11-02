@@ -239,7 +239,7 @@ export const MultiTagEditor = Comp(({ initialTags, onClose }: MultiTagEditorProp
 
         <Text
           fontSize="0.9em"
-          fontStyle="italic"
+          italic
           textAlign="center"
           color={colors.custom.lightGrey}
         >

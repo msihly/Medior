@@ -242,7 +242,7 @@ export const FileCollectionManager = Comp(() => {
           <Card
             flex="none"
             header={
-              <Text preset="title" padding="0.3rem 0">
+              <Text preset="title" padding={{ all: "0.3rem 0" }}>
                 {`Selected File${hasOneFileSelected ? "" : "s"}`}
               </Text>
             }

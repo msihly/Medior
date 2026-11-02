@@ -273,7 +273,7 @@ export const TagMerger = Comp(() => {
             />
           </View>
 
-          <Text align="center" fontStyle="italic" fontSize="0.8em">
+          <Text align="center" italic fontSize="0.8em">
             {"Edit after merging"}
           </Text>
         </Card>

@@ -185,8 +185,8 @@ export const HotkeysModal = Comp(({ onClose }: HotkeysModalProps) => {
                         key={configKey}
                         configKey={configKey}
                         header={label}
-                        inputProps={{ name: configKey, readOnly: true }}
                         onKeyDown={handleHotkeyChange}
+                        slotProps={{ htmlInput: { name: configKey, readOnly: true } }}
                         textAlign="center"
                       />
                     ))}

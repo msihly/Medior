@@ -48,7 +48,7 @@
     "sharp-bmp": "^0.1.5",
     "socket.io": "^4.8.4",
     "socket.io-client": "^4.8.4",
-    "trabecula": "github:msihly/trabecula#c816e3df00c7328d46a194f5b7dde87988cc9d08",
+    "trabecula": "github:msihly/trabecula#338d2f41bf556f13ff6cf19384840f24255444ac",
     "wavesurfer.js": "^8.0.4"
   },
   "devDependencies": {

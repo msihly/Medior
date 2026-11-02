@@ -195,7 +195,7 @@ export const TagInput = Comp(
 
     const handleOpen = () => !disabled && !!inputValue && setIsOpen(true);
 
-    const renderTags = () => null;
+    const renderValue = () => null;
 
     const handleChange = (
       _,
@@ -279,15 +279,19 @@ export const TagInput = Comp(
         disabled={disabled}
         borderRadiuses={!single && hasList ? { bottom: 0 } : undefined}
         className={cx(css.input, className)}
-        InputProps={{
-          ...params.InputProps,
-          endAdornment: (
-            <View row align="center" flex="none" margins={{ left: "0.5rem" }}>
-              {isLoading ? (
-                <ProgressCircle color="inherit" size={20} variant="indeterminate" />
-              ) : null}
-            </View>
-          ),
+        slotProps={{
+          ...params.slotProps,
+          ...inputProps?.slotProps,
+          input: {
+            ...params.slotProps.input,
+            endAdornment: (
+              <View row align="center" flex="none" margins={{ left: "0.5rem" }}>
+                {isLoading ? (
+                  <ProgressCircle color="inherit" size={20} variant="indeterminate" />
+                ) : null}
+              </View>
+            ),
+          },
         }}
       />
     );
@@ -346,7 +350,7 @@ export const TagInput = Comp(
                 options,
                 renderInput,
                 renderOption,
-                renderTags,
+                renderValue,
                 value,
               }}
               clearOnBlur={false}
@@ -354,13 +358,13 @@ export const TagInput = Comp(
               forcePopupIcon={false}
               filterSelectedOptions
               getOptionDisabled={isUnavailableOption}
-              ListboxProps={{ className: css.listbox }}
               multiple
               onChange={handleChange}
               onClose={handleClose}
               onOpen={handleOpen}
               open={isOpen}
               size="small"
+              slotProps={{ ...props.slotProps, listbox: { className: css.listbox } }}
             />
 
             {!single && hasList && renderList()}
