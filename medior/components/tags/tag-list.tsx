@@ -1,5 +1,4 @@
 import { useEffect, useRef } from "react";
-import { FixedSizeList } from "react-window";
 import { SocketEvents } from "medior/_generated/server";
 import {
   Comp,
@@ -37,7 +36,6 @@ export const TagList = Comp(
   }: TagListProps) => {
     const stores = useStores();
 
-    const ref = useRef<FixedSizeList>(null);
     const searchRef = useRef(search);
 
     searchRef.current = search;
@@ -53,7 +51,6 @@ export const TagList = Comp(
 
         searchRef.current = { ...searchRef.current, value };
         searchRef.current.onChange(value);
-        ref.current?.forceUpdate();
       };
 
       const onTagDeleted = (args: Parameters<SocketEvents["onTagDeleted"]>[0]) => {
@@ -121,7 +118,6 @@ export const TagList = Comp(
 
     return (
       <MultiInputList
-        ref={ref}
         hasDeleteAll={hasDeleteAll}
         hasInput={hasInput}
         search={{ onChange: search.onChange, value: tags }}

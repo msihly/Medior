@@ -1,11 +1,11 @@
 import path from "path";
-import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
-import AutoSizer from "react-virtualized-auto-sizer";
-import { VariableSizeList } from "react-window";
+import { useCallback, useLayoutEffect, useMemo, useState } from "react";
+import { Grid, GridProps, useGridCallbackRef } from "react-window";
 import { Card, Comp, ImportEditor, Text, View } from "medior/components";
 import { ImportEditorOptions, Ingester, Reingester } from "medior/store";
 import { createImportTagHierarchy, IMPORT_TAG_ROW_HEIGHT } from "./tag-hierarchy";
 import { TagHierarchyCell } from "./tag-hierarchy-cell";
+import { TagHierarchyColumnData } from "./tag-hierarchy-column";
 
 export interface TagSelectorProps {
   options: ImportEditorOptions;
@@ -13,12 +13,10 @@ export interface TagSelectorProps {
 }
 
 export const TagSelector = Comp(({ options, store }: TagSelectorProps) => {
+  const [columnWidths, setColumnWidths] = useState(() => new Map<string, number>());
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
-  const [viewport, setViewport] = useState<HTMLDivElement>(null);
+  const [grid, setGrid] = useGridCallbackRef(null);
   const [viewportSize, setViewportSize] = useState({ height: 0, scrollbar: 0 });
-
-  const columnWidths = useRef(new Map<string, number>());
-  const listRef = useRef<VariableSizeList>(null);
 
   const hierarchy = useMemo(
     () => createImportTagHierarchy(store.flatTagsToUpsert),
@@ -32,6 +30,7 @@ export const TagSelector = Comp(({ options, store }: TagSelectorProps) => {
     (options.withDiffusionParams && options.withDiffusionTags);
 
   useLayoutEffect(() => {
+    const viewport = grid?.element;
     if (!viewport) return;
 
     const measure = () => {
@@ -51,15 +50,17 @@ export const TagSelector = Comp(({ options, store }: TagSelectorProps) => {
     measure();
 
     return () => observer.disconnect();
-  }, [viewport]);
+  }, [grid]);
 
-  useLayoutEffect(() => listRef.current?.resetAfterIndex(0), [hierarchy]);
+  const getColumnWidth = useCallback(
+    (index: number) => columnWidths.get(hierarchy.roots[index].label) ?? 280,
+    [columnWidths, hierarchy],
+  );
 
-  const setColumnWidth = useCallback((index: number, label: string, width: number) => {
-    if (columnWidths.current.get(label) === width) return;
-
-    columnWidths.current.set(label, width);
-    listRef.current?.resetAfterIndex(index);
+  const setColumnWidth = useCallback((label: string, width: number) => {
+    setColumnWidths((previous) =>
+      previous.get(label) === width ? previous : new Map(previous).set(label, width),
+    );
   }, []);
 
   const toggleExpanded = useCallback((key: string) => {
@@ -72,18 +73,6 @@ export const TagSelector = Comp(({ options, store }: TagSelectorProps) => {
       return next;
     });
   }, []);
-
-  const columnData = useMemo(
-    () => ({
-      expanded,
-      height: viewportSize.height,
-      hierarchy,
-      onToggle: toggleExpanded,
-      onWidth: setColumnWidth,
-      store,
-    }),
-    [expanded, viewportSize.height, hierarchy, toggleExpanded, setColumnWidth, store],
-  );
 
   return !shouldDisplay ? null : (
     <Card width="100%">
@@ -98,6 +87,7 @@ export const TagSelector = Comp(({ options, store }: TagSelectorProps) => {
       </View>
 
       <View
+        column
         minWidth={0}
         overflow="hidden"
         height={
@@ -106,25 +96,21 @@ export const TagSelector = Comp(({ options, store }: TagSelectorProps) => {
             : IMPORT_TAG_ROW_HEIGHT + viewportSize.scrollbar
         }
       >
-        <AutoSizer>
-          {({ height, width }) => (
-            <VariableSizeList
-              ref={listRef}
-              outerRef={setViewport}
-              height={height}
-              width={width}
-              layout="horizontal"
-              itemCount={hierarchy.roots.length}
-              itemData={columnData}
-              itemSize={(index) => columnWidths.current.get(hierarchy.roots[index].label) ?? 280}
-              itemKey={(index) => hierarchy.roots[index].label}
-              style={{ overflowX: "auto", overflowY: "hidden" }}
-            >
-              {TagHierarchyCell}
-            </VariableSizeList>
-          )}
-        </AutoSizer>
+        <Grid
+          gridRef={setGrid}
+          cellComponent={TagHierarchyCell}
+          cellProps={{ expanded, hierarchy, onToggle: toggleExpanded, onWidth: setColumnWidth, store }}
+          columnCount={hierarchy.roots.length}
+          columnKey={getColumnKey}
+          columnWidth={getColumnWidth}
+          rowCount={1}
+          rowHeight={viewportSize.height}
+          style={{ overflowX: "auto", overflowY: "hidden" }}
+        />
       </View>
     </Card>
   );
 });
+
+const getColumnKey: GridProps<TagHierarchyColumnData>["columnKey"] = ({ columnIndex, data }) =>
+  data.hierarchy.roots[columnIndex].label;

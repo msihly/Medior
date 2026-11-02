@@ -1,11 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import AutoSizer from "react-virtualized-auto-sizer";
-import {
-  FixedSizeList,
-  ListChildComponentProps,
-  ListOnItemsRenderedProps,
-  ListOnScrollProps,
-} from "react-window";
+import { CellComponentProps, Grid, GridImperativeAPI, GridProps } from "react-window";
 import Color from "color";
 import { CarouselThumb, Comp, IconButton, View } from "medior/components";
 import { useStores } from "medior/store";
@@ -20,33 +14,26 @@ export const CarouselThumbNavigator = Comp(() => {
   const [visibleRange, setVisibleRange] = useState({ start: 0, stop: -1 });
   const [width, setWidth] = useState(0);
 
-  const listOuterRef = useRef(null);
-  const listRef = useRef<FixedSizeList>(null);
-  const scrollLeft = useRef(0);
+  const gridRef = useRef<GridImperativeAPI>(null);
 
   const visibleFileIds = store.selectedFileIds.slice(visibleRange.start, visibleRange.stop + 1);
 
   const { css } = useClasses({ isMouseMoving: store.isMouseMoving, isVisible });
 
-  const { handleMouseDown, isDragging } = useDragScroll({
-    listOuterRef,
-    listRef,
-    scrollLeft,
-    width,
-  });
+  const { handleMouseDown, isDragging } = useDragScroll({ listRef: gridRef });
 
-  const handleScroll = ({ scrollOffset }: ListOnScrollProps) => (scrollLeft.current = scrollOffset);
-
-  const handleItemsRendered = ({
-    overscanStartIndex,
-    overscanStopIndex,
-  }: ListOnItemsRenderedProps) => {
+  const handleCellsRendered: GridProps<ThumbCellProps>["onCellsRendered"] = (
+    _,
+    { columnStartIndex, columnStopIndex },
+  ) => {
     setVisibleRange((previous) =>
-      previous.start === overscanStartIndex && previous.stop === overscanStopIndex
+      previous.start === columnStartIndex && previous.stop === columnStopIndex
         ? previous
-        : { start: overscanStartIndex, stop: overscanStopIndex },
+        : { start: columnStartIndex, stop: columnStopIndex },
     );
   };
+
+  const handleResize: GridProps<ThumbCellProps>["onResize"] = ({ width }) => setWidth(width);
 
   const toggleVisibility = () => setIsVisible(!isVisible);
 
@@ -56,14 +43,12 @@ export const CarouselThumbNavigator = Comp(() => {
   }, [visibleFileIds.join()]);
 
   useEffect(() => {
-    if (listRef.current !== null && store.activeFileIndex > -1) {
-      const newScrollLeft =
+    const element = gridRef.current?.element;
+    if (element && store.activeFileIndex > -1)
+      element.scrollLeft =
         store.activeFileIndex * CONSTANTS.CAROUSEL.THUMB_NAV.WIDTH +
         CONSTANTS.CAROUSEL.THUMB_NAV.WIDTH / 2 -
         width / 2;
-
-      listRef.current.scrollTo(newScrollLeft);
-    }
   }, [store.activeFileIndex, width]);
 
   return (
@@ -78,39 +63,37 @@ export const CarouselThumbNavigator = Comp(() => {
       </View>
 
       <View onMouseDown={handleMouseDown} className={css.scrollContainer}>
-        <AutoSizer onResize={({ width }) => setWidth(width)} disableHeight>
-          {({ width }) => (
-            <FixedSizeList
-              ref={listRef}
-              outerRef={listOuterRef}
-              onItemsRendered={handleItemsRendered}
-              onScroll={handleScroll}
-              layout="horizontal"
-              width={width}
-              height={CONSTANTS.CAROUSEL.THUMB_NAV.WIDTH}
-              itemSize={CONSTANTS.CAROUSEL.THUMB_NAV.WIDTH}
-              itemCount={store.selectedFileIds.length}
-              itemData={{ fileIds: store.selectedFileIds, isDragging }}
-              overscanCount={7}
-              className={css.thumbnails}
-            >
-              {ThumbRow}
-            </FixedSizeList>
-          )}
-        </AutoSizer>
+        <Grid
+          gridRef={gridRef}
+          cellComponent={ThumbCell}
+          cellProps={{ fileIds: store.selectedFileIds, isDragging }}
+          columnCount={store.selectedFileIds.length}
+          columnKey={getThumbColumnKey}
+          columnWidth={CONSTANTS.CAROUSEL.THUMB_NAV.WIDTH}
+          onCellsRendered={handleCellsRendered}
+          onResize={handleResize}
+          overscanCount={7}
+          rowCount={1}
+          rowHeight={CONSTANTS.CAROUSEL.THUMB_NAV.WIDTH}
+          className={css.thumbnails}
+        />
       </View>
     </View>
   );
 });
 
-interface ThumbRowData {
+interface ThumbCellProps {
   fileIds: string[];
   isDragging: boolean;
 }
 
-const ThumbRow = Comp(({ data, index, style }: ListChildComponentProps<ThumbRowData>) => (
-  <CarouselThumb id={data.fileIds[index]} isDragging={data.isDragging} style={style} />
-));
+const ThumbCell = ({ columnIndex, fileIds, isDragging, style }: CellComponentProps<ThumbCellProps>) => (
+  <CarouselThumb id={fileIds[columnIndex]} isDragging={isDragging} style={style} />
+);
+
+// Ids are inserted in place, so keying cells by id re-renders the ones an insert shifts.
+const getThumbColumnKey: GridProps<ThumbCellProps>["columnKey"] = ({ columnIndex, data }) =>
+  data.fileIds[columnIndex];
 
 interface ClassesProps {
   isMouseMoving: boolean;
@@ -147,6 +130,7 @@ const useClasses = makeClasses((props: ClassesProps) => ({
   },
   thumbnails: {
     "&::-webkit-scrollbar": { height: 0 },
+    height: CONSTANTS.CAROUSEL.THUMB_NAV.WIDTH,
     justifyContent: "center",
     userSelect: "none",
   },

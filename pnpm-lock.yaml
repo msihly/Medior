@@ -60,8 +60,8 @@ dependencies:
     specifier: ^4.8.4
     version: 4.8.4
   trabecula:
-    specifier: github:msihly/trabecula#338d2f41bf556f13ff6cf19384840f24255444ac
-    version: github.com/msihly/trabecula/338d2f41bf556f13ff6cf19384840f24255444ac(@types/react@19.3.0)(electron@45.2.1)(mongodb-memory-server@11.3.0)(mongoose@9.11.4)(socket.io-client@4.8.4)(socket.io@4.8.4)
+    specifier: github:msihly/trabecula#1152f9e24de9e4a2310284f00661bf3996db332c
+    version: github.com/msihly/trabecula/1152f9e24de9e4a2310284f00661bf3996db332c(@types/react@19.3.0)(electron@45.2.1)(mongodb-memory-server@11.3.0)(mongoose@9.11.4)(socket.io-client@4.8.4)(socket.io@4.8.4)
   wavesurfer.js:
     specifier: ^8.0.4
     version: 8.0.4
@@ -82,9 +82,6 @@ devDependencies:
   '@types/react-dom':
     specifier: ^19.3.0
     version: 19.3.0(@types/react@19.3.0)
-  '@types/react-window':
-    specifier: ^1.8.5
-    version: 1.8.8
   '@typescript-eslint/eslint-plugin':
     specifier: ^8.72.1
     version: 8.72.1(@typescript-eslint/parser@8.72.1)(eslint@10.14.0)(typescript@6.0.3)
@@ -2273,12 +2270,6 @@ packages:
     dependencies:
       '@types/react': 19.3.0
     dev: false
-
-  /@types/react-window@1.8.8:
-    resolution: {integrity: sha512-8Ls660bHR1AUA2kuRvVG9D/4XpRC6wjAaPT9dil7Ckc76eP9TKWZwwmgfq8Q1LANX3QNDnoU4Zp48A3w+zK69Q==}
-    dependencies:
-      '@types/react': 19.3.0
-    dev: true
 
   /@types/react@19.3.0:
     resolution: {integrity: sha512-N0rFCuH9YoxG9/m61l9MfpJKfmLOVU0em7ipIz6TRgSSkvReLB9vL85GB+yr8Bs5leqpvg96JSwF4ZS1s4viQg==}
@@ -4750,10 +4741,6 @@ packages:
     dev: false
     optional: true
 
-  /memoize-one@5.2.1:
-    resolution: {integrity: sha512-zYiwtZUcYyXKo/np96AGZAckk+FWWsUdJ3cHGGmld7+AhvcWmQyGCYUh1hc4Q/pkOhb65dQR/pqCyK0cOaHz4Q==}
-    dev: false
-
   /memory-pager@1.5.0:
     resolution: {integrity: sha512-ZS4Bp4r/Zoeq6+NLJpP+0Zzm0pR8whtGPf1XExKLJBAczGMnSi3It14OiNCStjQjM6NU1okjQGSxgEZN8eBYKg==}
     requiresBuild: true
@@ -4874,8 +4861,8 @@ packages:
     hasBin: true
     dev: true
 
-  /mobx-keystone@2.4.1(mobx@6.16.1):
-    resolution: {integrity: sha512-jPK/sL16dvHcnLLr8rnNvku3ez+NIEMfPHmyH+8bs9hAuZoIk4DrPVpcyvrnyh+OUDqhTkkF7eeGPLi5cxzW3g==}
+  /mobx-keystone@2.4.2(mobx@6.16.1):
+    resolution: {integrity: sha512-auWNwLafUw07XHeRl9t1mG13uIMnoovG3aekl2nf0kNLjm3gRXkF3Aa9BKRieYQF93yI03aFSuL0uuZ2zq1UGQ==}
     peerDependencies:
       mobx: ^7.0.0 || ^6.0.0 || ^5.0.0 || ^4.0.0
     dependencies:
@@ -5684,25 +5671,17 @@ packages:
       react-dom: 19.3.1(react@19.3.1)
     dev: false
 
-  /react-virtualized-auto-sizer@1.0.26(react-dom@19.3.1)(react@19.3.1):
-    resolution: {integrity: sha512-CblNyiNVw2o+hsa5/49NH2ogGxZ+t+3aweRvNSq7TVjDIlwk7ir4lencEg5HxHeSzwNarSkNkiu0qJSOXtxm5A==}
+  /react-window@2.5.3(@types/react@19.3.0)(react-dom@19.3.1)(react@19.3.1):
+    resolution: {integrity: sha512-zN/mX+4cLgwp8xDqQYKmgbzj/oZ2LrF4V8KbAbgkpA9zAt3+q4nWPe0MhvIDIh9c4kHPySSchNcd8DjyR6jItQ==}
     peerDependencies:
-      react: ^15.3.0 || ^16.0.0-alpha || ^17.0.0 || ^18.0.0 || ^19.0.0
-      react-dom: ^15.3.0 || ^16.0.0-alpha || ^17.0.0 || ^18.0.0 || ^19.0.0
+      '@types/react': ^18.2.6 || ^19.0.0
+      react: ^18.0.0 || ^19.0.0
+      react-dom: ^18.0.0 || ^19.0.0
+    peerDependenciesMeta:
+      '@types/react':
+        optional: true
     dependencies:
-      react: 19.3.1
-      react-dom: 19.3.1(react@19.3.1)
-    dev: false
-
-  /react-window@1.8.10(react-dom@19.3.1)(react@19.3.1):
-    resolution: {integrity: sha512-Y0Cx+dnU6NLa5/EvoHukUD0BklJ8qITCtVEPY1C/nL8wwoZ0b5aEw8Ff1dOVHw7fCzMt55XfJDd8S8W8LCaUCg==}
-    engines: {node: '>8.0.0'}
-    peerDependencies:
-      react: ^15.0.0 || ^16.0.0 || ^17.0.0 || ^18.0.0
-      react-dom: ^15.0.0 || ^16.0.0 || ^17.0.0 || ^18.0.0
-    dependencies:
-      '@babel/runtime': 7.28.4
-      memoize-one: 5.2.1
+      '@types/react': 19.3.0
       react: 19.3.1
       react-dom: 19.3.1(react@19.3.1)
     dev: false
@@ -6786,9 +6765,9 @@ packages:
     engines: {node: '>=10'}
     dev: true
 
-  github.com/msihly/trabecula/338d2f41bf556f13ff6cf19384840f24255444ac(@types/react@19.3.0)(electron@45.2.1)(mongodb-memory-server@11.3.0)(mongoose@9.11.4)(socket.io-client@4.8.4)(socket.io@4.8.4):
-    resolution: {tarball: https://codeload.github.com/msihly/trabecula/tar.gz/338d2f41bf556f13ff6cf19384840f24255444ac}
-    id: github.com/msihly/trabecula/338d2f41bf556f13ff6cf19384840f24255444ac
+  github.com/msihly/trabecula/1152f9e24de9e4a2310284f00661bf3996db332c(@types/react@19.3.0)(electron@45.2.1)(mongodb-memory-server@11.3.0)(mongoose@9.11.4)(socket.io-client@4.8.4)(socket.io@4.8.4):
+    resolution: {tarball: https://codeload.github.com/msihly/trabecula/tar.gz/1152f9e24de9e4a2310284f00661bf3996db332c}
+    id: github.com/msihly/trabecula/1152f9e24de9e4a2310284f00661bf3996db332c
     name: trabecula
     version: 1.1.1
     peerDependencies:
@@ -6824,7 +6803,7 @@ packages:
       fdir: 6.5.0(picomatch@4.0.7)
       md5-file: 5.0.0
       mobx: 6.16.1
-      mobx-keystone: 2.4.1(mobx@6.16.1)
+      mobx-keystone: 2.4.2(mobx@6.16.1)
       mobx-react-lite: 4.1.1(mobx@6.16.1)(react-dom@19.3.1)(react@19.3.1)
       mongodb-memory-server: 11.3.0
       mongoose: 9.11.4
@@ -6833,8 +6812,7 @@ packages:
       react-draggable: 4.7.2(react-dom@19.3.1)(react@19.3.1)
       react-router: 7.18.5(react-dom@19.3.1)(react@19.3.1)
       react-toastify: 11.2.0(react-dom@19.3.1)(react@19.3.1)
-      react-virtualized-auto-sizer: 1.0.26(react-dom@19.3.1)(react@19.3.1)
-      react-window: 1.8.10(react-dom@19.3.1)(react@19.3.1)
+      react-window: 2.5.3(@types/react@19.3.0)(react-dom@19.3.1)(react@19.3.1)
       socket.io: 4.8.4
       socket.io-client: 4.8.4
       trash: 10.1.1

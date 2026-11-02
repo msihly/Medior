@@ -1,5 +1,5 @@
 import { useCallback, useLayoutEffect, useMemo, useState } from "react";
-import { FixedSizeList } from "react-window";
+import { List, RowComponentProps, useListCallbackRef } from "react-window";
 import { Comp, ImportEditor, TagToUpsert, View } from "medior/components";
 import { Ingester, Reingester } from "medior/store";
 import { colors, makeClasses } from "medior/utils/client";
@@ -7,10 +7,9 @@ import { createImportTagHierarchy, getImportTagRows, IMPORT_TAG_ROW_HEIGHT } fro
 
 export interface TagHierarchyColumnData {
   expanded: Set<string>;
-  height: number;
   hierarchy: ReturnType<typeof createImportTagHierarchy>;
   onToggle: (key: string) => void;
-  onWidth: (index: number, label: string, width: number) => void;
+  onWidth: (label: string, width: number) => void;
   store: Ingester | Reingester;
 }
 
@@ -19,21 +18,20 @@ export const TagHierarchyColumn = Comp(
     expanded,
     height,
     hierarchy,
-    index,
     onToggle,
     onWidth,
     store,
     tag,
     width,
   }: TagHierarchyColumnData & {
-    index: number;
+    height: number;
     tag: TagToUpsert;
     width: number;
   }) => {
     const { css } = useClasses(null);
 
+    const [list, setList] = useListCallbackRef(null);
     const [scrollbar, setScrollbar] = useState(0);
-    const [viewport, setViewport] = useState<HTMLDivElement>(null);
 
     const rows = useMemo(
       () => getImportTagRows({ ...hierarchy, roots: [tag] }, expanded),
@@ -48,12 +46,13 @@ export const TagHierarchyColumn = Comp(
     const measureRow = useCallback(
       (rowWidth: number) => {
         measuredWidth.value = Math.max(measuredWidth.value, rowWidth);
-        onWidth(index, tag.label, measuredWidth.value + 16 + scrollbar);
+        onWidth(tag.label, measuredWidth.value + 16 + scrollbar);
       },
-      [index, measuredWidth, onWidth, scrollbar, tag.label],
+      [measuredWidth, onWidth, scrollbar, tag.label],
     );
 
     useLayoutEffect(() => {
+      const viewport = list?.element;
       if (!viewport) {
         setScrollbar(0);
 
@@ -68,10 +67,11 @@ export const TagHierarchyColumn = Comp(
       measure();
 
       return () => observer.disconnect();
-    }, [viewport]);
+    }, [list]);
 
     return (
       <View
+        column
         height={columnHeight}
         width={width - 8}
         padding={{ left: 4, right: 4 }}
@@ -90,41 +90,64 @@ export const TagHierarchyColumn = Comp(
         />
 
         {rows.length > 1 && (
-          <FixedSizeList
-            outerRef={setViewport}
-            height={Math.max(0, columnHeight - IMPORT_TAG_ROW_HEIGHT)}
-            width={Math.max(0, width - 16)}
-            itemCount={rows.length - 1}
-            itemSize={IMPORT_TAG_ROW_HEIGHT}
-            itemKey={(index) => rows[index + 1].key}
-            style={{ overflowX: "hidden", overflowY: "auto" }}
-          >
-            {({ index, style }) => {
-              const row = rows[index + 1];
-
-              return (
-                <View style={style}>
-                  <ImportEditor.TagHierarchy
-                    depth={row.depth}
-                    expanded={expanded.has(row.key)}
-                    hasChildren={row.hasChildren}
-                    onToggle={() => onToggle(row.key)}
-                    onWidth={measureRow}
-                    store={store}
-                    tag={row.tag}
-                  />
-                </View>
-              );
-            }}
-          </FixedSizeList>
+          <List
+            listRef={setList}
+            rowComponent={TagHierarchyColumnRow}
+            rowCount={rows.length - 1}
+            rowHeight={IMPORT_TAG_ROW_HEIGHT}
+            rowKey={getColumnRowKey}
+            rowProps={{ expanded, onToggle, onWidth: measureRow, rows, store }}
+            className={css.list}
+          />
         )}
       </View>
     );
   },
 );
 
+interface TagHierarchyColumnRowProps {
+  expanded: Set<string>;
+  onToggle: (key: string) => void;
+  onWidth: (width: number) => void;
+  rows: ReturnType<typeof getImportTagRows>;
+  store: Ingester | Reingester;
+}
+
+/** The root row sits above the list, so list rows start at the second row. */
+const TagHierarchyColumnRow = ({
+  expanded,
+  index,
+  onToggle,
+  onWidth,
+  rows,
+  store,
+  style,
+}: RowComponentProps<TagHierarchyColumnRowProps>) => {
+  const row = rows[index + 1];
+
+  return (
+    <View style={style}>
+      <ImportEditor.TagHierarchy
+        depth={row.depth}
+        expanded={expanded.has(row.key)}
+        hasChildren={row.hasChildren}
+        onToggle={() => onToggle(row.key)}
+        onWidth={onWidth}
+        store={store}
+        tag={row.tag}
+      />
+    </View>
+  );
+};
+
+const getColumnRowKey = (index: number, { rows }: TagHierarchyColumnRowProps) =>
+  rows[index + 1].key;
+
 const useClasses = makeClasses({
   column: {
     boxSizing: "border-box",
+  },
+  list: {
+    overflowX: "hidden",
   },
 });

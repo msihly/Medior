@@ -28,6 +28,7 @@ export const CarouselThumb = Comp(({ id, isDragging = false, style }: CarouselTh
       style={style}
     >
       <FileBase.Image
+        draggable={false}
         thumb={file?.thumb}
         title={file?.originalName}
         fileId={file?.id}

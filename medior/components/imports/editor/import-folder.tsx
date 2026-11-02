@@ -1,7 +1,7 @@
 import { shell } from "@electron/remote";
 import path from "path";
 import { useEffect, useRef, useState } from "react";
-import { FixedSizeList } from "react-window";
+import { List, ListImperativeAPI, RowComponentProps } from "react-window";
 import Color from "color";
 import type { ImportStatus } from "medior/server/database";
 import {
@@ -59,7 +59,7 @@ export const ImportFolderList = Comp(
     const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
     const [isReprocessConfirmOpen, setIsReprocessConfirmOpen] = useState(false);
 
-    const listRef = useRef<FixedSizeList>(null);
+    const listRef = useRef<ListImperativeAPI>(null);
 
     const batch = folder instanceof FileImportBatch ? folder : null;
     const folderPath =
@@ -85,7 +85,13 @@ export const ImportFolderList = Comp(
         ? folder.imports.reduce((acc, cur) => acc + cur.size, 0)
         : null;
 
-    const { css, cx } = useClasses({ collapsed, collapsible, hasCollection, hasTags });
+    const { css, cx } = useClasses({
+      collapsed,
+      collapsible,
+      hasCollection,
+      hasTags,
+      listHeight: folder ? getImportFolderListHeight(folder.imports.length, maxVisibleFiles) : null,
+    });
 
     const deleteBatch = async () => {
       const res = await stores.import.manager.deleteBatches([batch.id]);
@@ -93,8 +99,6 @@ export const ImportFolderList = Comp(
 
       return res.success;
     };
-
-    const getItemKey = (index: number) => folder.imports[index].id ?? folder.imports[index].path;
 
     const handlePageChange = (page: number) => batch.loadPage(page);
 
@@ -152,7 +156,7 @@ export const ImportFolderList = Comp(
     }, [batch, collapsed]);
 
     useEffect(() => {
-      listRef.current?.scrollTo(0);
+      listRef.current?.element?.scrollTo({ top: 0 });
     }, [batch?.page]);
 
     return !folder ? null : (
@@ -274,29 +278,15 @@ export const ImportFolderList = Comp(
           <View column className={css.list}>
             {batch?.loadError && <Text color={colors.custom.red}>{batch.loadError}</Text>}
 
-            <FixedSizeList
-              ref={listRef}
-              layout="vertical"
-              width="100%"
-              height={getImportFolderListHeight(folder.imports.length, maxVisibleFiles)}
-              itemSize={IMPORT_LIST_ITEM_HEIGHT}
-              itemCount={folder.imports.length}
-              itemKey={getItemKey}
-            >
-              {({ index, style }) => (
-                <ImportListItem
-                  batchImports={folder.imports}
-                  fileImport={folder.imports[index]}
-                  noStatus={noStatus}
-                  bgColor={
-                    index % 2 === 1
-                      ? (Color(colors.foreground).fade(0.35).string() as CssColor)
-                      : undefined
-                  }
-                  style={style}
-                />
-              )}
-            </FixedSizeList>
+            <List
+              listRef={listRef}
+              rowComponent={ImportRow}
+              rowCount={folder.imports.length}
+              rowHeight={IMPORT_LIST_ITEM_HEIGHT}
+              rowKey={getImportRowKey}
+              rowProps={{ imports: folder.imports, noStatus }}
+              className={css.listRows}
+            />
 
             {batch && (
               <Pagination
@@ -337,6 +327,26 @@ export const ImportFolderList = Comp(
   },
 );
 
+interface ImportRowProps {
+  imports: Folder["imports"];
+  noStatus: boolean;
+}
+
+const ImportRow = ({ imports, index, noStatus, style }: RowComponentProps<ImportRowProps>) => (
+  <ImportListItem
+    batchImports={imports}
+    fileImport={imports[index]}
+    noStatus={noStatus}
+    bgColor={
+      index % 2 === 1 ? (Color(colors.foreground).fade(0.35).string() as CssColor) : undefined
+    }
+    style={style}
+  />
+);
+
+const getImportRowKey = (index: number, { imports }: ImportRowProps) =>
+  imports[index].id ?? imports[index].path;
+
 const getImportFolderListHeight = (count: number, maxVisibleFiles = 12) => {
   return 3 + Math.min(count * IMPORT_LIST_ITEM_HEIGHT, maxVisibleFiles * IMPORT_LIST_ITEM_HEIGHT);
 };
@@ -358,6 +368,7 @@ interface ClassesProps extends Pick<ImportFolderListProps, "collapsible"> {
   collapsed: boolean;
   hasCollection: boolean;
   hasTags: boolean;
+  listHeight: number;
 }
 
 const useClasses = makeClasses((props: ClassesProps) => ({
@@ -409,6 +420,9 @@ const useClasses = makeClasses((props: ClassesProps) => ({
   list: {
     minHeight: 0,
     overflow: "hidden",
+  },
+  listRows: {
+    height: props.listHeight,
   },
   statusChip: {
     flexShrink: 0,

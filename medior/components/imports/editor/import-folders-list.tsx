@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef } from "react";
-import AutoSizer from "react-virtualized-auto-sizer";
-import { VariableSizeList } from "react-window";
-import { Card, Comp, Pagination, View } from "medior/components";
+import { List, ListImperativeAPI, RowComponentProps } from "react-window";
+import { Card, Comp, FlatFolder, Pagination, View } from "medior/components";
 import { Ingester, Reingester } from "medior/store";
 import { getImportFolderHeight, ImportFolderList } from "./import-folder";
 
@@ -12,7 +11,7 @@ export interface ImportFoldersListProps {
 }
 
 export const ImportFoldersList = Comp(({ store }: ImportFoldersListProps) => {
-  const listRef = useRef<VariableSizeList>(undefined);
+  const listRef = useRef<ListImperativeAPI>(undefined);
 
   const folders = useMemo(
     () => [...store.flatFolderHierarchy.values()],
@@ -27,11 +26,10 @@ export const ImportFoldersList = Comp(({ store }: ImportFoldersListProps) => {
   useEffect(() => {
     if (store.isLoading) return;
 
-    listRef.current?.resetAfterIndex(0, true);
-    listRef.current?.scrollTo(0);
+    listRef.current?.element?.scrollTo({ top: 0 });
   }, [folders, store.isLoading]);
 
-  const getItemSize = useCallback(
+  const getRowHeight = useCallback(
     (index: number) =>
       FOLDER_GAP + getImportFolderHeight({ folder: folders[index], withListItems: true }),
     [folders],
@@ -39,29 +37,15 @@ export const ImportFoldersList = Comp(({ store }: ImportFoldersListProps) => {
 
   return (
     <Card flex={1} minHeight={0} overflow="hidden" padding={{ all: 0 }}>
-      <View flex={1} minHeight={0} padding={{ all: "0.5rem", top: "1rem" }}>
-        <AutoSizer disableWidth>
-          {({ height }) => (
-            <VariableSizeList
-              ref={listRef}
-              height={height}
-              width="100%"
-              itemCount={folders.length}
-              itemSize={getItemSize}
-              itemKey={(index) => folders[index].folderName}
-            >
-              {({ index, style }) => (
-                <View style={style} padding={{ all: "0 0.5rem" }}>
-                  <ImportFolderList
-                    collectionTitle={collectionTitles[index]}
-                    folder={folders[index]}
-                    noStatus
-                  />
-                </View>
-              )}
-            </VariableSizeList>
-          )}
-        </AutoSizer>
+      <View column flex={1} minHeight={0} padding={{ all: "0.5rem", top: "1rem" }}>
+        <List
+          listRef={listRef}
+          rowComponent={FolderRow}
+          rowCount={folders.length}
+          rowHeight={getRowHeight}
+          rowKey={getFolderRowKey}
+          rowProps={{ collectionTitles, folders }}
+        />
       </View>
 
       {isPaged && (
@@ -77,3 +61,16 @@ export const ImportFoldersList = Comp(({ store }: ImportFoldersListProps) => {
     </Card>
   );
 });
+
+interface FolderRowProps {
+  collectionTitles: string[];
+  folders: FlatFolder[];
+}
+
+const FolderRow = ({ collectionTitles, folders, index, style }: RowComponentProps<FolderRowProps>) => (
+  <View style={style} padding={{ all: "0 0.5rem" }}>
+    <ImportFolderList collectionTitle={collectionTitles[index]} folder={folders[index]} noStatus />
+  </View>
+);
+
+const getFolderRowKey = (index: number, { folders }: FolderRowProps) => folders[index].folderName;

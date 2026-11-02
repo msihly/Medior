@@ -1,22 +1,15 @@
-import { useCallback, useLayoutEffect, useMemo, useRef } from "react";
-import AutoSizer from "react-virtualized-auto-sizer";
-import { VariableSizeList } from "react-window";
+import { useCallback, useState } from "react";
+import { Grid, GridProps } from "react-window";
 import { Comp } from "medior/components";
+import { makeClasses } from "medior/utils/client";
 import type { TagRowProps } from "./tag-row";
 import { TAG_GAP } from "./tag-row-constants";
-import { VirtualTagCell } from "./virtual-tag-cell";
+import { VirtualTagCell, VirtualTagData } from "./virtual-tag-cell";
 
 export const VirtualTagRow = Comp(({ disabled, tags }: Pick<TagRowProps, "disabled" | "tags">) => {
-  const listRef = useRef<VariableSizeList | null>(null);
-  const widths = useRef(new Map<string, number>());
+  const { css } = useClasses(null);
 
-  const setListRef = useCallback((list: VariableSizeList | null) => {
-    listRef.current = list;
-
-    // AutoSizer can mount the list after this component's layout effect has already run.
-    // Its first cells measure before the list ref attaches, so replay those measurements now.
-    list?.resetAfterIndex(0);
-  }, []);
+  const [widths, setWidths] = useState(() => new Map<string, number>());
 
   const onWidth = useCallback(
     (index: number, width: number) => {
@@ -24,37 +17,39 @@ export const VirtualTagRow = Comp(({ disabled, tags }: Pick<TagRowProps, "disabl
 
       const label = tags[index].label;
 
-      if (widths.current.get(label) === width) return;
-
-      widths.current.set(label, width);
-      listRef.current?.resetAfterIndex(index);
+      setWidths((previous) =>
+        previous.get(label) === width ? previous : new Map(previous).set(label, width),
+      );
     },
     [tags],
   );
 
-  const data = useMemo(() => ({ disabled, onWidth, tags }), [disabled, onWidth, tags]);
-
-  useLayoutEffect(() => listRef.current?.resetAfterIndex(0), [tags]);
+  const getColumnWidth = useCallback(
+    (index: number) =>
+      (widths.get(tags[index].label) ?? 160) + (index < tags.length - 1 ? TAG_GAP : 0),
+    [tags, widths],
+  );
 
   return (
-    <AutoSizer>
-      {({ height, width }) => (
-        <VariableSizeList
-          ref={setListRef}
-          height={height}
-          width={width}
-          layout="horizontal"
-          itemCount={tags.length}
-          itemData={data}
-          itemSize={(index) =>
-            (widths.current.get(tags[index].label) ?? 160) + (index < tags.length - 1 ? TAG_GAP : 0)
-          }
-          itemKey={(index) => tags[index].label}
-          style={{ overflowX: "auto", overflowY: "hidden" }}
-        >
-          {VirtualTagCell}
-        </VariableSizeList>
-      )}
-    </AutoSizer>
+    <Grid
+      cellComponent={VirtualTagCell}
+      cellProps={{ disabled, onWidth, tags }}
+      columnCount={tags.length}
+      columnKey={getColumnKey}
+      columnWidth={getColumnWidth}
+      rowCount={1}
+      rowHeight="100%"
+      style={{ overflowX: "auto", overflowY: "hidden" }}
+      className={css.grid}
+    />
   );
+});
+
+const getColumnKey: GridProps<VirtualTagData>["columnKey"] = ({ columnIndex, data }) =>
+  data.tags[columnIndex].label;
+
+const useClasses = makeClasses({
+  grid: {
+    height: "100%",
+  },
 });

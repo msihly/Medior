@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import AutoSizer from "react-virtualized-auto-sizer";
-import { FixedSizeList } from "react-window";
+import { List, RowComponentProps } from "react-window";
 import type { SocketEvents, TagSchema } from "medior/_generated/server";
 import { Comp, HeaderWrapper, TagToUpsert, View } from "medior/components";
 import {
@@ -229,6 +228,7 @@ export const TagEditorAncestry = Comp(({ onTagClick, store }: TagEditorAncestryP
       height="100%"
     >
       <View
+        column
         flex={1}
         minHeight={0}
         overflow="hidden"
@@ -236,37 +236,53 @@ export const TagEditorAncestry = Comp(({ onTagClick, store }: TagEditorAncestryP
         borderRadiuses={{ bottom: "0.3rem" }}
         borders={{ all: `1px dotted ${colors.custom.grey}` }}
       >
-        <AutoSizer>
-          {({ height, width }) => (
-            <FixedSizeList
-              height={height}
-              width={width}
-              itemCount={rows.length}
-              itemSize={IMPORT_TAG_ROW_HEIGHT}
-              itemKey={(index) => rows[index].key}
-            >
-              {({ index, style }) => {
-                const row = rows[index];
-
-                return (
-                  <View style={style} minWidth={rowWidth}>
-                    <TagHierarchy
-                      depth={row.depth}
-                      expanded={!collapsed.has(row.key)}
-                      hasChildren={row.hasChildren}
-                      hasEditor={false}
-                      onTagClick={onTagClick}
-                      onToggle={() => toggle(row.key)}
-                      onWidth={measureRow}
-                      tag={row.tag}
-                    />
-                  </View>
-                );
-              }}
-            </FixedSizeList>
-          )}
-        </AutoSizer>
+        <List
+          rowComponent={AncestryRow}
+          rowCount={rows.length}
+          rowHeight={IMPORT_TAG_ROW_HEIGHT}
+          rowKey={getAncestryRowKey}
+          rowProps={{ collapsed, onTagClick, onToggle: toggle, onWidth: measureRow, rows, rowWidth }}
+        />
       </View>
     </HeaderWrapper>
   );
 });
+
+interface AncestryRowProps {
+  collapsed: Set<string>;
+  onTagClick?: (tag: TagToUpsert) => void;
+  onToggle: (key: string) => void;
+  onWidth: (width: number) => void;
+  rows: ReturnType<typeof getImportTagRows>;
+  rowWidth: number;
+}
+
+const AncestryRow = ({
+  collapsed,
+  index,
+  onTagClick,
+  onToggle,
+  onWidth,
+  rows,
+  rowWidth,
+  style,
+}: RowComponentProps<AncestryRowProps>) => {
+  const row = rows[index];
+
+  return (
+    <View style={style} minWidth={rowWidth}>
+      <TagHierarchy
+        depth={row.depth}
+        expanded={!collapsed.has(row.key)}
+        hasChildren={row.hasChildren}
+        hasEditor={false}
+        onTagClick={onTagClick}
+        onToggle={() => onToggle(row.key)}
+        onWidth={onWidth}
+        tag={row.tag}
+      />
+    </View>
+  );
+};
+
+const getAncestryRowKey = (index: number, { rows }: AncestryRowProps) => rows[index].key;
