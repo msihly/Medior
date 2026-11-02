@@ -583,7 +583,7 @@ export const useImportEditor = (store: Ingester | Reingester) => {
 
   const stores = useStores();
 
-  const cache = useRef<EditorImportsCache>();
+  const cache = useRef<EditorImportsCache>(undefined);
   /** Whether each import root is one program, decided once per scan from all its files. */
   const programRoots = useRef(new Map<string, boolean>());
 

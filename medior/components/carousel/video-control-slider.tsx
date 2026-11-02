@@ -7,7 +7,7 @@ interface CustomSliderProps extends Pick<
   SliderProps,
   "disabled" | "max" | "min" | "onCommit" | "setValue" | "step" | "value"
 > {
-  children: JSX.Element;
+  children: React.JSX.Element;
 }
 
 export const CustomSlider = (props: CustomSliderProps) => {

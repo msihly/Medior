@@ -3,7 +3,7 @@ import { makeClasses } from "medior/utils/client";
 import { BadgeContent } from "./tag-chip-badge-content";
 
 export interface BadgeWrapperProps {
-  children: JSX.Element;
+  children: React.JSX.Element;
   condition: boolean;
 }
 

@@ -16,7 +16,7 @@ import { colors } from "medior/utils/client";
 import { CONSTANTS, Fmt } from "medior/utils/common";
 
 interface TooltipProps {
-  children: JSX.Element;
+  children: React.JSX.Element;
   disabled?: boolean;
   file: File;
 }

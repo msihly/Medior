@@ -29,7 +29,7 @@ export const FaceRecognitionModal = Comp(() => {
   const [detectedFacesWithImages, setDetectedFacesWithImages] = useState<FaceModelWithImage[]>([]);
   const [isLoadingFaces, setIsLoadingFaces] = useState(false);
 
-  const imageRef = useRef<HTMLImageElement>();
+  const imageRef = useRef<HTMLImageElement>(undefined);
   const loadRevision = useRef(0);
 
   const file = stores.file.getById(store.activeFileId);

@@ -2,7 +2,7 @@ import electron from "electron";
 import { Comp, DropOverlay, View } from "medior/components";
 import { handleIngest, useStores } from "medior/store";
 
-export const ImportDnD = Comp(({ children }: { children: JSX.Element | JSX.Element[] }) => {
+export const ImportDnD = Comp(({ children }: { children: React.JSX.Element | React.JSX.Element[] }) => {
   const stores = useStores();
   const store = stores.home;
 

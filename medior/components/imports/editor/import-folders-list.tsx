@@ -12,7 +12,7 @@ export interface ImportFoldersListProps {
 }
 
 export const ImportFoldersList = Comp(({ store }: ImportFoldersListProps) => {
-  const listRef = useRef<VariableSizeList>();
+  const listRef = useRef<VariableSizeList>(undefined);
 
   const folders = useMemo(
     () => [...store.flatFolderHierarchy.values()],
