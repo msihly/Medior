@@ -1,6 +1,5 @@
 import { PassThrough } from "node:stream";
-import ffmpeg from "fluent-ffmpeg";
-import { runFfmpegCommand } from "./ffmpeg";
+import { runFfmpeg } from "./ffmpeg";
 import { sharp } from "./images";
 
 export const loadComparisonFrame = async (
@@ -16,15 +15,26 @@ export const loadComparisonFrame = async (
   if (isAnimated) {
     const chunks: Buffer[] = [];
     const output = new PassThrough();
-    const command = ffmpeg(inputPath).frames(1).videoCodec("png").format("image2pipe");
-
-    if (time > 0) {
-      if (inputPath.toLowerCase().endsWith(".gif")) command.seekOutput(time);
-      else command.seekInput(time);
-    }
+    const isGif = inputPath.toLowerCase().endsWith(".gif");
+    const seek = time > 0 ? ["-ss", `${time}`] : [];
 
     output.on("data", (chunk: Buffer) => chunks.push(chunk));
-    await runFfmpegCommand(command.output(output), signal);
+    await runFfmpeg(
+      [
+        ...(isGif ? [] : seek),
+        "-i",
+        inputPath,
+        "-vframes",
+        "1",
+        "-vcodec",
+        "png",
+        "-f",
+        "image2pipe",
+        ...(isGif ? seek : []),
+        "pipe:1",
+      ],
+      { signal, stdout: output },
+    );
 
     if (!chunks.length) throw new Error("No frame found at this time");
 

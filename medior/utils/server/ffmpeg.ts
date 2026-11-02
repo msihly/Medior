@@ -1,34 +1,128 @@
-import type { FfmpegCommand } from "fluent-ffmpeg";
+import { execFile, spawn } from "child_process";
+import { createInterface } from "readline";
+import type { Writable } from "stream";
 
 /** Read when called, since the paths may be set after this module loads. */
 export const getFfmpegPath = () => process.env.FFMPEG_PATH || "ffmpeg";
 
 export const getFfprobePath = () => process.env.FFPROBE_PATH || "ffprobe";
 
+/** The parts of ffprobe's JSON output that Medior reads. */
+export interface FfprobeData {
+  format: {
+    duration?: number;
+    format_name?: string;
+    size?: number;
+    tags?: Record<string, string | number>;
+  };
+  streams: {
+    avg_frame_rate?: string;
+    bit_rate?: string;
+    codec_name?: string;
+    codec_type?: string;
+    duration?: string;
+    height?: number;
+    r_frame_rate?: string;
+    width?: number;
+  }[];
+}
+
+/** One report from ffmpeg's -progress output, such as frame, fps, total_size and out_time_us. */
+export type FfmpegProgressReport = Record<string, string>;
+
+/** How much of the end of ffmpeg's error output is kept for failure messages. */
+const MAX_ERROR_OUTPUT_LENGTH = 8192;
+
+export const probeMedia = (filePath: string, signal?: AbortSignal) =>
+  new Promise<FfprobeData>((resolve, reject) => {
+    signal?.throwIfAborted();
+
+    execFile(
+      getFfprobePath(),
+      ["-v", "quiet", "-print_format", "json", "-show_format", "-show_streams", filePath],
+      { maxBuffer: 16 * 1024 * 1024, signal, windowsHide: true },
+      (error, stdout) => {
+        if (error) return reject(error);
+
+        try {
+          resolve(JSON.parse(stdout));
+        } catch (parseError) {
+          reject(parseError);
+        }
+      },
+    );
+  });
+
 /**
- * Runs an ffmpeg command until it ends, killing it once the signal aborts, including an abort
- * that arrives before ffmpeg has started. An aborted run rejects with the abort reason instead of
- * ffmpeg's kill error.
+ * Runs ffmpeg until it ends, killing it once the signal aborts, including an abort that arrives
+ * before ffmpeg has started. An aborted run rejects with the abort reason instead of ffmpeg's kill
+ * error. Progress reports come from ffmpeg's -progress output; `stdout` receives piped output.
  */
-export const runFfmpegCommand = (command: FfmpegCommand, signal?: AbortSignal) =>
+export const runFfmpeg = (
+  args: string[],
+  {
+    onProgress,
+    signal,
+    stdout,
+  }: {
+    onProgress?: (report: FfmpegProgressReport) => void;
+    signal?: AbortSignal;
+    stdout?: Writable;
+  } = {},
+) =>
   new Promise<void>((resolve, reject) => {
     signal?.throwIfAborted();
 
-    const abort = () => command.kill("SIGKILL");
+    const ffmpeg = spawn(
+      getFfmpegPath(),
+      [
+        "-nostdin",
+        "-nostats",
+        "-v",
+        "error",
+        "-y",
+        ...(onProgress ? ["-progress", "pipe:1"] : []),
+        ...args,
+      ],
+      {
+        killSignal: "SIGKILL",
+        signal,
+        stdio: ["ignore", onProgress || stdout ? "pipe" : "ignore", "pipe"],
+        windowsHide: true,
+      },
+    );
 
-    command
-      .on("start", () => {
-        if (signal?.aborted) abort();
-      })
-      .on("end", () => {
-        signal?.removeEventListener("abort", abort);
-        resolve();
-      })
-      .on("error", (error) => {
-        signal?.removeEventListener("abort", abort);
-        reject(signal?.aborted ? signal.reason : error);
+    let errorOutput = "";
+    let report: FfmpegProgressReport = {};
+
+    ffmpeg.stderr.setEncoding("utf8");
+    ffmpeg.stderr.on("data", (chunk: string) => {
+      errorOutput = (errorOutput + chunk).slice(-MAX_ERROR_OUTPUT_LENGTH);
+    });
+
+    if (stdout) ffmpeg.stdout.pipe(stdout);
+    else if (onProgress) {
+      // Each report is a run of key=value lines that ends with its progress state.
+      createInterface({ input: ffmpeg.stdout }).on("line", (line) => {
+        const separator = line.indexOf("=");
+        const key = line.slice(0, separator);
+
+        if (key !== "progress") report[key] = line.slice(separator + 1);
+        else {
+          onProgress(report);
+          report = {};
+        }
       });
+    }
 
-    signal?.addEventListener("abort", abort, { once: true });
-    command.run();
+    // An abort also emits an error, but a started run settles once ffmpeg has exited.
+    ffmpeg.on("error", (error) => {
+      if (ffmpeg.pid === undefined) reject(error);
+    });
+    ffmpeg.on("close", (code, killSignal) => {
+      if (signal?.aborted) reject(signal.reason);
+      else if (killSignal) reject(new Error(`ffmpeg was killed with signal ${killSignal}`));
+      else if (code) reject(new Error(`ffmpeg exited with code ${code}: ${errorOutput.trim()}`));
+      else resolve();
+    });
   });

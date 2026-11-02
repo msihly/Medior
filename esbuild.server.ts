@@ -27,7 +27,6 @@ import path from "path";
       "@vladmandic/face-api",
       "electron",
       "fdir",
-      "fluent-ffmpeg",
       "onnxruntime-node",
       "sharp",
       "sharp-bmp",

@@ -1,8 +1,6 @@
 import fs from "fs/promises";
 import path, { extname } from "path";
-import { execFile } from "child_process";
 import { randomUUID } from "crypto";
-import ffmpeg, { FfmpegCommand } from "fluent-ffmpeg";
 import type { FormatEnum, Metadata } from "sharp";
 import { checkFileExists, makePerfLog } from "trabecula/utils/server";
 import {
@@ -13,7 +11,7 @@ import {
   validateTimestampPairs,
 } from "medior/utils/common";
 import { getAvailableFileStorage, getConfig, getScratchFolder } from "medior/utils/server";
-import { getFfprobePath, runFfmpegCommand } from "medior/utils/server/ffmpeg";
+import { FfprobeData, probeMedia, runFfmpeg } from "medior/utils/server/ffmpeg";
 import { runImageTask } from "medior/utils/server/image-task";
 import { hashMediaFile, MediaOutput, publishMediaOutput } from "medior/utils/server/media-output";
 import { runConcurrent, workSignal } from "medior/utils/server/work-signal";
@@ -79,7 +77,7 @@ const PROBE_EXTENSIONS: Record<string, string[]> = {
   tiff_pipe: ["tiff", "tif"],
 };
 
-const getProbedExtension = (info: ffmpeg.FfprobeData, filePath: string) => {
+const getProbedExtension = (info: FfprobeData, filePath: string) => {
   const format = info.format.format_name?.split(",")[0];
   const pathExt = extname(filePath).slice(1).toLowerCase();
   const majorBrand = String(info.format.tags?.major_brand ?? "")
@@ -112,11 +110,13 @@ const getProbedExtension = (info: ffmpeg.FfprobeData, filePath: string) => {
   return ext;
 };
 
-const timemarkToSeconds = (timemark: string) => {
-  const [hh, mm, ss] = timemark.split(":");
+/** Splits each "-option value" string into two arguments, as saved override options always were. */
+const splitOptions = (options: string[]) =>
+  options.flatMap((option) => {
+    const parts = String(option).split(" ");
 
-  return Number(hh) * 3600 + Number(mm) * 60 + Number(ss);
-};
+    return parts.length === 2 ? parts : [option];
+  });
 
 export const extractVideoFrame = async (
   inputPath: string,
@@ -139,12 +139,18 @@ export const extractVideoFrame = async (
     await fs.mkdir(path.dirname(outputPath), { recursive: true });
     signal?.throwIfAborted();
 
-    const command = ffmpeg()
-      .input(inputPath)
-      .outputOptions([`-vf select='eq(n\\,${round(frameIndex, 0)})'`, "-vframes 1"])
-      .output(outputPath);
-
-    await runFfmpegCommand(command, signal);
+    await runFfmpeg(
+      [
+        "-i",
+        inputPath,
+        "-vf",
+        `select='eq(n\\,${round(frameIndex, 0)})'`,
+        "-vframes",
+        "1",
+        outputPath,
+      ],
+      { signal },
+    );
     signal?.throwIfAborted();
 
     if (!(await checkFileExists(outputPath))) throw new Error("Extracted frame not found.");
@@ -171,11 +177,12 @@ export const getScaledThumbSize = (
   };
 };
 
+/** Runs ffmpeg with the output written to a temp file, then publishes the file by its hash. */
 const execFfmpeg = async (
-  command: FfmpegCommand,
+  args: string[],
   outputDir: string,
-  options?: FfmpegOptions,
-  duration?: number,
+  options: FfmpegOptions,
+  duration: number,
   outputExt = "mp4",
 ): Promise<{ hash: string; path: string }> => {
   const DEBUG = false;
@@ -189,40 +196,36 @@ const execFfmpeg = async (
   await options?.onTempPath?.(tempPath);
   options?.signal?.throwIfAborted();
 
-  command.outputOptions(["-y"]);
-
-  let isOversized = false;
-
-  command.output(tempPath).on("progress", (progress) => {
-    // Reported sizes are floored KiB, so this never exceeds the bytes already written.
-    if (
-      !isOversized &&
-      options?.maxOutputSize &&
-      (progress.targetSize ?? 0) * 1000 >= options.maxOutputSize
-    ) {
-      isOversized = true;
-      command.kill("SIGKILL");
-    }
-
-    if (options?.onProgress) {
-      options.onProgress({
-        fps: progress.currentFps ?? 0,
-        frames: progress.frames ?? 0,
-        kbps: progress.currentKbps ?? 0,
-        percent:
-          duration && progress.timemark
-            ? Math.min(100, (timemarkToSeconds(progress.timemark) / duration) * 100)
-            : (progress.percent ?? 0),
-        size: progress.targetSize ? progress.targetSize * 1000 : 0,
-        time: progress.timemark ?? "",
-      });
-    }
-  });
+  const sizeLimit = new AbortController();
 
   try {
-    await runFfmpegCommand(command, options.signal);
+    await runFfmpeg([...args, tempPath], {
+      onProgress: (report) => {
+        // ffmpeg reports the output size in bytes, so an output stops once it reaches the limit.
+        const size = Number(report.total_size) || 0;
+        const seconds = Number(report.out_time_us) / 1_000_000;
+
+        if (options.maxOutputSize && size >= options.maxOutputSize) sizeLimit.abort();
+
+        options.onProgress?.({
+          fps: Number(report.fps) || 0,
+          frames: Number(report.frame) || 0,
+          kbps: parseFloat(report.bitrate) || 0,
+          percent:
+            duration && Number.isFinite(seconds) ? Math.min(100, (seconds / duration) * 100) : 0,
+          size,
+          // Shown as ffmpeg's hundredths-of-a-second timemark.
+          time: report.out_time?.replace(/(\.\d{2})\d+$/, "$1") ?? "",
+        });
+      },
+      signal: options.signal
+        ? AbortSignal.any([options.signal, sizeLimit.signal])
+        : sizeLimit.signal,
+    });
   } catch (error) {
-    throw isOversized && !options.signal?.aborted ? new OutputSizeExceededError(tempPath) : error;
+    throw sizeLimit.signal.aborted && !options.signal?.aborted
+      ? new OutputSizeExceededError(tempPath)
+      : error;
   }
 
   if (DEBUG) perfLog(`Temp file created: ${tempPath}.`);
@@ -255,65 +258,48 @@ const execFfmpeg = async (
   return { hash: newHash, path: newPath };
 };
 
-export const getVideoInfo = (
+export const getVideoInfo = async (
   filePath: string,
   signal = workSignal.getStore(),
-): Promise<MediaInfo> =>
-  new Promise((resolve, reject) => {
-    signal?.throwIfAborted();
+): Promise<MediaInfo> => {
+  const info = await probeMedia(filePath, signal);
+  const videoStream = info.streams.find((stream) => stream.codec_type === "video");
+  const audioStream = info.streams.find((stream) => stream.codec_type === "audio");
 
-    execFile(
-      getFfprobePath(),
-      ["-v", "quiet", "-print_format", "json", "-show_format", "-show_streams", filePath],
-      { maxBuffer: 16 * 1024 * 1024, signal, windowsHide: true },
-      (error, stdout) => {
-        if (error) return reject(error);
+  if (!videoStream?.codec_name) throw new Error("No video stream codec found.");
 
-        try {
-          const info: ffmpeg.FfprobeData = JSON.parse(stdout);
-          const videoStream = info.streams.find((stream) => stream.codec_type === "video");
-          const audioStream = info.streams.find((stream) => stream.codec_type === "audio");
+  if (audioStream && !audioStream.codec_name) throw new Error("No audio stream codec found.");
 
-          if (!videoStream?.codec_name) throw new Error("No video stream codec found.");
+  const { avg_frame_rate, bit_rate, codec_name, height, r_frame_rate, width } = videoStream;
+  const { size } = info.format;
+  const duration = [info.format.duration, videoStream.duration]
+    .map(Number)
+    .find((value) => Number.isFinite(value) && value > 0);
 
-          if (audioStream && !audioStream.codec_name)
-            throw new Error("No audio stream codec found.");
+  const frameRate = [avg_frame_rate, r_frame_rate]
+    .map((rate) => (rate ? fractionStringToNumber(rate) : null))
+    .find((rate) => Number.isFinite(rate) && rate > 0);
 
-          const { avg_frame_rate, bit_rate, codec_name, height, r_frame_rate, width } = videoStream;
-          const { size } = info.format;
-          const duration = [info.format.duration, videoStream.duration]
-            .map(Number)
-            .find((value) => Number.isFinite(value) && value > 0);
+  const ext = getProbedExtension(info, filePath);
+  const format = info.format.format_name.split(",")[0];
 
-          const frameRate = [avg_frame_rate, r_frame_rate]
-            .map((rate) => (rate ? fractionStringToNumber(rate) : null))
-            .find((rate) => Number.isFinite(rate) && rate > 0);
-
-          const ext = getProbedExtension(info, filePath);
-          const format = info.format.format_name.split(",")[0];
-
-          resolve({
-            audioBitrate: audioStream ? parseInt(audioStream.bit_rate, 10) || null : null,
-            audioCodec: audioStream ? audioStream.codec_name : "None",
-            bitrate: parseInt(bit_rate, 10) || null,
-            duration: duration ?? null,
-            ext,
-            frameRate: frameRate ?? null,
-            height,
-            isAnimated:
-              !format.endsWith("_pipe") &&
-              !["image2", "image2pipe"].includes(format) &&
-              !["avif", "heic"].includes(ext),
-            size,
-            videoCodec: codec_name,
-            width,
-          });
-        } catch (error) {
-          reject(error);
-        }
-      },
-    );
-  });
+  return {
+    audioBitrate: audioStream ? parseInt(audioStream.bit_rate, 10) || null : null,
+    audioCodec: audioStream ? audioStream.codec_name : "None",
+    bitrate: parseInt(bit_rate, 10) || null,
+    duration: duration ?? null,
+    ext,
+    frameRate: frameRate ?? null,
+    height,
+    isAnimated:
+      !format.endsWith("_pipe") &&
+      !["image2", "image2pipe"].includes(format) &&
+      !["avif", "heic"].includes(ext),
+    size,
+    videoCodec: codec_name,
+    width,
+  };
+};
 
 export const getMediaInfo = async (
   filePath: string,
@@ -482,13 +468,22 @@ const gifToLoopableVideo = async (
   if (config.maxFps && videoInfo.frameRate > config.maxFps)
     filterArray.push(`fps=${config.maxFps}`);
 
-  const command = ffmpeg()
-    .input(inputPath)
-    .videoCodec("libx264")
-    .addOption(["-vf", filterArray.join(",")])
-    .outputOptions(["-movflags", "+faststart", "-an"]);
-
-  return execFfmpeg(command, outputDir, options, videoInfo.duration);
+  return execFfmpeg(
+    [
+      "-i",
+      inputPath,
+      "-vcodec",
+      "libx264",
+      "-vf",
+      filterArray.join(","),
+      "-movflags",
+      "+faststart",
+      "-an",
+    ],
+    outputDir,
+    options,
+    videoInfo.duration,
+  );
 };
 
 export const reencode = async (inputPath: string, outputDir: string, options?: FfmpegOptions) => {
@@ -511,7 +506,7 @@ export const reencode = async (inputPath: string, outputDir: string, options?: F
     if (maxFps && inputFps > maxFps) filterArray.push(`fps=${maxFps}`);
 
     const outputOptions = override?.length
-      ? override
+      ? splitOptions(override)
       : [
           "-rc",
           "vbr_hq",
@@ -527,20 +522,27 @@ export const reencode = async (inputPath: string, outputDir: string, options?: F
           "0",
         ];
 
-    const command = ffmpeg()
-      .input(inputPath)
-      .videoCodec(codec)
-      .addOption(["-vf", filterArray.join(",")])
-      .outputOptions(outputOptions);
-
-    return execFfmpeg(command, outputDir, options);
+    return execFfmpeg(
+      ["-i", inputPath, "-vcodec", codec, "-vf", filterArray.join(","), ...outputOptions],
+      outputDir,
+      options,
+      videoInfo.duration,
+    );
   }
 };
 
 export const remux = async (inputPath: string, outputDir: string, options?: FfmpegOptions) => {
-  const command = ffmpeg().input(inputPath).outputOptions(["-c copy"]);
+  const signal = options?.signal ?? workSignal.getStore();
+  let duration: number;
 
-  return execFfmpeg(command, outputDir, options);
+  // The duration only gives progress a percentage, so a file ffprobe can't read still remuxes.
+  try {
+    duration = Number((await probeMedia(inputPath, signal)).format.duration);
+  } catch {
+    signal?.throwIfAborted();
+  }
+
+  return execFfmpeg(["-i", inputPath, "-c", "copy"], outputDir, options, duration);
 };
 
 export const spliceVideo = async (
@@ -580,31 +582,35 @@ export const spliceVideo = async (
           .join("\n"),
       );
 
-      const command = ffmpeg()
-        .input(listPath)
-        .inputOptions(["-f concat", "-safe 0"])
-        .outputOptions([
-          "-map 0",
-          "-c copy",
-          "-avoid_negative_ts make_zero",
-          "-movflags +faststart",
-        ]);
-
       options?.onStage?.(
         pairs.length > 1 ? `Cutting and joining ${pairs.length} clips` : "Cutting",
       );
 
-      return await execFfmpeg(command, outputDir, options, totalDuration);
+      return await execFfmpeg(
+        [
+          "-f",
+          "concat",
+          "-safe",
+          "0",
+          "-i",
+          listPath,
+          "-map",
+          "0",
+          "-c",
+          "copy",
+          "-avoid_negative_ts",
+          "make_zero",
+          "-movflags",
+          "+faststart",
+        ],
+        outputDir,
+        options,
+        totalDuration,
+      );
     } finally {
       await fs.rm(tempDir, { force: true, recursive: true });
     }
   } else {
-    const command = ffmpeg();
-
-    pairs.forEach(([start, end]) => {
-      command.input(inputPath).inputOptions([`-ss ${start}`, `-to ${end}`]);
-    });
-
     const hasAudio = info.audioCodec && info.audioCodec !== "None";
     const streams = pairs.map((_, i) => (hasAudio ? `[${i}:v][${i}:a]` : `[${i}:v]`)).join("");
 
@@ -612,20 +618,22 @@ export const spliceVideo = async (
       ? `${streams}concat=n=${pairs.length}:v=1:a=1[v][a]`
       : `${streams}concat=n=${pairs.length}:v=1:a=0[v]`;
 
-    command
-      .outputOptions([
+    return execFfmpeg(
+      [
+        ...pairs.flatMap(([start, end]) => ["-ss", `${start}`, "-to", `${end}`, "-i", inputPath]),
+        ...(hasAudio ? ["-acodec", "aac"] : []),
+        "-vcodec",
+        getConfig().file.reencode.codec,
         "-filter_complex",
         filterComplex,
         "-map",
         "[v]",
-        ...(hasAudio ? ["-map", "[a]"] : []),
-      ])
-      .videoCodec(getConfig().file.reencode.codec)
-      .outputOptions(hasAudio ? [] : ["-an"]);
-
-    if (hasAudio) command.audioCodec("aac");
-
-    return execFfmpeg(command, outputDir, options, totalDuration);
+        ...(hasAudio ? ["-map", "[a]"] : ["-an"]),
+      ],
+      outputDir,
+      options,
+      totalDuration,
+    );
   }
 };
 
@@ -691,14 +699,21 @@ export const vidToThumbGrid = async (
             signal,
           );
         } else {
-          const command = ffmpeg()
-            .input(inputPath)
-            .inputOptions(["-ss", `${thumb.timestamp}`])
-            .outputOptions(["-vf", `scale=${scaled.width}:${scaled.height}`, "-frames:v", "1"])
-            .output(thumb.tempPath);
-
           try {
-            await runFfmpegCommand(command, signal);
+            await runFfmpeg(
+              [
+                "-ss",
+                `${thumb.timestamp}`,
+                "-i",
+                inputPath,
+                "-vf",
+                `scale=${scaled.width}:${scaled.height}`,
+                "-frames:v",
+                "1",
+                thumb.tempPath,
+              ],
+              { signal },
+            );
           } catch (error) {
             signal?.throwIfAborted();
 
