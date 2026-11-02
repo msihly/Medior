@@ -4,3 +4,4 @@ export * from "./browser-windows";
 export * from "./cancellable-load";
 export * from "./tags";
 export { persistNotification, toast } from "./toast";
+export * from "./video";

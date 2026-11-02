@@ -1,6 +1,5 @@
 import { ipcRenderer } from "electron";
 import { createContext, MutableRefObject, useEffect, useMemo, useRef, WheelEvent } from "react";
-import FilePlayer from "react-player/file";
 import { PanzoomObject } from "@panzoom/panzoom";
 import {
   Carousel,
@@ -17,7 +16,7 @@ import { debounce } from "medior/utils/common";
 import { zoomScaleStepIn, zoomScaleStepOut } from "medior/utils/server";
 import { useHotkeys, useSockets, Views } from "medior/views/common";
 
-export const VideoContext = createContext<MutableRefObject<FilePlayer>>(null);
+export const VideoContext = createContext<MutableRefObject<HTMLVideoElement>>(null);
 
 export const ZoomContext = createContext<MutableRefObject<PanzoomObject>>(null);
 
@@ -34,7 +33,7 @@ export const CarouselWindow = Comp(({ embedded = false }: CarouselWindowProps) =
   const mouseMoveTimeout = useRef<number | null>(null);
   const panZoomRef = useRef<PanzoomObject>(null);
   const rootRef = useRef<HTMLDivElement>(null);
-  const videoRef = useRef<FilePlayer>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
 
   const activeFile = store.getActiveFile();
   const title = activeFile

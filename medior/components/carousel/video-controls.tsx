@@ -11,7 +11,7 @@ import {
   View,
 } from "medior/components";
 import { useStores } from "medior/store";
-import { colors, makeClasses, toast, Toaster } from "medior/utils/client";
+import { colors, makeClasses, seekToFraction, toast, Toaster } from "medior/utils/client";
 import { CONSTANTS, Fmt, round, throttle } from "medior/utils/common";
 import { VideoContext } from "medior/views";
 import { CustomSlider } from "./video-control-slider";
@@ -83,7 +83,7 @@ export const VideoControls = Comp(() => {
       setCurFrame(frame);
 
       if (store.requiresTranscoding) transcode(frame);
-      else videoContext?.current?.seekTo(time, "seconds");
+      else if (videoContext?.current) videoContext.current.currentTime = time;
     },
     [activeFile?.id],
   );
@@ -133,7 +133,7 @@ export const VideoControls = Comp(() => {
       store.transcodeVideo({
         seekTime: Fmt.frameToSec(frame, activeFile.frameRate),
       });
-    else videoContext?.current?.seekTo(frame / activeFile.totalFrames, "fraction");
+    else seekToFraction(videoContext?.current, frame / activeFile.totalFrames);
   };
 
   const setCurFrame = (frame: number) => store.setCurFrame(frame, activeFile.frameRate);

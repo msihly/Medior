@@ -1,6 +1,6 @@
 import fs from "fs/promises";
 import path from "path";
-import checkDiskSpace from "check-disk-space";
+import { checkDiskSpace } from "check-disk-space";
 import { randomUUID } from "crypto";
 import * as models from "medior/_generated/server/models";
 import mongoose, { AnyBulkWriteOperation } from "mongoose";

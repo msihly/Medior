@@ -1,14 +1,13 @@
 import { KeyboardEvent, MutableRefObject, useMemo, useState } from "react";
-import FilePlayer from "react-player/file";
 import { selectAllInView } from "medior/components";
 import { useStores } from "medior/store";
-import { persistNotification, toast, Toaster } from "medior/utils/client";
+import { persistNotification, seekToFraction, toast, Toaster } from "medior/utils/client";
 import { dayjs, Fmt, getHotkeyRating, matchesHotkey, round, throttle } from "medior/utils/common";
 
 export interface UseHotkeysProps {
   embedded?: boolean;
   rootRef?: MutableRefObject<HTMLElement>;
-  videoRef?: MutableRefObject<FilePlayer>;
+  videoRef?: MutableRefObject<HTMLVideoElement>;
   view: "carousel" | "collectionEditor" | "home" | "search";
 }
 
@@ -174,7 +173,7 @@ export const useHotkeys = ({ embedded = false, rootRef, videoRef, view }: UseHot
     const timeDiff = round(newTime - store.curTime);
     const newPercent = round((newFrame / totalFrames) * 100, 0);
 
-    if (!store.requiresTranscoding) videoRef.current?.seekTo(newFrame / totalFrames, "fraction");
+    if (!store.requiresTranscoding) seekToFraction(videoRef.current, newFrame / totalFrames);
     else await transcode(newFrame, file.frameRate);
 
     const message = `${isLeft ? "-" : "+"}${timeDiff} sec. / ${dayjs.duration(newTime, "s").format("HH:mm:ss")} (${newPercent}%)`;

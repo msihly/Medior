@@ -24,8 +24,8 @@ dependencies:
     specifier: ^7.3.2
     version: 7.3.3
   check-disk-space:
-    specifier: ^3.4.0
-    version: 3.4.0
+    specifier: ^4.0.0
+    version: 4.0.0
   color:
     specifier: ^5.0.3
     version: 5.0.3
@@ -50,9 +50,6 @@ dependencies:
   onnxruntime-node:
     specifier: 1.30.0
     version: 1.30.0
-  react-player:
-    specifier: ^2.16.0
-    version: 2.16.0(react@18.3.1)
   sharp:
     specifier: ^0.35.5
     version: 0.35.5(@types/node@24.19.2)
@@ -69,8 +66,8 @@ dependencies:
     specifier: github:msihly/trabecula#486d37c8fc55c5c89466f43cfe9a9764489e05a8
     version: github.com/msihly/trabecula/486d37c8fc55c5c89466f43cfe9a9764489e05a8(@mui/system@5.18.0)(@types/react@18.3.31)(electron@45.2.1)(mongodb-memory-server@11.3.0)(mongoose@9.11.4)(socket.io-client@4.8.4)(socket.io@4.8.4)
   wavesurfer.js:
-    specifier: ^7.12.11
-    version: 7.12.11
+    specifier: ^8.0.4
+    version: 8.0.4
 
 devDependencies:
   '@stylistic/eslint-plugin':
@@ -2956,9 +2953,8 @@ packages:
     dev: false
     optional: true
 
-  /check-disk-space@3.4.0:
-    resolution: {integrity: sha512-drVkSqfwA+TvuEhFipiR1OC9boEGZL5RrWvVsOthdcvQNXyCCuKkEiTOTXZ7qxSf/GLwq4GvzfrQD/Wz325hgw==}
-    engines: {node: '>=16'}
+  /check-disk-space@4.0.0:
+    resolution: {integrity: sha512-IopHYYq3Y+QOZpJJ2OiqNqrA9nS0FSB0B6kDgC52cWAOGC7WnsaIJoUCxpQ/980Z1Cox2FhtKXeaJBx3Yv7ncA==}
     dev: false
 
   /chownr@3.0.0:
@@ -3273,11 +3269,6 @@ packages:
   /deep-is@0.1.4:
     resolution: {integrity: sha512-oIPzksmTg4/MriiaYGO+okXDT7ztn/w3Eptv/+gSIdMdKsJo0u4CfYNFJPy+4SKMuCqGw2wxnA+URMg3t8a/bQ==}
     dev: true
-
-  /deepmerge@4.3.1:
-    resolution: {integrity: sha512-3sUqbMEc77XqpdNO7FRyRog+eW3ph+GYCbj+rK+uYyRMuwsVy0rMiVtPn+QJlKFvWP/1PYpapqYn0Me2knFn+A==}
-    engines: {node: '>=0.10.0'}
-    dev: false
 
   /defer-to-connect@2.0.1:
     resolution: {integrity: sha512-4tvttepXG1VaYGrRibk5EwJd1t4udunSOVMdLSAL6mId1ix438oPwPZMALY41FCijukO1L0twNcGsdzS7dHgDg==}
@@ -4686,10 +4677,6 @@ packages:
     resolution: {integrity: sha512-7ylylesZQ/PV29jhEDl3Ufjo6ZX7gCqJr5F7PKrqc93v7fzSymt1BpwEU8nAUXs8qzzvqhbjhK5QZg6Mt/HkBg==}
     dev: false
 
-  /load-script@1.0.0:
-    resolution: {integrity: sha512-kPEjMFtZvwL9TaZo0uZ2ml+Ye9HUMmPwbYRJ324qF9tqMejwykJ5ggTyvzmrbBeapCAbk98BSbTeovHEEP1uCA==}
-    dev: false
-
   /locate-path@5.0.0:
     resolution: {integrity: sha512-t7hw9pI+WvuwNJXwk5zVHpyhIqzg2qTlklJOf0mVxGSbe3Fp2VieZcduNYjaLDoy6p9uGpQEGWG87WpMKlNq8g==}
     engines: {node: '>=8'}
@@ -5672,29 +5659,12 @@ packages:
       react-dom: 18.3.1(react@18.3.1)
     dev: false
 
-  /react-fast-compare@3.2.2:
-    resolution: {integrity: sha512-nsO+KSNgo1SbJqJEYRE9ERzo7YtYbou/OqjSQKxV7jcKox7+usiUVZOAC+XnDOABXggQTno0Y1CpVnuWEc1boQ==}
-    dev: false
-
   /react-is@16.13.1:
     resolution: {integrity: sha512-24e6ynE2H+OKt4kqsOvNd8kBpV65zoxbA4BVsEOB3ARVWQki/DHzaUoC5KuON/BiccDaCCTZBuOcfZs70kR8bQ==}
     dev: false
 
   /react-is@19.2.6:
     resolution: {integrity: sha512-XjBR15BhXuylgWGuslhDKqlSayuqvqBX91BP8pauG8kd1zY8kotkNWbXksTCNRarse4kuGbe2kIY05ARtwNIvw==}
-    dev: false
-
-  /react-player@2.16.0(react@18.3.1):
-    resolution: {integrity: sha512-mAIPHfioD7yxO0GNYVFD1303QFtI3lyyQZLY229UEAp/a10cSW+hPcakg0Keq8uWJxT2OiT/4Gt+Lc9bD6bJmQ==}
-    peerDependencies:
-      react: '>=16.6.0'
-    dependencies:
-      deepmerge: 4.3.1
-      load-script: 1.0.0
-      memoize-one: 5.2.1
-      prop-types: 15.8.1
-      react: 18.3.1
-      react-fast-compare: 3.2.2
     dev: false
 
   /react-router-dom@5.3.4(react@18.3.1):
@@ -6639,8 +6609,8 @@ packages:
       fsevents: 2.3.3
     dev: true
 
-  /wavesurfer.js@7.12.11:
-    resolution: {integrity: sha512-Sx0yZIz7jRJ9J9p7UL+pl9y0UQBB6UN/XNo+R7Gy4tCR5xZI9jMyA0dnt1R8TMVSQ4LZ10SeB2HJYQ+dV2dPSA==}
+  /wavesurfer.js@8.0.4:
+    resolution: {integrity: sha512-s7F9gsvhrPqyi/33eiMLV07QWVbybbbWOFNUll4D9+aBngEa8H0G0Efj5pYGc+YGRCRrPgkaEMEKkbxA3sPoEg==}
     dev: false
 
   /web-streams-polyfill@3.3.3:

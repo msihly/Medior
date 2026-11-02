@@ -1,7 +1,5 @@
 import remote from "@electron/remote";
-import { MutableRefObject, useContext, useEffect, useRef } from "react";
-import { OnProgressProps } from "react-player/base";
-import ReactPlayer from "react-player/file";
+import { MutableRefObject, SyntheticEvent, useContext, useEffect, useRef } from "react";
 import Panzoom, { PanzoomOptions } from "@panzoom/panzoom";
 import {
   Button,
@@ -15,12 +13,13 @@ import {
   View,
 } from "medior/components";
 import { useStores } from "medior/store";
-import { colors, makeClasses, toast } from "medior/utils/client";
+import { colors, makeClasses, seekToFraction, toast } from "medior/utils/client";
 import { CONSTANTS, Fmt, round } from "medior/utils/common";
 import { videoTranscoder } from "medior/utils/server/videos";
 import { VideoContext, ZoomContext } from "medior/views";
+import { useVideoPlayback, VideoProgress } from "./hooks";
 
-export const Carousel = Comp((_, videoRef: MutableRefObject<ReactPlayer>) => {
+export const Carousel = Comp((_, videoRef: MutableRefObject<HTMLVideoElement>) => {
   const stores = useStores();
   const store = stores.carousel;
 
@@ -83,10 +82,7 @@ export const Carousel = Comp((_, videoRef: MutableRefObject<ReactPlayer>) => {
 
   useEffect(() => {
     if (store.mediaSourceUrl)
-      videoTranscoder.setMediaElementGetter(
-        store.mediaSourceUrl,
-        () => (videoRef.current?.getInternalPlayer() as HTMLMediaElement | undefined) ?? null,
-      );
+      videoTranscoder.setMediaElementGetter(store.mediaSourceUrl, () => videoRef.current);
   }, [playbackUrl]);
 
   const loadSubtitleTracks = async () => {
@@ -99,7 +95,7 @@ export const Carousel = Comp((_, videoRef: MutableRefObject<ReactPlayer>) => {
     playbackUrl ===
       (store.requiresTranscoding ? store.mediaSourceUrl : store.getActiveFile()?.path);
 
-  const handleVideoError = (error: Error | Event) => {
+  const handleVideoError = (error: Error | SyntheticEvent<HTMLVideoElement>) => {
     if (!isCurrentPlayback()) return;
 
     const playbackError =
@@ -123,7 +119,7 @@ export const Carousel = Comp((_, videoRef: MutableRefObject<ReactPlayer>) => {
     }
   };
 
-  const handleVideoReady = () => {
+  const handleVideoReady = (video: HTMLVideoElement) => {
     if (!isCurrentPlayback()) return;
 
     store.setIsWaitingForFrames(false);
@@ -131,12 +127,12 @@ export const Carousel = Comp((_, videoRef: MutableRefObject<ReactPlayer>) => {
     if (store.mediaSourceUrl) videoTranscoder.markReady(store.mediaSourceUrl);
 
     if (pendingSeekTime.current !== null) {
-      videoRef.current?.seekTo(pendingSeekTime.current, "seconds");
+      video.currentTime = pendingSeekTime.current;
       pendingSeekTime.current = null;
     }
   };
 
-  const handleVideoEnd = () => {
+  const handleVideoEnd = (event: SyntheticEvent<HTMLVideoElement>) => {
     if (!isCurrentPlayback()) return;
 
     store.recordWatchProgress();
@@ -145,15 +141,15 @@ export const Carousel = Comp((_, videoRef: MutableRefObject<ReactPlayer>) => {
     if (store.requiresTranscoding) {
       store.transcodeVideo();
       store.setIsPlaying(true);
-    } else videoRef.current?.seekTo(0);
+    } else event.currentTarget.currentTime = 0;
   };
 
-  const handleVideoProgress = (args: OnProgressProps) => {
+  const handleVideoProgress = ({ playedSeconds }: VideoProgress) => {
     if (!isCurrentPlayback()) return;
 
-    videoTranscoder.setCurrentTime(args.playedSeconds);
+    videoTranscoder.setCurrentTime(playedSeconds);
 
-    const frame = round(store.seekOffset + args.playedSeconds * activeFile?.frameRate, 0);
+    const frame = round(store.seekOffset + playedSeconds * activeFile?.frameRate, 0);
 
     if (store.videoMarks.length === 2 && frame >= store.markOut) {
       if (store.requiresTranscoding) {
@@ -162,12 +158,22 @@ export const Carousel = Comp((_, videoRef: MutableRefObject<ReactPlayer>) => {
         store.transcodeVideo({
           seekTime: Fmt.frameToSec(store.markIn, activeFile.frameRate),
         });
-      } else videoRef.current.seekTo(store.markIn / activeFile.totalFrames, "fraction");
+      } else seekToFraction(videoRef.current, store.markIn / activeFile.totalFrames);
     } else {
       store.setCurFrame(frame, activeFile.frameRate);
       store.recordWatchProgress();
     }
   };
+
+  const { handleCanPlay } = useVideoPlayback({
+    isPlaying: store.isPlaying,
+    onError: handleVideoError,
+    onProgress: handleVideoProgress,
+    onReady: handleVideoReady,
+    playbackRate: store.playbackRate,
+    videoRef,
+    volume: store.volume,
+  });
 
   const handleCancelLoad = () => {
     stores.file.search.cancelLoad();
@@ -238,21 +244,18 @@ export const Carousel = Comp((_, videoRef: MutableRefObject<ReactPlayer>) => {
                         </View>
                       )}
 
-                      <ReactPlayer
+                      <View
+                        component="video"
                         key={playbackUrl ?? activeFile.path}
                         ref={videoRef}
-                        url={playbackUrl ?? undefined}
-                        playing={store.isPlaying}
+                        src={playbackUrl ?? undefined}
+                        preload="auto"
+                        muted={store.volume === 0}
+                        onCanPlay={handleCanPlay}
                         onEnded={handleVideoEnd}
                         onError={handleVideoError}
-                        onProgress={handleVideoProgress}
-                        onReady={handleVideoReady}
-                        progressInterval={100}
                         width="100%"
                         height="100%"
-                        muted={store.volume === 0}
-                        volume={store.volume}
-                        playbackRate={store.playbackRate}
                       />
 
                       {activeCaption && (
