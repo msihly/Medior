@@ -13,7 +13,7 @@ import {
 import type { RootStore } from "medior/store";
 import { RepairStore } from "medior/store/home/repair";
 import { asyncAction } from "medior/utils/client";
-import { convertNestedKeys, mergePreset } from "medior/utils/common";
+import { convertNestedKeys, mergePreset, RatingLevel } from "medior/utils/common";
 import { Config, ConfigKey, getConfig, setConfig } from "medior/utils/server";
 
 @model("medior/SettingsStore")
@@ -101,6 +101,12 @@ export class SettingsStore extends Model({
   @modelAction
   setFolderToTagsMode(value: Config["imports"]["folderToTagsMode"]) {
     this.imports.folderToTagsMode = value;
+    this.setHasUnsavedChanges(true);
+  }
+
+  @modelAction
+  setRatingLevel(rating: number, updates: Partial<RatingLevel>) {
+    Object.assign(this.file.ratingDisplay.levels[rating], updates);
     this.setHasUnsavedChanges(true);
   }
 

@@ -4,7 +4,7 @@ import { TagSchema } from "medior/_generated/server";
 import { Comp, ContextMenu, FileBase, getRatingMeta, Icon, Text, View } from "medior/components";
 import { tagToOption, useStores } from "medior/store";
 import { colors, getContrastText, makeClasses, openSearchWindow, toast } from "medior/utils/client";
-import { Fmt, round } from "medior/utils/common";
+import { Fmt } from "medior/utils/common";
 
 export interface TagCardProps {
   tag: TagSchema;
@@ -18,7 +18,7 @@ export const TagCard = Comp(({ tag }: TagCardProps) => {
 
   const category = store.getCategory(tag);
   const color = category?.color || "black";
-  const ratingMeta = getRatingMeta(tag.rating);
+  const ratingMeta = getRatingMeta(tag.rating, stores.home.settings.file.ratingDisplay);
   const textColor = getContrastText(color);
   const subTextColor =
     textColor === colors.custom.white ? colors.custom.lightGrey : colors.custom.darkGrey;
@@ -99,15 +99,17 @@ export const TagCard = Comp(({ tag }: TagCardProps) => {
             />
 
             <View row align="center" spacing="0.2rem">
-              <Icon
-                color={ratingMeta.iconColor}
-                name={ratingMeta.icon}
-                size="0.9em"
-                className={css.rating}
-              />
+              {ratingMeta.icon && (
+                <Icon
+                  color={ratingMeta.iconColor}
+                  name={ratingMeta.icon}
+                  size="0.9em"
+                  className={css.rating}
+                />
+              )}
 
-              <Text color={subTextColor} fontSize="0.8em">
-                {round(tag.rating, 1)}
+              <Text color={ratingMeta.textColor ?? subTextColor} fontSize="0.8em">
+                {ratingMeta.text}
               </Text>
             </View>
           </View>

@@ -1,7 +1,6 @@
-import Color from "color";
 import { Chip, ChipProps, Comp, Icon, IconName, TagToUpsert, Text, View } from "medior/components";
 import { useStores } from "medior/store";
-import { colors, CssColor, getContrastText, makeClasses } from "medior/utils/client";
+import { colors, CssColor, getChipColors, makeClasses } from "medior/utils/client";
 import { BadgeWrapper } from "./tag-chip-badge";
 
 const HEIGHT_MEDIUM = 32;
@@ -70,24 +69,26 @@ export const TagChip = Comp(
 
 interface ClassesProps extends Pick<TagChipProps, "color" | "size"> {}
 
-const useClasses = makeClasses((props: ClassesProps) => ({
-  chip: {
-    "& .MuiChip-label": {
-      padding: "0",
-      width: "100%",
+const useClasses = makeClasses((props: ClassesProps) => {
+  const chipColors = getChipColors(props.color);
+
+  return {
+    chip: {
+      "& .MuiChip-label": {
+        padding: "0",
+        width: "100%",
+      },
+      background: chipColors.background,
+      border: chipColors.border,
+      borderRadius: 12,
+      color: chipColors.color,
+      height: props.size === "medium" ? HEIGHT_MEDIUM : HEIGHT_SMALL,
+      padding: "0.3em 0",
     },
-    background: Color(props.color).lighten(0.2).fade(0.5).toString(),
-    border: `2px solid ${props.color}`,
-    borderRadius: 12,
-    color: getContrastText(
-      Color(props.color).lighten(0.2).mix(Color(colors.foreground), 0.5).hex() as CssColor,
-    ),
-    height: props.size === "medium" ? HEIGHT_MEDIUM : HEIGHT_SMALL,
-    padding: "0.3em 0",
-  },
-  label: {
-    overflow: "hidden",
-    padding: "0 0.4rem",
-    textOverflow: "ellipsis",
-  },
-}));
+    label: {
+      overflow: "hidden",
+      padding: "0 0.4rem",
+      textOverflow: "ellipsis",
+    },
+  };
+});

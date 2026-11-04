@@ -1,24 +1,34 @@
-import Color from "color";
-import { Button, IconName } from "medior/components";
+import { Button, Comp } from "medior/components";
 import { useStores } from "medior/store";
-import { colors, CSS, CssColor, makeClasses } from "medior/utils/client";
-import { round } from "medior/utils/common";
+import { BorderRadiuses, colors, CSS, getChipColors, makeClasses } from "medior/utils/client";
+import { RatingDisplay, round } from "medior/utils/common";
 import { Chip, ChipProps } from "./chip";
 
-export const getRatingMeta = (rating: number) => {
-  const icon: IconName = rating > 0 ? "Star" : "StarOutline";
-  const iconColor: CssColor =
-    rating >= 7
-      ? (Color(colors.custom.orange).lighten(0.2).string() as CssColor)
-      : rating >= 4
-        ? colors.custom.lightGrey
-        : colors.custom.brown;
+/** Rounds only the corner facing into the card. */
+const CORNER_RADIUSES: Record<ChipProps["position"], BorderRadiuses> = {
+  "bottom-left": { bottom: 0, left: 0, topRight: "inherit" },
+  "bottom-right": { bottom: 0, right: 0, topLeft: "inherit" },
+  "top-left": { bottomRight: "inherit", left: 0, top: 0 },
+  "top-right": { bottomLeft: "inherit", right: 0, top: 0 },
+};
 
-  const textShadow = /^[235689]/.test(String(rating))
-    ? `0px 0px ${/^[369]/.test(String(rating)) ? "7px" : "2px"} ${iconColor}`
-    : undefined;
+export const getRatingMeta = (rating: number, display: RatingDisplay) => {
+  const index = Math.min(Math.max(Math.floor(rating ?? 0), 0), display.levels.length - 1);
+  const level = display.levels[index];
 
-  return { icon, iconColor, textShadow };
+  const text = level.text.replaceAll("{rating}", String(round(rating ?? 0, 1)));
+  const textShadow =
+    level.glow > 0 && level.iconColor
+      ? `0px 0px ${level.glow}px ${level.iconColor}`
+      : undefined;
+
+  return {
+    icon: level.icon,
+    iconColor: level.iconColor,
+    text,
+    textColor: level.textColor,
+    textShadow,
+  };
 };
 
 interface RatingChipProps extends Omit<ChipProps, "label" | "onClick"> {
@@ -28,40 +38,45 @@ interface RatingChipProps extends Omit<ChipProps, "label" | "onClick"> {
   rating: number;
 }
 
-export const RatingChip = ({
-  button = false,
-  noHide = false,
-  rating,
-  ...props
-}: RatingChipProps) => {
-  const stores = useStores();
+export const RatingChip = Comp(
+  ({ button = false, noHide = false, rating, ...props }: RatingChipProps) => {
+    const stores = useStores();
+    const store = stores.home.settings;
 
-  const { icon, iconColor, textShadow } = getRatingMeta(rating);
+    const display = store.file.ratingDisplay;
+    const isCorner = display.shape === "corner" && !!props.position;
+    const { icon, iconColor, text, textColor, textShadow } = getRatingMeta(rating, display);
+    const bgColor = textColor ? getChipColors(textColor, 0.25).background : undefined;
 
-  const { css } = useClasses({ textShadow });
+    const { css } = useClasses({ textShadow });
 
-  if (!noHide && rating === 0 && stores.home.settings.file.hideUnratedIcon) return null;
+    if (!noHide && rating === 0 && store.file.hideUnratedIcon) return null;
 
-  return button ? (
-    <Button
-      text={rating === 0 ? "Rate" : round(rating, 1)}
-      icon="Star"
-      iconProps={{ color: colors.custom.white }}
-      onClick={props.onClick}
-    />
-  ) : (
-    <Chip
-      label={round(rating, 1)}
-      color={colors.custom.lightGrey}
-      fontWeight={600}
-      icon={icon}
-      iconColor={iconColor}
-      iconProps={{ className: css.star }}
-      opacity={1}
-      {...props}
-    />
-  );
-};
+    return button ? (
+      <Button
+        text={rating === 0 ? "Rate" : text}
+        icon={rating === 0 ? "Star" : icon}
+        iconProps={{ color: colors.custom.white }}
+        textColor={textColor}
+        onClick={props.onClick}
+      />
+    ) : (
+      <Chip
+        label={text}
+        bgColor={bgColor}
+        color={textColor ?? colors.custom.lightGrey}
+        fontWeight={600}
+        icon={icon}
+        iconColor={iconColor}
+        iconProps={{ className: css.star }}
+        opacity={1}
+        flush={isCorner}
+        radiuses={isCorner ? CORNER_RADIUSES[props.position] : undefined}
+        {...props}
+      />
+    );
+  },
+);
 
 interface ClassesProps {
   textShadow: CSS["textShadow"];

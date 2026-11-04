@@ -14,6 +14,8 @@ import {
   mergePreset,
   migrateReencodeDimensions,
   NestedKeys,
+  RatingDisplay,
+  STARS_RATING_DISPLAY,
   SubtitleMode,
   VideoCodec,
   VideoExt,
@@ -188,6 +190,7 @@ export interface Config {
     imageExts: Array<ImageExt>;
     /** Deleted files keep a gzipped copy of their record beside each of their checksums. */
     keepDeletedMetadata: boolean;
+    ratingDisplay: RatingDisplay;
     reencode: {
       codec: string;
       /** Files with these tags or their descendants never qualify for Add Re-encodes. */
@@ -398,6 +401,7 @@ export const DEFAULT_CONFIG: Config = {
     hideUnratedIcon: false,
     imageExts: [...CONSTANTS.IMAGE.EXTS_COMMON],
     keepDeletedMetadata: false,
+    ratingDisplay: STARS_RATING_DISPLAY,
     reencode: {
       codec: "libx265",
       excludedDescTagIds: [],

@@ -18,7 +18,12 @@ import {
 } from "medior/components";
 import { useStores } from "medior/store";
 import { colors, toast, useCancellableLoad } from "medior/utils/client";
-import { CONSTANTS, SUBTITLE_MODES } from "medior/utils/common";
+import {
+  CONSTANTS,
+  RATING_DISPLAY_PRESETS,
+  RatingDisplay,
+  SUBTITLE_MODES,
+} from "medior/utils/common";
 import {
   AUDIO_SIMILARITY_DEVICE_OPTIONS,
   AUDIO_SIMILARITY_LAYER_OPTIONS,
@@ -43,6 +48,11 @@ const INGESTER_CHECKBOX_PROPS: Partial<CheckboxProps> = {
   flex: "initial",
   padding: { all: "0.5rem" },
 };
+
+const RATING_SHAPE_OPTIONS = [
+  { label: "Chip", value: "chip" },
+  { label: "Corner", value: "corner" },
+];
 
 const REMUX_EXTS = CONSTANTS.VIDEO.EXTS.filter((ext) => ext !== "mp4");
 
@@ -124,6 +134,9 @@ export const SettingsModal = Comp(() => {
 
       if (location) setPath(location);
     };
+
+  const handleRatingPreset = (display: RatingDisplay) =>
+    store.update({ file: { ratingDisplay: structuredClone(display) } });
 
   const handleRepair = () => store.repair.setIsOpen(true);
 
@@ -556,6 +569,37 @@ export const SettingsModal = Comp(() => {
                     <Settings.Checkbox configKey="file.hideUnratedIcon" width="auto" />
                   </Settings.Field>
                 </Settings.Grid>
+              </Settings.Group>
+
+              <Settings.Group
+                title="Ratings"
+                rightNode={
+                  <View row spacing="0.5rem">
+                    {RATING_DISPLAY_PRESETS.map((preset) => (
+                      <Button
+                        key={preset.label}
+                        text={preset.label}
+                        onClick={() => handleRatingPreset(preset.value)}
+                        color={colors.custom.black}
+                      />
+                    ))}
+                  </View>
+                }
+              >
+                <Settings.Grid>
+                  <Settings.Field
+                    label="Shape"
+                    description="Corners sit flush against the card's corner."
+                  >
+                    <Settings.Dropdown
+                      configKey="file.ratingDisplay.shape"
+                      options={RATING_SHAPE_OPTIONS}
+                      width="8rem"
+                    />
+                  </Settings.Field>
+                </Settings.Grid>
+
+                <Settings.RatingLevels />
               </Settings.Group>
 
               <Settings.Group title="Audio Metadata">

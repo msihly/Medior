@@ -1,5 +1,6 @@
 import { MouseEvent } from "react";
 import { Comp, getRatingMeta, ListItem } from "medior/components";
+import { useStores } from "medior/store";
 import type { RatingButtonProps } from "./rating-button";
 
 export interface OptionRowProps {
@@ -9,7 +10,9 @@ export interface OptionRowProps {
 }
 
 export const OptionRow = Comp((props: OptionRowProps) => {
-  const meta = getRatingMeta(props.value);
+  const stores = useStores();
+
+  const meta = getRatingMeta(props.value, stores.home.settings.file.ratingDisplay);
 
   const handleClick = (event: MouseEvent) => {
     event.stopPropagation();
@@ -19,11 +22,11 @@ export const OptionRow = Comp((props: OptionRowProps) => {
 
   return (
     <ListItem
-      text={props.value}
+      text={meta.text}
       onClick={handleClick}
       icon={meta.icon}
       iconProps={{ color: meta.iconColor }}
-      color={meta.iconColor}
+      color={meta.textColor ?? meta.iconColor}
     />
   );
 });

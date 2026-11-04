@@ -12,7 +12,7 @@ import {
   ZoomControls,
 } from "medior/components";
 import { useStores } from "medior/store";
-import { colors, makeClasses, toast } from "medior/utils/client";
+import { colors, CssColor, makeClasses, toast } from "medior/utils/client";
 import { CONSTANTS, round } from "medior/utils/common";
 import { getIsAnimated, getIsImage } from "medior/utils/server";
 import { ZoomContext } from "medior/views";
@@ -23,7 +23,7 @@ export const CarouselTopBar = Comp(() => {
 
   const file = stores.file.getById(store.activeFileId);
   const canEditImage = file && getIsImage(file.ext) && !getIsAnimated(file.ext);
-  const ratingMeta = getRatingMeta(file?.rating);
+  const ratingMeta = getRatingMeta(file?.rating, stores.home.settings.file.ratingDisplay);
 
   const [cropTarget, setCropTarget] = useState<{ expectedHash: string; fileId: string }>(null);
   const [isAspectRatioLocked, setIsAspectRatioLocked] = useState(false);
@@ -31,7 +31,8 @@ export const CarouselTopBar = Comp(() => {
   const { css } = useClasses({
     isMouseMoving: store.isMouseMoving,
     isPinned: store.isPinned,
-    ratingTextShadow: ratingMeta?.textShadow,
+    ratingTextColor: ratingMeta.textColor,
+    ratingTextShadow: ratingMeta.textShadow,
   });
 
   const panZoomRef = useContext(ZoomContext);
@@ -120,10 +121,12 @@ export const CarouselTopBar = Comp(() => {
         <View row align="center" spacing="0.3rem">
           {file?.isCorrupted && <Icon name="Warning" size="1em" color={colors.custom.orange} />}
 
-          <Icon name={ratingMeta?.icon} color={ratingMeta?.iconColor} size="inherit" />
+          {ratingMeta.icon && (
+            <Icon name={ratingMeta.icon} color={ratingMeta.iconColor} size="inherit" />
+          )}
 
           <Text fontSize="1.2em" className={css.rating}>
-            {file?.rating}
+            {file && ratingMeta.text}
           </Text>
         </View>
       </View>
@@ -185,12 +188,13 @@ export const CarouselTopBar = Comp(() => {
 interface ClassesProps {
   isMouseMoving: boolean;
   isPinned: boolean;
+  ratingTextColor: CssColor | null;
   ratingTextShadow: string;
 }
 
 const useClasses = makeClasses((props: ClassesProps) => ({
   rating: {
-    color: colors.custom.lightGrey,
+    color: props.ratingTextColor ?? colors.custom.lightGrey,
     textShadow: props.ratingTextShadow,
   },
   root: {

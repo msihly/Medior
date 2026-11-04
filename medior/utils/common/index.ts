@@ -9,6 +9,7 @@ export * from "./imports";
 export * from "./media-metadata";
 export * from "./media-programs";
 export * from "./progress";
+export * from "./ratings";
 export * from "./search";
 export * from "./subtitles";
 export * from "./tag-categories";
