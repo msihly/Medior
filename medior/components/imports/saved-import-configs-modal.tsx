@@ -189,7 +189,7 @@ export const SavedImportConfigsModal = Comp(
 
             <View column flex={1} minHeight={0} spacing="0.8rem" padding={{ all: "0.2rem 1rem" }}>
               {editorStore && (
-                <Card bgColor={colors.background}>
+                <Card>
                   <View row align="stretch">
                     <Input
                       header="Config Label"
@@ -234,7 +234,7 @@ export const SavedImportConfigsModal = Comp(
                       align="center"
                       spacing="0.7rem"
                       bgColor={
-                        editingLabelConfigId === config.id ? colors.custom.darkGrey : undefined
+                        editingLabelConfigId === config.id ? colors.foregroundCard : undefined
                       }
                     >
                       <View column flex={1} spacing="0.3rem" overflow="hidden">
@@ -269,11 +269,7 @@ export const SavedImportConfigsModal = Comp(
                               colorOnHover={colors.custom.blue}
                             />
 
-                            <Button
-                              icon="Close"
-                              onClick={clearLabelEditing}
-                              colorOnHover={colors.custom.grey}
-                            />
+                            <Button icon="Close" onClick={clearLabelEditing} />
                           </View>
                         ) : (
                           <Button
@@ -310,7 +306,7 @@ export const SavedImportConfigsModal = Comp(
         </Modal.Content>
 
         <Modal.Footer>
-          <Button text="Close" icon="Close" onClick={handleClose} color={colors.custom.grey} />
+          <Button text="Close" icon="Close" onClick={handleClose} />
         </Modal.Footer>
 
         {overwriteConfig && (

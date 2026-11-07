@@ -78,7 +78,7 @@ export const SimilarityModal = Comp(() => {
               similarity={store.getCandidate(file.id)}
             />
           ))}
-          bgColor={colors.custom.black}
+          bgColor={colors.background}
           noResultsText={isLoading ? "" : store.error || "No similar files found"}
         />
 

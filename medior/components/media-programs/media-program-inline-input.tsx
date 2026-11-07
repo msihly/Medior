@@ -1,6 +1,7 @@
 import { ReactNode, useRef, useState } from "react";
 import { Comp, Input, View } from "medior/components";
-import { CSS, makeClasses } from "medior/utils/client";
+import { colors, CSS, makeClasses } from "medior/utils/client";
+import { CONTROL_RADIUS } from "medior/utils/common";
 
 export interface MediaProgramInlineInputProps {
   /** Shown until clicked, which swaps it for the input. */
@@ -74,10 +75,10 @@ export const MediaProgramInlineInput = Comp(
 
 const useClasses = makeClasses({
   display: {
-    borderRadius: "0.3rem",
+    borderRadius: CONTROL_RADIUS,
     transition: "background-color 150ms ease",
     "&:hover": {
-      backgroundColor: "rgba(255, 255, 255, 0.06)",
+      backgroundColor: colors.control,
     },
   },
 });

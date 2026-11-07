@@ -28,7 +28,7 @@ export const Group = ({ children, rightNode, title }: GroupProps) => {
 const useClasses = makeClasses({
   group: {
     "&:not(:first-child)": {
-      borderTop: `1px solid ${colors.custom.grey}`,
+      borderTop: `1px solid ${colors.border}`,
       paddingTop: "0.5rem",
     },
   },

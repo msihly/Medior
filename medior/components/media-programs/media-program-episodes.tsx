@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
 import {
   CenteredText,
+  Chip,
   Comp,
   ConfirmModal,
   FileActionButtons,
@@ -9,7 +10,6 @@ import {
   MediaProgramEpisodeNumbering,
   MediaProgramEpisodeNumberModal,
   MediaProgramMissingEpisode,
-  MediaProgramPill,
   MediaProgramSection,
   MenuButton,
   MultiActionButton,
@@ -119,15 +119,12 @@ export const MediaProgramEpisodes = Comp(() => {
       subtitle={activeSeason?.meta?.title ?? missingSeason?.title}
       info={
         <>
-          {episodeCount !== undefined && (
-            <MediaProgramPill label={`${Fmt.commas(episodeCount)} Episodes`} />
-          )}
+          {episodeCount !== undefined && <Chip label={`${Fmt.commas(episodeCount)} Episodes`} />}
 
           {selectedCount + selectedMissingCount > 0 && (
-            <MediaProgramPill
+            <Chip
               label={`${Fmt.commas(selectedCount + selectedMissingCount)} Selected`}
               bgColor={colors.custom.blue}
-              color={colors.custom.white}
             />
           )}
         </>

@@ -40,7 +40,7 @@ export const FileSearchColumn = Comp(() => {
       <SearchLoadingOverlay store={store} />
 
       <View column spacing="0.5rem" padding={{ all: "0.5rem" }}>
-        <FileFilter.Menu store={store} color={colors.custom.black} />
+        <FileFilter.Menu store={store} />
 
         <View row align="center" spacing="0.3rem">
           <Button

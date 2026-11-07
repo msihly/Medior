@@ -1,18 +1,19 @@
 import { shell } from "@electron/remote";
 import { ReactNode, useState } from "react";
 import {
+  Button,
+  Chip,
   Comp,
   IconButton,
   ListItem,
   MEDIA_PROGRAM_BORDER,
-  MEDIA_PROGRAM_PANEL_COLOR,
+  MEDIA_PROGRAM_BUTTON_PROPS,
   MEDIA_PROGRAM_RADIUS,
   MediaProgramGenresModal,
-  MediaProgramPill,
   MediaProgramSection,
-  MediaProgramTagPill,
   MenuButton,
   sortTags,
+  TagChip,
   Text,
   View,
 } from "medior/components";
@@ -155,7 +156,7 @@ export const MediaProgramAbout = Comp(() => {
       <View
         column
         padding={{ all: "0.4rem 0.75rem" }}
-        bgColor={MEDIA_PROGRAM_PANEL_COLOR}
+        bgColor={colors.foreground}
         borders={{ all: MEDIA_PROGRAM_BORDER }}
         borderRadiuses={{ all: MEDIA_PROGRAM_RADIUS }}
       >
@@ -196,18 +197,19 @@ export const MediaProgramAbout = Comp(() => {
       {program && (
         <PillGroup label="Genres">
           {genres.map((genre) => (
-            <MediaProgramTagPill key={genre.id} tag={genre} />
+            <TagChip key={genre.id} tag={genre} hasEditor />
           ))}
 
           {sourceGenres.map((genre) => (
-            <MediaProgramPill key={genre} label={genre} />
+            <Chip key={genre} label={genre} />
           ))}
 
-          <MediaProgramPill
+          <Button
+            {...MEDIA_PROGRAM_BUTTON_PROPS}
+            text={genres.length ? "Edit Genres" : "Add Genres"}
             icon={genres.length ? "Edit" : "Add"}
-            label={genres.length ? "Edit Genres" : "Add Genres"}
             onClick={handleGenresOpen}
-            color={colors.custom.lightGrey}
+            textColor={colors.custom.lightGrey}
           />
         </PillGroup>
       )}
@@ -215,7 +217,7 @@ export const MediaProgramAbout = Comp(() => {
       {program?.tags.length > 0 && (
         <PillGroup label="Tags">
           {sortTags(program.tags, stores.tag.getCategory).map((tag) => (
-            <MediaProgramTagPill key={tag.id} tag={tag} />
+            <TagChip key={tag.id} tag={tag} hasEditor />
           ))}
         </PillGroup>
       )}

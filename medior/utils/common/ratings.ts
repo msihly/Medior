@@ -16,7 +16,7 @@ export interface RatingLevel {
 export interface RatingDisplay {
   /** One level per rating, from unrated to 9. */
   levels: RatingLevel[];
-  /** Corners sit flush against the card's corner instead of floating as a chip. */
+  /** Corner sets every card chip flush against the card's corner instead of floating. */
   shape: "chip" | "corner";
 }
 

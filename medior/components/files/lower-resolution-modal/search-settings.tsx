@@ -33,7 +33,6 @@ export const SearchSettings = Comp(() => {
       <Card header="Files" flex="1 0 auto" justify="center" maxWidth="fit-content">
         <FileFilter.Menu
           store={store.search}
-          color={colors.foregroundCard}
           onSearch={store.applyMenuFilter}
           hideArchivedAndCorrupted
         />

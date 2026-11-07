@@ -226,8 +226,8 @@ export const SettingsModal = Comp(() => {
                 text={tab.label}
                 icon={tab.icon}
                 onClick={() => setActiveTab(tab.label)}
-                color={isActive ? colors.custom.grey : "transparent"}
-                colorOnHover={isActive ? colors.custom.grey : colors.foregroundCard}
+                color={isActive ? colors.control : "transparent"}
+                colorOnHover={colors.control}
                 textColor={isActive ? colors.custom.white : colors.custom.lightGrey}
                 justify="flex-start"
                 padding={{ all: "0.5rem 0.7rem" }}
@@ -241,14 +241,7 @@ export const SettingsModal = Comp(() => {
             <>
               <Settings.Group
                 title="Database"
-                rightNode={
-                  <Button
-                    text="Repair Database"
-                    icon="Build"
-                    onClick={handleRepair}
-                    color={colors.custom.black}
-                  />
-                }
+                rightNode={<Button text="Repair Database" icon="Build" onClick={handleRepair} />}
               >
                 <Settings.Grid>
                   <Settings.Field label="Path" description="Changing it restarts the servers." wide>
@@ -577,7 +570,6 @@ export const SettingsModal = Comp(() => {
                         key={preset.label}
                         text={preset.label}
                         onClick={() => handleRatingPreset(preset.value)}
-                        color={colors.custom.black}
                       />
                     ))}
                   </View>
@@ -586,7 +578,7 @@ export const SettingsModal = Comp(() => {
                 <Settings.Grid>
                   <Settings.Field
                     label="Shape"
-                    description="Corners sit flush against the card's corner."
+                    description="Card chips sit flush against the card's corners."
                   >
                     <Settings.Dropdown
                       configKey="file.ratingDisplay.shape"

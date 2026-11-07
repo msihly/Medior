@@ -77,7 +77,7 @@ export const VideoTransformerModal = Comp(() => {
                   icon={store.isTransforming && store.activeType === type ? "Autorenew" : undefined}
                   onClick={() => handleQueueType(type)}
                   disabled={load.isLoading || store.isUpdating}
-                  color={store.queueType === type ? colors.custom.purple : colors.foregroundCard}
+                  color={store.queueType === type ? colors.custom.purple : undefined}
                   colorOnHover={colors.custom.purple}
                 />
               ))}

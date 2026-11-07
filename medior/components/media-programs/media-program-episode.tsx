@@ -79,24 +79,21 @@ export const MediaProgramEpisode = Comp(({ episodeNumber, file }: MediaProgramEp
               />
             )}
 
-            <FileBase.RatingChip position="top-left" rating={file.rating} size="small" corner />
+            <FileBase.RatingChip position="top-left" rating={file.rating} size="small" />
 
             <FileBase.Chip
               position="top-right"
               size="small"
-              corner
               label={`EP ${episodeNumber}`}
               icon={isWatched ? "CheckCircle" : undefined}
               iconColor={colors.custom.green}
               color={colors.custom.white}
-              opacity={0.9}
             />
 
             {isMissing && (
               <MediaProgramMissingChip
                 position="bottom-left"
                 size="small"
-                corner
                 footerOffset={subtitle ? "2.6rem" : "1.5rem"}
               />
             )}
@@ -104,7 +101,6 @@ export const MediaProgramEpisode = Comp(({ episodeNumber, file }: MediaProgramEp
             <FileBase.Duration
               position="bottom-right"
               size="small"
-              corner
               file={file}
               footerOffset={subtitle ? "2.6rem" : "1.5rem"}
             />

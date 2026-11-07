@@ -388,7 +388,6 @@ const useClasses = makeClasses((props: ClassesProps) => ({
     },
   },
   listbox: {
-    backgroundColor: colors.background,
     boxShadow: "0 0 0.5rem 0.1rem rgba(0, 0, 0, 0.3)",
     overflowX: "hidden",
     overflowY: "auto",

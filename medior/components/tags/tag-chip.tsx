@@ -1,12 +1,15 @@
 import { Chip, ChipProps, Comp, Icon, IconName, TagToUpsert, Text, View } from "medior/components";
 import { useStores } from "medior/store";
-import { colors, CssColor, getChipColors, makeClasses } from "medior/utils/client";
+import { colors, CssColor, makeClasses } from "medior/utils/client";
 import { BadgeWrapper } from "./tag-chip-badge";
 
 const HEIGHT_MEDIUM = 32;
 const HEIGHT_SMALL = 26;
 
-export interface TagChipProps extends Omit<ChipProps, "color" | "label" | "onChange" | "onClick"> {
+export interface TagChipProps extends Omit<
+  ChipProps,
+  "bgColor" | "color" | "label" | "onChange" | "onClick"
+> {
   color?: CssColor;
   hasEditor?: boolean;
   onClick?: (id: string | null) => void;
@@ -32,7 +35,7 @@ export const TagChip = Comp(
     color = color || category?.color || colors.custom.grey;
     icon = icon || (category?.icon as IconName);
 
-    const { css, cx } = useClasses({ color, size });
+    const { css, cx } = useClasses({ size });
 
     const handleClick = () => {
       onClick?.(tag.id ?? null);
@@ -47,6 +50,7 @@ export const TagChip = Comp(
       <BadgeWrapper condition={!tag.id}>
         <Chip
           {...props}
+          bgColor={color}
           size={size}
           onClick={onClick || (hasEditor && tag.id) ? handleClick : null}
           className={cx(css.chip, className)}
@@ -67,28 +71,21 @@ export const TagChip = Comp(
   },
 );
 
-interface ClassesProps extends Pick<TagChipProps, "color" | "size"> {}
+interface ClassesProps extends Pick<TagChipProps, "size"> {}
 
-const useClasses = makeClasses((props: ClassesProps) => {
-  const chipColors = getChipColors(props.color);
-
-  return {
-    chip: {
-      "& .MuiChip-label": {
-        padding: "0",
-        width: "100%",
-      },
-      background: chipColors.background,
-      border: chipColors.border,
-      borderRadius: 12,
-      color: chipColors.color,
-      height: props.size === "medium" ? HEIGHT_MEDIUM : HEIGHT_SMALL,
-      padding: "0.3em 0",
+const useClasses = makeClasses((props: ClassesProps) => ({
+  chip: {
+    "& .MuiChip-label": {
+      padding: "0",
+      width: "100%",
     },
-    label: {
-      overflow: "hidden",
-      padding: "0 0.4rem",
-      textOverflow: "ellipsis",
-    },
-  };
-});
+    borderRadius: 12,
+    height: props.size === "medium" ? HEIGHT_MEDIUM : HEIGHT_SMALL,
+    padding: "0.3em 0",
+  },
+  label: {
+    overflow: "hidden",
+    padding: "0 0.4rem",
+    textOverflow: "ellipsis",
+  },
+}));

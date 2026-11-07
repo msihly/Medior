@@ -163,7 +163,7 @@ export const MediaProgramRankingsToggle = Comp(() => {
       text="Rankings"
       icon="EmojiEvents"
       onClick={handleToggle}
-      color={store.isRankingsView ? colors.custom.purple : colors.foregroundCard}
+      color={store.isRankingsView ? colors.custom.purple : undefined}
     />
   );
 });

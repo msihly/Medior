@@ -1,6 +1,6 @@
 import { ReactNode } from "react";
 import { View } from "medior/components";
-import { CSS, makeClasses } from "medior/utils/client";
+import { colors, CSS, makeClasses } from "medior/utils/client";
 
 interface FooterProps {
   align?: CSS["alignItems"];
@@ -11,7 +11,7 @@ interface FooterProps {
 
 export const Footer = ({
   align = "flex-end",
-  background = "linear-gradient(to bottom, transparent, black)",
+  background = `linear-gradient(to bottom, transparent, ${colors.foreground})`,
   children,
   height = "3rem",
 }: FooterProps) => {

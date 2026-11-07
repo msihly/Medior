@@ -18,10 +18,9 @@ import {
 
 /**
  * Fades in gradually over the footer's top 3rem, easing into the shade, so the title below it always
- * sits on shade.
+ * sits on shade, and ends in the card's color.
  */
-const FOOTER_BACKGROUND =
-  "linear-gradient(to bottom, transparent, rgba(0, 0, 0, 0.25) 1rem, rgba(0, 0, 0, 0.6) 2rem, rgba(0, 0, 0, 0.85) 3rem, black)";
+const FOOTER_BACKGROUND = `linear-gradient(to bottom, transparent, rgba(0, 0, 0, 0.25) 1rem, rgba(0, 0, 0, 0.6) 2rem, rgba(0, 0, 0, 0.85) 3rem, ${colors.foreground})`;
 
 export interface MediaProgramCardProps {
   program: MediaProgram;
@@ -129,12 +128,11 @@ export const MediaProgramCard = Comp(({ program, rank, search }: MediaProgramCar
           </View>
         )}
 
-        <FileBase.RatingChip position="top-left" rating={program.rating} size="small" corner />
+        <FileBase.RatingChip position="top-left" rating={program.rating} size="small" />
 
         <WatchStatusChip
           position="top-right"
           size="small"
-          corner
           isRewatching={program.isRewatching}
           total={program.fileCount}
           watched={program.watchedIdSet.size}
@@ -145,12 +143,10 @@ export const MediaProgramCard = Comp(({ program, rank, search }: MediaProgramCar
           <FileBase.Chip
             position="bottom-left"
             size="small"
-            corner
             footerOffset={hasGenres ? "4.6rem" : "2.6rem"}
             label={`#${rank.index + 1}`}
             bgColor={rank.isChanged ? colors.custom.purple : undefined}
             color={colors.custom.white}
-            opacity={0.9}
           />
         )}
 

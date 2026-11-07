@@ -1,4 +1,3 @@
-import Color from "color";
 import { Comp, Icon, LoadingOverlay, Text, View } from "medior/components";
 import {
   makeTileClickHandler,
@@ -6,19 +5,9 @@ import {
   useFileDrag,
 } from "medior/components/files/hooks";
 import { File, FileSearch, FileTransformSearch, useStores } from "medior/store";
-import { colors, CSS, CssColor, makeClasses, openCarouselWindow } from "medior/utils/client";
+import { colors, CSS, makeClasses, openCarouselWindow } from "medior/utils/client";
 import { Fmt, round } from "medior/utils/common";
 import { FileBase } from ".";
-
-/**
- * Chips sit on the card's dark surface around a fitted thumbnail rather than over an image, so they
- * take a slightly lighter, partly transparent fill that still shows their shape there.
- */
-const CHIP_BG_COLOR = Color(colors.mui.grey["800"])
-  .mix(Color(colors.foregroundCard))
-  .hex() as CssColor;
-
-const CHIP_OPACITY = 0.75;
 
 interface FileCardProps {
   carouselFileIds?: string[];
@@ -109,7 +98,6 @@ export const FileCard = Comp(
               {similarity ? (
                 <FileBase.Chip
                   position="top-left"
-                  corner
                   bgColor={
                     similarity.score >= 0.9
                       ? colors.custom.green
@@ -118,7 +106,6 @@ export const FileCard = Comp(
                         : colors.custom.red
                   }
                   color={colors.custom.white}
-                  opacity={1}
                   avatar={<Text className={css.similarityRank}>{`#${similarity.rank}`}</Text>}
                   label={`${round(similarity.score * 100, 1)}%${
                     similarity.start === undefined ? "" : ` @ ${Fmt.duration(similarity.start)}`
@@ -128,20 +115,11 @@ export const FileCard = Comp(
                 <FileBase.RatingChip position="top-left" rating={file.rating} />
               )}
 
-              <FileBase.ExtAndIcons
-                position="top-right"
-                corner
-                bgColor={CHIP_BG_COLOR}
-                opacity={CHIP_OPACITY}
-                file={file}
-              />
+              <FileBase.ExtAndIcons position="top-right" file={file} />
 
               {file.collectionIds?.length > 0 && (
                 <FileBase.Chip
                   position="bottom-left"
-                  corner
-                  bgColor={CHIP_BG_COLOR}
-                  opacity={CHIP_OPACITY}
                   hasFooter={hasFooter}
                   footerOffset={footerOffset}
                   label={
@@ -156,9 +134,6 @@ export const FileCard = Comp(
 
               <FileBase.Duration
                 position="bottom-right"
-                corner
-                bgColor={CHIP_BG_COLOR}
-                opacity={CHIP_OPACITY}
                 file={file}
                 hasFooter={hasFooter}
                 footerOffset={footerOffset}

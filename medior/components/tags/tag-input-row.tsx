@@ -43,8 +43,10 @@ const TAG_SEARCH_META: {
   },
 };
 
-export interface TagInputRowProps
-  extends Omit<MultiInputRowProps<TagOption>, "rightNode" | "value"> {
+export interface TagInputRowProps extends Omit<
+  MultiInputRowProps<TagOption>,
+  "rightNode" | "value"
+> {
   hasEditor?: boolean;
   hasSearchMenu?: boolean;
   rightNode?: (tag: TagOption) => ReactNode;
@@ -113,7 +115,6 @@ export const TagInputRow = Comp(
                   onClick={onOpen}
                   icon={searchMeta?.icon}
                   iconProps={{ color: searchMeta?.color }}
-                  color={colors.foreground}
                   padding={{ all: "0.3em" }}
                   boxShadow="none"
                 />

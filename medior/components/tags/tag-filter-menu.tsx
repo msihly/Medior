@@ -12,16 +12,14 @@ import {
   View,
 } from "medior/components";
 import { TagSearch } from "medior/store";
-import { colors, CssColor } from "medior/utils/client";
 
 export interface TagFilterMenuProps {
-  color?: CssColor;
   store: TagSearch;
 }
 
-export const TagFilterMenu = Comp(({ color = colors.foreground, store }: TagFilterMenuProps) => {
+export const TagFilterMenu = Comp(({ store }: TagFilterMenuProps) => {
   return (
-    <FilterMenu store={store} color={color} sortOptions={SORT_OPTIONS.Tag}>
+    <FilterMenu store={store} sortOptions={SORT_OPTIONS.Tag}>
       <View row spacing="0.5rem" width="100%">
         <Card flex={1} spacing="0.5rem">
           <TagInput

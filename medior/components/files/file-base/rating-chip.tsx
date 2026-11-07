@@ -1,6 +1,6 @@
 import { Button, Comp } from "medior/components";
 import { useStores } from "medior/store";
-import { colors, CSS, getContrastText, makeClasses } from "medior/utils/client";
+import { colors, CSS, makeClasses } from "medior/utils/client";
 import { RatingDisplay, round } from "medior/utils/common";
 import { Chip, ChipProps } from "./chip";
 
@@ -13,9 +13,9 @@ export const getRatingMeta = (rating: number, display: RatingDisplay) => {
     level.glow > 0 && level.iconColor ? `0px 0px ${level.glow}px ${level.iconColor}` : undefined;
 
   return {
-    // Ratings sit over images, where only an opaque fill stays readable.
+    // A level's color tints the chip, which picks readable text; uncolored levels stay muted.
     chipBgColor: level.textColor ?? undefined,
-    chipColor: level.textColor ? getContrastText(level.textColor) : colors.custom.lightGrey,
+    chipColor: level.textColor ? undefined : colors.custom.lightGrey,
     icon: level.icon,
     iconColor: level.iconColor,
     text,
@@ -63,8 +63,6 @@ export const RatingChip = Comp(
         icon={icon}
         iconColor={iconColor}
         iconProps={{ className: css.star }}
-        opacity={1}
-        corner={display.shape === "corner"}
         {...props}
       />
     );

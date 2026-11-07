@@ -232,7 +232,7 @@ export const TagEditorAncestry = Comp(({ onTagClick, store }: TagEditorAncestryP
         flex={1}
         minHeight={0}
         overflow="hidden"
-        bgColor="rgb(0 0 0 / 0.2)"
+        bgColor={colors.input}
         borderRadiuses={{ bottom: "0.3rem" }}
         borders={{ all: `1px dotted ${colors.custom.grey}` }}
       >

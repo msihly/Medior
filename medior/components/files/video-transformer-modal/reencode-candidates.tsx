@@ -162,13 +162,7 @@ export const ReencodeCandidates = Comp(() => {
           </Modal.Content>
 
           <Modal.Footer uniformWidth="8rem">
-            <Button
-              text="Close"
-              icon="Close"
-              onClick={handleClose}
-              disabled={isSaving}
-              color={colors.foregroundCard}
-            />
+            <Button text="Close" icon="Close" onClick={handleClose} disabled={isSaving} />
 
             <Button
               text={types.length ? "Add to Queue" : "Save"}

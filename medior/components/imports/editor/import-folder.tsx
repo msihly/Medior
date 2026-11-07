@@ -89,6 +89,7 @@ export const ImportFolderList = Comp(
       fill,
       hasCollection,
       hasTags,
+      isHeaderOnly: collapsed && !hasCollection && !hasTags,
       isSelectable,
       isSelected,
       listHeight: folder ? getImportFolderListHeight(folder.imports.length) : null,
@@ -148,7 +149,7 @@ export const ImportFolderList = Comp(
         padding={{ all: 0 }}
         height={batch || fill ? undefined : height}
         width="100%"
-        bgColor={colors.background}
+        bgColor={colors.foregroundCard}
       >
         <View
           spacing="0.5rem"
@@ -276,9 +277,7 @@ const ImportRow = ({ imports, index, noStatus, style }: RowComponentProps<Import
     batchImports={imports}
     fileImport={imports[index]}
     noStatus={noStatus}
-    bgColor={
-      index % 2 === 1 ? (Color(colors.foreground).fade(0.35).string() as CssColor) : undefined
-    }
+    bgColor={index % 2 === 1 ? (Color(colors.control).fade(0.65).string() as CssColor) : undefined}
     style={style}
   />
 );
@@ -303,6 +302,7 @@ interface ClassesProps extends Pick<ImportFolderListProps, "collapsible" | "fill
   collapsed: boolean;
   hasCollection: boolean;
   hasTags: boolean;
+  isHeaderOnly: boolean;
   isSelectable: boolean;
   isSelected: boolean;
   listHeight: number;
@@ -311,7 +311,7 @@ interface ClassesProps extends Pick<ImportFolderListProps, "collapsible" | "fill
 const useClasses = makeClasses((props: ClassesProps) => ({
   chip: IMPORT_CHIP_STYLE,
   collection: {
-    borderBottom: props.collapsed && !props.hasTags ? undefined : `1px solid ${colors.custom.grey}`,
+    borderBottom: props.collapsed && !props.hasTags ? undefined : `1px solid ${colors.border}`,
     flexShrink: 0,
     height: COLL_HEIGHT,
     justifyContent: "center",
@@ -345,17 +345,12 @@ const useClasses = makeClasses((props: ClassesProps) => ({
     flexShrink: 0,
     justifyContent: "space-between",
     alignItems: "center",
-    ...makeBorderRadiuses({
-      bottom: props.collapsed && !props.hasCollection && !props.hasTags ? "0.5rem" : 0,
-      top: "0.5rem",
-    }),
+    ...makeBorderRadiuses({ bottom: props.isHeaderOnly ? "0.5rem" : 0, top: "0.5rem" }),
+    borderBottom: props.isHeaderOnly ? undefined : `1px solid ${colors.border}`,
     padding: "0.5rem",
     paddingLeft: props.collapsible ? "0" : undefined,
     height: HEADER_HEIGHT,
-    backgroundColor: colors.custom.black,
-    backgroundImage: props.isSelected
-      ? `linear-gradient(to bottom right, ${Color(colors.custom.blue).lighten(0.4).string()}, ${colors.custom.blue} 60%)`
-      : undefined,
+    backgroundColor: props.isSelected ? colors.custom.blue : undefined,
     cursor: props.isSelectable ? "pointer" : undefined,
     userSelect: props.isSelectable ? "none" : undefined,
   },
@@ -374,7 +369,7 @@ const useClasses = makeClasses((props: ClassesProps) => ({
   },
   tags: {
     alignItems: "center",
-    borderBottom: !props.collapsed ? `1px solid ${colors.custom.grey}` : undefined,
+    borderBottom: !props.collapsed ? `1px solid ${colors.border}` : undefined,
     boxSizing: "border-box",
     flexShrink: 0,
     height: TAGS_HEIGHT,

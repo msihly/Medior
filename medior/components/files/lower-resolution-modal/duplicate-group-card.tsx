@@ -40,7 +40,6 @@ export const DuplicateGroupCard = Comp(({ group }: DuplicateGroupCardProps) => {
               tooltip="Add Tags to Group"
               onClick={handleEditTags}
               disabled={store.isArchiving}
-              color={colors.foregroundCard}
             />
 
             <Button
@@ -48,7 +47,6 @@ export const DuplicateGroupCard = Comp(({ group }: DuplicateGroupCardProps) => {
               tooltip="Create Collection from Group"
               onClick={handleCreateCollection}
               disabled={store.isArchiving}
-              color={colors.foregroundCard}
             />
           </View>
         </View>

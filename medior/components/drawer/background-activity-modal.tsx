@@ -77,7 +77,7 @@ export const BackgroundActivityModal = Comp(() => {
                   key={notification.id}
                   row
                   align="center"
-                  bgColor={colors.background}
+                  bgColor={colors.foregroundCard}
                   flex="none"
                   justify="space-between"
                   minWidth={0}

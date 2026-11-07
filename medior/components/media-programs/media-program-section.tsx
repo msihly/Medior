@@ -1,6 +1,19 @@
 import { ReactNode } from "react";
-import { Comp, Text, View, ViewProps } from "medior/components";
+import { ButtonProps, Comp, Text, View, ViewProps } from "medior/components";
 import { colors } from "medior/utils/client";
+
+/** The thin border of media program panels. */
+export const MEDIA_PROGRAM_BORDER = `1px solid ${colors.border}`;
+
+/** The compact buttons that edit a program's details where they're shown. */
+export const MEDIA_PROGRAM_BUTTON_PROPS: Partial<ButtonProps> = {
+  fontSize: "0.75rem",
+  fontWeight: 500,
+  iconSize: "1.05rem",
+  padding: { all: "0.15rem 0.45rem" },
+};
+
+export const MEDIA_PROGRAM_RADIUS = "0.4rem";
 
 export interface MediaProgramSectionProps extends Omit<ViewProps, "title"> {
   actions?: ReactNode;

@@ -1,4 +1,4 @@
-import { Card, CardBase, Comp, FileBase, Text, View } from "medior/components";
+import { Card, Comp, FileBase, Text, View } from "medior/components";
 import { makeTileClickHandler, openSearchCarousel } from "medior/components/files/hooks";
 import { FileTransform, useStores } from "medior/store";
 import { colors } from "medior/utils/client";
@@ -45,7 +45,7 @@ export const FileDetails = Comp(({ index, transform }: FileDetailsProps) => {
                 fit="contain"
                 height="13rem"
               >
-                <CardBase.Chip
+                <FileBase.Chip
                   position="top-left"
                   label={
                     status ? (
@@ -56,10 +56,7 @@ export const FileDetails = Comp(({ index, transform }: FileDetailsProps) => {
                       queueIndex
                     )
                   }
-                  bgColor={status?.color ?? colors.custom.black}
-                  opacity={1}
-                  radiuses={{ bottomRight: "inherit", left: 0, top: 0 }}
-                  flush
+                  bgColor={status?.color}
                 />
 
                 <FileBase.RatingChip position="bottom-left" rating={file.rating} />

@@ -248,7 +248,6 @@ export const FileCollectionEditor = Comp(
                 icon={isAddingFiles ? "VisibilityOff" : "Add"}
                 onClick={toggleAddingFiles}
                 disabled={store.isLoading}
-                color={colors.foregroundCard}
                 colorOnHover={colors.custom.purple}
               />
             ) : null

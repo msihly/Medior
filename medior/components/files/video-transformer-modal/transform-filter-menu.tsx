@@ -18,7 +18,7 @@ export const TransformFilterMenu = Comp(() => {
   const store = stores.file.videoTransformer.search;
 
   return (
-    <FilterMenu store={store} color={colors.foreground} sortOptions={SORT_OPTIONS.FileTransform}>
+    <FilterMenu store={store} sortOptions={SORT_OPTIONS.FileTransform}>
       <View row height="18rem" spacing="0.5rem">
         <Card width="20rem" spacing="0.5rem">
           <Input

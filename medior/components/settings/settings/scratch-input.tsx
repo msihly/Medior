@@ -30,7 +30,7 @@ export const ScratchInput = Comp(
           <DiskStatus diskPath={value} />
         ) : (
           <View row align="center" width="17rem">
-            <Text color={colors.custom.grey}>{"Uses the storage locations"}</Text>
+            <Text color={colors.custom.lightGrey}>{"Uses the storage locations"}</Text>
           </View>
         )}
 

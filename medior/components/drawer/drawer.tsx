@@ -233,7 +233,7 @@ const useClasses = makeClasses((_, theme) => ({
     },
     alignItems: "center",
     background: colors.background,
-    borderRight: "1px solid #111",
+    borderRight: `1px solid ${colors.border}`,
     display: "flex",
     flexDirection: "column",
     height: "100%",

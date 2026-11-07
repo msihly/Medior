@@ -80,7 +80,7 @@ export const HomeMultiActionBar = Comp(
 
 const useClasses = makeClasses({
   appBar: {
-    boxShadow: "rgb(0 0 0 / 50%) 2px 2px 4px 0px",
+    borderBottom: `1px solid ${colors.border}`,
     display: "flex",
     flexFlow: "row nowrap",
     flexGrow: 0,

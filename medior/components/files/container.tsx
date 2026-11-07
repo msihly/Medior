@@ -41,7 +41,7 @@ export const FileContainer = Comp(({ view }: FileContainerProps) => {
           <FileCard key={f.id} file={f} store={store} />
         ))}
         cardsProps={{ onKeyDown: handleKeyPress, tabIndex: 1 }}
-        bgColor={colors.custom.black}
+        bgColor={colors.background}
       />
 
       <Pagination

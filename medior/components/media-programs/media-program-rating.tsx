@@ -1,13 +1,20 @@
-import { Comp, getRatingMeta, MediaProgramPill, MenuButton } from "medior/components";
+import {
+  Button,
+  Comp,
+  getRatingMeta,
+  MEDIA_PROGRAM_BUTTON_PROPS,
+  MenuButton,
+} from "medior/components";
 import { OptionRow, RATING_VALUES } from "medior/components/buttons/rating-option-row";
 import { useStores } from "medior/store";
+import { getContrastText } from "medior/utils/client";
 
 export interface MediaProgramRatingProps {
   rating: number;
   setRating: (rating: number) => void;
 }
 
-/** A rating as the rating display settings show it, in the media program views' pill. */
+/** A rating as the rating display settings show it, filling the button with its level's color. */
 export const MediaProgramRating = Comp(({ rating, setRating }: MediaProgramRatingProps) => {
   const stores = useStores();
 
@@ -17,12 +24,13 @@ export const MediaProgramRating = Comp(({ rating, setRating }: MediaProgramRatin
     <MenuButton
       menuWidth="5rem"
       button={(onOpen) => (
-        <MediaProgramPill
-          label={rating > 0 ? meta.text : "Rate"}
-          bgColor={meta.chipBgColor}
-          color={meta.chipColor}
+        <Button
+          {...MEDIA_PROGRAM_BUTTON_PROPS}
+          text={rating > 0 ? meta.text : "Rate"}
+          color={meta.chipBgColor}
+          textColor={meta.chipBgColor ? getContrastText(meta.chipBgColor) : meta.chipColor}
           icon={meta.icon}
-          iconColor={meta.iconColor}
+          iconProps={{ color: meta.iconColor }}
           onClick={onOpen}
         />
       )}

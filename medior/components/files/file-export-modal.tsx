@@ -86,7 +86,7 @@ export const FileExportModal = Comp(() => {
       </Modal.Content>
 
       <Modal.Footer uniformWidth="7rem">
-        <Button text="Close" icon="Close" onClick={handleClose} color={colors.foregroundCard} />
+        <Button text="Close" icon="Close" onClick={handleClose} />
 
         <Button
           text="Prepare"

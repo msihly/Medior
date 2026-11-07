@@ -56,7 +56,6 @@ export const GroupFile = Comp(
                 label={chip.label}
                 bgColor={chip.bgColor}
                 color={colors.custom.white}
-                opacity={1}
               />
             )}
 

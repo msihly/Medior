@@ -90,7 +90,7 @@ export const DiskStatus = Comp(({ diskPath, threshold }: DiskStatusProps) => {
           {status.label}
         </Text>
       ) : !diskStats ? (
-        <Text color={colors.custom.grey}>{"Loading..."}</Text>
+        <Text color={colors.custom.lightGrey}>{"Loading..."}</Text>
       ) : (
         <View row spacing="1rem">
           <Text color={status.color} fontWeight={500}>

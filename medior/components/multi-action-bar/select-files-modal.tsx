@@ -63,7 +63,7 @@ export const SelectFilesModal = Comp(({ onClose, store: suppliedStore }: SelectF
       </Modal.Content>
 
       <Modal.Footer uniformWidth="7rem">
-        <Button text="Cancel" icon="Close" onClick={handleClose} color={colors.foregroundCard} />
+        <Button text="Cancel" icon="Close" onClick={handleClose} />
 
         <Button
           text="Select"

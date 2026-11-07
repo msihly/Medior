@@ -29,12 +29,7 @@ export interface MediaProgramMissingChipProps extends Omit<
 
 /** Marks an episode or season that has no file on disk, or how an episode without one was seen. */
 export const MediaProgramMissingChip = Comp(({ mark, ...props }: MediaProgramMissingChipProps) => (
-  <FileBase.Chip
-    opacity={0.9}
-    {...props}
-    {...MARK_CHIPS[mark ?? "missing"]}
-    color={colors.custom.white}
-  />
+  <FileBase.Chip {...props} {...MARK_CHIPS[mark ?? "missing"]} color={colors.custom.white} />
 ));
 
 export interface MediaProgramMissingEpisodeProps {
@@ -76,19 +71,16 @@ export const MediaProgramMissingEpisode = Comp(({ episode }: MediaProgramMissing
         <FileBase.Chip
           position="top-right"
           size="small"
-          corner
           label={`EP ${episode.number}`}
           icon={mark === "watched" ? "CheckCircle" : undefined}
           iconColor={colors.custom.green}
           color={colors.custom.white}
-          opacity={0.9}
         />
 
         <MediaProgramMissingChip
           mark={mark}
           position="bottom-left"
           size="small"
-          corner
           footerOffset={subtitle ? "2.6rem" : "1.5rem"}
         />
 
@@ -140,16 +132,14 @@ export const MediaProgramMissingSeason = Comp(
           <Icon name="Movie" size="2.5rem" color={colors.custom.grey} />
         </View>
 
-        <MediaProgramMissingChip position="top-left" size="small" corner />
+        <MediaProgramMissingChip position="top-left" size="small" />
 
         {season.episodes.length > 0 && (
           <FileBase.Chip
             position="top-right"
             size="small"
-            corner
             label={`${Fmt.commas(season.episodes.length)} Episodes`}
             color={colors.custom.white}
-            opacity={0.9}
           />
         )}
 

@@ -1,6 +1,6 @@
 import { TagSchema } from "medior/_generated/server";
 import { Comp, TagRow, View } from "medior/components";
-import { makeClasses } from "medior/utils/client";
+import { colors, makeClasses } from "medior/utils/client";
 
 interface TagsProps {
   compact?: boolean;
@@ -20,7 +20,7 @@ export const Tags = Comp(({ compact = false, tags }: TagsProps) => {
 const useClasses = makeClasses(({ compact }: Pick<TagsProps, "compact">) => ({
   tags: {
     "&::after": {
-      background: "linear-gradient(155deg, transparent 75%, black)",
+      background: `linear-gradient(155deg, transparent 75%, ${colors.foreground})`,
       bottom: 0,
       content: '""',
       left: 0,

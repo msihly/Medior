@@ -44,7 +44,7 @@ export const SimilarityLoadMoreModal = Comp(({ onClose }: SimilarityLoadMoreModa
       </Modal.Content>
 
       <Modal.Footer uniformWidth="7rem">
-        <Button text="Cancel" icon="Close" onClick={onClose} color={colors.foregroundCard} />
+        <Button text="Cancel" icon="Close" onClick={onClose} />
 
         <Button
           text="Load"

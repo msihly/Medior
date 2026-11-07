@@ -14,11 +14,10 @@ import {
   View,
 } from "medior/components";
 import { FileSearch, useStores } from "medior/store";
-import { colors, CssColor } from "medior/utils/client";
+import { colors } from "medior/utils/client";
 import { AudioCodec, cycleTriState, ImageExt, VideoCodec, VideoExt } from "medior/utils/common";
 
 export interface FileFilterMenuProps {
-  color?: CssColor;
   /** Hides filters for files the menu's results can never include. */
   hideArchivedAndCorrupted?: boolean;
   /** Applies the filter elsewhere instead of loading the store's results. */
@@ -29,7 +28,7 @@ export interface FileFilterMenuProps {
 export const FileFilterMenu = Comp((props: FileFilterMenuProps) => {
   const stores = useStores();
 
-  const { color = colors.foreground, hideArchivedAndCorrupted = false, onSearch, store } = props;
+  const { hideArchivedAndCorrupted = false, onSearch, store } = props;
 
   const toggleArchiveOpen = () => store.setIsArchived(!store.isArchived);
 
@@ -48,7 +47,6 @@ export const FileFilterMenu = Comp((props: FileFilterMenuProps) => {
       store={store}
       resetFn={store._reset}
       searchFn={onSearch}
-      color={color}
       sortOptions={SORT_OPTIONS.File}
     >
       <View row spacing="0.5rem">

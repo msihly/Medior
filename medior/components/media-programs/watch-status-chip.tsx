@@ -43,7 +43,6 @@ export const WatchStatusChip = Comp(
 
     return (
       <FileBase.Chip
-        opacity={0.9}
         {...props}
         bgColor={status === "unwatched" ? undefined : meta.bgColor}
         color={colors.custom.white}

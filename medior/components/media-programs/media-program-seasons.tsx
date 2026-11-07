@@ -1,5 +1,6 @@
 import { useState } from "react";
 import {
+  Chip,
   Comp,
   ConfirmModal,
   ContextMenu,
@@ -7,10 +8,8 @@ import {
   FileBase,
   Icon,
   MEDIA_PROGRAM_BORDER,
-  MEDIA_PROGRAM_PANEL_COLOR,
   MEDIA_PROGRAM_RADIUS,
   MediaProgramMissingSeason,
-  MediaProgramPill,
   MediaProgramRating,
   MediaProgramSeasonModal,
   MediaProgramSection,
@@ -129,16 +128,10 @@ export const MediaProgramSeasons = Comp(() => {
       title="Seasons"
       info={
         <>
-          {store.seasons.length > 0 && (
-            <MediaProgramPill label={Fmt.commas(store.seasons.length)} />
-          )}
+          {store.seasons.length > 0 && <Chip label={Fmt.commas(store.seasons.length)} />}
 
           {selectedCount > 1 && (
-            <MediaProgramPill
-              label={`${Fmt.commas(selectedCount)} Selected`}
-              bgColor={colors.custom.blue}
-              color={colors.custom.white}
-            />
+            <Chip label={`${Fmt.commas(selectedCount)} Selected`} bgColor={colors.custom.blue} />
           )}
         </>
       }
@@ -245,7 +238,7 @@ export const MediaProgramSeasons = Comp(() => {
       ) : (
         <View
           padding={{ all: "0.75rem" }}
-          bgColor={MEDIA_PROGRAM_PANEL_COLOR}
+          bgColor={colors.foreground}
           borders={{ all: MEDIA_PROGRAM_BORDER }}
           borderRadiuses={{ all: MEDIA_PROGRAM_RADIUS }}
         >
@@ -371,12 +364,11 @@ const SeasonCard = Comp(
             </View>
           )}
 
-          <FileBase.RatingChip position="top-left" rating={season.rating} size="small" corner />
+          <FileBase.RatingChip position="top-left" rating={season.rating} size="small" />
 
           <WatchStatusChip
             position="top-right"
             size="small"
-            corner
             total={season.fileIds.length}
             watched={store.getWatchedCount(season)}
           />

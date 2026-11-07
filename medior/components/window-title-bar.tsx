@@ -180,7 +180,7 @@ const useClasses = makeClasses((props: ClassesProps) => ({
   control: {
     "-webkit-app-region": "no-drag",
     "&:hover": {
-      background: colors.custom.darkGrey,
+      background: colors.control,
     },
     borderRadius: 0,
     height: "100%",
@@ -201,7 +201,7 @@ const useClasses = makeClasses((props: ClassesProps) => ({
   menuButton: {
     "-webkit-app-region": "no-drag",
     "&:hover": {
-      background: colors.custom.darkGrey,
+      background: colors.control,
     },
     borderRadius: 0,
     height: CONSTANTS.WINDOW.TITLE_BAR.HEIGHT,

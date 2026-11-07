@@ -14,6 +14,7 @@ import {
   Pagination,
   SEARCH_HEADER_PROPS,
   SearchLoadingOverlay,
+  SelectionButtons,
   TabContainer,
   Text,
   UniformList,
@@ -365,6 +366,8 @@ export const FileCollectionManager = Comp(() => {
                     onClick={handleRefreshMeta}
                     disabled={!hasSelectedCollectionIds}
                   />
+
+                  <SelectionButtons itemLabel="collections" store={store.search} toast={toast} />
                 </View>
               </UniformList>
             }
@@ -417,11 +420,6 @@ export const FileCollectionManager = Comp(() => {
             <Button
               text="Related"
               icon="Search"
-              tooltip={
-                hasSelectedCollectionIds
-                  ? "Find Related Within Selected Collections"
-                  : "Find Related Across All Collections"
-              }
               onClick={() => store.setIsRelatedQueueOpen(true)}
               disabled={store.search.isLoading}
               colorOnHover={colors.custom.lightBlue}

@@ -15,7 +15,6 @@ import {
   View,
 } from "medior/components";
 import { MediaProgramSearch, useStores } from "medior/store";
-import { colors, CssColor } from "medior/utils/client";
 import { MEDIA_PROGRAM_WATCH_STATUSES } from "medior/utils/common";
 
 /** Every checklist matches the widest, Watch Status. */
@@ -26,7 +25,6 @@ const WATCH_STATUS_OPTIONS = [...MEDIA_PROGRAM_WATCH_STATUSES];
 export interface MediaProgramFilterMenuProps extends Partial<
   Pick<FilterMenuProps, "resetFn" | "searchFn" | "sortOptions">
 > {
-  color?: CssColor;
   store: MediaProgramSearch;
 }
 
@@ -41,7 +39,6 @@ const toOptions = (values: string[]) => values.map((value) => ({ label: value, v
 
 export const MediaProgramFilterMenu = Comp(
   ({
-    color = colors.foreground,
     resetFn,
     searchFn,
     sortOptions = SORT_OPTIONS.MediaProgram,
@@ -71,13 +68,7 @@ export const MediaProgramFilterMenu = Comp(
       store.setIsRewatching(store.isRewatching === false ? null : false);
 
     return (
-      <FilterMenu
-        store={store}
-        color={color}
-        resetFn={resetFn}
-        searchFn={searchFn}
-        sortOptions={sortOptions}
-      >
+      <FilterMenu store={store} resetFn={resetFn} searchFn={searchFn} sortOptions={sortOptions}>
         <View row spacing="0.5rem">
           <Card flex={1} spacing="0.5rem">
             <TagInput

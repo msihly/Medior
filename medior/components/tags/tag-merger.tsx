@@ -280,13 +280,7 @@ export const TagMerger = Comp(() => {
       </Modal.Content>
 
       <Modal.Footer>
-        <Button
-          text="Cancel"
-          icon="Close"
-          onClick={handleClose}
-          disabled={isSaving}
-          color={colors.custom.grey}
-        />
+        <Button text="Cancel" icon="Close" onClick={handleClose} disabled={isSaving} />
 
         <Button
           text="Confirm"

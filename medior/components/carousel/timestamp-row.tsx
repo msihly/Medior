@@ -58,7 +58,6 @@ export const TimestampRow = Comp(({ timestamp }: TimestampRowProps) => {
           icon="Delete"
           onClick={() => store.removeTimestampPair(timestamp.id)}
           disabled={store.isLoading}
-          color={colors.custom.black}
           colorOnHover={colors.custom.red}
           borderRadiuses={{ right: 0, top: 0 }}
           height="100%"
@@ -96,7 +95,6 @@ export const TimestampRow = Comp(({ timestamp }: TimestampRowProps) => {
           text="SET"
           onClick={() => setStartVal(secondsToDuration(stores.carousel.curTime))}
           disabled={store.isLoading}
-          color={colors.custom.black}
           colorOnHover={colors.custom.blue}
           borderRadiuses={{ bottom: 0, left: 0 }}
           height="100%"
@@ -109,7 +107,6 @@ export const TimestampRow = Comp(({ timestamp }: TimestampRowProps) => {
           text="SET"
           onClick={() => setEndVal(secondsToDuration(stores.carousel.curTime))}
           disabled={store.isLoading}
-          color={colors.custom.black}
           colorOnHover={colors.custom.blue}
           borderRadiuses={{ left: 0, top: 0 }}
           height="100%"

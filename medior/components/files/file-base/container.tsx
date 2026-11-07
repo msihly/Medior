@@ -1,5 +1,4 @@
 import { MouseEvent, ReactNode } from "react";
-import Color from "color";
 import { View, ViewProps } from "medior/components";
 import { colors, CssColor, makeClasses } from "medior/utils/client";
 
@@ -58,25 +57,17 @@ const useClasses = makeClasses((props: ClassesProps, theme) => ({
     [theme.breakpoints.down("md")]: props.height ? undefined : { height: "14rem" },
     [theme.breakpoints.down("sm")]: props.height ? undefined : { height: "12rem" },
     ...(props.width ? { width: props.width } : {}),
-    background:
-      !props.disabled && props.selected
-        ? `linear-gradient(to bottom right, ${Color(props.selectedColor)
-            .lighten(0.4)
-            .string()}, ${props.selectedColor} 60%)`
-        : "transparent",
+    background: !props.disabled && props.selected ? props.selectedColor : "transparent",
     overflow: "hidden",
     cursor: "pointer",
     userSelect: "none",
   },
   paper: {
-    backgroundImage:
-      theme.palette.mode === "dark"
-        ? "linear-gradient(rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.08))"
-        : undefined,
     boxShadow: theme.shadows[3],
     color: theme.palette.text.primary,
     transition: theme.transitions.create("box-shadow"),
-    backgroundColor: colors.background,
+    backgroundColor: colors.foreground,
+    border: `1px solid ${colors.border}`,
     borderRadius: 10,
     display: "flex",
     flex: 1,

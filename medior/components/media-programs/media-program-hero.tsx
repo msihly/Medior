@@ -1,16 +1,16 @@
 import { useEffect, useRef, useState } from "react";
 import {
   Button,
+  ButtonProps,
   Comp,
   FileBase,
   getMediaProgramDetailOptions,
   getWatchStatusMeta,
   Icon,
   ListItem,
+  MEDIA_PROGRAM_BUTTON_PROPS,
   MEDIA_PROGRAM_RADIUS,
   MediaProgramInlineInput,
-  MediaProgramPill,
-  MediaProgramPillProps,
   MediaProgramRating,
   MenuButton,
   Text,
@@ -44,6 +44,7 @@ export const MediaProgramHero = Comp(() => {
   const episodeFile = store.search.results[0];
   const posterPath = meta?.posterPath ?? store.activeSeason?.meta?.posterPath;
   const backdropPath = meta?.bannerPath ?? posterPath;
+  const watchStatus = program && getWatchStatusMeta(program.watchStatus, program.isRewatching);
 
   const descriptionDims = useElementResize(descriptionRef, meta?.description);
 
@@ -147,12 +148,14 @@ export const MediaProgramHero = Comp(() => {
             </View>
 
             <View row wrap="wrap" align="center" className={css.pills}>
-              <OptionPill
+              <OptionButton
                 options={[...MEDIA_PROGRAM_WATCH_STATUSES]}
                 value={program.watchStatus}
                 setValue={handleWatchStatus}
-                {...getWatchStatusMeta(program.watchStatus, program.isRewatching)}
-                color={colors.custom.white}
+                label={watchStatus.label}
+                color={watchStatus.bgColor}
+                icon={watchStatus.icon}
+                textColor={colors.custom.white}
               />
 
               <MediaProgramRating rating={program.rating} setRating={handleRating} />
@@ -162,14 +165,15 @@ export const MediaProgramHero = Comp(() => {
                 onSave={handleYear}
                 width="6rem"
               >
-                <MediaProgramPill
+                <Button
+                  {...MEDIA_PROGRAM_BUTTON_PROPS}
+                  text={program.year ? String(program.year) : "Add Year"}
                   icon="CalendarMonth"
-                  label={program.year ?? "Add Year"}
-                  color={program.year ? undefined : colors.custom.lightGrey}
+                  textColor={program.year ? undefined : colors.custom.lightGrey}
                 />
               </MediaProgramInlineInput>
 
-              <OptionPill
+              <OptionButton
                 options={getMediaProgramDetailOptions(settings.types, program.type)}
                 value={program.type}
                 setValue={handleType}
@@ -177,7 +181,7 @@ export const MediaProgramHero = Comp(() => {
                 icon="Category"
               />
 
-              <OptionPill
+              <OptionButton
                 options={getMediaProgramDetailOptions(settings.mediums, program.medium)}
                 value={program.medium}
                 setValue={handleMedium}
@@ -185,7 +189,7 @@ export const MediaProgramHero = Comp(() => {
                 icon="Brush"
               />
 
-              <OptionPill
+              <OptionButton
                 options={getMediaProgramDetailOptions(settings.languages, program.language)}
                 value={program.language}
                 setValue={handleLanguage}
@@ -224,7 +228,7 @@ export const MediaProgramHero = Comp(() => {
   );
 });
 
-interface OptionPillProps extends Pick<MediaProgramPillProps, "bgColor" | "color" | "icon"> {
+interface OptionButtonProps extends Pick<ButtonProps, "color" | "icon" | "textColor"> {
   /** Shown in place of the chosen option's label. */
   label?: string;
   options: { label: string; value: string }[];
@@ -234,14 +238,15 @@ interface OptionPillProps extends Pick<MediaProgramPillProps, "bgColor" | "color
   value: string;
 }
 
-const OptionPill = Comp(
-  ({ label, options, placeholder, setValue, value, ...pillProps }: OptionPillProps) => (
+const OptionButton = Comp(
+  ({ label, options, placeholder, setValue, value, ...buttonProps }: OptionButtonProps) => (
     <MenuButton
       button={(onOpen) => (
-        <MediaProgramPill
-          {...pillProps}
-          label={label ?? options.find((option) => option.value === value)?.label ?? placeholder}
-          color={pillProps.color ?? (value ? undefined : colors.custom.lightGrey)}
+        <Button
+          {...MEDIA_PROGRAM_BUTTON_PROPS}
+          {...buttonProps}
+          text={label ?? options.find((option) => option.value === value)?.label ?? placeholder}
+          textColor={buttonProps.textColor ?? (value ? undefined : colors.custom.lightGrey)}
           onClick={onOpen}
         />
       )}

@@ -11,7 +11,7 @@ export const OperationCard = Comp(({ operation }: { operation: BackgroundOperati
 
   return (
     <Card
-      bgColor={colors.background}
+      bgColor={colors.foregroundCard}
       flex="none"
       minWidth={0}
       padding={{ all: "0.6rem" }}

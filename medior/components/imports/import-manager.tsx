@@ -42,7 +42,7 @@ export const ImportManager = Comp(() => {
     ? colors.custom.orange
     : store.isImporting
       ? colors.custom.blue
-      : colors.custom.grey;
+      : colors.custom.lightGrey;
 
   const handleClose = () => store.setIsOpen(false);
 
@@ -155,7 +155,7 @@ export const ImportManager = Comp(() => {
                         key={filePath}
                         minWidth={0}
                         spacing="0.3rem"
-                        bgColor={colors.background}
+                        bgColor={colors.foregroundCard}
                       >
                         <Text dir="rtl" textAlign="center" color={colors.custom.lightGrey}>
                           {filePath}
@@ -188,9 +188,7 @@ export const ImportManager = Comp(() => {
                 </Card>
 
                 {store.activeBatch && (
-                  <Card flex={1} minHeight={0} overflow="hidden" padding={{ all: "0.5rem" }}>
-                    <ImportEditor.ImportFolderList folder={store.activeBatch} fill />
-                  </Card>
+                  <ImportEditor.ImportFolderList folder={store.activeBatch} fill />
                 )}
               </View>
 
@@ -300,7 +298,7 @@ export const ImportManager = Comp(() => {
             disabled={stores.import.ingester.isOpen}
           />
 
-          <Button text="Close" icon="Close" onClick={handleClose} color={colors.custom.grey} />
+          <Button text="Close" icon="Close" onClick={handleClose} />
         </Modal.Footer>
       </Modal.Container>
 

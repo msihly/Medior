@@ -33,7 +33,7 @@ export const SizeHistoryChart = Comp(() => {
             key={value}
             text={label}
             onClick={() => handleRange(value)}
-            color={store.sizeHistoryRange === value ? colors.custom.purple : colors.foregroundCard}
+            color={store.sizeHistoryRange === value ? colors.custom.purple : undefined}
             colorOnHover={colors.custom.purple}
           />
         ))}
