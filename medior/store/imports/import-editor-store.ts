@@ -80,6 +80,8 @@ export class ImportEditorStore extends Model({
   rootFolderIndex: prop<number>(0).withSetter(),
   rootFolderPath: prop<string>("").withSetter(),
   saveStatus: prop<string>("").withSetter(),
+  /** The root level the import started from, kept when a saved config moves the root above it. */
+  sourceRootIndex: prop<number>(0).withSetter(),
   visibleFolderNames: prop<string[]>(() => []),
 }) {
   allFlatFolderHierarchy = new Map<string, FlatFolder>();
@@ -195,6 +197,7 @@ export class ImportEditorStore extends Model({
     this.rootFolderIndex = 0;
     this.rootFolderPath = "";
     this.saveStatus = "";
+    this.sourceRootIndex = 0;
     this.visibleFolderNames = [];
   }
 
@@ -476,13 +479,22 @@ export class ImportEditorStore extends Model({
     return this.isLoading || this.isSaving;
   }
 
+  /**
+   * Programs are grouped from the editor's root, but never from above the folders the import
+   * started from, such as a saved config's root.
+   */
+  @computed
+  get programRootIndex() {
+    return Math.max(this.rootFolderIndex, this.sourceRootIndex);
+  }
+
   @computed
   get rootFolder() {
     return this.rootFolderPath.length && this.rootFolderPath.split(path.sep)[this.rootFolderIndex];
   }
 
   /* ----------------------------- DYNAMIC GETTERS ---------------------------- */
-  /** Season collections are titled after their program, so renaming the program renames them. */
+  /** A folder's collection title, or for a program's season, its title after the program's name. */
   getFolderCollectionTitle(folder: FlatFolder) {
     const plan = folder.mediaProgram && this.getMediaProgram(folder.mediaProgram.folderPath);
 

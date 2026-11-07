@@ -558,11 +558,33 @@ export type SetLowerResolutionReviewOptionsOutput = ReturnType<
 export type StartLowerResolutionScanInput = Parameters<typeof db.startLowerResolutionScan>[0];
 export type StartLowerResolutionScanOutput = ReturnType<typeof db.startLowerResolutionScan>;
 
+export type MatchMediaProgramsMetaInput = Parameters<typeof db.matchMediaProgramsMeta>[0];
+export type MatchMediaProgramsMetaOutput = ReturnType<typeof db.matchMediaProgramsMeta>;
+
+export type SearchMediaProgramMetaInput = Parameters<typeof db.searchMediaProgramMeta>[0];
+export type SearchMediaProgramMetaOutput = ReturnType<typeof db.searchMediaProgramMeta>;
+
+export type SetMediaProgramMetaInput = Parameters<typeof db.setMediaProgramMeta>[0];
+export type SetMediaProgramMetaOutput = ReturnType<typeof db.setMediaProgramMeta>;
+
+export type RenderMediaProgramRankingInput = Parameters<typeof db.renderMediaProgramRanking>[0];
+export type RenderMediaProgramRankingOutput = ReturnType<typeof db.renderMediaProgramRanking>;
+
+export type CopyCollectionsToMediaProgramInput = Parameters<
+  typeof db.copyCollectionsToMediaProgram
+>[0];
+export type CopyCollectionsToMediaProgramOutput = ReturnType<
+  typeof db.copyCollectionsToMediaProgram
+>;
+
 export type CreateMediaProgramInput = Parameters<typeof db.createMediaProgram>[0];
 export type CreateMediaProgramOutput = ReturnType<typeof db.createMediaProgram>;
 
 export type DeleteMediaProgramsInput = Parameters<typeof db.deleteMediaPrograms>[0];
 export type DeleteMediaProgramsOutput = ReturnType<typeof db.deleteMediaPrograms>;
+
+export type ListFilteredMediaProgramIdsInput = Parameters<typeof db.listFilteredMediaProgramIds>[0];
+export type ListFilteredMediaProgramIdsOutput = ReturnType<typeof db.listFilteredMediaProgramIds>;
 
 export type ListMediaProgramsBySourceFoldersInput = Parameters<
   typeof db.listMediaProgramsBySourceFolders

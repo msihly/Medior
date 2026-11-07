@@ -1,35 +1,53 @@
-import { Checkbox, Comp, Text, View } from "medior/components";
-import { colors } from "medior/utils/client";
+import { ReactNode } from "react";
+import { Checkbox, Comp, View } from "medior/components";
 
 export interface FilterChecklistProps {
+  /** Shown under the options, such as a related filter. */
+  children?: ReactNode;
   label: string;
   options: { label: string; value: string }[];
   selected: string[];
   setSelected: (selected: string[]) => void;
 }
 
-/** Checked values are matched; none checked matches every value. */
+/**
+ * Options under a checkbox that checks or clears them all, like the file filter's extension
+ * columns. Checked values are matched; none checked matches every value.
+ */
 export const FilterChecklist = Comp(
-  ({ label, options, selected, setSelected }: FilterChecklistProps) => {
+  ({ children, label, options, selected, setSelected }: FilterChecklistProps) => {
+    const isAllSelected =
+      options.length > 0 && options.every((option) => selected.includes(option.value));
+
     const handleChecked = (value: string, checked: boolean) =>
       setSelected(checked ? [...selected, value] : selected.filter((cur) => cur !== value));
 
-    return (
-      <View column>
-        <Text color={colors.custom.lightGrey} fontSize="0.8em">
-          {label}
-        </Text>
+    const toggleAll = () => setSelected(isAllSelected ? [] : options.map((option) => option.value));
 
-        {options.map((option) => (
-          <Checkbox
-            key={option.value}
-            label={option.label}
-            checked={selected.includes(option.value)}
-            setChecked={(checked) => handleChecked(option.value, checked)}
-            flex="none"
-          />
-        ))}
-      </View>
+    return (
+      <>
+        <Checkbox
+          label={label}
+          checked={isAllSelected}
+          indeterminate={!isAllSelected && selected.length > 0}
+          setChecked={toggleAll}
+          flex={0}
+        />
+
+        <View column flex="1 1 0" margins={{ left: "0.5rem" }} overflow="hidden auto">
+          {options.map((option) => (
+            <Checkbox
+              key={option.value}
+              label={option.label}
+              checked={selected.includes(option.value)}
+              setChecked={(checked) => handleChecked(option.value, checked)}
+              flex="none"
+            />
+          ))}
+
+          {children}
+        </View>
+      </>
     );
   },
 );

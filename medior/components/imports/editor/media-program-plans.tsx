@@ -2,15 +2,31 @@ import {
   Card,
   Chip,
   Comp,
+  Dropdown,
   Input,
   MediaProgramDropdown,
   NumInput,
   Text,
+  TextProps,
   View,
 } from "medior/components";
 import { Ingester, Reingester } from "medior/store";
 import { colors } from "medior/utils/client";
-import { Fmt, MediaProgramPlan } from "medior/utils/common";
+import {
+  Fmt,
+  MEDIA_PROGRAM_WATCH_STATUSES,
+  MediaProgramPlan,
+  MediaProgramWatchStatus,
+} from "medior/utils/common";
+
+const COLUMN_PROPS: Partial<TextProps> = {
+  color: colors.custom.lightGrey,
+  fontSize: "0.8em",
+  fontWeight: 500,
+  textAlign: "center",
+};
+
+const WIDTHS = { count: "5rem", detail: "9rem", program: "6rem", year: "6rem" };
 
 export interface MediaProgramPlansProps {
   store: Ingester | Reingester;
@@ -20,9 +36,7 @@ export const MediaProgramPlans = Comp(({ store }: MediaProgramPlansProps) => {
   return (
     <Card
       flex="none"
-      maxHeight="40%"
-      overflow="hidden auto"
-      spacing="0.5rem"
+      spacing="0.3rem"
       header={
         <View row align="center" spacing="0.5rem">
           <Text preset="title">{"Media Programs"}</Text>
@@ -31,9 +45,49 @@ export const MediaProgramPlans = Comp(({ store }: MediaProgramPlansProps) => {
         </View>
       }
     >
-      {store.mediaPrograms.map((plan) => (
-        <MediaProgramPlanRow key={plan.folderPath} plan={plan} store={store} />
-      ))}
+      <View row spacing="0.5rem">
+        <Text {...COLUMN_PROPS} flex={1}>
+          {"Name"}
+        </Text>
+
+        <Text {...COLUMN_PROPS} width={WIDTHS.year}>
+          {"Year"}
+        </Text>
+
+        <Text {...COLUMN_PROPS} width={WIDTHS.detail}>
+          {"Type"}
+        </Text>
+
+        <Text {...COLUMN_PROPS} width={WIDTHS.detail}>
+          {"Medium"}
+        </Text>
+
+        <Text {...COLUMN_PROPS} width={WIDTHS.detail}>
+          {"Language"}
+        </Text>
+
+        <Text {...COLUMN_PROPS} width={WIDTHS.detail}>
+          {"Watch Status"}
+        </Text>
+
+        <Text {...COLUMN_PROPS} width={WIDTHS.count}>
+          {"Seasons"}
+        </Text>
+
+        <Text {...COLUMN_PROPS} width={WIDTHS.count}>
+          {"Files"}
+        </Text>
+
+        <Text {...COLUMN_PROPS} width={WIDTHS.program}>
+          {"Program"}
+        </Text>
+      </View>
+
+      <View column maxHeight="20rem" overflow="hidden auto" spacing="0.5rem">
+        {store.mediaPrograms.map((plan) => (
+          <MediaProgramPlanRow key={plan.folderPath} plan={plan} store={store} />
+        ))}
+      </View>
     </Card>
   );
 });
@@ -54,12 +108,14 @@ const MediaProgramPlanRow = Comp(({ plan, store }: MediaProgramPlanRowProps) => 
 
   const handleType = (type: string) => store.updateMediaProgram(plan.folderPath, { type });
 
+  const handleWatchStatus = (watchStatus: MediaProgramWatchStatus) =>
+    store.updateMediaProgram(plan.folderPath, { watchStatus });
+
   const handleYear = (year: number) => store.updateMediaProgram(plan.folderPath, { year });
 
   return (
     <View row align="center" spacing="0.5rem">
       <Input
-        header="Name"
         value={plan.name}
         setValue={handleName}
         disabled={isDisabled}
@@ -69,56 +125,66 @@ const MediaProgramPlanRow = Comp(({ plan, store }: MediaProgramPlanRowProps) => 
       />
 
       <NumInput
-        header="Year"
         value={plan.year}
         setValue={handleYear}
         disabled={isDisabled}
         minValue={1800}
         maxValue={9999}
         textAlign="center"
-        width="6rem"
+        width={WIDTHS.year}
         dense
       />
 
       <MediaProgramDropdown
         field="types"
-        header="Type"
         value={plan.type}
         setValue={handleType}
         disabled={isDisabled}
-        width="9rem"
+        width={WIDTHS.detail}
         dense
       />
 
       <MediaProgramDropdown
         field="mediums"
-        header="Medium"
         value={plan.medium}
         setValue={handleMedium}
         disabled={isDisabled}
-        width="9rem"
+        width={WIDTHS.detail}
         dense
       />
 
       <MediaProgramDropdown
         field="languages"
-        header="Language"
         value={plan.language}
         setValue={handleLanguage}
         disabled={isDisabled}
-        width="9rem"
+        width={WIDTHS.detail}
         dense
       />
 
-      <View column align="flex-end" spacing="0.2rem" width="9rem">
-        <Chip
-          label={`${plan.seasonLabels.length} seasons, ${Fmt.commas(plan.fileCount)} files`}
-          height="1.5em"
-        />
+      <Dropdown
+        options={[...MEDIA_PROGRAM_WATCH_STATUSES]}
+        value={plan.watchStatus}
+        setValue={handleWatchStatus}
+        disabled={isDisabled}
+        width={WIDTHS.detail}
+        dense
+      />
 
-        {plan.existingId && (
-          <Chip label="Adds to Existing" height="1.5em" color={colors.custom.lightBlue} />
-        )}
+      <View row justify="center" width={WIDTHS.count}>
+        <Chip label={Fmt.commas(plan.seasonLabels.length)} height="1.5em" />
+      </View>
+
+      <View row justify="center" width={WIDTHS.count}>
+        <Chip label={Fmt.commas(plan.fileCount)} height="1.5em" />
+      </View>
+
+      <View row justify="center" width={WIDTHS.program}>
+        <Chip
+          label={plan.existingId ? "Existing" : "New"}
+          height="1.5em"
+          color={plan.existingId ? colors.custom.lightBlue : undefined}
+        />
       </View>
     </View>
   );

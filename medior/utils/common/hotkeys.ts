@@ -46,6 +46,10 @@ export interface Hotkeys {
     removeFiles: string;
   };
   home: FileHotkeys;
+  /** The Media Programs modal's programs and the program editor's episodes. */
+  mediaPrograms: RatingHotkeys & {
+    selectAll: string;
+  };
   search: FileHotkeys;
   tagManager: RatingHotkeys & {
     selectAll: string;
@@ -98,6 +102,7 @@ export const DEFAULT_HOTKEYS: Hotkeys = {
     selectAll: "Ctrl+A",
   },
   home: { deleteFiles: "Delete", ...FILE_HOTKEY_DEFAULTS, selectAll: "Ctrl+A" },
+  mediaPrograms: { ...RATING_HOTKEY_DEFAULTS, selectAll: "Ctrl+A" },
   search: { deleteFiles: "Delete", ...FILE_HOTKEY_DEFAULTS, selectAll: "Ctrl+A" },
   tagManager: { ...RATING_HOTKEY_DEFAULTS, selectAll: "Ctrl+A" },
 };

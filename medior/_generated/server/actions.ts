@@ -1554,14 +1554,16 @@ export type CreateMediaProgramFilterPipelineInput = {
   excludedDescGenreIds?: string[];
   excludedDescTagIds?: string[];
   excludedGenreIds?: string[];
+  excludedLanguages?: string[];
+  excludedMediums?: string[];
   excludedTagIds?: string[];
+  excludedTypes?: string[];
+  excludedWatchStatuses?: string[];
   fileCount?: { logOp: LogicalOp | ""; value: number };
   fileCountMode?: "optional" | "required";
   ids?: string[];
   isRewatching?: boolean;
-  languages?: string[];
   maxYear?: number;
-  mediums?: string[];
   minYear?: number;
   name?: string;
   nameMode?: "optional" | "required";
@@ -1574,8 +1576,6 @@ export type CreateMediaProgramFilterPipelineInput = {
   requiredGenreIds?: string[];
   requiredTagIds?: string[];
   sortValue?: SortMenuProps["value"];
-  types?: string[];
-  watchStatuses?: string[];
   yearMode?: "optional" | "required";
 };
 
@@ -1584,23 +1584,23 @@ export const createMediaProgramFilterPipeline = async (
 ) => {
   const $match: QueryFilter<models.MediaProgramSchema> = {};
 
+  if (args.excludedLanguages != null && !isDeepEqual(args.excludedLanguages, []))
+    setObj($match, ["language", "$nin"], args.excludedLanguages);
+
+  if (args.excludedMediums != null && !isDeepEqual(args.excludedMediums, []))
+    setObj($match, ["medium", "$nin"], args.excludedMediums);
+
+  if (args.excludedTypes != null && !isDeepEqual(args.excludedTypes, []))
+    setObj($match, ["type", "$nin"], args.excludedTypes);
+
+  if (args.excludedWatchStatuses != null && !isDeepEqual(args.excludedWatchStatuses, []))
+    setObj($match, ["watchStatus", "$nin"], args.excludedWatchStatuses);
+
   if (args.ids != null && !isDeepEqual(args.ids, []))
     ($match.$and ??= []).push(setObj({}, ["_id", "$in"], objectIds(args.ids)));
 
   if (args.isRewatching != null && !isDeepEqual(args.isRewatching, null))
     setObj($match, ["isRewatching"], args.isRewatching);
-
-  if (args.languages != null && !isDeepEqual(args.languages, []))
-    setObj($match, ["language", "$in"], args.languages);
-
-  if (args.mediums != null && !isDeepEqual(args.mediums, []))
-    setObj($match, ["medium", "$in"], args.mediums);
-
-  if (args.types != null && !isDeepEqual(args.types, []))
-    setObj($match, ["type", "$in"], args.types);
-
-  if (args.watchStatuses != null && !isDeepEqual(args.watchStatuses, []))
-    setObj($match, ["watchStatus", "$in"], args.watchStatuses);
 
   if (args.excludedDescGenreIds?.length)
     setObj($match, ["genreIdsWithAncestors", "$nin"], objectIds(args.excludedDescGenreIds));
@@ -3094,14 +3094,15 @@ export const _createMediaProgram = makeAction(
     const model = {
       ...args,
       dateCreated: dayjs().toISOString(),
-      collectionIdIndexes: [],
       dateModified: null,
       fileCount: 0,
       genreIds: [],
       isRewatching: false,
+      meta: null,
       rating: 0,
       rewatchCount: 0,
       rewatchedFileIds: [],
+      seasons: [],
       size: 0,
       tagIds: [],
       tagIdsWithAncestors: [],
@@ -3392,7 +3393,7 @@ export const createSavedSearch = makeAction(
     args: Types.CreateSavedSearchInput;
     socketOpts?: SocketEventOptions;
   }) => {
-    const model = { ...args, dateCreated: dayjs().toISOString() };
+    const model = { ...args, dateCreated: dayjs().toISOString(), customOrderIds: [] };
 
     const res = await new models.SavedSearchModel(model).save(metadataSaveOptions());
     const created = { ...model, id: res._id.toString() };

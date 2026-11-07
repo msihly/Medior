@@ -9,6 +9,7 @@ import { RootStore, Splicer } from "medior/store";
 import { asyncAction, derefMobx, openCarouselWindow, toast } from "medior/utils/client";
 import { Fmt, SubtitleSegment, TEXT_SUBTITLE_CODECS } from "medior/utils/common";
 import { rpc } from "medior/utils/server";
+import { probeChapters, VideoChapter } from "medior/utils/server/ffmpeg";
 import { probeSubtitleStreams, readSubtitleSegments } from "medior/utils/server/subtitles";
 import { extractVideoFrame, videoTranscoder } from "medior/utils/server/videos";
 
@@ -34,6 +35,8 @@ export interface SubtitleTrack {
 @model("medior/CarouselStore")
 export class CarouselStore extends Model({
   activeFileId: prop<string>("").withSetter(),
+  /** The active video's chapters, which its seek bar marks. */
+  chapters: prop<VideoChapter[]>(() => []).withSetter(),
   curFrame: prop<number>(1),
   curTime: prop<number>(0),
   isCaptionsVisible: prop<boolean>(false),
@@ -63,6 +66,7 @@ export class CarouselStore extends Model({
   visibleFileIds: prop<string[]>(() => []).withSetter(),
   volume: prop<number>(0.3).withSetter(),
 }) {
+  private chapterAbortController: AbortController = null;
   private frameAbortController: AbortController = null;
   private subtitleAbortController: AbortController = null;
   private watchedFileIds = new Set<string>();
@@ -332,6 +336,28 @@ export class CarouselStore extends Model({
     if (!result.success) throw new Error(result.error);
   });
 
+  /** Reads the active video's chapters, dropping those of a video since replaced. */
+  @modelFlow
+  loadChapters = asyncAction(async () => {
+    const activeFile = this.getActiveFile();
+
+    this.chapterAbortController?.abort();
+    this.chapterAbortController = new AbortController();
+
+    const signal = this.chapterAbortController.signal;
+
+    this.setChapters([]);
+
+    if (!activeFile?.isVideo) return;
+
+    try {
+      const chapters = await probeChapters(activeFile.path, signal);
+      if (!signal.aborted) this.setChapters(chapters);
+    } catch (error) {
+      if (!signal.aborted) throw error;
+    }
+  });
+
   /** Lists companion subtitles and text subtitle streams, selecting one in the remembered language. */
   @modelFlow
   loadSubtitleTracks = asyncAction(async () => {
@@ -493,6 +519,12 @@ export class CarouselStore extends Model({
   @computed
   get activeFileIndex() {
     return this.getFileIndex(this.activeFileId);
+  }
+
+  /** The waveform shows above the video controls only when on and the video has audio peaks. */
+  @computed
+  get isWaveformShown() {
+    return this.isWaveformVisible && Boolean(this.getActiveFile()?.waveformPeaks?.length);
   }
 
   @computed

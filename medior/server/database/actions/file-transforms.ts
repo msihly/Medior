@@ -1218,11 +1218,12 @@ const mergeDuplicateTransform = async (
           ...(transform.regenerationTagIds ?? []).map(String),
         ]);
 
-        const collections = await actions.regenCollAttrs({
-          fileIds: files.map((file) => file._id.toString()),
-        });
+        const fileIds = files.map((file) => file._id.toString());
+        const collections = await actions.regenCollAttrs({ fileIds });
 
         if (!collections.success) throw new Error(collections.error);
+
+        await actions.regenMediaProgramsByFileIds(fileIds);
 
         await completeDuplicateMerge(args.id);
       }
@@ -1844,6 +1845,8 @@ const runTransformRegenerationQueue = makeBackgroundOperationRunner(
 
       if (!result.success) throw new Error(result.error);
     }
+
+    await actions.regenMediaProgramsByFileIds(transforms.map(({ fileId }) => String(fileId)));
 
     for (const batch of chunkArray(transforms, 100))
       await models.FileTransformModel.updateMany(

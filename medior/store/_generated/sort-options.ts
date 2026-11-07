@@ -26,7 +26,7 @@ type ModelSortName =
   | "SavedSearch"
   | "Tag";
 
-type CustomSortName = "FileCollectionFile";
+type CustomSortName = "FileCollectionFile" | "MediaProgramRanking";
 
 const MODEL_SORT_OPTIONS: Record<ModelSortName, SortOption[]> = {
   BackgroundOperation: [{ attribute: "dateCreated", icon: "DateRange", label: "Date Created" }],
@@ -77,9 +77,13 @@ const MODEL_SORT_OPTIONS: Record<ModelSortName, SortOption[]> = {
     { attribute: "dateLastWatched", icon: "History", label: "Date Last Watched" },
     { attribute: "dateModified", icon: "DateRange", label: "Date Modified" },
     { attribute: "fileCount", icon: "Numbers", label: "Episode Count" },
+    { attribute: "language", icon: "Translate", label: "Language" },
+    { attribute: "medium", icon: "Brush", label: "Medium" },
     { attribute: "name", icon: "Title", label: "Name" },
     { attribute: "rating", icon: "Star", label: "Rating" },
     { attribute: "size", icon: "FormatSize", label: "Size" },
+    { attribute: "type", icon: "Category", label: "Type" },
+    { attribute: "watchStatusOrder", icon: "Visibility", label: "Watch Status" },
     { attribute: "year", icon: "CalendarMonth", label: "Year" },
   ],
   Notification: [{ attribute: "dateCreated", icon: "DateRange", label: "Date Created" }],
@@ -109,6 +113,10 @@ const CUSTOM_SORT_OPTIONS: Record<CustomSortName, SortOption[]> = {
   FileCollectionFile: [
     { attribute: "custom", icon: "Settings", label: "Custom" },
     ...MODEL_SORT_OPTIONS.File,
+  ],
+  MediaProgramRanking: [
+    { attribute: "custom", icon: "Settings", label: "Custom" },
+    ...MODEL_SORT_OPTIONS.MediaProgram,
   ],
 };
 

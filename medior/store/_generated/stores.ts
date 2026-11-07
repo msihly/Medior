@@ -2692,6 +2692,10 @@ export class _MediaProgramSearch extends Model({
   dateModifiedEnd: prop<string>("").withSetter(),
   dateModifiedMode: prop<"optional" | "required">("required").withSetter(),
   dateModifiedStart: prop<string>("").withSetter(),
+  excludedLanguages: prop<string[]>(() => []).withSetter(),
+  excludedMediums: prop<string[]>(() => []).withSetter(),
+  excludedTypes: prop<string[]>(() => []).withSetter(),
+  excludedWatchStatuses: prop<string[]>(() => []).withSetter(),
   fileCount: prop<{ logOp: LogicalOp | ""; value: number }>(() => ({ logOp: "", value: 0 })),
   fileCountMode: prop<"optional" | "required">("required").withSetter(),
   forcePages: prop<boolean>(false).withSetter(),
@@ -2704,10 +2708,8 @@ export class _MediaProgramSearch extends Model({
   isRewatching: prop<boolean>(null).withSetter(),
   isSaveModalOpen: prop<boolean>(false).withSetter(),
   isSelecting: prop<boolean>(false).withSetter(),
-  languages: prop<string[]>(() => []).withSetter(),
   loadId: prop<number>(0).withSetter(),
   maxYear: prop<number>(null).withSetter(),
-  mediums: prop<string[]>(() => []).withSetter(),
   minYear: prop<number>(null).withSetter(),
   name: prop<string>("").withSetter(),
   nameMode: prop<"optional" | "required">("required").withSetter(),
@@ -2725,8 +2727,6 @@ export class _MediaProgramSearch extends Model({
     () => getConfig().mediaPrograms.manager.search.sort,
   ).withSetter(),
   tags: prop<Stores.TagOption[]>(() => []).withSetter(),
-  types: prop<string[]>(() => []).withSetter(),
-  watchStatuses: prop<string[]>(() => []).withSetter(),
   yearMode: prop<"optional" | "required">("required").withSetter(),
 }) {
   onInit() {
@@ -2816,6 +2816,10 @@ export class _MediaProgramSearch extends Model({
     this.dateModifiedEnd = "";
     this.dateModifiedMode = "required";
     this.dateModifiedStart = "";
+    this.excludedLanguages = [];
+    this.excludedMediums = [];
+    this.excludedTypes = [];
+    this.excludedWatchStatuses = [];
     this.fileCount = { logOp: "", value: 0 };
     this.fileCountMode = "required";
     this.forcePages = false;
@@ -2826,10 +2830,8 @@ export class _MediaProgramSearch extends Model({
     this.isPageCountLoading = false;
     this.isRewatching = null;
     this.isSelecting = false;
-    this.languages = [];
     this.loadId += 1;
     this.maxYear = null;
-    this.mediums = [];
     this.minYear = null;
     this.name = "";
     this.nameMode = "required";
@@ -2843,8 +2845,6 @@ export class _MediaProgramSearch extends Model({
     this.selectionId += 1;
     this.sortValue = getConfig().mediaPrograms.manager.search.sort;
     this.tags = [];
-    this.types = [];
-    this.watchStatuses = [];
     this.yearMode = "required";
   }
 
@@ -3212,20 +3212,20 @@ export class _MediaProgramSearch extends Model({
       (!isDeepEqual(this.dateLastWatchedStart, "") ? 1 : 0) +
       (!isDeepEqual(this.dateModifiedEnd, "") ? 1 : 0) +
       (!isDeepEqual(this.dateModifiedStart, "") ? 1 : 0) +
+      (!isDeepEqual(this.excludedLanguages, []) ? 1 : 0) +
+      (!isDeepEqual(this.excludedMediums, []) ? 1 : 0) +
+      (!isDeepEqual(this.excludedTypes, []) ? 1 : 0) +
+      (!isDeepEqual(this.excludedWatchStatuses, []) ? 1 : 0) +
       (!isDeepEqual(this.fileCount, { logOp: "", value: 0 }) ? 1 : 0) +
       (!isDeepEqual(this.genres, []) ? 1 : 0) +
       (!isDeepEqual(this.ids, []) ? 1 : 0) +
       (!isDeepEqual(this.isRewatching, null) ? 1 : 0) +
-      (!isDeepEqual(this.languages, []) ? 1 : 0) +
       (!isDeepEqual(this.maxYear, null) ? 1 : 0) +
-      (!isDeepEqual(this.mediums, []) ? 1 : 0) +
       (!isDeepEqual(this.minYear, null) ? 1 : 0) +
       (!isDeepEqual(this.name, "") ? 1 : 0) +
       (!isDeepEqual(this.rating, { logOp: "", value: 0 }) ? 1 : 0) +
       (!isDeepEqual(this.sortValue, getConfig().mediaPrograms.manager.search.sort) ? 1 : 0) +
-      (!isDeepEqual(this.tags, []) ? 1 : 0) +
-      (!isDeepEqual(this.types, []) ? 1 : 0) +
-      (!isDeepEqual(this.watchStatuses, []) ? 1 : 0)
+      (!isDeepEqual(this.tags, []) ? 1 : 0)
     );
   }
 
@@ -3257,14 +3257,16 @@ export class _MediaProgramSearch extends Model({
       dateModifiedEnd: this.dateModifiedEnd,
       dateModifiedMode: this.dateModifiedMode,
       dateModifiedStart: this.dateModifiedStart,
+      excludedLanguages: this.excludedLanguages,
+      excludedMediums: this.excludedMediums,
+      excludedTypes: this.excludedTypes,
+      excludedWatchStatuses: this.excludedWatchStatuses,
       fileCount: this.fileCount,
       fileCountMode: this.fileCountMode,
       ...getRootStore<Stores.RootStore>(this)?.tag?.tagSearchOptsToIds(this.genres, false, "Genre"),
       ids: this.ids,
       isRewatching: this.isRewatching,
-      languages: this.languages,
       maxYear: this.maxYear,
-      mediums: this.mediums,
       minYear: this.minYear,
       name: this.name,
       nameMode: this.nameMode,
@@ -3272,8 +3274,6 @@ export class _MediaProgramSearch extends Model({
       ratingMode: this.ratingMode,
       sortValue: this.sortValue,
       ...getRootStore<Stores.RootStore>(this)?.tag?.tagSearchOptsToIds(this.tags),
-      types: this.types,
-      watchStatuses: this.watchStatuses,
       yearMode: this.yearMode,
     };
   }
@@ -3297,14 +3297,16 @@ export class _MediaProgramSearch extends Model({
       dateModifiedEnd: this.dateModifiedEnd,
       dateModifiedMode: this.dateModifiedMode,
       dateModifiedStart: this.dateModifiedStart,
+      excludedLanguages: this.excludedLanguages,
+      excludedMediums: this.excludedMediums,
+      excludedTypes: this.excludedTypes,
+      excludedWatchStatuses: this.excludedWatchStatuses,
       fileCount: this.fileCount,
       fileCountMode: this.fileCountMode,
       genres: this.genres,
       ids: this.ids,
       isRewatching: this.isRewatching,
-      languages: this.languages,
       maxYear: this.maxYear,
-      mediums: this.mediums,
       minYear: this.minYear,
       name: this.name,
       nameMode: this.nameMode,
@@ -3312,8 +3314,6 @@ export class _MediaProgramSearch extends Model({
       ratingMode: this.ratingMode,
       sortValue: this.sortValue,
       tags: this.tags,
-      types: this.types,
-      watchStatuses: this.watchStatuses,
       yearMode: this.yearMode,
     });
   }
@@ -5075,23 +5075,26 @@ export class _FileTransformStore extends Model({ isLoading: prop<boolean>(false)
 
 @model("medior/_MediaProgram")
 export class _MediaProgram extends Model({
-  collectionIdIndexes: prop<Array<{ collectionId: string; index: number }>>(() => []),
   dateCreated: prop<string>(() => dayjs().toISOString()),
   dateLastWatched: prop<string>(null),
   dateModified: prop<string>(null),
   fileCount: prop<number>(0),
   genreIds: prop<string[]>(() => []),
   id: prop<string>(),
+  isMetaPending: prop<boolean>(null),
   isRewatching: prop<boolean>(false),
   language: prop<string>(null),
   lastWatchedFileId: prop<string>(null),
   medium: prop<string>(null),
+  meta: prop<import("medior/utils/common/media-programs").MediaProgramMeta>(null),
+  missingMarks: prop<import("medior/utils/common/media-programs").MediaProgramMissingMarks>(null),
   name: prop<string>(),
   posterFileId: prop<string>(null),
   rating: prop<number>(0),
   ratingIsManual: prop<boolean>(null),
   rewatchCount: prop<number>(0),
   rewatchedFileIds: prop<string[]>(() => []),
+  seasons: prop<import("medior/utils/common/media-programs").MediaProgramSeason[]>(() => []),
   size: prop<number>(0),
   sourceFolderKey: prop<string>(null),
   sourceFolderPath: prop<string>(null),
@@ -5102,6 +5105,7 @@ export class _MediaProgram extends Model({
   watchStatus: prop<"dropped" | "inactive" | "unwatched" | "watched" | "watching">(
     "unwatched" as const,
   ),
+  watchStatusOrder: prop<number>(null),
   year: prop<number>(null),
 }) {
   @modelAction
@@ -5281,6 +5285,7 @@ export class _SavedImportConfigStore extends Model({
 
 @model("medior/_SavedSearch")
 export class _SavedSearch extends Model({
+  customOrderIds: prop<string[]>(() => []),
   dateCreated: prop<string>(() => dayjs().toISOString()),
   filterProps: prop<Record<string, any>>(),
   id: prop<string>(),

@@ -256,6 +256,8 @@ export const editImage = makeAction(
         if (!result.success) throw new Error(result.error);
       }
 
+      await actions.regenMediaProgramsByFileIds([file.id]);
+
       await FileOperationModel.updateOne(
         { _id: operationId },
         { cleanup: prepared.cleanup, state: "COMMITTED", tempPath: null },

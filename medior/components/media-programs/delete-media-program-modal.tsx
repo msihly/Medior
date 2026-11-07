@@ -15,14 +15,11 @@ export const DeleteMediaProgramModal = Comp(() => {
     if (!isDeleting) store.setIsConfirmDeleteOpen(false);
   };
 
-  const handleDelete = async (withCollections: boolean) => {
+  const handleDelete = async () => {
     setIsDeleting(true);
 
     try {
-      const res = await store.deleteMediaPrograms({
-        ids: [...store.idsForConfirmDelete],
-        withCollections,
-      });
+      const res = await store.deleteMediaPrograms([...store.idsForConfirmDelete]);
 
       if (!res.success) throw new Error(res.error);
 
@@ -50,9 +47,7 @@ export const DeleteMediaProgramModal = Comp(() => {
         </Text>
 
         <Text color={colors.custom.lightGrey} textAlign="center" whiteSpace="normal">
-          {
-            '"Delete" keeps the season collections. "Delete with Seasons" also deletes the season collections but keeps their files.'
-          }
+          {"Episode files stay in your library, along with any collections holding them."}
         </Text>
       </Modal.Content>
 
@@ -62,17 +57,9 @@ export const DeleteMediaProgramModal = Comp(() => {
         <Button
           text="Delete"
           icon="Delete"
-          onClick={() => handleDelete(false)}
+          onClick={handleDelete}
           disabled={isDeleting}
           color={colors.custom.red}
-        />
-
-        <Button
-          text="Delete with Seasons"
-          icon="DeleteSweep"
-          onClick={() => handleDelete(true)}
-          disabled={isDeleting}
-          color={colors.custom.orange}
         />
       </Modal.Footer>
     </Modal.Container>

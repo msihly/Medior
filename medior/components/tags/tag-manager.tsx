@@ -12,6 +12,7 @@ import {
   MultiActionButton,
   Pagination,
   RegExOverlapsModal,
+  SEARCH_HEADER_PROPS,
   SearchLoadingOverlay,
   selectAllInView,
   SelectionButtons,
@@ -117,6 +118,7 @@ export const TagManager = Comp(() => {
           flex={1}
           padding={{ all: 0 }}
           overflow="hidden"
+          headerProps={SEARCH_HEADER_PROPS}
           header={
             <UniformList row flex={1} justify="space-between">
               <View row align="center" spacing="0.5rem">

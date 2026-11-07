@@ -96,6 +96,11 @@ export interface FileOperation {
     subtitles?: FileSchema["subtitles"];
     unusedOutput: FileCleanup[];
   };
+  /**
+   * The import moves its source into storage as its output, so abandoning it moves the source back
+   * instead of removing the output. Saved before the move.
+   */
+  isSourceMoved?: boolean;
   kind?: "import" | "thumbnail" | "transform";
   outputHash?: string;
   outputMetadata?: Partial<FileSchema>;
@@ -135,6 +140,7 @@ const schema = new Schema<FileOperation>({
   fileId: String,
   importInput: Schema.Types.Mixed,
   importResult: Schema.Types.Mixed,
+  isSourceMoved: Boolean,
   kind: { enum: ["import", "thumbnail", "transform"], type: String },
   outputHash: String,
   outputMetadata: Schema.Types.Mixed,

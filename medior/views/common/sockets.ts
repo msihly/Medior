@@ -144,6 +144,7 @@ export const useSockets = ({ enabled = true, view }: UseSocketsProps) => {
     ];
     const programs = [
       ...stores.mediaProgram.manager.search.results,
+      ...stores.mediaProgram.rankings.search.results,
       ...(stores.mediaProgram.editor.program ? [stores.mediaProgram.editor.program] : []),
     ];
 
@@ -209,6 +210,8 @@ export const useSockets = ({ enabled = true, view }: UseSocketsProps) => {
     [stores.mediaProgram.editor.genres, stores.mediaProgram.editor.setGenres],
     [stores.mediaProgram.manager.search.genres, stores.mediaProgram.manager.search.setGenres],
     [stores.mediaProgram.manager.search.tags, stores.mediaProgram.manager.search.setTags],
+    [stores.mediaProgram.rankings.filter.genres, stores.mediaProgram.rankings.filter.setGenres],
+    [stores.mediaProgram.rankings.filter.tags, stores.mediaProgram.rankings.filter.setTags],
     [stores.tag.manager.search.tags, stores.tag.manager.search.setTags],
   ];
 
@@ -268,6 +271,7 @@ export const useSockets = ({ enabled = true, view }: UseSocketsProps) => {
 
     for (const program of [
       ...(stores.mediaProgram.manager.isOpen ? stores.mediaProgram.manager.search.results : []),
+      ...(stores.mediaProgram.rankings.isOpen ? stores.mediaProgram.rankings.search.results : []),
       ...(stores.mediaProgram.editor.program ? [stores.mediaProgram.editor.program] : []),
     ]) {
       updateTags(program.genres, program.setGenres);
@@ -660,8 +664,6 @@ export const useSockets = ({ enabled = true, view }: UseSocketsProps) => {
 
           if (updates.tagIds) editor.loadTags();
         }
-
-        if (stores.mediaProgram.editor.isOpen) stores.mediaProgram.editor.updateSeason(id, updates);
       });
 
       makeSocket("onImportBatchCompleted", ({ id }) => {
@@ -676,11 +678,8 @@ export const useSockets = ({ enabled = true, view }: UseSocketsProps) => {
             if (store.isOpen) store.loadActiveBatch();
           }
 
-          // The active file is kept only while a different batch is loaded.
-          if (!store.activeBatch) {
-            store.setActiveFilePath(null);
-            store.setActiveFileProgress(null);
-          }
+          // Active imports are kept only while a different batch is loaded.
+          if (!store.activeBatch) store.setActiveImports([]);
 
           if (!store.search.isCompleted) store.search._deleteResults([id]);
 
@@ -696,6 +695,9 @@ export const useSockets = ({ enabled = true, view }: UseSocketsProps) => {
       makeSocket("onMediaProgramCreated", () => {
         if (stores.mediaProgram.manager.isOpen)
           stores.mediaProgram.manager.search.setHasChanges(true);
+
+        if (stores.mediaProgram.rankings.isOpen)
+          stores.mediaProgram.rankings.filter.setHasChanges(true);
       });
 
       makeSocket("onMediaProgramDeleted", ({ ids }) => {
@@ -705,6 +707,8 @@ export const useSockets = ({ enabled = true, view }: UseSocketsProps) => {
           store.editor.setIsOpen(false);
 
         removeResults(store.manager.search, ids);
+        removeResults(store.rankings.search, ids);
+        store.rankings.removeRankedIds(ids);
       });
 
       makeSocket("onMediaProgramUpdated", async ({ id, updates }) => {
@@ -713,11 +717,12 @@ export const useSockets = ({ enabled = true, view }: UseSocketsProps) => {
         const hasTagChanges = keys.includes("genreIds") || keys.includes("tagIds");
         const programs: MediaProgram[] = [];
 
-        if (store.manager.isOpen) {
-          const program = store.manager.search.getResult(id);
+        /** Updates the program among a search's results, marking `filter` changed by the update. */
+        const updateResult = (search: MediaProgramSearch, filter = search) => {
+          const program = search.getResult(id);
 
           updateSearch(
-            store.manager.search,
+            filter,
             keys.filter((key) => !program || !isDeepEqual(program[key], updates[key])),
           );
 
@@ -727,23 +732,23 @@ export const useSockets = ({ enabled = true, view }: UseSocketsProps) => {
           }
 
           // A new poster is loaded with the rest of the page's posters.
-          if (program && keys.includes("posterFileId")) store.manager.search.loadFiles();
-        }
+          if (program && keys.includes("posterFileId")) search.loadFiles();
+        };
+
+        if (store.manager.isOpen) updateResult(store.manager.search);
+
+        if (store.rankings.isOpen) updateResult(store.rankings.search, store.rankings.filter);
 
         if (store.editor.isOpen && store.editor.program?.id === id) {
           store.editor.updateProgram(updates);
           programs.push(store.editor.program);
 
-          if (keys.includes("collectionIdIndexes")) store.editor.syncSeasons();
+          if (keys.includes("seasons")) store.editor.syncSeasons();
         }
 
         if (hasTagChanges) {
           try {
             await Promise.all(programs.map(loadProgramTags));
-
-            // The editor's genre draft follows the new genres unless it has unsaved changes.
-            if (store.editor.program?.id === id && !store.editor.hasUnsavedChanges)
-              store.editor.resetDraft();
           } catch (error) {
             console.error(error);
           }
@@ -824,20 +829,23 @@ export const useSockets = ({ enabled = true, view }: UseSocketsProps) => {
     });
 
     if (view === "home") {
-      makeSocket("onFileImportProgress", ({ batchId, elapsed, filePath, message, progress }) => {
+      /** Imports from batches other than the loaded one aren't shown. */
+      const getIsOtherBatch = (batchId?: string) => {
         const store = stores.import.manager;
+        return !!batchId && !!store.activeBatch && store.activeBatch.id !== batchId;
+      };
 
-        if (batchId && store.activeBatch && store.activeBatch.id !== batchId) return;
+      makeSocket("onFileImportEnded", ({ filePath }) => {
+        stores.import.manager.endActiveImport(filePath);
+      });
 
-        store.setActiveFilePath(filePath);
-        store.setActiveFileProgress({ elapsed, message, progress });
+      makeSocket("onFileImportProgress", ({ batchId, elapsed, filePath, message, progress }) => {
+        if (!getIsOtherBatch(batchId))
+          stores.import.manager.setActiveImportProgress(filePath, { elapsed, message, progress });
       });
 
       makeSocket("onFileImportUpdated", (update) => {
-        const { batchId, filePath } = update;
-
-        if (stores.import.manager.activeFilePath === filePath)
-          stores.import.manager.setActiveFileProgress(null);
+        const { batchId } = update;
 
         if (stores.import.manager.activeBatch?.id === batchId)
           stores.import.manager.activeBatch.updateImport(update);
@@ -847,9 +855,8 @@ export const useSockets = ({ enabled = true, view }: UseSocketsProps) => {
         }
       });
 
-      makeSocket("onFileImportStarted", ({ filePath }) => {
-        stores.import.manager.setActiveFilePath(filePath);
-        stores.import.manager.setActiveFileProgress(null);
+      makeSocket("onFileImportStarted", ({ batchId, filePath }) => {
+        if (!getIsOtherBatch(batchId)) stores.import.manager.startActiveImport(filePath);
       });
 
       makeSocket("onImportBatchLoaded", () => {

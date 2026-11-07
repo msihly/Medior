@@ -2,7 +2,7 @@ import { defineConfig } from "vite";
 import pluginReact from "@vitejs/plugin-react";
 import pluginRenderer from "vite-plugin-electron-renderer";
 
-const EXTERNALS = ["@huggingface/transformers", "fdir", "mongoose", "sharp"];
+const EXTERNALS = ["@huggingface/transformers", "fdir", "koffi", "mongoose", "sharp"];
 
 export default defineConfig({
   build: {

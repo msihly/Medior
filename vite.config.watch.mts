@@ -3,7 +3,7 @@ import pluginReact from "@vitejs/plugin-react";
 import pluginRenderer from "vite-plugin-electron-renderer";
 import pluginRendererCjsShim from "vite-plugin-electron-renderer/cjs-shim";
 
-const EXTERNALS = ["@huggingface/transformers", "fdir", "mongoose", "sharp"];
+const EXTERNALS = ["@huggingface/transformers", "fdir", "koffi", "mongoose", "sharp"];
 
 export default defineConfig({
   build: {

@@ -46,6 +46,7 @@ import {
   IMPORT_UPLOAD_COUNT,
   ImportBatchOptions,
   ImportEntryInput,
+  MediaProgramImport,
   sumArray,
 } from "medior/utils/common";
 import {
@@ -153,7 +154,7 @@ export const completeImportBatch = makeAction(
 
       const fileIds: string[] = [];
 
-      if (batch.collectionTitle) {
+      if (batch.collectionTitle || batch.mediaProgram) {
         if (
           await models.FileImportModel.exists({
             batchId: args.id,
@@ -161,9 +162,7 @@ export const completeImportBatch = makeAction(
             status: { $in: COLLECTION_IMPORT_STATUSES },
           })
         )
-          throw new Error(
-            "Failed to complete batch collection (completed imports missing file ids)",
-          );
+          throw new Error("Failed to complete batch (completed imports missing file ids)");
 
         for await (const entry of models.FileImportModel.aggregate<{ _id: string }>([
           { $match: { batchId: objectId(args.id), status: { $in: COLLECTION_IMPORT_STATUSES } } },
@@ -177,8 +176,14 @@ export const completeImportBatch = makeAction(
       }
 
       let collectionId: string = null;
+      let importedProgram: { id: string; isCreated: boolean } = null;
 
-      if (batch.collectionTitle && fileIds.length) {
+      if (batch.mediaProgram && fileIds.length)
+        importedProgram = await actions.addImportedMediaProgramSeason({
+          fileIds,
+          mediaProgram: batch.mediaProgram,
+        });
+      else if (batch.collectionTitle && fileIds.length) {
         const fileIdIndexes = fileIds.map((fileId, index) => ({ fileId, index }));
 
         const sourceFolderPath =
@@ -210,12 +215,6 @@ export const completeImportBatch = makeAction(
         }
 
         collectionId = res.data.id;
-
-        if (batch.mediaProgram)
-          await actions.attachImportedMediaProgramSeason({
-            collectionId,
-            mediaProgram: batch.mediaProgram,
-          });
       }
 
       const sidecarCollectionFiles = new Map<string, { fileId: string; index: number }[]>();
@@ -276,6 +275,8 @@ export const completeImportBatch = makeAction(
           const result = await actions.regenCollAttrs({ fileIds: duplicateFileIds });
 
           if (!result.success) throw new Error(result.error);
+
+          await actions.regenMediaProgramsByFileIds(duplicateFileIds);
         }
 
         lastIndex = entries.at(-1).index;
@@ -349,6 +350,8 @@ export const completeImportBatch = makeAction(
       );
 
       socket.emit("onImportBatchCompleted", { id: args.id });
+
+      if (importedProgram) actions.queueImportedMediaProgramMeta(importedProgram);
 
       if (args.withNextBatch) {
         const nextBatch = await getNextImportBatch(null);
@@ -579,19 +582,22 @@ export const deleteImportBatches = makeAction(
 
       const abandonedIds: string[] = [];
 
-      for await (const operation of FileOperationModel.find({
-        batchId: { $in: args.ids },
-        importResult: { $exists: false },
-        state: "PREPARED",
-      })
-        .lean()
-        .cursor({ batchSize: 100 })) {
-        await abandonPreparedImport(operation);
-        abandonedIds.push(operation._id);
+      // Imports abandoned before one fails still have their cleanup queued.
+      try {
+        for await (const operation of FileOperationModel.find({
+          batchId: { $in: args.ids },
+          importResult: { $exists: false },
+          state: "PREPARED",
+        })
+          .lean()
+          .cursor({ batchSize: 100 })) {
+          await abandonPreparedImport(operation);
+          abandonedIds.push(operation._id);
+        }
+      } finally {
+        // Cleanup started here would stop when this request ends, so it is queued to finish later.
+        if (abandonedIds.length) await queueImportCleanup(abandonedIds);
       }
-
-      // Cleanup started here would stop when this request ends, so it is queued to finish later.
-      if (abandonedIds.length) await queueImportCleanup(abandonedIds);
 
       const result = await models.FileImportBatchModel.deleteMany({ _id: { $in: args.ids } });
 
@@ -657,6 +663,7 @@ export const reingestFolder = makeAction(
     async (args: {
       collectionTitle?: string;
       fileTagIds: { fileId: string; tagIds: string[] }[];
+      mediaProgram?: MediaProgramImport;
     }) => {
       if (!args.fileTagIds.length) throw new Error("No fileTagIds passed");
 
@@ -683,13 +690,21 @@ export const reingestFolder = makeAction(
         if (!queued.success) throw new Error(queued.error);
       }
 
-      const collections = await actions.regenCollAttrs({
-        fileIds: args.fileTagIds.map(({ fileId }) => fileId),
-      });
+      const reingestedIds = args.fileTagIds.map(({ fileId }) => fileId);
+      const collections = await actions.regenCollAttrs({ fileIds: reingestedIds });
 
       if (!collections.success) throw new Error(collections.error);
 
-      if (args.collectionTitle) {
+      await actions.regenMediaProgramsByFileIds(reingestedIds);
+
+      let importedProgram: { id: string; isCreated: boolean } = null;
+
+      if (args.mediaProgram)
+        importedProgram = await actions.addImportedMediaProgramSeason({
+          fileIds: reingestedIds,
+          mediaProgram: args.mediaProgram,
+        });
+      else if (args.collectionTitle) {
         const collRes = await actions.createCollection({
           fileIdIndexes: args.fileTagIds.map((f, i) => ({ fileId: f.fileId, index: i })),
           title: args.collectionTitle,
@@ -713,10 +728,9 @@ export const reingestFolder = makeAction(
       for (const { addedTagIds, fileIds } of fileIdsByTags.values())
         socket.emitVolatile("onFileTagsUpdated", { addedTagIds, fileIds, removedTagIds: [] });
 
-      socket.emitVolatile("onFilesUpdated", {
-        fileIds: args.fileTagIds.map(({ fileId }) => fileId),
-        updates: { dateModified },
-      });
+      socket.emitVolatile("onFilesUpdated", { fileIds: reingestedIds, updates: { dateModified } });
+
+      if (importedProgram) actions.queueImportedMediaProgramMeta(importedProgram);
     },
     { getFileIds: ({ fileTagIds }) => fileTagIds.map(({ fileId }) => fileId) },
   ),

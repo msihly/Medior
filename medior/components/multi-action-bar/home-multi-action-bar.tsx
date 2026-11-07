@@ -4,13 +4,14 @@ import {
   Chip,
   Comp,
   DeselectAllButton,
+  FileActionButtons,
   FileFilter,
   MultiActionButton,
   SelectAllButton,
   SelectAllInQueryButton,
   View,
 } from "medior/components";
-import { FileSearch, handleReingest, useStores } from "medior/store";
+import { FileSearch, useStores } from "medior/store";
 import { colors, makeClasses, toast } from "medior/utils/client";
 import { CONSTANTS } from "medior/utils/common";
 import { SelectedFilesTooltip, SelectFilesModal } from ".";
@@ -29,46 +30,9 @@ export const HomeMultiActionBar = Comp(
 
     const [isSelectModalOpen, setIsSelectModalOpen] = useState(false);
 
-    const selectedIds = [...store.selectedIds];
-    const hasNoSelection = selectedIds.length === 0;
     const sourceSortValue = suppliedStore
       ? undefined
       : ((store.cachedFilterProps as { sortValue?: SortValue })?.sortValue ?? store.sortValue);
-
-    // const handleAutoDetect = () => stores.faceRecog.addFilesToAutoDetectQueue(selectedIds);
-
-    const handleDelete = () => stores.file.confirmDeleteFiles(selectedIds);
-
-    const handleEditCollections = () => {
-      stores.collection.manager.setSelectedFileIds(selectedIds);
-      stores.collection.manager.setIsOpen(true);
-    };
-
-    const handleEditTags = () => {
-      stores.file.tagsEditor.setFileIds(selectedIds);
-      stores.file.tagsEditor.setIsOpen(true);
-    };
-
-    const handleExport = () => stores.file.exporter.open(selectedIds);
-
-    const handleFileInfoRefresh = () => stores.file.refreshFiles({ ids: selectedIds });
-
-    const handleReencode = () =>
-      stores.file.openVideoTransformer(selectedIds, "reencode", sourceSortValue);
-
-    const handleRemux = () =>
-      stores.file.openVideoTransformer(selectedIds, "remux", sourceSortValue);
-
-    // Without shared timestamps, each selected video is spliced by its own single timeline.
-    const handleSplice = () => {
-      stores.file.videoTransformer.setTimestampPairs([]);
-      stores.file.openVideoTransformer(selectedIds, "splice", sourceSortValue);
-    };
-
-    const handleUnarchive = () => stores.file.unarchiveFiles({ fileIds: selectedIds });
-
-    const reingest = () =>
-      handleReingest({ fileIds: selectedIds, store: stores.import.reingester });
 
     return (
       <>
@@ -83,88 +47,7 @@ export const HomeMultiActionBar = Comp(
             </View>
 
             <View row align="center" spacing="0.5rem">
-              {store.isArchived && (
-                <MultiActionButton
-                  name="Delete"
-                  tooltip="Delete"
-                  iconProps={{ color: colors.custom.red }}
-                  onClick={handleDelete}
-                  disabled={hasNoSelection}
-                />
-              )}
-
-              <MultiActionButton
-                name={store.isArchived ? "Unarchive" : "Archive"}
-                tooltip={store.isArchived ? "Unarchive" : "Archive"}
-                onClick={store.isArchived ? handleUnarchive : handleDelete}
-                disabled={hasNoSelection}
-              />
-
-              <MultiActionButton
-                name="ContentCut"
-                tooltip="Splice Videos with a Single Timeline"
-                onClick={handleSplice}
-                disabled={hasNoSelection || !isHome}
-              />
-
-              <MultiActionButton
-                name="AutoMode"
-                iconProps={{ size: "0.85em" }}
-                tooltip="Re-encode Media"
-                onClick={handleReencode}
-                disabled={hasNoSelection || !isHome}
-              />
-
-              <MultiActionButton
-                name="RotateRight"
-                iconProps={{ rotation: 240, size: "1.1em" }}
-                tooltip="Remux Videos"
-                onClick={handleRemux}
-                disabled={hasNoSelection || !isHome}
-              />
-
-              <MultiActionButton
-                name="Refresh"
-                iconProps={{ rotation: 190, size: "1.1em" }}
-                tooltip="Refresh File Info"
-                onClick={handleFileInfoRefresh}
-                disabled={hasNoSelection}
-              />
-
-              <MultiActionButton
-                name="GetApp"
-                tooltip="Reingest"
-                onClick={reingest}
-                disabled={hasNoSelection || !isHome}
-              />
-
-              {/* <MultiActionButton
-                name="Face"
-                tooltip="Auto Detect Faces"
-                onClick={handleAutoDetect}
-                disabled={hasNoSelection || !isHome}
-              /> */}
-
-              <MultiActionButton
-                name="Collections"
-                tooltip="Edit Collections"
-                onClick={handleEditCollections}
-                disabled={hasNoSelection}
-              />
-
-              <MultiActionButton
-                name="Label"
-                tooltip="Edit Tags"
-                onClick={handleEditTags}
-                disabled={hasNoSelection}
-              />
-
-              <MultiActionButton
-                name="FileExport"
-                tooltip="Export"
-                onClick={handleExport}
-                disabled={hasNoSelection}
-              />
+              <FileActionButtons isHome={isHome} sourceSortValue={sourceSortValue} store={store} />
 
               <DeselectAllButton itemLabel="files" store={store} toast={toast} />
 

@@ -11,6 +11,7 @@ import {
   handleErrors,
   Hotkeys,
   ImageExt,
+  MediaProgramRankingExport,
   mergePreset,
   migrateReencodeDimensions,
   NestedKeys,
@@ -341,6 +342,10 @@ export interface Config {
       search: Search;
     };
     mediums: string[];
+    rankings: {
+      export: MediaProgramRankingExport;
+      search: Search;
+    };
     types: string[];
   };
   ports: {
@@ -552,6 +557,24 @@ export const DEFAULT_CONFIG: Config = {
       },
     },
     mediums: ["Animated", "Live-Action"],
+    rankings: {
+      export: {
+        aspectRatio: "2:3",
+        columns: 4,
+        gap: 8,
+        rows: 3,
+        showDetails: false,
+        showName: true,
+        showRank: true,
+        showRating: true,
+        showTitle: true,
+        width: 1080,
+      },
+      search: {
+        pageSize: 50,
+        sort: { isDesc: false, key: "custom" },
+      },
+    },
     types: ["Show", "Movie", "Podcast", "Livestream"],
   },
   ports: {
@@ -742,6 +765,7 @@ export const loadConfig = async (filePath: string) => {
     config.file.search.pageSize = +config.file.search.pageSize;
     config.file.transforms.search.pageSize = +config.file.transforms.search.pageSize;
     config.mediaPrograms.manager.search.pageSize = +config.mediaPrograms.manager.search.pageSize;
+    config.mediaPrograms.rankings.search.pageSize = +config.mediaPrograms.rankings.search.pageSize;
     config.ports.db = +config.ports.db;
     config.ports.server = +config.ports.server;
     config.ports.socket = +config.ports.socket;

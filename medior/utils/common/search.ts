@@ -26,6 +26,46 @@ export const addRegexSearchFilter = (
 export const cycleTriState = (value: boolean | null) =>
   value === true ? false : value === false ? null : true;
 
+/**
+ * Moves the selected items up to `delta` places up or down, keeping their order among themselves
+ * and stopping at the list's ends. The other items keep their order around them.
+ */
+export const moveSelectedItems = <T>(
+  items: T[],
+  isSelected: (item: T) => boolean,
+  { delta, down }: { delta: number; down: boolean },
+) => {
+  const moved = Array<T>(items.length);
+  const selectedItems = items
+    .map((item, index) => ({ index, item }))
+    .filter(({ item }) => isSelected(item));
+
+  let boundary = down ? moved.length : -1;
+
+  if (down) selectedItems.reverse();
+
+  for (const { index, item } of selectedItems) {
+    const toIndex = down
+      ? Math.min(index + delta, boundary - 1)
+      : Math.max(index - delta, boundary + 1);
+
+    moved[toIndex] = item;
+    boundary = toIndex;
+  }
+
+  let nextIndex = 0;
+
+  for (const item of items) {
+    if (isSelected(item)) continue;
+
+    while (moved[nextIndex] !== undefined) nextIndex++;
+
+    moved[nextIndex++] = item;
+  }
+
+  return moved;
+};
+
 const splitRegexSearchTerms = (input: string) => {
   const terms: string[] = [];
   let depth = 0;

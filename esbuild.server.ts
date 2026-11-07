@@ -27,6 +27,7 @@ import path from "path";
       "@vladmandic/face-api",
       "electron",
       "fdir",
+      "koffi",
       "onnxruntime-node",
       "sharp",
       "sharp-bmp",

@@ -17,7 +17,7 @@ export class CollectionManager extends Model({
   isRelatedQueueOpen: prop<boolean>(false).withSetter(),
   isTriagerOpen: prop<boolean>(false).withSetter(),
   search: prop<FileCollectionSearch>(() => new FileCollectionSearch({})),
-  /** Media program that selected collections are added to as seasons. */
+  /** Media program that selected collections are copied into as seasons. */
   seasonsProgramId: prop<string>(null).withSetter(),
   selectedFileIds: prop<string[]>(() => []).withSetter(),
   selectedFiles: prop<File[]>(() => []).withSetter(),

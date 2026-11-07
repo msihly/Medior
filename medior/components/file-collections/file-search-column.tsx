@@ -4,11 +4,12 @@ import {
   Card,
   CardGrid,
   Comp,
+  DeselectAllButton,
   FileCard,
   FileFilter,
-  MultiActionButton,
   Pagination,
   SearchLoadingOverlay,
+  SelectAllButton,
   View,
 } from "medior/components";
 import { useStores } from "medior/store";
@@ -34,11 +35,6 @@ export const FileSearchColumn = Comp(() => {
     if (!res.success) toast.error(res.error);
   };
 
-  const handleDeselectAll = () => store.setSelectedIds([]);
-
-  const handleSelectAll = () =>
-    store.toggleSelected(store.results.map(({ id }) => ({ id, isSelected: true })));
-
   return (
     <Card flex="none" height="100%" width="16rem" overflow="hidden" padding={{ all: 0 }}>
       <SearchLoadingOverlay store={store} />
@@ -58,17 +54,12 @@ export const FileSearchColumn = Comp(() => {
             width="100%"
           />
 
-          <MultiActionButton
-            name="Deselect"
-            tooltip="Deselect All Files"
-            onClick={handleDeselectAll}
-            disabled={!store.selectedIds.length}
-          />
+          <DeselectAllButton itemLabel="files" store={store} toast={toast} />
 
-          <MultiActionButton
-            name="SelectAll"
-            tooltip="Select All Files in View"
-            onClick={handleSelectAll}
+          <SelectAllButton
+            itemLabel="files"
+            store={store}
+            toast={toast}
             disabled={store.isLoading}
           />
         </View>

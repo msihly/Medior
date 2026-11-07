@@ -30,16 +30,24 @@ export interface FfprobeData {
 /** One report from ffmpeg's -progress output, such as frame, fps, total_size and out_time_us. */
 export type FfmpegProgressReport = Record<string, string>;
 
+/** A chapter a video's container marks, such as those PotPlayer shows, in seconds. */
+export interface VideoChapter {
+  end: number;
+  start: number;
+  title: string | null;
+}
+
 /** How much of the end of ffmpeg's error output is kept for failure messages. */
 const MAX_ERROR_OUTPUT_LENGTH = 8192;
 
-export const probeMedia = (filePath: string, signal?: AbortSignal) =>
-  new Promise<FfprobeData>((resolve, reject) => {
+/** Runs ffprobe on the file with the arguments that choose what it shows, parsing its JSON. */
+const runFfprobe = <T>(args: string[], filePath: string, signal?: AbortSignal) =>
+  new Promise<T>((resolve, reject) => {
     signal?.throwIfAborted();
 
     execFile(
       getFfprobePath(),
-      ["-v", "quiet", "-print_format", "json", "-show_format", "-show_streams", filePath],
+      ["-v", "quiet", "-print_format", "json", ...args, filePath],
       { maxBuffer: 16 * 1024 * 1024, signal, windowsHide: true },
       (error, stdout) => {
         if (error) return reject(error);
@@ -52,6 +60,22 @@ export const probeMedia = (filePath: string, signal?: AbortSignal) =>
       },
     );
   });
+
+/** The chapters the file's container marks, in order. */
+export const probeChapters = async (filePath: string, signal?: AbortSignal) => {
+  const { chapters = [] } = await runFfprobe<{
+    chapters?: { end_time?: string; start_time?: string; tags?: { title?: string } }[];
+  }>(["-show_chapters"], filePath, signal);
+
+  return chapters.map((chapter): VideoChapter => ({
+    end: Number(chapter.end_time),
+    start: Number(chapter.start_time),
+    title: chapter.tags?.title || null,
+  }));
+};
+
+export const probeMedia = (filePath: string, signal?: AbortSignal) =>
+  runFfprobe<FfprobeData>(["-show_format", "-show_streams"], filePath, signal);
 
 /**
  * Runs ffmpeg until it ends, killing it once the signal aborts, including an abort that arrives

@@ -178,6 +178,7 @@ export class FileStore extends ExtendedModel(_FileStore, {
       ...stores.collection.manager.search.files.values(),
       ...stores.mediaProgram.editor.search.results,
       ...stores.mediaProgram.manager.search.files.values(),
+      ...stores.mediaProgram.rankings.search.files.values(),
     ];
 
     this.updateFiles(fileIds, updates);

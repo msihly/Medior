@@ -1,66 +1,58 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Button,
   Card,
   CardGrid,
   Chip,
   Comp,
+  ConfirmModal,
+  getWatchStatusMeta,
+  ListItem,
   MediaProgramCard,
   MediaProgramFilterMenu,
+  MediaProgramRankingExportModal,
+  MediaProgramRankings,
+  MenuButton,
   Modal,
   MultiActionButton,
   Pagination,
+  SEARCH_HEADER_PROPS,
   SearchLoadingOverlay,
+  SelectionButtons,
   Text,
   UniformList,
+  useMediaProgramHotkeys,
   View,
 } from "medior/components";
 import { useStores } from "medior/store";
 import { colors, toast } from "medior/utils/client";
+import { MEDIA_PROGRAM_WATCH_STATUSES, MediaProgramWatchStatus } from "medior/utils/common";
 
+/** Browses the media programs, or ranks them with the header's Rankings toggle. */
 export const MediaProgramManager = Comp(() => {
   const stores = useStores();
   const store = stores.mediaProgram.manager;
+  const rankings = stores.mediaProgram.rankings;
 
-  const cardsRef = useRef<HTMLDivElement>(null);
+  const [isConfirmDiscardOpen, setIsConfirmDiscardOpen] = useState(false);
 
-  const hasSelection = store.search.selectedIds.length > 0;
-  const page = store.search.page;
-  const pageCount = store.search.pageCount;
-
-  useEffect(() => {
-    handlePageChange(1);
-  }, []);
-
-  useEffect(() => {
-    cardsRef.current?.scrollTo({ behavior: "instant", top: 0 });
-  }, [page, pageCount]);
-
-  useEffect(() => {
-    if (
-      !store.search.isLoading &&
-      !store.search.isPageCountLoading &&
-      page > Math.max(pageCount, 1)
-    )
-      handlePageChange(Math.max(pageCount, 1));
-  }, [store.search.isLoading, store.search.isPageCountLoading, page, pageCount]);
-
-  const handleClose = () => {
-    if (store.isLoading) return;
+  const close = async () => {
+    if (rankings.isOpen) rankings.setIsOpen(false);
 
     store.search.cancelLoad();
     store.setIsOpen(false);
+
+    return true;
   };
 
-  const handleDelete = () => {
-    stores.mediaProgram.setIdsForConfirmDelete([...store.search.selectedIds]);
-    stores.mediaProgram.setIsConfirmDeleteOpen(true);
+  const handleClose = () => {
+    if (store.isLoading || rankings.isSaving) return;
+
+    if (rankings.hasUnsavedChanges) setIsConfirmDiscardOpen(true);
+    else close();
   };
 
-  const handleFullPageLoad = async () => {
-    const res = await store.search.loadFiltered({ toLastPage: true });
-    if (!res.success) toast.error(res.error);
-  };
+  const handleExport = () => rankings.setIsExportOpen(true);
 
   const handleNew = async () => {
     store.setIsLoading(true);
@@ -82,6 +74,144 @@ export const MediaProgramManager = Comp(() => {
     }
   };
 
+  const handleSaveOrder = async () => {
+    const res = await rankings.saveOrder();
+    if (!res.success) toast.error(res.error);
+    else toast.success("Ranking saved");
+  };
+
+  return (
+    <Modal.Container
+      isLoading={store.isLoading || rankings.isSaving}
+      onClose={handleClose}
+      height="100%"
+      width="100%"
+    >
+      <Modal.Content dividers={false} overflow="hidden" padding={{ all: 0 }}>
+        {store.isRankingsView ? <MediaProgramRankings /> : <ProgramsView />}
+      </Modal.Content>
+
+      <Modal.Footer>
+        <Button
+          text={rankings.hasUnsavedChanges ? "Cancel" : "Close"}
+          icon="Close"
+          onClick={handleClose}
+          colorOnHover={colors.custom.red}
+        />
+
+        {store.isRankingsView ? (
+          <>
+            <Button
+              text="Export"
+              icon="IosShare"
+              onClick={handleExport}
+              disabled={rankings.isLoading || !rankings.rankedIds.length}
+              colorOnHover={colors.custom.blue}
+            />
+
+            <Button
+              text="Save Order"
+              icon="Save"
+              onClick={handleSaveOrder}
+              disabled={!rankings.canSaveOrder || rankings.isLoading}
+              color={colors.custom.purple}
+            />
+          </>
+        ) : (
+          <Button text="Create" icon="Add" onClick={handleNew} colorOnHover={colors.custom.blue} />
+        )}
+      </Modal.Footer>
+
+      {rankings.isExportOpen && <MediaProgramRankingExportModal />}
+
+      {isConfirmDiscardOpen && (
+        <ConfirmModal
+          headerText="Discard Changes"
+          subText="Are you sure you want to discard the unsaved order?"
+          confirmText="Discard"
+          setVisible={setIsConfirmDiscardOpen}
+          onConfirm={close}
+        />
+      )}
+    </Modal.Container>
+  );
+});
+
+/**
+ * Switches the Media Programs modal between browsing and ranking. The rankings load when first
+ * shown and keep their unsaved order while the programs are.
+ */
+export const MediaProgramRankingsToggle = Comp(() => {
+  const stores = useStores();
+  const store = stores.mediaProgram.manager;
+  const rankings = stores.mediaProgram.rankings;
+
+  const handleToggle = async () => {
+    const isRankingsView = !store.isRankingsView;
+    store.setIsRankingsView(isRankingsView);
+
+    if (isRankingsView && !rankings.isOpen) {
+      rankings.setIsOpen(true);
+
+      const res = await rankings.loadRanking();
+      if (!res.success) toast.error(res.error);
+    }
+  };
+
+  return (
+    <Button
+      text="Rankings"
+      icon="EmojiEvents"
+      onClick={handleToggle}
+      color={store.isRankingsView ? colors.custom.purple : colors.foregroundCard}
+    />
+  );
+});
+
+const ProgramsView = Comp(() => {
+  const stores = useStores();
+  const store = stores.mediaProgram.manager;
+
+  const cardsRef = useRef<HTMLDivElement>(null);
+
+  const handleKeyPress = useMediaProgramHotkeys({
+    itemLabel: "programs",
+    rate: (id, rating) => stores.mediaProgram.updateMediaProgram({ id, updates: { rating } }),
+    search: store.search,
+  });
+
+  const hasSelection = store.search.selectedIds.length > 0;
+  const page = store.search.page;
+  const pageCount = store.search.pageCount;
+
+  // Opening the modal starts on the first page; returning from the rankings keeps the page.
+  useEffect(() => {
+    handlePageChange(page);
+  }, []);
+
+  useEffect(() => {
+    cardsRef.current?.scrollTo({ behavior: "instant", top: 0 });
+  }, [page, pageCount]);
+
+  useEffect(() => {
+    if (
+      !store.search.isLoading &&
+      !store.search.isPageCountLoading &&
+      page > Math.max(pageCount, 1)
+    )
+      handlePageChange(Math.max(pageCount, 1));
+  }, [store.search.isLoading, store.search.isPageCountLoading, page, pageCount]);
+
+  const handleDelete = () => {
+    stores.mediaProgram.setIdsForConfirmDelete([...store.search.selectedIds]);
+    stores.mediaProgram.setIsConfirmDeleteOpen(true);
+  };
+
+  const handleFullPageLoad = async () => {
+    const res = await store.search.loadFiltered({ toLastPage: true });
+    if (!res.success) toast.error(res.error);
+  };
+
   const handlePageChange = async (page: number) => {
     const res = await store.search.loadFiltered({ page });
     if (!res.success) toast.error(res.error);
@@ -93,82 +223,102 @@ export const MediaProgramManager = Comp(() => {
     if (!res.success) toast.error(res.error);
   };
 
+  const handleWatchStatus = async (watchStatus: MediaProgramWatchStatus) => {
+    const res = await stores.mediaProgram.setWatchStatus({
+      ids: [...store.search.selectedIds],
+      watchStatus,
+    });
+    if (!res.success) toast.error(res.error);
+  };
+
   return (
-    <Modal.Container isLoading={store.isLoading} onClose={handleClose} height="100%" width="100%">
-      <Modal.Content dividers={false} overflow="hidden" padding={{ all: 0 }}>
-        <Card
-          flex={1}
-          height="100%"
-          overflow="hidden"
-          padding={{ all: 0 }}
-          bgColor={colors.background}
-          headerProps={{ flex: "none" }}
-          header={
-            <UniformList row flex={1} justify="space-between" padding={{ all: "0.3rem" }}>
-              <View row align="center" spacing="0.5rem">
-                <MediaProgramFilterMenu store={store.search} />
+    <Card
+      flex={1}
+      height="100%"
+      overflow="hidden"
+      padding={{ all: 0 }}
+      bgColor={colors.background}
+      headerProps={SEARCH_HEADER_PROPS}
+      header={
+        <UniformList row flex={1} justify="space-between">
+          <View row align="center" spacing="0.5rem">
+            <MediaProgramFilterMenu store={store.search} />
 
-                {hasSelection && <Chip label={`${store.search.selectedIds.length} Selected`} />}
-              </View>
+            <MediaProgramRankingsToggle />
 
-              <View row justify="center" align="center">
-                <Text preset="title">{"Media Programs"}</Text>
-              </View>
-
-              <View row justify="flex-end">
-                <MultiActionButton
-                  name="Delete"
-                  tooltip="Delete"
-                  iconProps={{ color: hasSelection ? colors.custom.red : colors.custom.grey }}
-                  onClick={handleDelete}
-                  disabled={!hasSelection}
-                />
-
-                <MultiActionButton
-                  name="Refresh"
-                  tooltip="Refresh Metadata"
-                  onClick={handleRefreshMeta}
-                  disabled={!hasSelection}
-                />
-              </View>
-            </UniformList>
-          }
-        >
-          <View flex={1} position="relative" overflow="hidden">
-            <SearchLoadingOverlay store={store.search} />
-
-            <CardGrid
-              ref={cardsRef}
-              cards={store.search.results.map((program) => (
-                <MediaProgramCard key={program.id} program={program} />
-              ))}
-              maxCards={8}
-              noResultsText="No media programs found"
-              height="100%"
-            />
+            {hasSelection && <Chip label={`${store.search.selectedIds.length} Selected`} />}
           </View>
 
-          <Pagination
-            inline
-            count={pageCount}
-            page={page}
-            onChange={handlePageChange}
-            isLoading={store.search.isPageCountLoading && !store.search.isLoading}
-            onFullLoad={handleFullPageLoad}
-          />
-        </Card>
-      </Modal.Content>
+          <View row justify="center" align="center">
+            <Text preset="title">{"Media Programs"}</Text>
+          </View>
 
-      <Modal.Footer>
-        <Button text="Close" icon="Close" onClick={handleClose} colorOnHover={colors.custom.red} />
+          <View row justify="flex-end">
+            <MultiActionButton
+              name="Delete"
+              tooltip="Delete"
+              iconProps={{ color: hasSelection ? colors.custom.red : colors.custom.grey }}
+              onClick={handleDelete}
+              disabled={!hasSelection}
+            />
 
-        <Button
-          text="New Media Program"
-          icon="Add"
-          onClick={handleNew}
-          colorOnHover={colors.custom.blue}
+            <MultiActionButton
+              name="Refresh"
+              tooltip="Refresh Metadata"
+              onClick={handleRefreshMeta}
+              disabled={!hasSelection}
+            />
+
+            <MenuButton
+              icon="Visibility"
+              tooltip="Set Watch Status"
+              tooltipProps={{ placement: "bottom" }}
+              disabled={!hasSelection}
+            >
+              {(onClose) =>
+                MEDIA_PROGRAM_WATCH_STATUSES.map(({ label, value }) => (
+                  <ListItem
+                    key={value}
+                    text={label}
+                    icon="Circle"
+                    iconProps={{ color: getWatchStatusMeta(value, false).bgColor }}
+                    onClick={() => {
+                      onClose();
+                      handleWatchStatus(value);
+                    }}
+                  />
+                ))
+              }
+            </MenuButton>
+
+            <SelectionButtons itemLabel="programs" store={store.search} toast={toast} />
+          </View>
+        </UniformList>
+      }
+    >
+      <View flex={1} position="relative" overflow="hidden">
+        <SearchLoadingOverlay store={store.search} />
+
+        <CardGrid
+          ref={cardsRef}
+          cards={store.search.results.map((program) => (
+            <MediaProgramCard key={program.id} program={program} />
+          ))}
+          cardsProps={{ onKeyDown: handleKeyPress, tabIndex: 1 }}
+          maxCards={8}
+          noResultsText="No media programs found"
+          height="100%"
         />
-      </Modal.Footer>
-    </Modal.Container>
+      </View>
+
+      <Pagination
+        inline
+        count={pageCount}
+        page={page}
+        onChange={handlePageChange}
+        isLoading={store.search.isPageCountLoading && !store.search.isLoading}
+        onFullLoad={handleFullPageLoad}
+      />
+    </Card>
   );
 });

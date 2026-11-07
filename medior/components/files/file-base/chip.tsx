@@ -1,7 +1,9 @@
 import { Chip as ChipBase, ChipProps as ChipBaseProps } from "medior/components";
-import { colors, CSS, makeClasses } from "medior/utils/client";
+import { BorderRadiuses, colors, CSS, makeClasses } from "medior/utils/client";
 
 export interface ChipProps extends ChipBaseProps {
+  /** Sits flush against the card's corner, rounding only the corner facing into the card. */
+  corner?: boolean;
   flush?: boolean;
   footerOffset?: CSS["bottom"];
   hasFooter?: boolean;
@@ -9,8 +11,22 @@ export interface ChipProps extends ChipBaseProps {
   position?: "bottom-left" | "bottom-right" | "top-left" | "top-right";
 }
 
+const CORNER_RADIUSES: Record<ChipProps["position"], BorderRadiuses> = {
+  "bottom-left": { bottom: 0, left: 0, topRight: "inherit" },
+  "bottom-right": { bottom: 0, right: 0, topLeft: "inherit" },
+  "top-left": { bottomRight: "inherit", left: 0, top: 0 },
+  "top-right": { bottomLeft: "inherit", right: 0, top: 0 },
+};
+
+/** Bottom chips raised above a footer meet only the card's side, rounding both inner corners. */
+const SIDE_RADIUSES: Partial<Record<ChipProps["position"], BorderRadiuses>> = {
+  "bottom-left": { left: 0, right: "inherit" },
+  "bottom-right": { left: "inherit", right: 0 },
+};
+
 export const Chip = ({
   bgColor = colors.background,
+  corner = false,
   flush = false,
   footerOffset,
   hasFooter,
@@ -18,9 +34,27 @@ export const Chip = ({
   position,
   ...props
 }: ChipProps) => {
-  const { css } = useClasses({ flush, footerOffset, hasFooter, opacity, position });
+  const isCorner = corner && !!position;
+  const isRaised = position?.startsWith("bottom") && (!!footerOffset || hasFooter);
 
-  return <ChipBase {...props} {...{ bgColor }} className={css.chip} />;
+  const { css } = useClasses({
+    flush: flush || isCorner,
+    footerOffset,
+    hasFooter,
+    opacity,
+    position,
+  });
+
+  return (
+    <ChipBase
+      radiuses={
+        !isCorner ? undefined : isRaised ? SIDE_RADIUSES[position] : CORNER_RADIUSES[position]
+      }
+      {...props}
+      {...{ bgColor }}
+      className={css.chip}
+    />
+  );
 };
 
 interface ClassesProps extends Pick<

@@ -3,11 +3,11 @@ import { createSearchStore, makeSortDef, makeStoreDef } from "medior/generator/s
 import { MODEL_SEARCH_STORE_DEFS } from "medior/generator/stores/models";
 import { makeSectionComment } from "medior/generator/utils";
 
+const CUSTOM_SORT_OPTION = `{ attribute: "custom", icon: "Settings", label: "Custom" }`;
+
 const CUSTOM_SORT_OPTIONS: Record<string, string[]> = {
-  FileCollectionFile: [
-    `{ attribute: "custom", icon: "Settings", label: "Custom" }`,
-    `...MODEL_SORT_OPTIONS.File`,
-  ],
+  FileCollectionFile: [CUSTOM_SORT_OPTION, `...MODEL_SORT_OPTIONS.File`],
+  MediaProgramRanking: [CUSTOM_SORT_OPTION, `...MODEL_SORT_OPTIONS.MediaProgram`],
 };
 
 export const FILE_DEF_SORT_OPTIONS: FileDef = {

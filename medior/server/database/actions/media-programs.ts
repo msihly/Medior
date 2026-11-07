@@ -1,28 +1,49 @@
 import path from "path";
+import { randomUUID } from "crypto";
 import * as models from "medior/_generated/server/models";
+import { fileLog } from "trabecula/utils/server";
 import * as actions from "medior/server/database/actions";
 import { normalizeSourceFolderPath } from "medior/server/database/actions/collections";
+import {
+  readMediaProgramSeasons,
+  removeMediaProgramImages,
+} from "medior/server/database/media-program-seasons";
 import { withMetadataMutation } from "medior/server/database/metadata-mutations";
 import { metadataSaveOptions, metadataWriteOptions } from "medior/server/database/metadata-work";
 import {
+  addSeasonEpisodes,
   dayjs,
+  getLastEpisodeNumber,
+  getMediaProgramEpisodeIds,
+  getMediaProgramMetaSeasonNumbers,
+  getMediaProgramSeasonOutlines,
+  getSeasonEpisodeNumbers,
+  getSeasonSortKey,
+  getWatchStatusOrder,
   isDeepEqual,
+  MEDIA_PROGRAM_WATCH_STATUSES,
   MediaProgramImport,
+  MediaProgramSeason,
+  MediaProgramSeasonInput,
+  MediaProgramSeasonOutline,
   MediaProgramWatchStatus,
+  normalizeSeasonEpisodes,
   parseMediaProgramName,
+  parseSeasonNumber,
+  sumArray,
 } from "medior/utils/common";
-import { leanModelToJson, makeAction, objectId, objectIds, socket } from "medior/utils/server";
+import { leanModelToJson, makeAction, objectIds, socket } from "medior/utils/server";
 
-type CollectionIdIndex = models.MediaProgramSchema["collectionIdIndexes"][number];
+type MediaProgramAttrs = ReturnType<typeof readMediaProgramAttrs>;
 
 type MediaProgramUpdates = Partial<
   Pick<
     models.MediaProgramSchema,
-    | "collectionIdIndexes"
     | "genreIds"
     | "isRewatching"
     | "language"
     | "medium"
+    | "missingMarks"
     | "name"
     | "rating"
     | "ratingIsManual"
@@ -30,11 +51,41 @@ type MediaProgramUpdates = Partial<
     | "watchStatus"
     | "year"
   >
->;
+> & { seasons?: MediaProgramSeasonInput[] };
 
 /* -------------------------------------------------------------------------- */
 /*                              HELPER FUNCTIONS                              */
 /* -------------------------------------------------------------------------- */
+const getAverageRating = (ratings: number[]) => {
+  const rated = ratings.filter((rating) => rating > 0);
+
+  return rated.length ? sumArray(rated, (rating) => rating) / rated.length : 0;
+};
+
+/**
+ * Whether saved seasons lack metadata the new ones need: a season was added or now matches another
+ * source season, such as after renumbering or reordering unnumbered seasons, or one has an episode
+ * at a number it had none at when its metadata, with stills for those numbers, was downloaded.
+ */
+const getNeedsMetaRefresh = (saved: MediaProgramSeason[], seasons: MediaProgramSeason[]) => {
+  const savedNumbers = getMediaProgramMetaSeasonNumbers(saved);
+  const savedById = new Map(saved.map((season, index) => [season.id, { index, season }]));
+  const numbers = getMediaProgramMetaSeasonNumbers(seasons);
+
+  return seasons.some((season, index) => {
+    const savedSeason = savedById.get(season.id);
+    const savedEpisodeNumbers = new Set(
+      savedSeason ? getSeasonEpisodeNumbers(savedSeason.season) : [],
+    );
+
+    return (
+      !savedSeason ||
+      savedNumbers[savedSeason.index] !== numbers[index] ||
+      getSeasonEpisodeNumbers(season).some((number) => !savedEpisodeNumbers.has(number))
+    );
+  });
+};
+
 const getWatchStatus = (
   current: MediaProgramWatchStatus,
   {
@@ -51,94 +102,72 @@ const getWatchStatus = (
   else return current;
 };
 
-const normalizeCollectionIdIndexes = (collectionIdIndexes: CollectionIdIndex[]) => {
+/** Seasons with unique IDs and episodes, keeping the saved metadata of seasons that existed. */
+const normalizeSeasons = (seasons: MediaProgramSeasonInput[], saved: MediaProgramSeason[]) => {
+  const savedById = new Map(saved.map((season) => [season.id, season]));
   const seenIds = new Set<string>();
 
-  return [...collectionIdIndexes]
-    .sort((a, b) => a.index - b.index)
-    .filter(({ collectionId }) => {
-      const id = String(collectionId);
-      if (seenIds.has(id)) return false;
+  return seasons.map((season): MediaProgramSeason => {
+    const id = season.id && !seenIds.has(season.id) ? season.id : randomUUID();
 
-      seenIds.add(id);
-      return true;
-    })
-    .map(({ collectionId }, index) => ({ collectionId: String(collectionId), index }));
+    seenIds.add(id);
+
+    return {
+      ...normalizeSeasonEpisodes({
+        episodeNumbers: season.episodeNumbers,
+        fileIds: [...new Set(season.fileIds.map(String))],
+      }),
+      id,
+      label: season.label.trim(),
+      meta: savedById.get(id)?.meta ?? null,
+      number: season.number ?? null,
+      rating: season.rating ?? 0,
+      ratingIsManual: !!season.ratingIsManual,
+    };
+  });
 };
 
-/** The derived program fields in a comparable form, with ids as strings. */
+/** The derived program fields in a comparable form, with IDs as strings. */
 const readMediaProgramAttrs = (
   program: Pick<
     models.MediaProgramSchema,
-    | "collectionIdIndexes"
     | "fileCount"
     | "posterFileId"
     | "rating"
     | "rewatchedFileIds"
+    | "seasons"
     | "size"
     | "tagIds"
     | "watchedFileIds"
   >,
 ) => ({
-  collectionIdIndexes: program.collectionIdIndexes.map(({ collectionId, index }) => ({
-    collectionId: String(collectionId),
-    index,
-  })),
   fileCount: program.fileCount,
   posterFileId: program.posterFileId ? String(program.posterFileId) : null,
   rating: program.rating,
   rewatchedFileIds: program.rewatchedFileIds.map(String),
+  seasons: readMediaProgramSeasons(program.seasons),
   size: program.size,
   tagIds: program.tagIds.map(String),
   watchedFileIds: program.watchedFileIds.map(String),
 });
 
-/** Episodes in season order, then file order; a file in several seasons counts once. */
-const readMediaProgramSeasons = async (
-  program: Pick<models.MediaProgramSchema, "collectionIdIndexes">,
-) => {
-  const collectionIds = [...program.collectionIdIndexes]
-    .sort((a, b) => a.index - b.index)
-    .map(({ collectionId }) => String(collectionId));
-
-  const collections = await models.FileCollectionModel.find({
-    _id: { $in: objectIds(collectionIds) },
-  })
-    .select({ fileIdIndexes: 1, rating: 1, tagIds: 1 })
-    .lean();
-
-  const collectionsById = new Map(
-    collections.map((collection) => [String(collection._id), collection]),
-  );
-  const seasons = collectionIds.map((id) => collectionsById.get(id)).filter(Boolean);
-
-  const episodeIds = [
-    ...new Set(
-      seasons.flatMap((season) =>
-        [...season.fileIdIndexes]
-          .sort((a, b) => a.index - b.index)
-          .map(({ fileId }) => String(fileId)),
-      ),
-    ),
-  ];
-
-  return { episodeIds, seasons };
-};
-
 /**
- * Derives episode counts, size, rating, tags, and poster from the seasons, saving only changes.
- * After seasons were added or removed outside an edit, the seasons are sent to open windows too.
+ * Derives the seasons' ratings and the program's episode count, size, rating, tags, and poster from
+ * its episodes, saving only what changed. Given seasons and marks replace the saved ones.
  */
-const writeMediaProgramAttrs = async (id: string, { isSeasonChange = false } = {}) => {
+const writeMediaProgramAttrs = async (
+  id: string,
+  changes: Partial<Pick<MediaProgramAttrs, "rewatchedFileIds" | "seasons" | "watchedFileIds">> = {},
+) => {
   const program = await models.MediaProgramModel.findById(id)
     .select({
-      collectionIdIndexes: 1,
       fileCount: 1,
       isRewatching: 1,
       posterFileId: 1,
       rating: 1,
       ratingIsManual: 1,
       rewatchedFileIds: 1,
+      seasons: 1,
       size: 1,
       tagIds: 1,
       watchedFileIds: 1,
@@ -148,33 +177,51 @@ const writeMediaProgramAttrs = async (id: string, { isSeasonChange = false } = {
 
   if (!program) return;
 
-  const { episodeIds, seasons } = await readMediaProgramSeasons(program);
   const current = readMediaProgramAttrs(program);
-  const episodeIdSet = new Set(episodeIds);
-  const ratedSeasons = seasons.filter((season) => season.rating > 0);
-  const seasonIds = new Set(seasons.map((season) => String(season._id)));
+  const base = { ...current, ...changes };
 
-  // A file in several seasons counts once, as it does in the episode count.
-  const [episodeSize] = await models.FileModel.aggregate<{ size: number }>([
-    { $match: { _id: { $in: objectIds(episodeIds) } } },
-    { $group: { _id: null, size: { $sum: "$size" } } },
-  ]);
+  const files = new Map(
+    (
+      await models.FileModel.find({
+        _id: { $in: objectIds(getMediaProgramEpisodeIds(base.seasons)) },
+      })
+        .select({ rating: 1, size: 1, tagIds: 1 })
+        .lean()
+    ).map((file) => [String(file._id), file]),
+  );
+
+  // Files deleted elsewhere drop out of their seasons here, and the others keep their numbers.
+  const seasons = base.seasons.map((season) => {
+    const episodes = normalizeSeasonEpisodes({
+      episodeNumbers: normalizeSeasonEpisodes(season).episodeNumbers,
+      fileIds: season.fileIds.filter((fileId) => files.has(fileId)),
+    });
+
+    return {
+      ...season,
+      ...episodes,
+      rating: season.ratingIsManual
+        ? season.rating
+        : getAverageRating(episodes.fileIds.map((fileId) => files.get(fileId).rating)),
+    };
+  });
+
+  const episodeIds = getMediaProgramEpisodeIds(seasons);
+  const episodeIdSet = new Set(episodeIds);
 
   const attrs = readMediaProgramAttrs({
-    collectionIdIndexes: program.collectionIdIndexes.filter(({ collectionId }) =>
-      seasonIds.has(String(collectionId)),
-    ),
     fileCount: episodeIds.length,
     posterFileId: episodeIds[0] ?? null,
     rating: program.ratingIsManual
       ? program.rating
-      : ratedSeasons.length
-        ? ratedSeasons.reduce((total, season) => total + season.rating, 0) / ratedSeasons.length
-        : 0,
-    rewatchedFileIds: current.rewatchedFileIds.filter((fileId) => episodeIdSet.has(fileId)),
-    size: episodeSize?.size ?? 0,
-    tagIds: [...new Set(seasons.flatMap((season) => season.tagIds.map(String)))].sort(),
-    watchedFileIds: current.watchedFileIds.filter((fileId) => episodeIdSet.has(fileId)),
+      : getAverageRating(seasons.map((season) => season.rating)),
+    rewatchedFileIds: base.rewatchedFileIds.filter((fileId) => episodeIdSet.has(fileId)),
+    seasons,
+    size: sumArray(episodeIds, (fileId) => files.get(fileId).size),
+    tagIds: [
+      ...new Set(episodeIds.flatMap((fileId) => files.get(fileId).tagIds.map(String))),
+    ].sort(),
+    watchedFileIds: base.watchedFileIds.filter((fileId) => episodeIdSet.has(fileId)),
   });
 
   const updates: Partial<models.MediaProgramSchema> = Object.fromEntries(
@@ -183,8 +230,6 @@ const writeMediaProgramAttrs = async (id: string, { isSeasonChange = false } = {
 
   if (updates.tagIds)
     updates.tagIdsWithAncestors = await actions.deriveAncestorTagIds(attrs.tagIds);
-
-  if (isSeasonChange) updates.collectionIdIndexes = attrs.collectionIdIndexes;
 
   // The watch status follows episodes or marks that season changes added or removed, leaving a
   // status set by hand alone otherwise. A rewatch keeps its own.
@@ -206,6 +251,9 @@ const writeMediaProgramAttrs = async (id: string, { isSeasonChange = false } = {
       (updates.watchedFileIds || attrs.fileCount !== current.fileCount)
     )
       updates.watchStatus = "watched";
+    // Episodes imported as watched start an unwatched program.
+    else if (program.watchStatus === "unwatched" && watchedCount > current.watchedFileIds.length)
+      updates.watchStatus = isComplete ? "watched" : "watching";
     else if (
       updates.watchedFileIds &&
       !watchedCount &&
@@ -213,6 +261,8 @@ const writeMediaProgramAttrs = async (id: string, { isSeasonChange = false } = {
     )
       updates.watchStatus = "unwatched";
   }
+
+  if (updates.watchStatus) updates.watchStatusOrder = getWatchStatusOrder(updates.watchStatus);
 
   if (Object.keys(updates).length) {
     await models.MediaProgramModel.updateOne(
@@ -232,7 +282,7 @@ const writeWatchedFileIds = async (
   isWatched: boolean,
 ) => {
   const id = String(program._id);
-  const { episodeIds } = await readMediaProgramSeasons(program);
+  const episodeIds = getMediaProgramEpisodeIds(readMediaProgramSeasons(program.seasons));
   const dateModified = dayjs().toISOString();
   const fileIdSet = new Set(fileIds);
   const marked = new Set(
@@ -270,6 +320,8 @@ const writeWatchedFileIds = async (
         }),
   };
 
+  if (updates.watchStatus) updates.watchStatusOrder = getWatchStatusOrder(updates.watchStatus);
+
   await models.MediaProgramModel.updateOne({ _id: id }, { $set: updates }, metadataWriteOptions());
 
   socket.emitVolatile("onMediaProgramUpdated", { id, updates });
@@ -277,9 +329,14 @@ const writeWatchedFileIds = async (
   return updates;
 };
 
+/**
+ * Adds an import batch's files to its program's season, creating the program and season when they
+ * don't exist. Seasons are matched by number, then label. Resolves to the program's ID and
+ * whether this import created it.
+ */
 // @generator-ignore-export
-export const attachImportedMediaProgramSeason = (args: {
-  collectionId: string;
+export const addImportedMediaProgramSeason = (args: {
+  fileIds: string[];
   mediaProgram: MediaProgramImport;
 }) =>
   withMetadataMutation(async () => {
@@ -311,20 +368,24 @@ export const attachImportedMediaProgramSeason = (args: {
       {
         $set: { dateModified, ...fields },
         $setOnInsert: {
-          collectionIdIndexes: [],
           dateCreated: dateModified,
           fileCount: 0,
           genreIds: [],
+          // Saved, so a match an import queues survives a restart until it's tried.
+          isMetaPending: true,
           isRewatching: false,
+          meta: null,
           rating: 0,
           rewatchCount: 0,
           rewatchedFileIds: [],
+          seasons: [],
           size: 0,
           sourceFolderPath: mediaProgram.sourceFolderPath,
           tagIds: [],
           tagIdsWithAncestors: [],
           watchedFileIds: [],
           watchStatus: "unwatched",
+          watchStatusOrder: getWatchStatusOrder("unwatched"),
         },
       },
       { ...metadataWriteOptions(), returnDocument: "after", upsert: true },
@@ -334,38 +395,97 @@ export const attachImportedMediaProgramSeason = (args: {
 
     if (!existing) socket.emitVolatile("onMediaProgramCreated", program);
 
-    const isNewSeason = !program.collectionIdIndexes.some(
-      ({ collectionId }) => String(collectionId) === args.collectionId,
-    );
-    const indexes = program.collectionIdIndexes.map(({ index }) => index);
+    const { seasonLabel, seasonNumber } = mediaProgram;
+    const seasons = readMediaProgramSeasons(program.seasons);
+    const season =
+      seasons.find(({ number }) => seasonNumber !== null && number === seasonNumber) ??
+      seasons.find(({ label }) => label.toLowerCase() === seasonLabel.toLowerCase());
 
-    // Imports scanned before an earlier one finished planned the same position; later ones follow.
-    if (isNewSeason)
+    const files = await models.FileModel.find({ _id: { $in: objectIds(args.fileIds) } })
+      .select({ originalName: 1 })
+      .lean();
+
+    const fileNames = new Map(files.map((file) => [String(file._id), file.originalName]));
+    // Episodes take the numbers their names give when they can, such as 16 to 18 of a season.
+    const addedFiles = [...new Set(args.fileIds)].map((id) => ({
+      id,
+      name: fileNames.get(id) ?? "",
+    }));
+
+    if (season) Object.assign(season, addSeasonEpisodes(season, addedFiles));
+    else {
+      // A new season goes after the last one numbered before it, keeping the program's own order.
+      const sortKey = getSeasonSortKey(seasonNumber);
+      const index = seasons.findLastIndex(({ number }) => getSeasonSortKey(number) <= sortKey);
+
+      seasons.splice(index + 1, 0, {
+        ...addSeasonEpisodes({ episodeNumbers: {}, fileIds: [] }, addedFiles),
+        id: randomUUID(),
+        label: seasonLabel,
+        meta: null,
+        number: seasonNumber,
+        rating: 0,
+        ratingIsManual: false,
+      });
+    }
+
+    await writeMediaProgramAttrs(program.id, {
+      seasons,
+      ...(mediaProgram.isWatched
+        ? { watchedFileIds: [...new Set([...program.watchedFileIds.map(String), ...args.fileIds])] }
+        : {}),
+    });
+
+    // A status chosen at import replaces the one that follows from the watched episodes.
+    if (mediaProgram.watchStatus) {
+      const updates = {
+        watchStatus: mediaProgram.watchStatus,
+        watchStatusOrder: getWatchStatusOrder(mediaProgram.watchStatus),
+      };
+
       await models.MediaProgramModel.updateOne(
         { _id: program.id },
-        {
-          $push: {
-            collectionIdIndexes: {
-              collectionId: objectId(args.collectionId),
-              index: indexes.includes(mediaProgram.seasonIndex)
-                ? Math.max(...indexes) + 1
-                : mediaProgram.seasonIndex,
-            },
-          },
-        },
+        { $set: updates },
         metadataWriteOptions(),
       );
 
-    await writeMediaProgramAttrs(program.id, { isSeasonChange: isNewSeason });
+      socket.emitVolatile("onMediaProgramUpdated", { id: program.id, updates });
+    }
+
+    return { id: program.id, isCreated: !existing };
   });
 
+/** Saves the viewing order beside the watch status of programs saved before it was kept. */
 // @generator-ignore-export
-export const regenMediaProgramsByCollectionIds = (collectionIds: string[]) =>
+export const fillMediaProgramWatchStatusOrders = async () => {
+  const statuses = MEDIA_PROGRAM_WATCH_STATUSES.map(({ value }) => value);
+
+  try {
+    await withMetadataMutation(() =>
+      models.MediaProgramModel.updateMany(
+        { watchStatusOrder: { $exists: false } },
+        [{ $set: { watchStatusOrder: { $indexOfArray: [statuses, "$watchStatus"] } } }],
+        { ...metadataWriteOptions(), updatePipeline: true },
+      ),
+    );
+  } catch (error) {
+    fileLog(`Failed to save media program watch status orders: ${error.message}`, {
+      type: "error",
+    });
+  }
+};
+
+/**
+ * Rederives the programs holding the files after their ratings, tags, or sizes changed, or after
+ * they were deleted, which drops them from their seasons.
+ */
+// @generator-ignore-export
+export const regenMediaProgramsByFileIds = (fileIds: string[]) =>
   withMetadataMutation(async () => {
-    if (!collectionIds.length) return;
+    if (!fileIds.length) return;
 
     const programs = await models.MediaProgramModel.find({
-      "collectionIdIndexes.collectionId": { $in: collectionIds },
+      "seasons.fileIds": { $in: fileIds },
     })
       .select({ _id: 1 })
       .lean();
@@ -373,153 +493,212 @@ export const regenMediaProgramsByCollectionIds = (collectionIds: string[]) =>
     for (const program of programs) await writeMediaProgramAttrs(String(program._id));
   });
 
+/** Puts the file a duplicate was merged into in the duplicate's place, keeping its watch marks. */
 // @generator-ignore-export
-export const removeMediaProgramCollectionIds = (collectionIds: string[]) =>
+export const replaceMediaProgramFile = (fileId: string, replacementId: string) =>
   withMetadataMutation(async () => {
-    const programs = await models.MediaProgramModel.find({
-      "collectionIdIndexes.collectionId": { $in: collectionIds },
-    })
-      .select({ _id: 1 })
+    const replaceId = (fileIds: string[]) => [
+      ...new Set(fileIds.map((id) => (String(id) === fileId ? replacementId : String(id)))),
+    ];
+
+    const programs = await models.MediaProgramModel.find({ "seasons.fileIds": fileId })
+      .select({ rewatchedFileIds: 1, seasons: 1, watchedFileIds: 1 })
       .lean();
-
-    if (!programs.length) return;
-
-    await models.MediaProgramModel.updateMany(
-      { _id: { $in: programs.map((program) => program._id) } },
-      { $pull: { collectionIdIndexes: { collectionId: { $in: objectIds(collectionIds) } } } },
-      metadataWriteOptions(),
-    );
 
     for (const program of programs)
-      await writeMediaProgramAttrs(String(program._id), { isSeasonChange: true });
-  });
-
-/**
- * Points programs' seasons at the collection they were merged into, keeping each program's first
- * position for it.
- */
-// @generator-ignore-export
-export const replaceMediaProgramCollectionIds = (collectionIds: string[], targetId: string) =>
-  withMetadataMutation(async () => {
-    const replacedIds = new Set(collectionIds);
-
-    const programs = await models.MediaProgramModel.find({
-      "collectionIdIndexes.collectionId": { $in: collectionIds },
-    })
-      .select({ collectionIdIndexes: 1 })
-      .lean();
-
-    for (const program of programs) {
-      const collectionIdIndexes = normalizeCollectionIdIndexes(
-        program.collectionIdIndexes.map(({ collectionId, index }) => ({
-          collectionId: replacedIds.has(String(collectionId)) ? targetId : String(collectionId),
-          index,
+      await writeMediaProgramAttrs(String(program._id), {
+        rewatchedFileIds: replaceId(program.rewatchedFileIds),
+        // The file merged into takes the duplicate's episode number, even beside it in the season.
+        seasons: readMediaProgramSeasons(program.seasons).map((season) => ({
+          ...season,
+          episodeNumbers: Object.fromEntries(
+            Object.entries(normalizeSeasonEpisodes(season).episodeNumbers)
+              .filter(([id]) => id !== replacementId || !season.fileIds.includes(fileId))
+              .map(([id, number]) => [id === fileId ? replacementId : id, number]),
+          ),
+          fileIds: replaceId(season.fileIds),
         })),
-      );
-
-      await models.MediaProgramModel.updateOne(
-        { _id: program._id },
-        { $set: { collectionIdIndexes } },
-        metadataWriteOptions(),
-      );
-
-      await writeMediaProgramAttrs(String(program._id), { isSeasonChange: true });
-    }
+        watchedFileIds: replaceId(program.watchedFileIds),
+      });
   });
 
 /* -------------------------------------------------------------------------- */
 /*                                API ENDPOINTS                               */
 /* -------------------------------------------------------------------------- */
-export const createMediaProgram = makeAction(
-  async (args: Omit<MediaProgramUpdates, "collectionIdIndexes"> & { collectionIds?: string[] }) =>
-    withMetadataMutation(async () => {
-      const name = args.name?.trim();
-      if (!name) throw new Error("A name is required");
-
-      const dateCreated = dayjs().toISOString();
-
-      const program: Omit<models.MediaProgramSchema, "id"> = {
-        collectionIdIndexes: (args.collectionIds ?? []).map((collectionId, index) => ({
-          collectionId,
-          index,
-        })),
-        dateCreated,
-        dateModified: dateCreated,
-        fileCount: 0,
-        genreIds: args.genreIds ?? [],
-        isRewatching: false,
-        language: args.language,
-        medium: args.medium,
-        name,
-        rating: 0,
-        rewatchCount: 0,
-        rewatchedFileIds: [],
-        size: 0,
-        tagIds: [],
-        tagIdsWithAncestors: [],
-        type: args.type,
-        watchedFileIds: [],
-        watchStatus: args.watchStatus ?? "unwatched",
-        year: args.year,
-      };
-
-      const res = await new models.MediaProgramModel(program).save(metadataSaveOptions());
-      const id = res._id.toString();
-
-      socket.emitVolatile("onMediaProgramCreated", { ...program, id });
-
-      await writeMediaProgramAttrs(id);
-
-      return leanModelToJson<models.MediaProgramSchema>(
-        await models.MediaProgramModel.findById(id).lean(),
-      );
-    }),
-);
-
-export const deleteMediaPrograms = makeAction(
-  async ({ ids, withCollections = false }: { ids: string[]; withCollections?: boolean }) => {
-    const collectionIds = await withMetadataMutation(async () => {
-      const programs = await models.MediaProgramModel.find({ _id: { $in: objectIds(ids) } })
-        .select({ collectionIdIndexes: 1 })
+/** Copies each collection's files into a new season; the collections are left as they are. */
+export const copyCollectionsToMediaProgram = makeAction(
+  async ({ collectionIds, id }: { collectionIds: string[]; id: string }) => {
+    const isLinked = await withMetadataMutation(async () => {
+      const program = await models.MediaProgramModel.findById(id)
+        .select({ meta: 1, name: 1, seasons: 1 })
         .lean();
 
-      await models.MediaProgramModel.deleteMany(
-        { _id: { $in: objectIds(ids) } },
-        metadataWriteOptions(),
-      );
+      if (!program) throw new Error("Media program not found");
 
-      socket.emitVolatile("onMediaProgramDeleted", { ids });
+      const collections = await models.FileCollectionModel.find({
+        _id: { $in: objectIds(collectionIds) },
+      })
+        .select({ fileIdIndexes: 1, rating: 1, ratingIsManual: 1, title: 1 })
+        .lean();
 
-      return programs.flatMap((program) =>
-        program.collectionIdIndexes.map(({ collectionId }) => String(collectionId)),
+      const collectionsById = new Map(
+        collections.map((collection) => [String(collection._id), collection]),
       );
+      // Seasons imported as collections were titled after their program.
+      const titlePrefix = `${program.name} - `;
+
+      const copiedSeasons = collectionIds
+        .map((collectionId) => collectionsById.get(collectionId))
+        .filter(Boolean)
+        .map((collection): MediaProgramSeason => {
+          const label = collection.title.startsWith(titlePrefix)
+            ? collection.title.slice(titlePrefix.length)
+            : collection.title;
+
+          return {
+            // Episodes count up from 1 in the collection's order.
+            episodeNumbers: {},
+            fileIds: [...collection.fileIdIndexes]
+              .sort((a, b) => a.index - b.index)
+              .map(({ fileId }) => String(fileId)),
+            id: randomUUID(),
+            label,
+            meta: null,
+            number: parseSeasonNumber(label),
+            rating: collection.ratingIsManual ? collection.rating : 0,
+            ratingIsManual: !!collection.ratingIsManual,
+          };
+        });
+
+      await writeMediaProgramAttrs(id, {
+        seasons: [...readMediaProgramSeasons(program.seasons), ...copiedSeasons],
+      });
+
+      return !!program.meta;
     });
 
-    if (withCollections && collectionIds.length) {
-      const res = await actions.deleteCollections({ ids: [...new Set(collectionIds)] });
-
-      if (!res.success) throw new Error(res.error);
-    }
+    if (isLinked) actions.queueMediaProgramMetaRefresh([id]);
   },
 );
 
-/** Existing programs for the given folders, with the next free season index for new seasons. */
+export const createMediaProgram = makeAction(async (args: Omit<MediaProgramUpdates, "seasons">) =>
+  withMetadataMutation(async () => {
+    const name = args.name?.trim();
+    if (!name) throw new Error("A name is required");
+
+    const dateCreated = dayjs().toISOString();
+    const watchStatus = args.watchStatus ?? "unwatched";
+
+    const program: Omit<models.MediaProgramSchema, "id"> = {
+      dateCreated,
+      dateModified: dateCreated,
+      fileCount: 0,
+      genreIds: args.genreIds ?? [],
+      isRewatching: false,
+      language: args.language,
+      medium: args.medium,
+      meta: null,
+      name,
+      rating: 0,
+      rewatchCount: 0,
+      rewatchedFileIds: [],
+      seasons: [],
+      size: 0,
+      tagIds: [],
+      tagIdsWithAncestors: [],
+      type: args.type,
+      watchedFileIds: [],
+      watchStatus,
+      watchStatusOrder: getWatchStatusOrder(watchStatus),
+      year: args.year,
+    };
+
+    const res = await new models.MediaProgramModel(program).save(metadataSaveOptions());
+    const id = res._id.toString();
+
+    socket.emitVolatile("onMediaProgramCreated", { ...program, id });
+
+    return leanModelToJson<models.MediaProgramSchema>(
+      await models.MediaProgramModel.findById(id).lean(),
+    );
+  }),
+);
+
+/** Deletes the programs and their downloaded images; their episodes' files are kept. */
+export const deleteMediaPrograms = makeAction(async ({ ids }: { ids: string[] }) => {
+  const programs = await withMetadataMutation(async () => {
+    const deleted = await models.MediaProgramModel.find({ _id: { $in: objectIds(ids) } })
+      .select({ meta: 1, seasons: 1 })
+      .lean();
+
+    await models.MediaProgramModel.deleteMany(
+      { _id: { $in: objectIds(ids) } },
+      metadataWriteOptions(),
+    );
+
+    socket.emitVolatile("onMediaProgramDeleted", { ids });
+
+    return deleted;
+  });
+
+  await removeMediaProgramImages(programs);
+});
+
+/** The IDs of every program the filters match, in the filters' sort order. */
+export const listFilteredMediaProgramIds = makeAction(
+  async (args: actions.CreateMediaProgramFilterPipelineInput) => {
+    const { $match, $sort } = await actions.createMediaProgramFilterPipeline(args);
+
+    const programs = await models.MediaProgramModel.find($match)
+      .sort($sort)
+      .select({ _id: 1 })
+      .allowDiskUse(true)
+      .lean();
+
+    return programs.map((program) => String(program._id));
+  },
+);
+
+/**
+ * Existing programs for the given folders, with their last numbered season and the highest episode
+ * number its files' names give, which loose episodes continue.
+ */
 export const listMediaProgramsBySourceFolders = makeAction(
   async ({ folderPaths }: { folderPaths: string[] }) => {
     const programs = await models.MediaProgramModel.find({
       sourceFolderKey: { $in: folderPaths.map(normalizeSourceFolderPath) },
     })
       .select({
-        collectionIdIndexes: 1,
         language: 1,
         medium: 1,
         name: 1,
+        "seasons.fileIds": 1,
+        "seasons.label": 1,
+        "seasons.number": 1,
         sourceFolderKey: 1,
         type: 1,
         year: 1,
       })
       .lean();
 
+    // Programs saved before they owned seasons have none.
+    const lastSeasons = new Map(
+      programs.map((program) => [
+        program.sourceFolderKey,
+        readMediaProgramSeasons(program.seasons).reduce<MediaProgramSeason>(
+          (last, season) => (season.number > (last?.number ?? 0) ? season : last),
+          null,
+        ),
+      ]),
+    );
+
+    const files = await models.FileModel.find({
+      _id: { $in: objectIds([...lastSeasons.values()].flatMap((season) => season?.fileIds ?? [])) },
+    })
+      .select({ originalName: 1 })
+      .lean();
+
+    const fileNames = new Map(files.map((file) => [String(file._id), file.originalName]));
     const programsByKey = new Map(programs.map((program) => [program.sourceFolderKey, program]));
 
     return folderPaths
@@ -528,26 +707,36 @@ export const listMediaProgramsBySourceFolders = makeAction(
         program: programsByKey.get(normalizeSourceFolderPath(folderPath)),
       }))
       .filter(({ program }) => program)
-      .map(({ folderPath, program }) => ({
-        folderPath,
-        id: String(program._id),
-        language: program.language,
-        medium: program.medium,
-        name: program.name,
-        nextSeasonIndex: Math.max(-1, ...program.collectionIdIndexes.map(({ index }) => index)) + 1,
-        type: program.type,
-        year: program.year,
-      }));
+      .map(({ folderPath, program }) => {
+        const lastSeason = lastSeasons.get(program.sourceFolderKey);
+
+        return {
+          folderPath,
+          id: String(program._id),
+          language: program.language,
+          lastSeason: lastSeason
+            ? {
+                episodeNumber: getLastEpisodeNumber(
+                  lastSeason.fileIds.map((fileId) => fileNames.get(fileId)).filter(Boolean),
+                ),
+                label: lastSeason.label,
+                number: lastSeason.number,
+              }
+            : null,
+          medium: program.medium,
+          name: program.name,
+          type: program.type,
+          year: program.year,
+        };
+      });
   },
 );
 
 /** Marks a played file watched in every program whose seasons contain it. */
 export const markFileWatched = makeAction(async ({ fileId }: { fileId: string }) => {
-  // Most played files belong to no program, so they never wait for the metadata queue.
-  const file = await models.FileModel.findById(fileId).select({ collectionIds: 1 }).lean();
-  if (!file?.collectionIds?.length) return [];
+  const programFilter = { "seasons.fileIds": fileId };
 
-  const programFilter = { "collectionIdIndexes.collectionId": { $in: file.collectionIds } };
+  // Most played files belong to no program, so they never wait for the metadata queue.
   if (!(await models.MediaProgramModel.exists(programFilter))) return [];
 
   return withMetadataMutation(async () => {
@@ -576,27 +765,50 @@ export const setMediaProgramEpisodesWatched = makeAction(
 );
 
 export const updateMediaProgram = makeAction(
-  async ({ id, updates }: { id: string; updates: MediaProgramUpdates }) =>
-    withMetadataMutation(async () => {
-      const program = await models.MediaProgramModel.findById(id).lean();
-      if (!program) throw new Error("Media program not found");
+  async ({
+    expectedSeasons,
+    id,
+    updates,
+  }: {
+    /** The seasons a season edit was made from, which must still be the saved ones. */
+    expectedSeasons?: MediaProgramSeasonOutline[];
+    id: string;
+    updates: MediaProgramUpdates;
+  }) => {
+    const { needsMetaRefresh, program } = await withMetadataMutation(async () => {
+      const saved = await models.MediaProgramModel.findById(id).lean();
+      if (!saved) throw new Error("Media program not found");
+
+      const savedSeasons = readMediaProgramSeasons(saved.seasons);
 
       if (updates.name !== undefined && !updates.name.trim()) throw new Error("A name is required");
 
       // A rewatch counts a finished viewing again, so it starts from a watched program.
-      if (updates.isRewatching && !program.isRewatching && program.watchStatus !== "watched")
+      if (updates.isRewatching && !saved.isRewatching && saved.watchStatus !== "watched")
         throw new Error("Only watched programs can be rewatched");
 
+      // Saving seasons edited from an outdated copy would undo changes made since, such as imports.
+      if (
+        expectedSeasons &&
+        !isDeepEqual(getMediaProgramSeasonOutlines(savedSeasons), expectedSeasons)
+      )
+        throw new Error(
+          "This program's seasons changed elsewhere. Try again with the latest ones.",
+        );
+
+      const { seasons, ...fields } = updates;
+      const newSeasons = seasons ? normalizeSeasons(seasons, savedSeasons) : null;
+
       const changes: Partial<models.MediaProgramSchema> = {
-        ...updates,
+        ...fields,
         dateModified: dayjs().toISOString(),
-        ...(updates.name !== undefined ? { name: updates.name.trim() } : {}),
-        ...(updates.collectionIdIndexes
-          ? { collectionIdIndexes: normalizeCollectionIdIndexes(updates.collectionIdIndexes) }
-          : {}),
+        ...(fields.name !== undefined ? { name: fields.name.trim() } : {}),
         // Starting or stopping a rewatch begins its episode marks anew.
-        ...(updates.isRewatching !== undefined && updates.isRewatching !== program.isRewatching
+        ...(fields.isRewatching !== undefined && fields.isRewatching !== saved.isRewatching
           ? { rewatchedFileIds: [] }
+          : {}),
+        ...(fields.watchStatus
+          ? { watchStatusOrder: getWatchStatusOrder(fields.watchStatus) }
           : {}),
       };
 
@@ -608,12 +820,29 @@ export const updateMediaProgram = makeAction(
 
       socket.emitVolatile("onMediaProgramUpdated", { id, updates: changes });
 
-      // Clearing a rating returns it to the seasons' average.
-      if (updates.collectionIdIndexes || updates.ratingIsManual === false)
-        await writeMediaProgramAttrs(id);
+      // Changed seasons rederive the program, and clearing its rating returns it to their average.
+      if (newSeasons) await writeMediaProgramAttrs(id, { seasons: newSeasons });
+      else if (fields.ratingIsManual === false) await writeMediaProgramAttrs(id);
 
-      return leanModelToJson<models.MediaProgramSchema>(
-        await models.MediaProgramModel.findById(id).lean(),
-      );
-    }),
+      // Setting a program watched marks every episode, like marking all of its seasons watched.
+      if (fields.watchStatus === "watched") {
+        const latest = await models.MediaProgramModel.findById(id).lean();
+        const episodeIds = getMediaProgramEpisodeIds(readMediaProgramSeasons(latest.seasons));
+
+        if (episodeIds.length) await writeWatchedFileIds(latest, episodeIds, true);
+      }
+
+      return {
+        needsMetaRefresh:
+          !!saved.meta && !!newSeasons && getNeedsMetaRefresh(savedSeasons, newSeasons),
+        program: leanModelToJson<models.MediaProgramSchema>(
+          await models.MediaProgramModel.findById(id).lean(),
+        ),
+      };
+    });
+
+    if (needsMetaRefresh) actions.queueMediaProgramMetaRefresh([id]);
+
+    return program;
+  },
 );

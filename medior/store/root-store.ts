@@ -1,6 +1,6 @@
 import { createContext, useContext } from "react";
-import { Model, model, modelAction, prop, registerRootStore } from "mobx-keystone";
 import * as mobx from "mobx-keystone";
+import { Model, model, modelAction, prop, registerRootStore } from "mobx-keystone";
 import { initMobx } from "trabecula/utils/client";
 import { isDeepEqual } from "medior/utils/common";
 import { Config } from "medior/utils/server";
@@ -73,6 +73,9 @@ export class RootStore extends Model({
 
     if (isChanged((c) => c.mediaPrograms.manager.search.sort))
       this.mediaProgram.manager.search.setSortValue(config.mediaPrograms.manager.search.sort);
+
+    if (isChanged((c) => c.mediaPrograms.rankings.search.pageSize))
+      this.mediaProgram.rankings.search.setPageSize(config.mediaPrograms.rankings.search.pageSize);
 
     if (isChanged((c) => c.tags.manager.search.pageSize))
       this.tag.manager.search.setPageSize(config.tags.manager.search.pageSize);

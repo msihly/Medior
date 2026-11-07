@@ -50,6 +50,10 @@ export interface SocketEmitEvents {
     args: { id: string; updates: Partial<models.FileImportBatchSchema> },
     options?: SocketEventOptions,
   ) => void;
+  onFileImportEnded: (
+    args: { batchId?: string; filePath: string },
+    options?: SocketEventOptions,
+  ) => void;
   onFileImportProgress: (
     args: {
       batchId?: string;
@@ -60,7 +64,10 @@ export interface SocketEmitEvents {
     },
     options?: SocketEventOptions,
   ) => void;
-  onFileImportStarted: (args: { filePath: string }, options?: SocketEventOptions) => void;
+  onFileImportStarted: (
+    args: { batchId?: string; filePath: string },
+    options?: SocketEventOptions,
+  ) => void;
   onFileImportUpdated: (
     args: {
       batchId: string;
@@ -222,6 +229,7 @@ export const socketEvents: SocketEmitEvent[] = [
   "onTagUpdated",
   "onDuplicateMergeProgress",
   "onFileCollectionsDeleted",
+  "onFileImportEnded",
   "onFileImportProgress",
   "onFileImportStarted",
   "onFileImportUpdated",

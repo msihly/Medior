@@ -6,6 +6,8 @@ import { MediaProgramSearch } from ".";
 export class MediaProgramManagerStore extends Model({
   isLoading: prop<boolean>(false).withSetter(),
   isOpen: prop<boolean>(false),
+  /** Shows the rankings in place of the programs. */
+  isRankingsView: prop<boolean>(false).withSetter(),
   search: prop<MediaProgramSearch>(() => new MediaProgramSearch({})),
 }) {
   onInit() {
@@ -16,6 +18,7 @@ export class MediaProgramManagerStore extends Model({
   @modelAction
   setIsOpen(isOpen: boolean) {
     this.isOpen = isOpen;
+    this.isRankingsView = false;
     this.search.reset();
   }
 }

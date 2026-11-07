@@ -20,7 +20,8 @@ export interface ImageTask {
   format?: keyof FormatEnum;
   /** Decodes the upright image to one luminance channel at exactly this size. */
   grayscale?: { height: number; width: number };
-  input: string | Buffer;
+  /** Omitted when `options.create` makes a blank image. */
+  input?: string | Buffer;
   maxLongEdge?: number;
   maxShortEdge?: number;
   options?: SharpOptions;
@@ -30,12 +31,15 @@ export interface ImageTask {
   resize?: ResizeOptions;
   /** Decodes the upright image to sRGB colour at exactly this size. */
   rgb?: { height: number; width: number };
+  /** Returns the output image as a buffer. */
+  toBuffer?: boolean;
   /** Writes the image upright, sizing it by its oriented dimensions. */
   upright?: boolean;
   visualSize?: number;
 }
 
 export interface ImageTaskResult {
+  buffer?: Buffer;
   decoded?: { data: Buffer; info: OutputInfo };
   metadata: Metadata;
   output?: OutputInfo;

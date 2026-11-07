@@ -1,16 +1,8 @@
 import { Button, Comp } from "medior/components";
 import { useStores } from "medior/store";
-import { BorderRadiuses, colors, CSS, getChipColors, makeClasses } from "medior/utils/client";
+import { colors, CSS, getContrastText, makeClasses } from "medior/utils/client";
 import { RatingDisplay, round } from "medior/utils/common";
 import { Chip, ChipProps } from "./chip";
-
-/** Rounds only the corner facing into the card. */
-const CORNER_RADIUSES: Record<ChipProps["position"], BorderRadiuses> = {
-  "bottom-left": { bottom: 0, left: 0, topRight: "inherit" },
-  "bottom-right": { bottom: 0, right: 0, topLeft: "inherit" },
-  "top-left": { bottomRight: "inherit", left: 0, top: 0 },
-  "top-right": { bottomLeft: "inherit", right: 0, top: 0 },
-};
 
 export const getRatingMeta = (rating: number, display: RatingDisplay) => {
   const index = Math.min(Math.max(Math.floor(rating ?? 0), 0), display.levels.length - 1);
@@ -18,11 +10,12 @@ export const getRatingMeta = (rating: number, display: RatingDisplay) => {
 
   const text = level.text.replaceAll("{rating}", String(round(rating ?? 0, 1)));
   const textShadow =
-    level.glow > 0 && level.iconColor
-      ? `0px 0px ${level.glow}px ${level.iconColor}`
-      : undefined;
+    level.glow > 0 && level.iconColor ? `0px 0px ${level.glow}px ${level.iconColor}` : undefined;
 
   return {
+    // Ratings sit over images, where only an opaque fill stays readable.
+    chipBgColor: level.textColor ?? undefined,
+    chipColor: level.textColor ? getContrastText(level.textColor) : colors.custom.lightGrey,
     icon: level.icon,
     iconColor: level.iconColor,
     text,
@@ -44,9 +37,10 @@ export const RatingChip = Comp(
     const store = stores.home.settings;
 
     const display = store.file.ratingDisplay;
-    const isCorner = display.shape === "corner" && !!props.position;
-    const { icon, iconColor, text, textColor, textShadow } = getRatingMeta(rating, display);
-    const bgColor = textColor ? getChipColors(textColor, 0.25).background : undefined;
+    const { chipBgColor, chipColor, icon, iconColor, text, textColor, textShadow } = getRatingMeta(
+      rating,
+      display,
+    );
 
     const { css } = useClasses({ textShadow });
 
@@ -63,15 +57,14 @@ export const RatingChip = Comp(
     ) : (
       <Chip
         label={text}
-        bgColor={bgColor}
-        color={textColor ?? colors.custom.lightGrey}
+        bgColor={chipBgColor}
+        color={chipColor}
         fontWeight={600}
         icon={icon}
         iconColor={iconColor}
         iconProps={{ className: css.star }}
         opacity={1}
-        flush={isCorner}
-        radiuses={isCorner ? CORNER_RADIUSES[props.position] : undefined}
+        corner={display.shape === "corner"}
         {...props}
       />
     );

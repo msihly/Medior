@@ -5,9 +5,11 @@ import {
   Chip,
   Comp,
   ConfirmModal,
-  IconButton,
+  MultiActionButton,
   Pagination,
+  SEARCH_HEADER_PROPS,
   SearchLoadingOverlay,
+  SelectionButtons,
   View,
 } from "medior/components";
 import { useStores } from "medior/store";
@@ -79,16 +81,20 @@ export const TransformSearch = Comp(() => {
               {hasSelected && <Chip label={`${store.search.selectedIds.length} Selected`} />}
             </View>
 
-            <IconButton
-              name="Delete"
-              onClick={openDeleteConfirmation}
-              disabled={!hasSelected || isDeleting}
-              iconProps={{ color: hasSelected ? colors.custom.red : colors.custom.grey }}
-              tooltip="Delete selected"
-            />
+            <View row align="center">
+              <MultiActionButton
+                name="Delete"
+                onClick={openDeleteConfirmation}
+                disabled={!hasSelected || isDeleting}
+                iconProps={{ color: hasSelected ? colors.custom.red : colors.custom.grey }}
+                tooltip="Delete selected"
+              />
+
+              <SelectionButtons itemLabel="transforms" store={store.search} toast={toast} />
+            </View>
           </View>
         }
-        headerProps={{ justify: "flex-start", padding: { all: "0.3rem" } }}
+        headerProps={SEARCH_HEADER_PROPS}
         padding={{ all: "0" }}
       >
         <SearchLoadingOverlay

@@ -6,10 +6,8 @@ import Color from "color";
 import type { ImportStatus } from "medior/server/database";
 import {
   Card,
-  Checkbox,
   Chip,
   Comp,
-  ConfirmModal,
   FlatFolder,
   IconButton,
   IMPORT_STATUSES,
@@ -27,18 +25,20 @@ import { IMPORT_CHIP_STYLE } from "./tooltip-chip";
 
 const COLL_HEIGHT = 42;
 const HEADER_HEIGHT = 43;
+const MAX_VISIBLE_FILES = 12;
 const TAGS_HEIGHT = 56;
 
 type Folder = Pick<FlatFolder, "collectionTitle" | "imports" | "savedConfigLabel" | "tags">;
 
 export interface ImportFolderListProps {
   collapsible?: boolean;
-  /** Replaces the folder's collection title, such as a season titled after its renamed program. */
+  /** Replaces the folder's title, such as a season titled after its renamed program. */
   collectionTitle?: string;
+  /** Fills its container, scrolling its files within it, instead of sizing to its files. */
+  fill?: boolean;
   folder: Folder;
-  maxVisibleFiles?: number;
   noStatus?: boolean;
-  /** Shows a checkbox that selects the batch in the Import Manager's search. */
+  /** Clicking the header selects the batch in the Import Manager's search. */
   selectable?: boolean;
   withListItems?: boolean;
 }
@@ -47,8 +47,8 @@ export const ImportFolderList = Comp(
   ({
     collapsible = false,
     collectionTitle,
+    fill = false,
     folder,
-    maxVisibleFiles,
     noStatus = false,
     selectable = false,
     withListItems = true,
@@ -56,8 +56,6 @@ export const ImportFolderList = Comp(
     const stores = useStores();
 
     const [collapsed, setCollapsed] = useState(!withListItems);
-    const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
-    const [isReprocessConfirmOpen, setIsReprocessConfirmOpen] = useState(false);
 
     const listRef = useRef<ListImperativeAPI>(null);
 
@@ -67,18 +65,18 @@ export const ImportFolderList = Comp(
       batch?.rootFolderPath ??
       (folder?.imports[0]?.path && path.dirname(folder.imports[0].path));
 
-    const title = collectionTitle ?? folder?.collectionTitle;
+    // Program seasons are added to their program without a collection.
+    const title = collectionTitle ?? folder?.collectionTitle ?? batch?.mediaProgram?.title;
     const hasCollection = title?.length > 0;
     const hasTags = folder?.tags?.length > 0;
     const subtitleCount = folder?.imports.reduce(
       (count, imp) => count + (imp.subtitles?.length ?? 0),
       0,
     );
-    const height = folder
-      ? getImportFolderHeight({ folder, maxVisibleFiles, withListItems: !collapsed })
-      : null;
+    const height = folder ? getImportFolderHeight({ folder, withListItems: !collapsed }) : null;
 
-    const isSelected = !!batch && stores.import.manager.search.getIsSelected(batch.id);
+    const isSelectable = selectable && !!batch;
+    const isSelected = isSelectable && stores.import.manager.search.getIsSelected(batch.id);
     const totalBytes = batch
       ? batch.size
       : folder
@@ -88,37 +86,30 @@ export const ImportFolderList = Comp(
     const { css, cx } = useClasses({
       collapsed,
       collapsible,
+      fill,
       hasCollection,
       hasTags,
-      listHeight: folder ? getImportFolderListHeight(folder.imports.length, maxVisibleFiles) : null,
+      isSelectable,
+      isSelected,
+      listHeight: folder ? getImportFolderListHeight(folder.imports.length) : null,
     });
 
-    const deleteBatch = async () => {
-      const res = await stores.import.manager.deleteBatches([batch.id]);
-      if (!res.success) toast.error(res.error);
-
-      return res.success;
-    };
-
-    const handlePageChange = (page: number) => batch.loadPage(page);
-
-    /** Checking a batch toggles it, and Shift selects the range up to it. */
-    const handleSelectChange = async (
-      _checked: boolean,
-      _ternary: boolean,
-      event: React.MouseEvent,
-    ) => {
+    /** Clicking a batch's header toggles it, and Shift selects the range up to it. */
+    const handleHeaderClick = async (event: React.MouseEvent) => {
       const res = await stores.import.manager.search.handleSelect({
-        hasCtrl: !event?.shiftKey,
-        hasShift: !!event?.shiftKey,
+        hasCtrl: !event.shiftKey,
+        hasShift: event.shiftKey,
         id: batch.id,
       });
 
       if (!res?.success) toast.error(res.error);
     };
 
+    const handlePageChange = (page: number) => batch.loadPage(page);
+
     /** Status chips filter the batch's files, expanding it to show them. */
-    const handleStatusClick = (status: ImportStatus) => {
+    const handleStatusClick = (event: React.MouseEvent, status: ImportStatus) => {
+      event.stopPropagation();
       batch.toggleStatus(status);
       batch.setPage(1);
 
@@ -126,9 +117,9 @@ export const ImportFolderList = Comp(
       else batch.loadPage(1);
     };
 
-    const openDeleteConfirm = () => setIsDeleteConfirmOpen(true);
+    const openFolder = async (event: React.MouseEvent) => {
+      event.stopPropagation();
 
-    const openFolder = async () => {
       if (!folderPath) return;
 
       const error = await shell.openPath(folderPath);
@@ -136,20 +127,10 @@ export const ImportFolderList = Comp(
       if (error) toast.error(error);
     };
 
-    const openReprocessConfirm = () => setIsReprocessConfirmOpen(true);
-
-    const reprocessStoredFiles = async () => {
-      const res = await stores.import.manager.reprocessStoredImports({ id: batch.id });
-      if (!res.success) toast.error(res.error);
-      else
-        toast.success(
-          `Requeued ${Fmt.commas(res.data.requeuedCount)} stored files and deleted ${Fmt.commas(res.data.deletedCount)} records. Resume importing to process them.`,
-        );
-
-      return res.success;
+    const toggleCollapsed = (event: React.MouseEvent) => {
+      event.stopPropagation();
+      setCollapsed(!collapsed);
     };
-
-    const toggleCollapsed = () => setCollapsed(!collapsed);
 
     useEffect(() => {
       if (batch && !collapsed) batch.loadPage();
@@ -161,25 +142,20 @@ export const ImportFolderList = Comp(
 
     return !folder ? null : (
       <Card
-        flex="none"
+        flex={fill ? 1 : "none"}
+        minHeight={fill ? 0 : undefined}
         overflow="hidden"
         padding={{ all: 0 }}
-        height={batch ? undefined : height}
+        height={batch || fill ? undefined : height}
         width="100%"
         bgColor={colors.background}
       >
-        <View spacing="0.5rem" className={css.header}>
+        <View
+          spacing="0.5rem"
+          onClick={isSelectable ? handleHeaderClick : undefined}
+          className={css.header}
+        >
           <View row align="center" className={css.folderPath}>
-            {selectable && batch && (
-              <Checkbox
-                checked={isSelected}
-                setChecked={handleSelectChange}
-                flex="none"
-                width="auto"
-                padding={{ all: "0.3em" }}
-              />
-            )}
-
             {collapsible ? (
               <IconButton
                 name="ChevronRight"
@@ -194,10 +170,11 @@ export const ImportFolderList = Comp(
               tooltip="Open Folder"
               onClick={openFolder}
               padding={{ all: "0.3em" }}
+              margins={collapsible ? { left: "-0.3em" } : undefined}
               iconProps={{ size: "0.9em" }}
             />
 
-            <Text onClick={openFolder} className={css.folderPath}>
+            <Text onClick={isSelectable ? undefined : openFolder} className={css.folderPath}>
               {folderPath}
             </Text>
           </View>
@@ -210,17 +187,6 @@ export const ImportFolderList = Comp(
               />
             ) : null}
 
-            <Chip label={Fmt.bytes(totalBytes)} className={css.chip} />
-
-            <Chip
-              label={`${Fmt.commas(batch?.fileCount ?? folder.imports.length)} files`}
-              className={css.chip}
-            />
-
-            {subtitleCount > 0 && (
-              <Chip label={`${Fmt.commas(subtitleCount)} subtitles`} className={css.chip} />
-            )}
-
             {batch &&
               (Object.keys(IMPORT_STATUSES) as ImportStatus[]).map(
                 (status) =>
@@ -231,7 +197,7 @@ export const ImportFolderList = Comp(
                         icon={IMPORT_STATUSES[status].icon}
                         label={Fmt.commas(batch.statusCounts[status] ?? 0)}
                         bgColor={IMPORT_STATUSES[status].color}
-                        onClick={() => handleStatusClick(status)}
+                        onClick={(event) => handleStatusClick(event, status)}
                         className={cx(
                           css.statusChip,
                           batch.statuses.length > 0 &&
@@ -245,22 +211,17 @@ export const ImportFolderList = Comp(
 
             {batch && !batch.isReady && <Chip label="Upload incomplete" className={css.chip} />}
 
-            {batch?.isReady && (
-              <IconButton
-                name="Refresh"
-                tooltip="Reprocess Stored Files"
-                onClick={openReprocessConfirm}
-              />
+            {subtitleCount > 0 && (
+              <Chip label={`${Fmt.commas(subtitleCount)} subtitles`} className={css.chip} />
             )}
 
-            {batch ? (
-              <IconButton
-                name="Delete"
-                tooltip="Delete Batch"
-                onClick={openDeleteConfirm}
-                iconProps={{ color: colors.custom.red }}
-              />
-            ) : null}
+            {/* Size and file count come last, so status chips never shift them. */}
+            <Chip label={Fmt.bytes(totalBytes)} className={css.chip} />
+
+            <Chip
+              label={`${Fmt.commas(batch?.fileCount ?? folder.imports.length)} files`}
+              className={css.chip}
+            />
           </View>
         </View>
 
@@ -300,28 +261,6 @@ export const ImportFolderList = Comp(
             )}
           </View>
         )}
-
-        {isDeleteConfirmOpen && (
-          <ConfirmModal
-            headerText="Delete Import Batch"
-            subText={`Delete this batch of ${Fmt.commas(batch.fileCount)} files from import history? Unfinished imports are abandoned. Library files and import sources are kept.`}
-            setVisible={setIsDeleteConfirmOpen}
-            onConfirm={deleteBatch}
-          />
-        )}
-
-        {isReprocessConfirmOpen && (
-          <ConfirmModal
-            headerText="Reprocess Stored Files"
-            subText="Requeues stored files this batch copied, kept as duplicates, or failed. Files it re-created from originals of compressed or edited files, scratch leftovers, deleted files, or files in use are removed."
-            confirmIcon="Refresh"
-            confirmText="Reprocess"
-            height="28rem"
-            width="35rem"
-            setVisible={setIsReprocessConfirmOpen}
-            onConfirm={reprocessStoredFiles}
-          />
-        )}
       </Card>
     );
   },
@@ -347,27 +286,25 @@ const ImportRow = ({ imports, index, noStatus, style }: RowComponentProps<Import
 const getImportRowKey = (index: number, { imports }: ImportRowProps) =>
   imports[index].id ?? imports[index].path;
 
-const getImportFolderListHeight = (count: number, maxVisibleFiles = 12) => {
-  return 3 + Math.min(count * IMPORT_LIST_ITEM_HEIGHT, maxVisibleFiles * IMPORT_LIST_ITEM_HEIGHT);
+const getImportFolderListHeight = (count: number) => {
+  return 3 + Math.min(count * IMPORT_LIST_ITEM_HEIGHT, MAX_VISIBLE_FILES * IMPORT_LIST_ITEM_HEIGHT);
 };
 
-export const getImportFolderHeight = ({
-  folder,
-  maxVisibleFiles,
-  withListItems,
-}: ImportFolderListProps) => {
+export const getImportFolderHeight = ({ folder, withListItems }: ImportFolderListProps) => {
   return (
     HEADER_HEIGHT +
     (folder?.collectionTitle?.length ? COLL_HEIGHT : 0) +
     (folder?.tags?.length ? TAGS_HEIGHT : 0) +
-    (withListItems ? getImportFolderListHeight(folder?.imports?.length, maxVisibleFiles) : 0)
+    (withListItems ? getImportFolderListHeight(folder?.imports?.length) : 0)
   );
 };
 
-interface ClassesProps extends Pick<ImportFolderListProps, "collapsible"> {
+interface ClassesProps extends Pick<ImportFolderListProps, "collapsible" | "fill"> {
   collapsed: boolean;
   hasCollection: boolean;
   hasTags: boolean;
+  isSelectable: boolean;
+  isSelected: boolean;
   listHeight: number;
 }
 
@@ -416,13 +353,21 @@ const useClasses = makeClasses((props: ClassesProps) => ({
     paddingLeft: props.collapsible ? "0" : undefined,
     height: HEADER_HEIGHT,
     backgroundColor: colors.custom.black,
+    backgroundImage: props.isSelected
+      ? `linear-gradient(to bottom right, ${Color(colors.custom.blue).lighten(0.4).string()}, ${colors.custom.blue} 60%)`
+      : undefined,
+    cursor: props.isSelectable ? "pointer" : undefined,
+    userSelect: props.isSelectable ? "none" : undefined,
   },
   list: {
+    flex: props.fill ? 1 : undefined,
     minHeight: 0,
     overflow: "hidden",
   },
   listRows: {
-    height: props.listHeight,
+    flex: props.fill ? 1 : undefined,
+    minHeight: 0,
+    height: props.fill ? undefined : props.listHeight,
   },
   statusChip: {
     flexShrink: 0,

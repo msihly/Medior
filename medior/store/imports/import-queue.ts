@@ -1,3 +1,4 @@
+import { Dirent } from "fs";
 import fs from "fs/promises";
 import path from "path";
 import { useEffect, useRef } from "react";
@@ -12,19 +13,25 @@ import {
   dayjs,
   Fmt,
   getIsMediaProgramRoot,
+  getLastEpisodeNumber,
   getMediaProgramChanges,
-  getSeasonSortKey,
+  getMediaProgramFolderWatchStatus,
   ImageExt,
   ImportBatchInput,
+  makeSeasonLabel,
   makeSeasonTitle,
   makeSubtitlePathMap,
   matchSubtitleFiles,
+  MediaProgramImport,
   MediaProgramPlan,
   mergeTagDefinitions,
   naturalCompare,
   parseDiffParams,
+  parseEpisodeNumber,
+  parseFileSeasonNumber,
   parseMediaProgramName,
   parseMediaProgramYear,
+  parseSeasonNumber,
   preferredTagLabel,
   resolveMediaProgramFolder,
   sleep,
@@ -41,6 +48,13 @@ import { getImportTagIndex } from "./import-tag-index";
 const DEBUG = false;
 const STAT_BATCH_SIZE = 128;
 const TAG_LOOKUP_BATCH_SIZE = 256;
+
+/** A season loose episodes may continue, with the highest episode number its files' names give. */
+interface LooseSeasonCandidate {
+  episodeNumber: number | null;
+  label: string;
+  number: number | null;
+}
 
 class IngestCancelledError extends Error {
   constructor() {
@@ -399,6 +413,7 @@ export const handleIngest = async ({
 
     store.setRootFolderPath(rootFolderPath);
     store.setRootFolderIndex(initialRootIndex);
+    store.setSourceRootIndex(initialRootIndex);
     store.setFilePaths(new Map());
     store.setImports([]);
     perfLog("Init");
@@ -537,35 +552,12 @@ export const handleReingest = async ({
     store.setIsOpen(true);
     store.setIsLoading(true);
     setInitProgress("Preparing re-import", 0, fileIds.length);
+    store.setFileIds(fileIds);
 
-    const res = await rpc.listFile({ args: { filter: { id: fileIds } } });
-
+    const res = await store.loadFiles();
     if (!res.success) throw new Error(res.error);
 
     throwIfIngestCancelled(isCancelled);
-
-    const files = res.data.items;
-
-    setInitProgress("Grouping folders", 0, files.length);
-
-    const folders = new Map<string, string[]>();
-
-    for (let idx = 0; idx < files.length; idx++) {
-      const file = files[idx];
-      const folder = path.dirname(file.originalPath);
-
-      if (!folders.has(folder)) folders.set(folder, [file.id]);
-      else folders.get(folder).push(file.id);
-
-      setInitProgress("Grouping folders", idx + 1, files.length);
-    }
-
-    store.setFolderFileIds(
-      [...folders.entries()].map(([folder, fileIds]) => ({ fileIds, folder })),
-    );
-
-    setInitProgress("Opening editor", files.length, files.length);
-    await store.loadFolder();
   } catch (err) {
     if (err?.name === "IngestCancelledError") return;
 
@@ -726,7 +718,11 @@ export const useImportEditor = (store: Ingester | Reingester) => {
       if (DEBUG) perfLog("Filtered out duplicate / ancestor tags");
 
       const program = store.options.withMediaPrograms
-        ? resolveMediaProgramFolder(folderName, store.rootFolderIndex, getIsProgramRoot(folderName))
+        ? resolveMediaProgramFolder(
+            folderName,
+            store.programRootIndex,
+            getIsProgramRoot(folderName),
+          )
         : null;
 
       return {
@@ -829,7 +825,6 @@ export const useImportEditor = (store: Ingester | Reingester) => {
   const createImportBatches = async (isCancelled?: () => boolean) => {
     const importBatches: ImportBatchInput[] = [];
     const folders = [...store.allFlatFolderHierarchy.values()];
-    const seasonIndexes = getSeasonIndexes(folders);
 
     store.setInitProgressCompleted(0);
     store.setInitProgressTotal(folders.length);
@@ -839,26 +834,22 @@ export const useImportEditor = (store: Ingester | Reingester) => {
 
       const folder = folders[idx];
       const { imports, tagIds } = await createFolderTagIds(folder);
-      const plan = folder.mediaProgram && store.getMediaProgram(folder.mediaProgram.folderPath);
+      const mediaProgram = createMediaProgramImport(folder);
 
       const savedConfig = store.options.useSavedConfigs
         ? stores.import.getSavedConfigForFolder(folder.folderName)
         : null;
 
+      // A program's seasons are added to it directly, without collections.
       importBatches.push({
-        collectionSourceFolderPath: folder.collectionTitle ? folder.folderName : null,
-        collectionTitle: store.getFolderCollectionTitle(folder),
+        collectionSourceFolderPath:
+          !mediaProgram && folder.collectionTitle ? folder.folderName : null,
+        collectionTitle: mediaProgram ? null : folder.collectionTitle,
         deleteOnImport: store.options.deleteOnImport || !!savedConfig?.options.deleteOnImport,
         ignorePrevDeleted:
           savedConfig?.options.ignorePrevDeleted ?? store.options.ignorePrevDeleted,
         imports,
-        mediaProgram: plan
-          ? {
-              ...getMediaProgramChanges(plan),
-              seasonIndex: seasonIndexes.get(folder.folderName),
-              sourceFolderPath: plan.folderPath,
-            }
-          : undefined,
+        mediaProgram,
         rootFolderPath: folder.folderName
           .split(path.sep)
           .slice(0, store.rootFolderIndex + 1)
@@ -871,6 +862,26 @@ export const useImportEditor = (store: Ingester | Reingester) => {
     }
 
     return importBatches;
+  };
+
+  /** The program details a season's batch carries; existing programs only get edited details. */
+  const createMediaProgramImport = (folder: FlatFolder): MediaProgramImport => {
+    const plan = folder.mediaProgram && store.getMediaProgram(folder.mediaProgram.folderPath);
+    if (!plan) return undefined;
+
+    const { seasonLabel, seasonNumber } = folder.mediaProgram;
+
+    return {
+      ...getMediaProgramChanges(plan),
+      // Season folders hold the episodes seen; loose ones in the program folder are next to watch.
+      isWatched: plan.watchStatus !== "unwatched" && folder.folderName !== plan.folderPath,
+      seasonLabel,
+      seasonNumber,
+      sourceFolderPath: plan.folderPath,
+      title: makeSeasonTitle(plan.name, seasonLabel),
+      // Watched follows from the episodes marked, and Unwatched leaves a program's status alone.
+      watchStatus: ["unwatched", "watched"].includes(plan.watchStatus) ? null : plan.watchStatus,
+    };
   };
 
   const createTagsToUpsert = async (tags: TagToUpsert[], perfLog: (str: string) => void) => {
@@ -1120,7 +1131,7 @@ export const useImportEditor = (store: Ingester | Reingester) => {
   const getIsProgramRoot = (folderName: string) => {
     const rootFolderPath = folderName
       .split(path.sep)
-      .slice(0, store.rootFolderIndex + 1)
+      .slice(0, store.programRootIndex + 1)
       .join(path.sep);
 
     if (!programRoots.current.has(rootFolderPath))
@@ -1132,46 +1143,94 @@ export const useImportEditor = (store: Ingester | Reingester) => {
     return programRoots.current.get(rootFolderPath);
   };
 
-  /** New seasons follow a program's existing ones, ordered by season number, then name. */
-  const getSeasonIndexes = (folders: FlatFolder[]) => {
-    const seasonIndexes = new Map<string, number>();
-    const seasonFolders = folders.filter((folder) => folder.mediaProgram);
+  /**
+   * The season the files' names give, such as S03E20, when those naming one agree. Otherwise
+   * episodes numbered after the program's last numbered season continue it, such as 11 and 12
+   * after a season of 10, and any others start the season after it. The last season comes from
+   * those scanned, already in the program, and on disk; without any, the files start season 1.
+   */
+  const getLooseSeason = async ({
+    fileNames,
+    folderPath,
+    seasons,
+  }: {
+    fileNames: string[];
+    folderPath: string;
+    seasons: LooseSeasonCandidate[];
+  }) => {
+    const getLabel = (number: number) =>
+      seasons.find((season) => season.number === number)?.label ?? makeSeasonLabel(number);
 
-    for (const plan of store.mediaPrograms) {
-      seasonFolders
-        .filter((folder) => folder.mediaProgram.folderPath === plan.folderPath)
-        .map((folder) => ({ ...folder.mediaProgram, folderName: folder.folderName }))
-        .sort(
-          (a, b) =>
-            getSeasonSortKey(a.seasonNumber, !!a.seasonLabel) -
-              getSeasonSortKey(b.seasonNumber, !!b.seasonLabel) ||
-            naturalCompare(a.seasonLabel, b.seasonLabel),
-        )
-        .forEach((season, index) =>
-          seasonIndexes.set(season.folderName, plan.nextSeasonIndex + index),
-        );
+    const namedNumbers = new Set(
+      fileNames.map(parseFileSeasonNumber).filter((number) => number !== null),
+    );
+
+    if (namedNumbers.size === 1) {
+      const number = [...namedNumbers][0];
+      return { label: getLabel(number), number };
     }
 
-    return seasonIndexes;
+    let entries: Dirent[] = [];
+
+    try {
+      entries = await fs.readdir(folderPath, { withFileTypes: true });
+    } catch (err) {
+      if (err.code !== "ENOENT") throw err;
+    }
+
+    const lastNumber = Math.max(
+      0,
+      ...seasons.map((season) => season.number),
+      ...entries.filter((entry) => entry.isDirectory()).map(({ name }) => parseSeasonNumber(name)),
+    );
+    if (!lastNumber) return { label: makeSeasonLabel(1), number: 1 };
+
+    const episodeNumbers = seasons
+      .filter((season) => season.number === lastNumber && season.episodeNumber !== null)
+      .map((season) => season.episodeNumber);
+
+    const isContinued =
+      episodeNumbers.length > 0 &&
+      fileNames.every((fileName) => parseEpisodeNumber(fileName) > Math.max(...episodeNumbers));
+
+    return isContinued
+      ? { label: getLabel(lastNumber), number: lastNumber }
+      : { label: makeSeasonLabel(lastNumber + 1), number: lastNumber + 1 };
   };
 
   /**
-   * Groups season folders into programs, ordering each season's episodes. Existing programs supply
-   * their saved details, and edits from the previous scan are kept.
+   * Groups season folders into programs, ordering each season's episodes. Files directly in a
+   * program's folder are given the season their names give, or else the last numbered season they
+   * continue or the one after it. Each program's folders are imported together, its loose episodes
+   * last. Programs inside a folder named after a watch status, such as Inactive, start with it.
+   * Existing programs supply their saved details, and edits from the previous scan are kept.
    */
   const loadMediaPrograms = async (folders: Map<string, FlatFolder>) => {
     const editedPlans = new Map(store.mediaPrograms.map((plan) => [plan.folderPath, plan]));
+    const looseFolders = new Map<string, FlatFolder>();
     const plans = new Map<string, MediaProgramPlan>();
+    const seasons = new Map<string, LooseSeasonCandidate[]>();
+
+    const addSeason = (folderPath: string, season: LooseSeasonCandidate) =>
+      seasons.set(folderPath, [...(seasons.get(folderPath) ?? []), season]);
 
     for (const folder of folders.values()) {
       await cache.current.checkpoint();
 
       if (!folder.mediaProgram) continue;
 
-      const { folderPath, language, medium, seasonLabel, type } = folder.mediaProgram;
+      const { folderPath, language, medium, seasonLabel, seasonNumber, type } = folder.mediaProgram;
       const plan = plans.get(folderPath);
 
       folder.imports = sortEpisodeNames(folder.imports, (imp) => imp.name);
+
+      if (!seasonLabel) looseFolders.set(folderPath, folder);
+      else
+        addSeason(folderPath, {
+          episodeNumber: getLastEpisodeNumber(folder.imports.map((imp) => imp.name)),
+          label: seasonLabel,
+          number: seasonNumber,
+        });
 
       if (plan) {
         plan.fileCount += folder.imports.length;
@@ -1185,9 +1244,9 @@ export const useImportEditor = (store: Ingester | Reingester) => {
           language,
           medium,
           name,
-          nextSeasonIndex: 0,
           seasonLabels: [seasonLabel],
           type,
+          watchStatus: getMediaProgramFolderWatchStatus(folderPath),
           year: year ?? parseMediaProgramYear(folder.imports[0]?.name ?? ""),
         });
       }
@@ -1203,11 +1262,12 @@ export const useImportEditor = (store: Ingester | Reingester) => {
       for (const program of res.data) {
         const plan = plans.get(program.folderPath);
 
+        if (program.lastSeason) addSeason(program.folderPath, program.lastSeason);
+
         plan.existingId = program.id;
         plan.language = program.language ?? plan.language;
         plan.medium = program.medium ?? plan.medium;
         plan.name = program.name;
-        plan.nextSeasonIndex = program.nextSeasonIndex;
         plan.type = program.type ?? plan.type;
         plan.year = program.year ?? plan.year;
         plan.saved = {
@@ -1220,6 +1280,46 @@ export const useImportEditor = (store: Ingester | Reingester) => {
       }
     }
 
+    for (const [folderPath, folder] of looseFolders) {
+      const plan = plans.get(folderPath);
+      const season = await getLooseSeason({
+        fileNames: folder.imports.map((imp) => imp.name),
+        folderPath,
+        seasons: seasons.get(folderPath) ?? [],
+      });
+
+      folder.mediaProgram = {
+        ...folder.mediaProgram,
+        seasonLabel: season.label,
+        seasonNumber: season.number,
+      };
+      plan.seasonLabels = [...new Set(plan.seasonLabels.map((label) => label || season.label))];
+    }
+
+    // Batches import in order, so each program's run together and its metadata loads once they
+    // finish, with its loose episodes last, after the seasons they may continue.
+    const programFolders = new Map<string, FlatFolder[]>();
+
+    for (const folder of folders.values()) {
+      const folderPath = folder.mediaProgram?.folderPath;
+      if (folderPath)
+        programFolders.set(folderPath, [...(programFolders.get(folderPath) ?? []), folder]);
+    }
+
+    const orderedFolders = [...folders.values()].flatMap((folder) => {
+      const group = folder.mediaProgram && programFolders.get(folder.mediaProgram.folderPath);
+
+      if (!group) return [folder];
+      else if (group[0] !== folder) return [];
+      else {
+        const loose = looseFolders.get(folder.mediaProgram.folderPath);
+        return [...group.filter((cur) => cur !== loose), ...(loose ? [loose] : [])];
+      }
+    });
+
+    folders.clear();
+    for (const folder of orderedFolders) folders.set(folder.folderName, folder);
+
     for (const plan of plans.values()) {
       const edited = editedPlans.get(plan.folderPath);
 
@@ -1228,6 +1328,7 @@ export const useImportEditor = (store: Ingester | Reingester) => {
         plan.medium = edited.medium;
         plan.name = edited.name;
         plan.type = edited.type;
+        plan.watchStatus = edited.watchStatus;
         plan.year = edited.year;
       }
     }
@@ -1604,28 +1705,42 @@ export const useImportEditor = (store: Ingester | Reingester) => {
       await upsertTags(perfLog);
       throwIfIngestCancelled(isCancelled);
 
-      setSaveProgress("Preparing folder");
       store.options.setDeleteOnImport(false);
       store.options.setIgnorePrevDeleted(false);
-      stores.import.reingester.setTagIds(
-        (await createFolderTagIds(stores.import.reingester.getCurFolder())).tagIds,
-      );
 
-      throwIfIngestCancelled(isCancelled);
+      const folders = [...store.allFlatFolderHierarchy.values()];
 
-      setSaveProgress("Re-importing folder");
+      for (let idx = 0; idx < folders.length; idx++) {
+        throwIfIngestCancelled(isCancelled);
+        setSaveProgress("Re-importing folders", idx, folders.length);
 
-      const res = await stores.import.reingester.reingest();
+        const folder = folders[idx];
+        const mediaProgram = createMediaProgramImport(folder);
+        // Each import's resolved tags are at its place among the folder's imports.
+        const { imports, tagIds } = await createFolderTagIds(folder);
 
-      if (!res.success) throw new Error(res.error);
+        const res = await stores.import.reingester.reingestFolder({
+          collectionTitle: mediaProgram ? null : folder.collectionTitle,
+          fileTagIds: folder.imports.map((imp, index) => ({
+            fileId: imp.fileId,
+            tagIds: [...new Set([...tagIds, ...imports[index].tagIds])],
+          })),
+          mediaProgram,
+        });
+        if (!res.success) throw new Error(res.error);
 
-      throwIfIngestCancelled(isCancelled);
+        // A retry after a failure skips the folders already reingested.
+        stores.import.reingester.removeFolder(folder.folderName);
+      }
 
-      if (DEBUG) perfLogTotal("Folder reingested");
+      if (DEBUG) perfLogTotal("Folders reingested");
+
+      toast.success(`Reingested ${Fmt.commas(folders.length)} folders`);
+      store.setIsOpen(false);
     } catch (err) {
       if (err?.name === "IngestCancelledError") return;
 
-      toast.error("Failed to re-import folder");
+      toast.error("Failed to re-import folders");
       console.error(err);
     } finally {
       store.setIsSaving(false);

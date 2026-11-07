@@ -20,35 +20,36 @@ model.addNumRangeProp("year");
 model.addTagOptsProp("genreIds", "genreIdsWithAncestors", { label: "Genre", name: "genres" });
 model.addTagOptsProp("tagIds", "tagIdsWithAncestors");
 
+// Unchecked values are excluded, like the file filter's, so programs without one still match.
+model.addProp("excludedLanguages", "string[]", "() => []", {
+  objPath: ["language", "$nin"],
+  objValue: "args.excludedLanguages",
+});
+
+model.addProp("excludedMediums", "string[]", "() => []", {
+  objPath: ["medium", "$nin"],
+  objValue: "args.excludedMediums",
+});
+
+model.addProp("excludedTypes", "string[]", "() => []", {
+  objPath: ["type", "$nin"],
+  objValue: "args.excludedTypes",
+});
+
+model.addProp("excludedWatchStatuses", "string[]", "() => []", {
+  objPath: ["watchStatus", "$nin"],
+  objValue: "args.excludedWatchStatuses",
+});
+
 model.addProp("isRewatching", "boolean", "null", {
   objPath: ["isRewatching"],
   objValue: "args.isRewatching",
-});
-
-model.addProp("languages", "string[]", "() => []", {
-  objPath: ["language", "$in"],
-  objValue: "args.languages",
-});
-
-model.addProp("mediums", "string[]", "() => []", {
-  objPath: ["medium", "$in"],
-  objValue: "args.mediums",
 });
 
 model.addProp("name", "string", '""', {
   filterGroup: "name",
   objPath: ["name", "$regex"],
   objValue: "args.name",
-});
-
-model.addProp("types", "string[]", "() => []", {
-  objPath: ["type", "$in"],
-  objValue: "args.types",
-});
-
-model.addProp("watchStatuses", "string[]", "() => []", {
-  objPath: ["watchStatus", "$in"],
-  objValue: "args.watchStatuses",
 });
 
 export const MODEL_SEARCH_STORE_MEDIA_PROGRAM = model.getModel();

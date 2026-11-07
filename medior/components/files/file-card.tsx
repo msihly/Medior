@@ -1,3 +1,4 @@
+import Color from "color";
 import { Comp, Icon, LoadingOverlay, Text, View } from "medior/components";
 import {
   makeTileClickHandler,
@@ -5,9 +6,19 @@ import {
   useFileDrag,
 } from "medior/components/files/hooks";
 import { File, FileSearch, FileTransformSearch, useStores } from "medior/store";
-import { colors, CSS, makeClasses, openCarouselWindow } from "medior/utils/client";
+import { colors, CSS, CssColor, makeClasses, openCarouselWindow } from "medior/utils/client";
 import { Fmt, round } from "medior/utils/common";
 import { FileBase } from ".";
+
+/**
+ * Chips sit on the card's dark surface around a fitted thumbnail rather than over an image, so they
+ * take a slightly lighter, partly transparent fill that still shows their shape there.
+ */
+const CHIP_BG_COLOR = Color(colors.mui.grey["800"])
+  .mix(Color(colors.foregroundCard))
+  .hex() as CssColor;
+
+const CHIP_OPACITY = 0.75;
 
 interface FileCardProps {
   carouselFileIds?: string[];
@@ -98,6 +109,7 @@ export const FileCard = Comp(
               {similarity ? (
                 <FileBase.Chip
                   position="top-left"
+                  corner
                   bgColor={
                     similarity.score >= 0.9
                       ? colors.custom.green
@@ -116,11 +128,20 @@ export const FileCard = Comp(
                 <FileBase.RatingChip position="top-left" rating={file.rating} />
               )}
 
-              <FileBase.ExtAndIcons position="top-right" file={file} />
+              <FileBase.ExtAndIcons
+                position="top-right"
+                corner
+                bgColor={CHIP_BG_COLOR}
+                opacity={CHIP_OPACITY}
+                file={file}
+              />
 
               {file.collectionIds?.length > 0 && (
                 <FileBase.Chip
                   position="bottom-left"
+                  corner
+                  bgColor={CHIP_BG_COLOR}
+                  opacity={CHIP_OPACITY}
                   hasFooter={hasFooter}
                   footerOffset={footerOffset}
                   label={
@@ -135,6 +156,9 @@ export const FileCard = Comp(
 
               <FileBase.Duration
                 position="bottom-right"
+                corner
+                bgColor={CHIP_BG_COLOR}
+                opacity={CHIP_OPACITY}
                 file={file}
                 hasFooter={hasFooter}
                 footerOffset={footerOffset}
@@ -144,7 +168,7 @@ export const FileCard = Comp(
             {hasFooter && (
               <FileBase.Footer height={showFileName ? (hasTags ? "4rem" : "1.8rem") : undefined}>
                 <View column width="100%" overflow="hidden">
-                  {showFileName && <FileBase.FooterText text={file.originalName} />}
+                  {showFileName && <FileBase.FooterText text={file.originalName} noTooltip />}
 
                   {hasTags && <FileBase.Tags compact={showFileName} tags={file.tags} />}
                 </View>

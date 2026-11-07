@@ -1,7 +1,5 @@
 import path from "path";
-import { computed } from "mobx";
 import {
-  arrayActions,
   ExtendedModel,
   model,
   modelAction,
@@ -9,25 +7,27 @@ import {
   modelFlow,
   prop,
 } from "mobx-keystone";
-import { asyncAction, toast } from "medior/utils/client";
-import { chunkArray } from "medior/utils/common";
+import { asyncAction } from "medior/utils/client";
+import { chunkArray, MediaProgramImport, sumArray } from "medior/utils/common";
 import { rpc } from "medior/utils/server";
+import { getCommonSourceFolder } from "medior/utils/server/source-folders";
 import { FileImport } from "./file-import";
 import { ImportEditorStore } from "./import-editor-store";
 
 @model("medior/Reingester")
 export class Reingester extends ExtendedModel(ImportEditorStore, {
-  folderFileIds: prop<{ fileIds: string[]; folder: string }[]>(() => []).withSetter(),
-  tagIds: prop<string[]>(() => []).withSetter(),
+  fileIds: prop<string[]>(() => []).withSetter(),
 }) {
   /* ---------------------------- STANDARD ACTIONS ---------------------------- */
   @modelAction
-  removeCurFolder() {
-    const folderName = this.getCurFolder().folderName;
+  removeFolder(folderName: string) {
+    const folder = this.allFlatFolderHierarchy.get(folderName);
+    if (!folder) return;
 
-    arrayActions.shift(this.folderFileIds);
     this.allFlatFolderHierarchy.delete(folderName);
     this.folderTotalCount = this.allFlatFolderHierarchy.size;
+    this.importCount -= folder.imports.length;
+    this.importSize -= sumArray(folder.imports, (imp) => imp.size);
     this.setVisibleFolderPage();
   }
 
@@ -35,30 +35,29 @@ export class Reingester extends ExtendedModel(ImportEditorStore, {
   reset() {
     super.reset();
 
-    this.folderFileIds = [];
-    this.tagIds = [];
+    this.fileIds = [];
   }
 
   /* ---------------------------- ASYNC ACTIONS ---------------------------- */
+  /**
+   * Loads every selected file at once, rooted at the folder they share, so programs and their
+   * seasons are detected across folders.
+   */
   @modelFlow
-  loadFolder = asyncAction(async () => {
+  loadFiles = asyncAction(async () => {
     const cancelToken = this.ingestCancelToken;
     const files: Awaited<ReturnType<typeof rpc.listFileReingestMetadata>>["data"] = [];
 
     this.setIsInitDone(false);
 
-    while (this.folderFileIds.length && !files.length) {
-      for (const fileIds of chunkArray(this.curFolderFileIds, 1000)) {
-        const res = await rpc.listFileReingestMetadata({ fileIds });
+    for (const fileIds of chunkArray(this.fileIds, 1000)) {
+      const res = await rpc.listFileReingestMetadata({ fileIds });
 
-        if (cancelToken !== this.ingestCancelToken) return;
+      if (cancelToken !== this.ingestCancelToken) return;
 
-        if (!res.success) throw new Error(res.error);
+      if (!res.success) throw new Error(res.error);
 
-        files.push(...res.data);
-      }
-
-      if (!files.length) arrayActions.shift(this.folderFileIds);
+      files.push(...res.data);
     }
 
     if (!files.length) {
@@ -75,14 +74,14 @@ export class Reingester extends ExtendedModel(ImportEditorStore, {
     });
 
     const filePaths = files.map((file) => file.originalPath);
-    const rootFolderPath = path.dirname(filePaths[0]);
-    const newIndex = rootFolderPath.split(path.sep).length - 1;
-    const curIndex = this.rootFolderIndex;
-    const rootIndex = curIndex > 0 && curIndex <= newIndex ? curIndex : newIndex;
+    // Files sharing no folder below their drive root start from the shallowest file's folder.
+    const rootFolderPath = getCommonSourceFolder(filePaths) ?? path.dirname(filePaths[0]);
+    const rootFolderIndex = rootFolderPath.split(path.sep).length - 1;
     const imports: ModelCreationData<FileImport>[] = [];
 
     this.setRootFolderPath(rootFolderPath);
-    this.setRootFolderIndex(rootIndex);
+    this.setRootFolderIndex(rootFolderIndex);
+    this.setSourceRootIndex(rootFolderIndex);
 
     for (const original of files) {
       imports.push({
@@ -101,37 +100,16 @@ export class Reingester extends ExtendedModel(ImportEditorStore, {
     this.setIsInitDone(true);
   });
 
+  /** Adds the folder's tags to its files, then adds them to its program season or collection. */
   @modelFlow
-  reingest = asyncAction(async () => {
-    const fileTagIds: { fileId: string; tagIds: string[] }[] = [];
-
-    for (const imp of this.getCurFolder().imports) {
-      fileTagIds.push({
-        fileId: imp.fileId,
-        tagIds: [...new Set([...this.tagIds, ...(imp.tagIds ?? [])])],
-      });
-    }
-
-    const res = await rpc.reingestFolder({
-      collectionTitle: this.getCurFolder().collectionTitle,
-      fileTagIds,
-    });
-
-    if (!res.success) throw new Error(res.error);
-
-    this.removeCurFolder();
-    await this.loadFolder();
-    toast.success("Folder reingested");
-  });
-
-  /* --------------------------------- GETTERS -------------------------------- */
-  @computed
-  get curFolderFileIds() {
-    return this.folderFileIds[0]?.fileIds;
-  }
-
-  /* ----------------------------- DYNAMIC GETTERS ---------------------------- */
-  getCurFolder() {
-    return this.flatFolderHierarchy.size > 0 ? [...this.flatFolderHierarchy.values()][0] : null;
-  }
+  reingestFolder = asyncAction(
+    async (args: {
+      collectionTitle: string;
+      fileTagIds: { fileId: string; tagIds: string[] }[];
+      mediaProgram: MediaProgramImport;
+    }) => {
+      const res = await rpc.reingestFolder(args);
+      if (!res.success) throw new Error(res.error);
+    },
+  );
 }

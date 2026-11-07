@@ -422,6 +422,8 @@ export const deleteFiles = makeAction(
             "A file changed during deletion. Its current media and record were retained.",
           );
 
+        await actions.regenMediaProgramsByFileIds(fileIds);
+
         if (files.length && args.withDeletedHashes !== false) {
           const deletedWrites: AnyBulkWriteOperation<models.DeletedFileSchema>[] = [];
 
@@ -713,6 +715,8 @@ export const editFileTags = makeAction(
         const collectionRes = await actions.regenCollAttrs({ fileIds });
 
         if (!collectionRes.success) throw new Error(collectionRes.error);
+
+        await actions.regenMediaProgramsByFileIds(fileIds);
       }
     },
     { getFileIds: ({ fileIds }) => fileIds },
@@ -1912,6 +1916,8 @@ export const setFileRating = makeAction(
 
       if (!collections.success) throw new Error(collections.error);
 
+      await actions.regenMediaProgramsByFileIds(args.fileIds);
+
       if (tagIds.length) await actions.queueTagMetadataRegen(tagIds);
     },
     { getFileIds: ({ fileIds }) => fileIds },
@@ -2302,7 +2308,16 @@ export const startFileDeletion = makeAction(async ({ fileIds }: { fileIds: strin
       } finally {
         await removing;
 
-        job.report({ message: `${Fmt.commas(deletedCount)} files deleted` });
+        // One request archives files still in the library and deletes those already archived.
+        job.report({
+          message:
+            [
+              archivedCount && `${Fmt.commas(archivedCount)} files archived`,
+              deletedCount && `${Fmt.commas(deletedCount)} files deleted`,
+            ]
+              .filter(Boolean)
+              .join(" and ") || "No files to archive or delete",
+        });
 
         // Tag counts are rescanned once for the whole deletion rather than after every batch, and
         // the queue picks up any cleanup left by a stop or failure.

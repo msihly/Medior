@@ -38,14 +38,11 @@ export const ExtAndIcons = Comp(({ file, ...props }: ExtAndIconsProps) => {
             <Icon name="Timeline" size="1em" color={colors.palette.teal[500]} />
           )}
 
-          <View row align="center">
-            <Text>{file.ext}</Text>
-
-            {!CONSTANTS.VIDEO.CODECS.includes(file.videoCodec as VideoCodec) ? null : (
-              <Text color={colors.custom.lightGrey}>{`/${file.videoCodec}`}</Text>
-            )}
-          </View>
+          <Text>{file.ext}</Text>
         </View>
+      }
+      denominator={
+        CONSTANTS.VIDEO.CODECS.includes(file.videoCodec as VideoCodec) ? file.videoCodec : null
       }
     />
   );

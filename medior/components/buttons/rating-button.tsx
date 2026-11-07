@@ -1,5 +1,5 @@
 import { Comp, FileBase, MenuButton } from "medior/components";
-import { OptionRow } from "./rating-option-row";
+import { OptionRow, RATING_VALUES } from "./rating-option-row";
 
 export interface RatingButtonProps {
   button?: boolean;
@@ -24,7 +24,7 @@ export const RatingButton = Comp((props: RatingButtonProps) => {
       )}
     >
       {(onClose) =>
-        [9, 8, 7, 6, 5, 4, 3, 2, 1, 0].map((value) => (
+        RATING_VALUES.map((value) => (
           <OptionRow key={value} onClose={onClose} value={value} setRating={props.setRating} />
         ))
       }

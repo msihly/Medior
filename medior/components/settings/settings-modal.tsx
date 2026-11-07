@@ -204,7 +204,7 @@ export const SettingsModal = Comp(() => {
       onClose={handleCancel}
       height="100%"
       width="100%"
-      maxWidth="70rem"
+      maxWidth="80rem"
     >
       <LoadingOverlay
         isLoading={load.isLoading}
@@ -290,16 +290,13 @@ export const SettingsModal = Comp(() => {
 
                   <Settings.Field
                     label="Scratch Folder"
-                    description="Intermediate media files. Empty uses the storage locations."
+                    description="Temp files. Blank uses the storage locations."
                     wide
                   >
                     <Settings.ScratchInput selectLocation={selectStorageLocation} />
                   </Settings.Field>
 
-                  <Settings.Field
-                    label="Full Warning At"
-                    description="Marks a location as full in this list."
-                  >
+                  <Settings.Field label="Full Warning At">
                     <Settings.NumInput
                       configKey="db.fileStorage.threshold"
                       value={Math.round(store.db.fileStorage.threshold * 100)}
@@ -552,6 +549,10 @@ export const SettingsModal = Comp(() => {
 
               <Settings.Group title="Display">
                 <Settings.Grid>
+                  <Settings.Field label="Show File Names">
+                    <Settings.Checkbox configKey="file.showFileName" width="auto" />
+                  </Settings.Field>
+
                   <Settings.Field label="Thumbnail Fit">
                     <Settings.Dropdown
                       configKey="file.fileCardFit"
@@ -559,10 +560,6 @@ export const SettingsModal = Comp(() => {
                       setValue={store.setFileCardFit}
                       width="8rem"
                     />
-                  </Settings.Field>
-
-                  <Settings.Field label="Show File Names">
-                    <Settings.Checkbox configKey="file.showFileName" width="auto" />
                   </Settings.Field>
 
                   <Settings.Field label="Hide Unrated Icons">
@@ -989,6 +986,25 @@ export const SettingsModal = Comp(() => {
                     <Settings.SortMenu
                       configKey="mediaPrograms.manager.search.sort"
                       rows={SORT_OPTIONS.MediaProgram}
+                    />
+                  </Settings.Field>
+                </Settings.Grid>
+              </Settings.Group>
+
+              <Settings.Group title="Rankings">
+                <Settings.Grid>
+                  <Settings.Field label="Page Size">
+                    <Settings.NumInput
+                      configKey="mediaPrograms.rankings.search.pageSize"
+                      minValue={10}
+                      maxValue={250}
+                    />
+                  </Settings.Field>
+
+                  <Settings.Field label="Default Sort">
+                    <Settings.SortMenu
+                      configKey="mediaPrograms.rankings.search.sort"
+                      rows={SORT_OPTIONS.MediaProgramRanking}
                     />
                   </Settings.Field>
                 </Settings.Grid>

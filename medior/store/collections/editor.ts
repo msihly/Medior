@@ -4,7 +4,7 @@ import { Model, model, modelAction, ModelCreationData, modelFlow, prop } from "m
 import { SortMenuProps } from "medior/components";
 import { File, FileSearch, Tag } from "medior/store";
 import { asyncAction, derefMobx, toast } from "medior/utils/client";
-import { isDeepEqual } from "medior/utils/common";
+import { isDeepEqual, moveSelectedItems } from "medior/utils/common";
 import { getConfig, rpc } from "medior/utils/server";
 import { FileCollection } from ".";
 
@@ -354,39 +354,24 @@ export class CollectionEditor extends Model({
       this.setIsLoading(true);
 
       try {
-        const fileIndexes = Array<{ fileId: string; index: number }>(this.fileIndexes.length);
         const selectedIds = new Set(this.search.selectedIds);
-        const selectedFiles = this.fileIndexes
-          .map((file, index) => ({ file, index }))
-          .filter(({ file }) => selectedIds.has(file.fileId));
-
-        let boundary = down ? fileIndexes.length : -1;
-
-        if (down) selectedFiles.reverse();
-
-        for (const { file, index } of selectedFiles) {
-          const toIndex = down
-            ? Math.min(index + delta, boundary - 1)
-            : Math.max(index - delta, boundary + 1);
-
-          fileIndexes[toIndex] = file;
-          boundary = toIndex;
-        }
-
-        let nextIndex = 0;
-
-        for (const file of this.fileIndexes) {
-          if (selectedIds.has(file.fileId)) continue;
-
-          while (fileIndexes[nextIndex]) nextIndex++;
-
-          fileIndexes[nextIndex++] = file;
-        }
+        const fileIndexes = moveSelectedItems(
+          this.fileIndexes,
+          (file) => selectedIds.has(file.fileId),
+          { delta, down },
+        );
 
         if (fileIndexes.some((file, index) => file.fileId !== this.fileIndexes[index].fileId)) {
           this.setFileIndexes(fileIndexes.map(({ fileId }, index) => ({ fileId, index })));
           this.search.setIds(fileIndexes.map(({ fileId }) => fileId));
           this.setHasUnsavedChanges(true);
+
+          // The page loads from the cached filters, which still hold the previous order.
+          if (this.search.cachedFilterProps)
+            this.search.setCachedFilterProps({
+              ...derefMobx(this.search.cachedFilterProps),
+              ids: fileIndexes.map(({ fileId }) => fileId),
+            });
 
           const pageRes = await this.search.loadFiltered();
 

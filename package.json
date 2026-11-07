@@ -41,6 +41,7 @@
     "es-toolkit": "^1.53.1",
     "fastest-levenshtein": "^1.0.16",
     "kill-port": "^2.0.1",
+    "koffi": "^3.3.6",
     "mongodb-memory-server": "^11.3.0",
     "mongoose": "^9.11.4",
     "onnxruntime-node": "1.30.0",
@@ -48,7 +49,7 @@
     "sharp-bmp": "^0.1.5",
     "socket.io": "^4.8.4",
     "socket.io-client": "^4.8.4",
-    "trabecula": "github:msihly/trabecula#ae79d0dc8d80040d763726837bfdacc4000e8154",
+    "trabecula": "github:msihly/trabecula#4ed4884a64d50c3c2663a68543db0e1a99e390c4",
     "wavesurfer.js": "^8.0.5"
   },
   "devDependencies": {
@@ -77,6 +78,8 @@
     "appId": "com.msihly.medior",
     "asarUnpack": [
       "**/node_modules/@img/**/*",
+      "**/node_modules/@koromix/**/*",
+      "**/node_modules/koffi/**/*",
       "**/node_modules/sharp/**/*"
     ],
     "executableName": "Medior",

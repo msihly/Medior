@@ -344,6 +344,15 @@ export const startBackgroundQueues = async (retryPersistence = false) => {
       if (!requiresMediaPaths) run();
     }
 
+    // Loaded here, as their imports need this module's runners, which a static import would precede.
+    const { resumeMediaProgramMetaMatches } =
+      await import("medior/server/database/actions/media-program-meta");
+    const { fillMediaProgramWatchStatusOrders } =
+      await import("medior/server/database/actions/media-programs");
+
+    resumeMediaProgramMetaMatches();
+    fillMediaProgramWatchStatusOrders();
+
     clearInterval(retentionTimer);
     retentionTimer = setInterval(() => runPersistenceRetention(), 60 * 1000);
     retentionTimer.unref();

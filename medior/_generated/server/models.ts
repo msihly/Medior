@@ -721,23 +721,26 @@ export const FileTransformModel = model<FileTransformSchema>("FileTransform", Fi
 /* --------------------------------------------------------------------------- */
 
 export interface MediaProgramSchema {
-  collectionIdIndexes: Array<{ collectionId: string; index: number }>;
   dateCreated: string;
   dateLastWatched?: string;
   dateModified: string;
   fileCount: number;
   genreIds: string[];
   id: string;
+  isMetaPending?: boolean;
   isRewatching: boolean;
   language?: string;
   lastWatchedFileId?: string;
   medium?: string;
+  meta?: import("medior/utils/common/media-programs").MediaProgramMeta;
+  missingMarks?: import("medior/utils/common/media-programs").MediaProgramMissingMarks;
   name: string;
   posterFileId?: string;
   rating: number;
   ratingIsManual?: boolean;
   rewatchCount: number;
   rewatchedFileIds: string[];
+  seasons: import("medior/utils/common/media-programs").MediaProgramSeason[];
   size: number;
   sourceFolderKey?: string;
   sourceFolderPath?: string;
@@ -746,27 +749,43 @@ export interface MediaProgramSchema {
   type?: string;
   watchedFileIds: string[];
   watchStatus: "dropped" | "inactive" | "unwatched" | "watched" | "watching";
+  watchStatusOrder?: number;
   year?: number;
 }
 
 const MediaProgramSchema = new Schema<MediaProgramSchema>({
   id: String,
   dateCreated: String,
-  collectionIdIndexes: [{ collectionId: Schema.Types.ObjectId, index: Number }],
   dateLastWatched: String,
   dateModified: String,
   fileCount: Number,
   genreIds: [{ type: Schema.Types.ObjectId, ref: "Tag" }],
+  isMetaPending: Boolean,
   isRewatching: Boolean,
   language: String,
   lastWatchedFileId: Schema.Types.ObjectId,
   medium: String,
+  meta: Schema.Types.Mixed,
+  missingMarks: Schema.Types.Mixed,
   name: String,
   posterFileId: Schema.Types.ObjectId,
   rating: Number,
   ratingIsManual: Boolean,
   rewatchCount: Number,
   rewatchedFileIds: [{ type: Schema.Types.ObjectId, ref: "File" }],
+  seasons: [
+    {
+      _id: false,
+      episodeNumbers: Schema.Types.Mixed,
+      fileIds: [Schema.Types.ObjectId],
+      id: String,
+      label: String,
+      meta: Schema.Types.Mixed,
+      number: Number,
+      rating: Number,
+      ratingIsManual: Boolean,
+    },
+  ],
   size: Number,
   sourceFolderKey: String,
   sourceFolderPath: String,
@@ -774,6 +793,7 @@ const MediaProgramSchema = new Schema<MediaProgramSchema>({
   tagIdsWithAncestors: [{ type: Schema.Types.ObjectId, ref: "Tag" }],
   type: String,
   watchStatus: { type: String, enum: ["dropped", "inactive", "unwatched", "watched", "watching"] },
+  watchStatusOrder: Number,
   watchedFileIds: [{ type: Schema.Types.ObjectId, ref: "File" }],
   year: Number,
 });
@@ -785,7 +805,6 @@ MediaProgramSchema.plugin(mediaAncestryPlugin, {
 });
 
 MediaProgramSchema.index({ dateCreated: 1, _id: 1 }, { unique: true });
-MediaProgramSchema.index({ "collectionIdIndexes.collectionId": 1 }, { unique: false });
 MediaProgramSchema.index({ dateLastWatched: 1, _id: 1 }, { unique: true });
 MediaProgramSchema.index({ dateModified: 1, _id: 1 }, { unique: true });
 MediaProgramSchema.index({ fileCount: 1, _id: 1 }, { unique: true });
@@ -794,6 +813,7 @@ MediaProgramSchema.index({ language: 1, _id: 1 }, { unique: true });
 MediaProgramSchema.index({ medium: 1, _id: 1 }, { unique: true });
 MediaProgramSchema.index({ name: 1, _id: 1 }, { unique: true });
 MediaProgramSchema.index({ rating: 1, _id: 1 }, { unique: true });
+MediaProgramSchema.index({ "seasons.fileIds": 1 }, { unique: false });
 MediaProgramSchema.index({ size: 1, _id: 1 }, { unique: true });
 MediaProgramSchema.index(
   { sourceFolderKey: 1 },
@@ -803,6 +823,7 @@ MediaProgramSchema.index({ tagIds: 1, _id: 1 }, { unique: true });
 MediaProgramSchema.index({ tagIdsWithAncestors: 1, _id: 1 }, { unique: true });
 MediaProgramSchema.index({ type: 1, _id: 1 }, { unique: true });
 MediaProgramSchema.index({ watchStatus: 1, _id: 1 }, { unique: true });
+MediaProgramSchema.index({ watchStatusOrder: 1, _id: 1 }, { unique: true });
 MediaProgramSchema.index({ year: 1, _id: 1 }, { unique: true });
 
 export const MediaProgramModel = model<MediaProgramSchema>("MediaProgram", MediaProgramSchema);
@@ -871,6 +892,7 @@ export const SavedImportConfigModel = model<SavedImportConfigSchema>(
 /* --------------------------------------------------------------------------- */
 
 export interface SavedSearchSchema {
+  customOrderIds?: string[];
   dateCreated: string;
   filterProps: Record<string, any>;
   id: string;
@@ -881,6 +903,7 @@ export interface SavedSearchSchema {
 const SavedSearchSchema = new Schema<SavedSearchSchema>({
   id: String,
   dateCreated: String,
+  customOrderIds: [String],
   filterProps: Object,
   label: String,
   searchType: String,

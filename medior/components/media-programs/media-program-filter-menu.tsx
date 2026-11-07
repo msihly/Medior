@@ -7,35 +7,76 @@ import {
   FilterChecklist,
   FilterHeader,
   FilterMenu,
+  FilterMenuProps,
   Input,
   LogOpsInput,
   NumRange,
   TagInput,
-  UniformList,
   View,
 } from "medior/components";
 import { MediaProgramSearch, useStores } from "medior/store";
 import { colors, CssColor } from "medior/utils/client";
-import { cycleTriState, MEDIA_PROGRAM_WATCH_STATUSES } from "medior/utils/common";
+import { MEDIA_PROGRAM_WATCH_STATUSES } from "medior/utils/common";
 
-export interface MediaProgramFilterMenuProps {
+/** Every checklist matches the widest, Watch Status. */
+const CHECKLIST_WIDTH = "10.5rem";
+
+const WATCH_STATUS_OPTIONS = [...MEDIA_PROGRAM_WATCH_STATUSES];
+
+export interface MediaProgramFilterMenuProps extends Partial<
+  Pick<FilterMenuProps, "resetFn" | "searchFn" | "sortOptions">
+> {
   color?: CssColor;
   store: MediaProgramSearch;
 }
 
+/**
+ * The options' values missing from a list. The search stores unchecked values as exclusions, like
+ * the file filter's columns, so every option starts checked.
+ */
+const getOtherValues = (options: { value: string }[], values: string[]) =>
+  options.map((option) => option.value).filter((value) => !values.includes(value));
+
+const toOptions = (values: string[]) => values.map((value) => ({ label: value, value }));
+
 export const MediaProgramFilterMenu = Comp(
-  ({ color = colors.foreground, store }: MediaProgramFilterMenuProps) => {
+  ({
+    color = colors.foreground,
+    resetFn,
+    searchFn,
+    sortOptions = SORT_OPTIONS.MediaProgram,
+    store,
+  }: MediaProgramFilterMenuProps) => {
     const stores = useStores();
     const settings = stores.home.settings.mediaPrograms;
 
-    const toggleIsRewatching = () => store.setIsRewatching(cycleTriState(store.isRewatching));
+    const languageOptions = toOptions(settings.languages);
+    const mediumOptions = toOptions(settings.mediums);
+    const typeOptions = toOptions(settings.types);
+
+    const handleLanguages = (checked: string[]) =>
+      store.setExcludedLanguages(getOtherValues(languageOptions, checked));
+
+    const handleMediums = (checked: string[]) =>
+      store.setExcludedMediums(getOtherValues(mediumOptions, checked));
+
+    const handleTypes = (checked: string[]) =>
+      store.setExcludedTypes(getOtherValues(typeOptions, checked));
+
+    const handleWatchStatuses = (checked: string[]) =>
+      store.setExcludedWatchStatuses(getOtherValues(WATCH_STATUS_OPTIONS, checked));
+
+    // Programs being rewatched show unless unticked, like the statuses beside them.
+    const toggleIsRewatching = () =>
+      store.setIsRewatching(store.isRewatching === false ? null : false);
 
     return (
       <FilterMenu
         store={store}
         color={color}
-        sortOptions={SORT_OPTIONS.MediaProgram}
-        viewProps={{ width: "52rem" }}
+        resetFn={resetFn}
+        searchFn={searchFn}
+        sortOptions={sortOptions}
       >
         <View row spacing="0.5rem">
           <Card flex={1} spacing="0.5rem">
@@ -44,7 +85,7 @@ export const MediaProgramFilterMenu = Comp(
               value={store.genres}
               onChange={store.setGenres}
               hasSearchMenu
-              width="13rem"
+              width="12rem"
             />
 
             <TagInput
@@ -55,11 +96,11 @@ export const MediaProgramFilterMenu = Comp(
               hasDelete
               hasEditor
               hasSearchMenu
-              width="13rem"
+              width="12rem"
             />
           </Card>
 
-          <Card spacing="0.5rem">
+          <Card flex="none" width="22rem" spacing="0.5rem">
             <Input
               header={
                 <FilterHeader label="Name" mode={store.nameMode} setMode={store.setNameMode} />
@@ -68,7 +109,7 @@ export const MediaProgramFilterMenu = Comp(
               setValue={store.setName}
             />
 
-            <UniformList row spacing="0.5rem">
+            <View row spacing="0.5rem">
               <LogOpsInput
                 header={
                   <FilterHeader
@@ -98,7 +139,7 @@ export const MediaProgramFilterMenu = Comp(
                 setNumValue={store.setRatingValue}
                 numInputProps={{ maxValue: 9, minValue: 0 }}
               />
-            </UniformList>
+            </View>
 
             <NumRange
               header={
@@ -153,41 +194,46 @@ export const MediaProgramFilterMenu = Comp(
             />
           </Card>
 
-          <Card spacing="0.5rem" overflow="hidden auto">
+          <Card width={CHECKLIST_WIDTH} overflow="auto">
             <FilterChecklist
               label="Watch Status"
-              options={[...MEDIA_PROGRAM_WATCH_STATUSES]}
-              selected={store.watchStatuses}
-              setSelected={store.setWatchStatuses}
-            />
+              options={WATCH_STATUS_OPTIONS}
+              selected={getOtherValues(WATCH_STATUS_OPTIONS, store.excludedWatchStatuses)}
+              setSelected={handleWatchStatuses}
+            >
+              <Checkbox
+                label="Rewatching"
+                checked={store.isRewatching !== false}
+                setChecked={toggleIsRewatching}
+                flex="none"
+              />
+            </FilterChecklist>
+          </Card>
 
-            <Checkbox
-              label="Rewatching"
-              checked={store.isRewatching === true}
-              indeterminate={store.isRewatching === false}
-              setChecked={toggleIsRewatching}
-              flex="none"
-            />
-
+          <Card width={CHECKLIST_WIDTH} overflow="auto">
             <FilterChecklist
               label="Type"
-              options={settings.types.map((value) => ({ label: value, value }))}
-              selected={store.types}
-              setSelected={store.setTypes}
+              options={typeOptions}
+              selected={getOtherValues(typeOptions, store.excludedTypes)}
+              setSelected={handleTypes}
             />
+          </Card>
 
+          <Card width={CHECKLIST_WIDTH} overflow="auto">
             <FilterChecklist
               label="Medium"
-              options={settings.mediums.map((value) => ({ label: value, value }))}
-              selected={store.mediums}
-              setSelected={store.setMediums}
+              options={mediumOptions}
+              selected={getOtherValues(mediumOptions, store.excludedMediums)}
+              setSelected={handleMediums}
             />
+          </Card>
 
+          <Card width={CHECKLIST_WIDTH} overflow="auto">
             <FilterChecklist
               label="Language"
-              options={settings.languages.map((value) => ({ label: value, value }))}
-              selected={store.languages}
-              setSelected={store.setLanguages}
+              options={languageOptions}
+              selected={getOtherValues(languageOptions, store.excludedLanguages)}
+              setSelected={handleLanguages}
             />
           </Card>
         </View>

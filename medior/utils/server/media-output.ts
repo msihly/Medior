@@ -4,6 +4,7 @@ import path from "path";
 import { createHash } from "crypto";
 import { addAbortSignal } from "stream";
 import { pipeline } from "stream/promises";
+import { moveFileNoReplace } from "medior/utils/server/move-file";
 import { workSignal } from "medior/utils/server/work-signal";
 
 export class MediaChecksumMismatchError extends Error {
@@ -75,21 +76,40 @@ export const syncMediaFile = async (filePath: string, hash?: string) => {
   workSignal.getStore()?.throwIfAborted();
 };
 
-/** Links without overwriting; an existing file is accepted only when it holds the same media. */
-const linkMediaOutput = async (sourcePath: string, output: MediaOutput) => {
+/**
+ * Links without overwriting. Drives without hard links, such as StableBit DrivePool pools, move the
+ * source in instead, also without overwriting. Returns whether the source was moved.
+ */
+const placeMediaOutput = async (sourcePath: string, output: MediaOutput) => {
   try {
     await fs.link(sourcePath, output.path);
+    return false;
+  } catch (error) {
+    if (error.code !== "ENOTSUP") throw error;
+
+    await moveFileNoReplace(sourcePath, output.path);
+    return true;
+  }
+};
+
+/** An existing file is accepted only when it holds the same media. */
+const linkMediaOutput = async (sourcePath: string, output: MediaOutput) => {
+  try {
+    return await placeMediaOutput(sourcePath, output);
   } catch (error) {
     if (error.code !== "EEXIST") throw error;
 
     if ((await hashMediaFile(output.path)) !== output.hash)
       throw new MediaChecksumMismatchError(output.path);
+
+    return false;
   }
 };
 
 /**
- * Persist the intent before publishing. A hard link publishes without overwriting another file.
- * `isHashed` skips re-reading a temp file the caller hashed itself just before publishing.
+ * Persist the intent before publishing. A hard link, or a move that refuses to replace, publishes
+ * without overwriting another file. `isHashed` skips re-reading a temp file the caller hashed itself
+ * just before publishing.
  */
 export const publishMediaOutput = async (
   output: MediaOutput,
@@ -102,12 +122,14 @@ export const publishMediaOutput = async (
   await fs.mkdir(path.dirname(output.path), { recursive: true });
   workSignal.getStore()?.throwIfAborted();
 
+  let isMoved = false;
+
   try {
-    await linkMediaOutput(output.tempPath, output);
+    isMoved = await linkMediaOutput(output.tempPath, output);
   } catch (error) {
     if (error.code !== "EXDEV") throw error;
 
-    // Scratch files on another drive are copied and verified beside the destination, then linked.
+    // Scratch files on another drive are copied and verified beside the destination, then placed.
     const stagingPath = `${output.path}.partial`;
 
     try {
@@ -120,10 +142,11 @@ export const publishMediaOutput = async (
     }
   }
 
-  // A new hard link references the same bytes already verified and flushed above.
+  // The linked or moved output holds the same bytes already verified and flushed above.
   await syncMediaFile(output.path);
   workSignal.getStore()?.throwIfAborted();
-  await fs.unlink(output.tempPath);
+
+  if (!isMoved) await fs.unlink(output.tempPath);
 
   return { hash: output.hash, path: output.path };
 };

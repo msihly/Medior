@@ -69,15 +69,13 @@ export const syncCollectionFileIds = async (collectionId: string, fileIds: strin
   );
 };
 
-/** Removes deleted collections from their files and from the media programs using them as seasons. */
+/** Removes deleted collections from their files. */
 // @generator-ignore-export
 export const removeFileCollectionIds = async (collectionIds: string[]) => {
   await updateFileCollectionIds(
     { collectionIds: { $in: collectionIds } },
     { $pull: { collectionIds: { $in: objectIds(collectionIds) } } },
   );
-
-  await actions.removeMediaProgramCollectionIds(collectionIds);
 };
 
 const dedupeFileIdIndexes = (fileIdIndexes: { fileId: string; index: number }[]) => {
@@ -253,8 +251,6 @@ const writeCollectionMetadata = async (
   }
 
   for (const update of updates) socket.emitVolatile("onFileCollectionUpdated", update);
-
-  await actions.regenMediaProgramsByCollectionIds(updates.map(({ id }) => id));
 
   return true;
 };
@@ -617,9 +613,6 @@ export const mergeCollections = makeAction(
         { collectionId: { $in: args.ids } },
         { $set: { collectionId: target.id } },
       );
-
-      // Programs keep their season in the merged collection rather than losing it with the rest.
-      await actions.replaceMediaProgramCollectionIds(sourceIds, target.id);
 
       const deleteRes = await deleteCollections({ ids: sourceIds });
 
@@ -1236,10 +1229,6 @@ export const updateCollection = makeAction(
       }
 
       socket.emitVolatile("onFileCollectionUpdated", { id: updates.id, updates });
-
-      // Queued collection regens update their programs; manual ratings skip that queue.
-      if (updates.rating !== undefined)
-        await actions.regenMediaProgramsByCollectionIds([updates.id]);
 
       return res;
     },

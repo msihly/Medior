@@ -1,6 +1,6 @@
 import { Button, Chip, Comp, Modal, Text, View } from "medior/components";
 import { useStores } from "medior/store";
-import { Fmt, sumArray } from "medior/utils/common";
+import { Fmt } from "medior/utils/common";
 
 export interface HeaderProps {
   type: "Ingester" | "Reingester";
@@ -10,17 +10,7 @@ export const Header = Comp(({ type }: HeaderProps) => {
   const stores = useStores();
   const store = stores.import;
 
-  const totalBytes = type === "Ingester" ? store.ingester.importSize : null;
-  const totalFolders =
-    type === "Ingester" ? store.ingester.folderTotalCount : store.reingester.folderFileIds.length;
-
-  const totalFiles =
-    type === "Ingester"
-      ? store.ingester.importCount
-      : sumArray(store.reingester.folderFileIds, (f) => f.fileIds.length);
-
-  const totalFilesLeft =
-    type === "Ingester" ? null : totalFiles - (store.reingester.curFolderFileIds?.length ?? 0);
+  const editor = type === "Ingester" ? store.ingester : store.reingester;
 
   const handleTagManager = () => {
     if (stores.tag.manager.isOpen) stores.tag.manager.setIsOpen(false);
@@ -33,27 +23,17 @@ export const Header = Comp(({ type }: HeaderProps) => {
       leftNode={<Button text="Tag Manager" icon="Label" onClick={handleTagManager} />}
       rightNode={
         <View row spacing="0.3rem">
-          {type === "Ingester" ? (
-            <>
-              {store.ingester.savedConfigFolderPaths.length > 0 && (
-                <Chip
-                  label={`${Fmt.commas(store.ingester.savedConfigFolderPaths.length)} Configs Left`}
-                />
-              )}
-
-              <Chip label={Fmt.bytes(totalBytes)} />
-
-              <Chip label={`${Fmt.commas(totalFolders)} Folders`} />
-
-              <Chip label={`${Fmt.commas(totalFiles)} Files`} />
-            </>
-          ) : (
-            <>
-              <Chip label={`${Fmt.commas(totalFolders - 1)} Folders Left`} />
-
-              <Chip label={`${Fmt.commas(totalFilesLeft)} Files Left`} />
-            </>
+          {type === "Ingester" && store.ingester.savedConfigFolderPaths.length > 0 && (
+            <Chip
+              label={`${Fmt.commas(store.ingester.savedConfigFolderPaths.length)} Configs Left`}
+            />
           )}
+
+          <Chip label={Fmt.bytes(editor.importSize)} />
+
+          <Chip label={`${Fmt.commas(editor.folderTotalCount)} Folders`} />
+
+          <Chip label={`${Fmt.commas(editor.importCount)} Files`} />
         </View>
       }
     >

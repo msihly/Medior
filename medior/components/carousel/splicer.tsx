@@ -26,6 +26,9 @@ export const Splicer = Comp(() => {
   const store = stores.carousel.splicer;
 
   const file = stores.carousel.getActiveFile();
+  const isPinned = stores.carousel.isPinned;
+  // The panel ends above the video controls when they overlay it, and above the waveform over them.
+  const bottomPadding = (isPinned ? 0.5 : 3.5) + (stores.carousel.isWaveformShown ? 3 : 0);
 
   const [isConfirmDeleteOpen, setIsConfirmDeleteOpen] = useState(false);
   const [isConfirmRenderOpen, setIsConfirmRenderOpen] = useState(false);
@@ -89,7 +92,12 @@ export const Splicer = Comp(() => {
     <View
       column
       height="100%"
-      padding={{ all: stores.carousel.isPinned ? "0.5rem" : "3rem 0.5rem 3.5rem 0.5rem" }}
+      padding={{
+        bottom: `${bottomPadding}rem`,
+        left: "0.5rem",
+        right: "0.5rem",
+        top: isPinned ? "0.5rem" : "3rem",
+      }}
       bgColor="rgb(0 0 0 / 0.5)"
       maxWidth="21rem"
       minWidth="21rem"

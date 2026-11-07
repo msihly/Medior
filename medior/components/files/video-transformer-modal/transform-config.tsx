@@ -60,7 +60,7 @@ export const TransformConfig = Comp(() => {
           />
         </View>
       }
-      headerProps={{ justify: "flex-start", padding: { all: "0.4rem 0.6rem" } }}
+      headerProps={{ justify: "flex-start", padding: { all: "0.45rem" } }}
     >
       <LoadingOverlay isLoading={isSaving} />
 

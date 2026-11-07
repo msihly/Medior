@@ -1,20 +1,12 @@
 import { StrictMode, useState } from "react";
 import createCache from "@emotion/cache";
 import { CacheProvider } from "@emotion/react";
-import { createTheme, ThemeProvider } from "@mui/material";
+import { ThemeProvider } from "@mui/material";
+import { makeTheme } from "medior/components";
 import { CONSTANTS } from "medior/utils/common";
 
 export const MuiProvider = ({ children }: { children: React.ReactNode }) => {
-  const [theme] = useState(() =>
-    createTheme({
-      components: {
-        MuiDialog: {
-          styleOverrides: { root: { top: CONSTANTS.WINDOW.TITLE_BAR.HEIGHT } },
-        },
-      },
-      palette: { mode: "dark" },
-    }),
-  );
+  const [theme] = useState(() => makeTheme({ titleBarHeight: CONSTANTS.WINDOW.TITLE_BAR.HEIGHT }));
 
   const [muiCache] = useState(() => createCache({ key: "mui", prepend: true, stylisPlugins: [] }));
 

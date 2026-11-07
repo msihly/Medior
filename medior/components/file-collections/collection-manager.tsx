@@ -12,6 +12,7 @@ import {
   Modal,
   MultiActionButton,
   Pagination,
+  SEARCH_HEADER_PROPS,
   SearchLoadingOverlay,
   TabContainer,
   Text,
@@ -75,13 +76,13 @@ export const FileCollectionManager = Comp(() => {
       handlePageChange(Math.max(pageCount, 1));
   }, [store.search.isLoading, store.search.isPageCountLoading, page, pageCount]);
 
-  const handleAddSeasons = async () => {
+  const handleCopySeasons = async () => {
     if (stores.mediaProgram.editor.program?.id !== store.seasonsProgramId) {
       toast.error("The program these seasons were for is no longer open");
       return handleClose();
     }
 
-    const res = await stores.mediaProgram.editor.addSeasons([...store.search.selectedIds]);
+    const res = await stores.mediaProgram.editor.copyCollections([...store.search.selectedIds]);
 
     if (!res.success) toast.error(res.error);
     else handleClose();
@@ -316,11 +317,11 @@ export const FileCollectionManager = Comp(() => {
             padding={{ all: 0 }}
             bgColor={colors.background}
             headerProps={{
+              ...SEARCH_HEADER_PROPS,
               borderRadiuses: { top: hasAnyFilesSelected ? 0 : undefined },
-              flex: "none",
             }}
             header={
-              <UniformList row flex={1} justify="space-between" padding={{ all: "0.3rem" }}>
+              <UniformList row flex={1} justify="space-between">
                 <View row align="center" spacing="0.5rem">
                   <CollectionFilterMenu store={store.search} />
 
@@ -440,10 +441,11 @@ export const FileCollectionManager = Comp(() => {
 
         {store.seasonsProgramId && (
           <Button
-            text="Add as Seasons"
+            text="Copy as Seasons"
             icon="LiveTv"
-            onClick={handleAddSeasons}
+            onClick={handleCopySeasons}
             disabled={!hasSelectedCollectionIds}
+            tooltip="Copies each collection's files into a new season; the collections are kept"
             color={colors.custom.blue}
           />
         )}

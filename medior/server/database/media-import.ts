@@ -1,3 +1,4 @@
+import type { BigIntStats } from "fs";
 import fs from "fs/promises";
 import path from "path";
 import { createHash, randomUUID } from "crypto";
@@ -50,6 +51,7 @@ import {
   recoverMediaOutput,
   syncMediaFile,
 } from "medior/utils/server/media-output";
+import { moveFileNoReplace, moveOrdinaryFileNoReplace } from "medior/utils/server/move-file";
 import { canEmbedSubtitle, getPartialMuxPath, muxSubtitles } from "medior/utils/server/subtitles";
 import { waitForWork, withResources, workSignal } from "medior/utils/server/work-signal";
 
@@ -73,14 +75,18 @@ export interface MediaImportInput {
 
 const activeImportHashes = new Map<string, Promise<void>>();
 const activeImports = new Set<string>();
-/** Video imports in the order they started. */
-const activeVideoImports = new Set<string>();
 let importSequence = 0;
 let importStorage: { bytesLeft: number; location: string };
 let importStorageCheck: Promise<{ bytesLeft: number; location: string }>;
 
-/** Commits an unfinished import's outputs to cleanup, retaining its source. */
+/**
+ * Commits an unfinished import's outputs to cleanup, retaining its source. A source moved into
+ * storage goes back first, unless a library file already uses it. An import that moved its source
+ * after this operation was read isn't abandoned, so the source's only copy is never cleaned up.
+ */
 export const abandonPreparedImport = async (operation: FileOperation) => {
+  if (operation.isSourceMoved) await undoSourceMove(operation);
+
   const cleanup = [...operation.cleanup];
 
   for (const outputPath of [
@@ -98,10 +104,24 @@ export const abandonPreparedImport = async (operation: FileOperation) => {
     if (file) cleanup.push(file);
   }
 
-  await FileOperationModel.updateOne(
-    { _id: operation._id, state: "PREPARED" },
+  const isOutputUsed =
+    !!operation.outputPath &&
+    (await isMediaPathReferenced(operation.outputPath, { fileOperationId: operation._id }));
+
+  const result = await FileOperationModel.updateOne(
+    {
+      _id: operation._id,
+      state: "PREPARED",
+      ...(isOutputUsed ? {} : { isSourceMoved: { $ne: true } }),
+    },
     { cleanup, state: "COMMITTED" },
   );
+
+  if (
+    !result.matchedCount &&
+    (await FileOperationModel.exists({ _id: operation._id, state: "PREPARED" }))
+  )
+    throw new Error("This import moved its source while being abandoned. Try again once it stops.");
 };
 
 const acquireImportHash = async (hash: string) => {
@@ -229,6 +249,23 @@ const getImportSubtitles = (args: MediaImportInput) => {
   return { embedded, kept: subtitles.filter((subtitle) => !embedded.includes(subtitle)) };
 };
 
+/** Whether a folder's drive, read from its nearest existing folder, has room to copy a file in. */
+const getHasCopySpace = async (folderPath: string, size: number) => {
+  for (let current = path.resolve(folderPath); ; current = path.dirname(current)) {
+    try {
+      const { bavail, bsize } = await fs.statfs(current);
+      return bavail * bsize > size + 500000;
+    } catch (error) {
+      if (error.code !== "ENOENT" || path.dirname(current) === current) throw error;
+    }
+  }
+};
+
+const getIsSameVolume = async (pathA: string, pathB: string) => {
+  const [volumeA, volumeB] = await Promise.all([getVolumeId(pathA), getVolumeId(pathB)]);
+  return !!volumeA && volumeA === volumeB;
+};
+
 /** Only subtitles that no longer exist are unavailable; other read failures fail the import. */
 const getIsSubtitleAvailable = async (subtitle: SubtitleSource) => {
   for (const filePath of getSubtitleFilePaths([subtitle])) {
@@ -244,10 +281,38 @@ const getIsSubtitleAvailable = async (subtitle: SubtitleSource) => {
   return true;
 };
 
+/**
+ * Storage on the source's drive, where the source can be moved instead of copied, in the configured
+ * order, or null without one. It still needs room for a copy, which a source that can't be moved
+ * falls back to. Locations that can't be read, such as on a drive that's offline, are skipped.
+ */
+const getSourceDriveStorage = async (sourcePath: string, size: number) => {
+  const sourceVolumeId = await getVolumeId(sourcePath);
+  if (!sourceVolumeId) return null;
+
+  for (const location of getConfig().db.fileStorage.locations) {
+    if ((await getVolumeId(location)) === sourceVolumeId)
+      return (await getHasCopySpace(location, size)) ? location : null;
+  }
+
+  return null;
+};
+
 const getSubtitleCopyPath = (mediaPath: string, subtitlePath: string, index: number) => {
   const { dir, name } = path.parse(mediaPath);
 
   return path.join(dir, `${name}-sub-${index}${path.extname(subtitlePath).toLowerCase()}`);
+};
+
+/** The volume of a path, read from its nearest existing folder, or null when it can't be read. */
+const getVolumeId = async (filePath: string) => {
+  for (let current = path.resolve(filePath); ; current = path.dirname(current)) {
+    try {
+      return (await getNtfsFileIdentity(current)).volumeId;
+    } catch (error) {
+      if (error.code !== "ENOENT" || path.dirname(current) === current) return null;
+    }
+  }
 };
 
 const prepareMediaImport = async (operation: FileOperation) => {
@@ -300,6 +365,43 @@ const reserveImportStorage = async (size: number) => {
   }
 };
 
+/**
+ * Moves an import's output back to its source path. A source already back there with the same
+ * content leaves the output to the import's cleanup. Failing to move throws, keeping the output.
+ */
+const restoreMovedSource = async ({ outputHash, outputPath, sourcePath }: FileOperation) => {
+  try {
+    await fs.stat(outputPath);
+  } catch (error) {
+    if (error.code === "ENOENT") return;
+
+    throw error;
+  }
+
+  if ((await checkFileExists(sourcePath)) && (await hashMediaFile(sourcePath)) === outputHash)
+    return;
+
+  await fs.mkdir(path.dirname(sourcePath), { recursive: true });
+  await moveFileNoReplace(outputPath, sourcePath);
+};
+
+/**
+ * Moves a source the import moved into storage back where it was, so its only copy is never
+ * removed as an unused output, then clears the move so later attempts start from the source.
+ * A library file already using the output keeps it, as does a committed import's cleanup.
+ */
+const undoSourceMove = async (operation: FileOperation) => {
+  if (!(await FileOperationModel.exists({ _id: operation._id, state: "PREPARED" }))) return;
+  if (await isMediaPathReferenced(operation.outputPath, { fileOperationId: operation._id })) return;
+
+  await restoreMovedSource(operation);
+  await FileOperationModel.updateOne(
+    { _id: operation._id, state: "PREPARED" },
+    { $unset: { isSourceMoved: 1 } },
+    metadataWriteOptions(),
+  );
+};
+
 export const importMedia = async (args: MediaImportInput, operationId?: string) => {
   if (isServerStopping()) throw new Error("Importer is shutting down");
 
@@ -313,14 +415,13 @@ export const importMedia = async (args: MediaImportInput, operationId?: string) 
   const sequence = importSequence++;
 
   activeImports.add(id);
-  if (isVideo) activeVideoImports.add(id);
 
-  // Only the earliest of overlapping video imports reports, so the active file doesn't flip.
-  const getIsReporting = () => !isVideo || activeVideoImports.values().next().value === id;
-
-  if (getIsReporting()) socket.emit("onFileImportStarted", { filePath: args.originalPath });
+  // Each overlapping import reports its own progress until it ends.
+  socket.emit("onFileImportStarted", { batchId: args.batchId, filePath: args.originalPath });
 
   let releaseHash: () => void;
+  /** Set while the source sits in storage because it was moved, which a failure then moves back. */
+  let movedOperation: FileOperation;
   const startedAt = performance.now();
   const timings: string[] = [];
   let stageStartedAt = startedAt;
@@ -333,16 +434,14 @@ export const importMedia = async (args: MediaImportInput, operationId?: string) 
     progress = nextProgress;
   };
 
-  const emitProgress = () => {
-    if (getIsReporting())
-      socket.emitVolatile("onFileImportProgress", {
-        batchId: args.batchId,
-        elapsed: Math.floor((performance.now() - startedAt) / 1000),
-        filePath: args.originalPath,
-        message,
-        progress,
-      });
-  };
+  const emitProgress = () =>
+    socket.emitVolatile("onFileImportProgress", {
+      batchId: args.batchId,
+      elapsed: Math.floor((performance.now() - startedAt) / 1000),
+      filePath: args.originalPath,
+      message,
+      progress,
+    });
 
   const progressTimer = isVideo ? setInterval(emitProgress, 1000) : null;
 
@@ -466,16 +565,26 @@ export const importMedia = async (args: MediaImportInput, operationId?: string) 
 
     const sourceDisk = await getDiskResource(args.originalPath);
 
-    const sourceHash = await withVideoResources("source checksum", [sourceDisk], async () => {
-      reportProgress("Calculating checksum.", 0);
+    // A source already moved into storage is verified there instead, when its output is recovered.
+    const isSourceAlreadyMoved =
+      !!operation?.isSourceMoved && !(await checkFileExists(args.originalPath));
+    let sourceStats: BigIntStats;
 
-      return await hashMediaFile(args.originalPath, workSignal.getStore(), (bytes) =>
-        reportProgress(
-          "Calculating checksum.",
-          args.size > 0 ? Math.min(100, (bytes / args.size) * 100) : undefined,
-        ),
-      );
-    });
+    if (isSourceAlreadyMoved) movedOperation = operation;
+
+    const sourceHash = isSourceAlreadyMoved
+      ? (operation.sourceHash ?? operation.outputHash)
+      : await withVideoResources("source checksum", [sourceDisk], async () => {
+          reportProgress("Calculating checksum.", 0);
+          sourceStats = await fs.stat(args.originalPath, { bigint: true });
+
+          return await hashMediaFile(args.originalPath, workSignal.getStore(), (bytes) =>
+            reportProgress(
+              "Calculating checksum.",
+              args.size > 0 ? Math.min(100, (bytes / args.size) * 100) : undefined,
+            ),
+          );
+        });
 
     reportProgress("Checking for duplicates.");
     recordTiming("source checksum");
@@ -503,11 +612,106 @@ export const importMedia = async (args: MediaImportInput, operationId?: string) 
       });
     };
 
+    const clearMoveIntent = async () => {
+      await FileOperationModel.updateOne(
+        { _id: id, state: "PREPARED" },
+        { $unset: { isSourceMoved: 1 } },
+        metadataWriteOptions(),
+      );
+    };
+
+    /**
+     * Why the source is copied rather than moved, or null when it may be moved. A moved file keeps
+     * its source's links, so only an unchanged file without other names, on its storage's drive, is
+     * moved. The move itself also refuses files a copy wouldn't behave like.
+     */
+    const getMoveRefusal = async () => {
+      const stats = await fs.lstat(args.originalPath, { bigint: true });
+
+      if (!sourceStats) return "it wasn't checksummed by this attempt";
+      else if (!stats.isFile()) return "it's a link";
+      else if (stats.nlink > 1n) return "it has other hard links";
+      else if (
+        stats.size !== sourceStats.size ||
+        stats.mtimeNs !== sourceStats.mtimeNs ||
+        stats.ctimeNs !== sourceStats.ctimeNs ||
+        stats.ino !== sourceStats.ino
+      )
+        return "it changed after its checksum";
+      else if (!(await getIsSameVolume(args.originalPath, operation.outputPath)))
+        return "its storage is on another drive";
+      else return null;
+    };
+
+    /**
+     * Moves a same-drive source into storage, skipping the copy and its verification, since a move
+     * leaves the checksummed bytes untouched. Writes still cached for the source are flushed first,
+     * and the moved file must still match the source's size and modified time. The intent is saved
+     * first, so an abandoned or failed import moves the source back. A source that isn't moved stays
+     * in place to be copied, without an intent that would later move the copy instead.
+     */
+    const moveSourceIntoStorage = async () => {
+      const refusal = await getMoveRefusal();
+
+      if (refusal) {
+        fileLog(`[Import ${id}] Copying instead of moving, as ${refusal}.`);
+
+        if (operation.isSourceMoved) await clearMoveIntent();
+
+        return false;
+      }
+
+      const marked = await FileOperationModel.updateOne(
+        { _id: id, state: "PREPARED" },
+        { isSourceMoved: true },
+        metadataWriteOptions(),
+      );
+
+      if (marked.matchedCount !== 1)
+        throw new Error("Import preparation changed before its move was saved");
+
+      reportProgress("Moving media.");
+
+      try {
+        await moveOrdinaryFileNoReplace(args.originalPath, operation.outputPath);
+      } catch (error) {
+        // A move that may still have happened keeps its intent, so its output is never removed.
+        if (
+          !(await checkFileExists(args.originalPath)) ||
+          (await checkFileExists(operation.outputPath))
+        )
+          throw error;
+
+        fileLog(`[Import ${id}] Copying instead of moving: ${error.message}`);
+        await clearMoveIntent();
+
+        return false;
+      }
+
+      movedOperation = operation;
+
+      // A write between the check and the move changes these, so the source goes back to be copied.
+      const moved = await fs.stat(operation.outputPath, { bigint: true });
+
+      if (moved.size !== sourceStats.size || moved.mtimeNs !== sourceStats.mtimeNs) {
+        fileLog(`[Import ${id}] Copying instead of moving, as it changed while moving.`);
+        await restoreMovedSource(operation);
+        movedOperation = null;
+        await clearMoveIntent();
+
+        return false;
+      }
+
+      return true;
+    };
+
     const duplicate = await findImportDuplicate(sourceHash, sourceHash);
 
     // Stored media follows the import's own setting for previously deleted files like any other.
+    // A source already moved into storage was accepted, and ignoring it would remove its only copy.
     let ignored =
       !duplicate &&
+      !isSourceAlreadyMoved &&
       (isScratch ||
         (args.ignorePrevDeleted && !!(await models.DeletedFileModel.exists({ hash: sourceHash }))));
 
@@ -519,8 +723,14 @@ export const importMedia = async (args: MediaImportInput, operationId?: string) 
       throw new Error("Import source changed; the prepared output has been retained");
 
     if (!operation?.outputHash) {
+      // Sources the import may move go to storage on their own drive, as a copy would need space.
       const storage =
-        duplicate || ignored || isStored ? null : await reserveImportStorage(args.size);
+        duplicate || ignored || isStored
+          ? null
+          : (args.deleteOnImport &&
+              !subtitles.embedded.length &&
+              (await getSourceDriveStorage(args.originalPath, args.size))) ||
+            (await reserveImportStorage(args.size));
 
       const contentPath =
         operation?.contentPath ??
@@ -620,97 +830,126 @@ export const importMedia = async (args: MediaImportInput, operationId?: string) 
       if (!operation.outputPath)
         throw new Error("Import eligibility changed; cancel and requeue this import");
 
-      // Remuxed media is copied from scratch, so the source is only read to rebuild a missing remux.
-      const isSourceRead =
-        !operation.contentPath || !(await checkFileExists(operation.contentPath));
+      // Sources the import deletes anyway are moved in, unless their bytes change on import.
+      const isMovable = args.deleteOnImport && !operation.contentPath;
 
-      const contentDisk = operation.contentPath
-        ? await getDiskResource(operation.contentPath)
-        : null;
-      const outputDisk = await getDiskResource(operation.outputPath);
+      // A move only renames the source, so it doesn't wait for its drive while another import reads
+      // a whole file there. Outputs an earlier attempt left are verified with the drive first.
+      const canMoveFirst =
+        isMovable &&
+        !(await checkFileExists(operation.outputPath)) &&
+        !(await checkFileExists(operation.tempPath));
 
-      await withVideoResources(
-        "publish media",
-        [isSourceRead ? sourceDisk : null, contentDisk, outputDisk],
-        async (release) => {
-          let recovered: Awaited<ReturnType<typeof recoverMediaOutput>>;
+      if (canMoveFirst) await fs.mkdir(path.dirname(operation.outputPath), { recursive: true });
 
-          reportProgress("Verifying existing media.");
+      const isMovedFirst = canMoveFirst && (await moveSourceIntoStorage());
 
-          try {
-            recovered = await recoverMediaOutput({
-              hash,
-              path: operation.outputPath,
-              tempPath: operation.tempPath,
-            });
-          } catch (error) {
-            if (
-              error?.name !== "MediaChecksumMismatchError" ||
-              error.filePath !== operation.tempPath ||
-              operation.tempPath !== `${operation.outputPath}.${id}.tmp` ||
-              mediaPathKey(operation.tempPath) === mediaPathKey(args.originalPath)
-            )
-              throw error;
+      if (!isMovedFirst) {
+        // Remuxed media is copied from scratch; the source is only read to rebuild a missing remux.
+        const isSourceRead =
+          !operation.contentPath || !(await checkFileExists(operation.contentPath));
 
-            await withMetadataMutation(async () => {
-              let isPublished = false;
+        const contentDisk = operation.contentPath
+          ? await getDiskResource(operation.contentPath)
+          : null;
+        const outputDisk = await getDiskResource(operation.outputPath);
 
-              try {
-                await fs.lstat(operation.outputPath);
-                isPublished = true;
-              } catch (statError) {
-                if (statError.code !== "ENOENT") throw statError;
-              }
+        await withVideoResources(
+          "publish media",
+          [isSourceRead ? sourceDisk : null, contentDisk, outputDisk],
+          async (release) => {
+            let recovered: Awaited<ReturnType<typeof recoverMediaOutput>>;
 
+            reportProgress("Verifying existing media.");
+
+            try {
+              recovered = await recoverMediaOutput({
+                hash,
+                path: operation.outputPath,
+                tempPath: operation.tempPath,
+              });
+            } catch (error) {
               if (
-                isPublished ||
-                (await isMediaPathReferenced(operation.tempPath, { fileOperationId: id }))
+                error?.name !== "MediaChecksumMismatchError" ||
+                error.filePath !== operation.tempPath ||
+                operation.tempPath !== `${operation.outputPath}.${id}.tmp` ||
+                mediaPathKey(operation.tempPath) === mediaPathKey(args.originalPath)
               )
                 throw error;
 
-              await assertMediaPathsAvailable([operation.tempPath]);
-              workSignal.getStore()?.throwIfAborted();
-              await fs.rm(operation.tempPath, { force: true });
-            });
-          }
+              await withMetadataMutation(async () => {
+                let isPublished = false;
 
-          if (!recovered) {
-            if (operation.contentPath && !(await checkFileExists(operation.contentPath))) {
-              await embedSubtitles(operation.contentPath);
+                try {
+                  await fs.lstat(operation.outputPath);
+                  isPublished = true;
+                } catch (statError) {
+                  if (statError.code !== "ENOENT") throw statError;
+                }
 
-              if ((await hashMediaFile(operation.contentPath, workSignal.getStore())) !== hash)
-                throw new Error(
-                  "Embedding subtitles produced a different file; cancel and requeue this import",
-                );
+                if (
+                  isPublished ||
+                  (await isMediaPathReferenced(operation.tempPath, { fileOperationId: id }))
+                )
+                  throw error;
+
+                await assertMediaPathsAvailable([operation.tempPath]);
+                workSignal.getStore()?.throwIfAborted();
+                await fs.rm(operation.tempPath, { force: true });
+              });
             }
 
-            // Remuxed media is copied from scratch, freeing the source's drive.
-            release([operation.contentPath ? contentDisk : sourceDisk, outputDisk]);
-            await fs.mkdir(path.dirname(operation.outputPath), { recursive: true });
-            reportProgress("Copying media.", 0);
-            await copyMediaFile(
-              operation.contentPath ?? args.originalPath,
-              operation.tempPath,
-              true,
-              (bytes) =>
-                reportProgress(
-                  "Copying media.",
-                  args.size > 0 ? Math.min(100, (bytes / args.size) * 100) : undefined,
-                ),
-            );
+            if (!recovered) {
+              if (operation.contentPath && !(await checkFileExists(operation.contentPath))) {
+                await embedSubtitles(operation.contentPath);
 
-            // Verifying reads only the copy, so the next import can read its source meanwhile.
-            release([outputDisk]);
-            reportProgress("Verifying and saving media.");
+                if ((await hashMediaFile(operation.contentPath, workSignal.getStore())) !== hash)
+                  throw new Error(
+                    "Embedding subtitles produced a different file; cancel and requeue this import",
+                  );
+              }
 
-            await publishMediaOutput({
-              hash,
-              path: operation.outputPath,
-              tempPath: operation.tempPath,
-            });
-          }
-        },
-      );
+              // Remuxed media is copied from scratch, freeing the source's drive.
+              release([operation.contentPath ? contentDisk : sourceDisk, outputDisk]);
+              await fs.mkdir(path.dirname(operation.outputPath), { recursive: true });
+
+              // A source whose earlier outputs were cleared above can still be moved instead.
+              const isMoved = isMovable && !canMoveFirst && (await moveSourceIntoStorage());
+
+              if (!isMoved) {
+                // Storage picked for a move reserved no space, so a copy checks for it first.
+                if (
+                  isMovable &&
+                  !(await getHasCopySpace(path.dirname(operation.outputPath), args.size))
+                )
+                  throw new Error("Not enough free space in file storage to copy this file.");
+
+                reportProgress("Copying media.", 0);
+                await copyMediaFile(
+                  operation.contentPath ?? args.originalPath,
+                  operation.tempPath,
+                  true,
+                  (bytes) =>
+                    reportProgress(
+                      "Copying media.",
+                      args.size > 0 ? Math.min(100, (bytes / args.size) * 100) : undefined,
+                    ),
+                );
+
+                // Verifying reads only the copy, so the next import can read its source meanwhile.
+                release([outputDisk]);
+                reportProgress("Verifying and saving media.");
+
+                await publishMediaOutput({
+                  hash,
+                  path: operation.outputPath,
+                  tempPath: operation.tempPath,
+                });
+              }
+            }
+          },
+        );
+      }
     }
 
     recordTiming("publish media");
@@ -838,12 +1077,24 @@ export const importMedia = async (args: MediaImportInput, operationId?: string) 
     reportProgress("Saving file and tag metadata.");
 
     return await commitMediaImport(args, operation, importResult, recordTiming);
+  } catch (error) {
+    // A moved source goes back, so a failed import doesn't leave it hidden in storage. A paused
+    // import can't move it back, and its saved intent lets the retry continue or an abandon undo it.
+    if (movedOperation) {
+      try {
+        await undoSourceMove(movedOperation);
+      } catch (undoError) {
+        fileLog(`[Import ${id}] Moved source kept in storage: ${undoError.message}`);
+      }
+    }
+
+    throw error;
   } finally {
     if (progressTimer) clearInterval(progressTimer);
 
     releaseHash?.();
     activeImports.delete(id);
-    activeVideoImports.delete(id);
+    socket.emit("onFileImportEnded", { batchId: args.batchId, filePath: args.originalPath });
 
     if (performance.now() - startedAt >= 250)
       fileLog(

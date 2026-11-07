@@ -29,7 +29,7 @@ export const Carousel = Comp((_, videoRef: MutableRefObject<HTMLVideoElement>) =
 
   const { css } = useClasses({
     isPinned: store.isPinned,
-    isWaveformVisible: store.isWaveformVisible && Boolean(activeFile?.waveformPeaks?.length),
+    isWaveformVisible: store.isWaveformShown,
   });
 
   const panZoomRef = useContext(ZoomContext);
@@ -75,6 +75,7 @@ export const Carousel = Comp((_, videoRef: MutableRefObject<HTMLVideoElement>) =
       store.setCurFrame(round(startTime * activeFile.frameRate, 0), activeFile.frameRate);
 
     store.transcodeVideo({ seekTime: startTime });
+    loadChapters();
     loadSubtitleTracks();
 
     return () => videoTranscoder.dispose();
@@ -84,6 +85,11 @@ export const Carousel = Comp((_, videoRef: MutableRefObject<HTMLVideoElement>) =
     if (store.mediaSourceUrl)
       videoTranscoder.setMediaElementGetter(store.mediaSourceUrl, () => videoRef.current);
   }, [playbackUrl]);
+
+  const loadChapters = async () => {
+    const res = await store.loadChapters();
+    if (!res.success) toast.error(res.error);
+  };
 
   const loadSubtitleTracks = async () => {
     const res = await store.loadSubtitleTracks();

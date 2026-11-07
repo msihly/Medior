@@ -87,13 +87,16 @@ export const Image = ({
   const scaled = isAnimated ? getScaledThumbSize(curThumb.frameWidth, curThumb.frameHeight) : null;
   const videoPos = isAnimated ? VIDEO_POSITIONS[videoPosIndex] : null;
   const shouldAnimate = isVisible && !hasError && (autoAnimate || isHovered);
+  // A frame covers the container by its larger scale; otherwise it fits its longer side.
   const thumbScale =
     scaled && containerDims
       ? Math.max(
           1,
-          scaled.height > scaled.width
-            ? containerDims.height / scaled.height
-            : containerDims.width / scaled.width,
+          fit === "cover"
+            ? Math.max(containerDims.height / scaled.height, containerDims.width / scaled.width)
+            : scaled.height > scaled.width
+              ? containerDims.height / scaled.height
+              : containerDims.width / scaled.width,
         )
       : undefined;
 

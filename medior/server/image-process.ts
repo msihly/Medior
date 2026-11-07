@@ -82,7 +82,8 @@ registerNativeWorker(async (task: ImageTask) => {
       image.toFormat(task.format, task.format === "png" ? {} : { quality: task.quality });
 
     const output = task.outputPath ? await image.toFile(task.outputPath) : undefined;
+    const buffer = task.toBuffer ? await image.toBuffer() : undefined;
 
-    return { metadata, output };
+    return { buffer, metadata, output };
   }
 });

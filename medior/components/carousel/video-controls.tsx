@@ -7,12 +7,14 @@ import {
   MenuButton,
   Slider,
   Text,
+  VideoChapters,
   VideoWaveform,
   View,
 } from "medior/components";
 import { useStores } from "medior/store";
 import { colors, makeClasses, seekToFraction, toast, Toaster } from "medior/utils/client";
 import { CONSTANTS, Fmt, round, throttle } from "medior/utils/common";
+import type { VideoChapter } from "medior/utils/server/ffmpeg";
 import { VideoContext } from "medior/views";
 import { CustomSlider } from "./video-control-slider";
 
@@ -32,7 +34,6 @@ export const VideoControls = Comp(() => {
   const hasTranscript = Boolean(activeFile?.transcription?.segments?.length);
   const hasCaptions = hasTranscript || store.subtitleTracks.length > 0;
   const isCaptionsActive = store.isCaptionsVisible && hasCaptions;
-  const isWaveformActive = store.isWaveformVisible && Boolean(activeFile?.waveformPeaks?.length);
 
   const goToFrame = (frame: number) => {
     store.setIsPlaying(false);
@@ -44,6 +45,13 @@ export const VideoControls = Comp(() => {
   const goToNextFrame = () => goToFrame(Math.min(store.curFrame + 1, activeFile?.totalFrames));
 
   const goToPrevFrame = () => goToFrame(Math.max(store.curFrame - 1, 1));
+
+  const handleChapterSeek = (chapter: VideoChapter) => {
+    const frame = Math.max(1, round(chapter.start * activeFile.frameRate, 0));
+
+    setCurFrame(frame);
+    seekVideoPlayer(frame);
+  };
 
   const handleFindSimilarAudio = () =>
     stores.file.similarity.openAudio({
@@ -234,6 +242,14 @@ export const VideoControls = Comp(() => {
           )}
           className={css.slider}
         />
+
+        {store.chapters.length > 0 && (
+          <VideoChapters
+            chapters={store.chapters}
+            duration={activeFile.duration}
+            onSeek={handleChapterSeek}
+          />
+        )}
       </View>
 
       <View row align="center">
@@ -280,9 +296,9 @@ export const VideoControls = Comp(() => {
           onClick={store.toggleWaveform}
           disabled={!activeFile.waveformPeaks?.length}
           iconProps={{
-            color: isWaveformActive ? colors.custom.lightBlue : colors.custom.lightGrey,
+            color: store.isWaveformShown ? colors.custom.lightBlue : colors.custom.lightGrey,
           }}
-          tooltip={isWaveformActive ? "Hide Waveform" : "Show Waveform"}
+          tooltip={store.isWaveformShown ? "Hide Waveform" : "Show Waveform"}
         />
 
         <CustomSlider

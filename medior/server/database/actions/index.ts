@@ -9,6 +9,8 @@ export * from "./image-edits";
 export * from "./indexes";
 export * from "./jobs";
 export * from "./lower-resolution";
+export * from "./media-program-meta";
+export * from "./media-program-rankings";
 export * from "./media-programs";
 export * from "./similarity";
 export * from "./sockets";

@@ -2,13 +2,6 @@ import { ModelDb } from "medior/generator/schema/generators";
 
 const model = new ModelDb("MediaProgram");
 
-model.addIndex({ "collectionIdIndexes.collectionId": 1 }, { unique: false });
-model.addProp("collectionIdIndexes", "Array<{ collectionId: string; index: number }>", {
-  defaultValue: "[]",
-  required: true,
-  schemaType: "[{ collectionId: Schema.Types.ObjectId, index: Number }]",
-});
-
 model.addIndex({ dateLastWatched: 1, _id: 1 });
 model.addProp("dateLastWatched", "string", {
   sort: { icon: "History", label: "Date Last Watched" },
@@ -31,15 +24,28 @@ model.addProp("fileCount", "number", {
 model.addIndex({ genreIds: 1, _id: 1 });
 model.addProp("genreIds", "Tag.id[]", { defaultValue: "[]", required: true });
 
+model.addProp("isMetaPending", "boolean");
+
 model.addProp("isRewatching", "boolean", { defaultValue: "false", required: true });
 
 model.addIndex({ language: 1, _id: 1 });
-model.addProp("language", "string");
+model.addProp("language", "string", { sort: { icon: "Translate", label: "Language" } });
 
 model.addProp("lastWatchedFileId", "File.id");
 
 model.addIndex({ medium: 1, _id: 1 });
-model.addProp("medium", "string");
+model.addProp("medium", "string", { sort: { icon: "Brush", label: "Medium" } });
+
+model.addProp("meta", 'import("medior/utils/common/media-programs").MediaProgramMeta', {
+  defaultValue: "null",
+  schemaType: "Schema.Types.Mixed",
+});
+
+model.addProp(
+  "missingMarks",
+  'import("medior/utils/common/media-programs").MediaProgramMissingMarks',
+  { schemaType: "Schema.Types.Mixed" },
+);
 
 model.addIndex({ name: 1, _id: 1 });
 model.addProp("name", "string", { required: true, sort: { icon: "Title", label: "Name" } });
@@ -58,6 +64,14 @@ model.addProp("ratingIsManual", "boolean");
 model.addProp("rewatchCount", "number", { defaultValue: "0", required: true });
 
 model.addProp("rewatchedFileIds", "File.id[]", { defaultValue: "[]", required: true });
+
+model.addIndex({ "seasons.fileIds": 1 }, { unique: false });
+model.addProp("seasons", 'import("medior/utils/common/media-programs").MediaProgramSeason[]', {
+  defaultValue: "[]",
+  required: true,
+  schemaType:
+    "[{ _id: false, episodeNumbers: Schema.Types.Mixed, fileIds: [Schema.Types.ObjectId], id: String, label: String, meta: Schema.Types.Mixed, number: Number, rating: Number, ratingIsManual: Boolean }]",
+});
 
 model.addIndex({ size: 1, _id: 1 });
 model.addProp("size", "number", {
@@ -81,13 +95,18 @@ model.addIndex({ tagIdsWithAncestors: 1, _id: 1 });
 model.addProp("tagIdsWithAncestors", "Tag.id[]", { defaultValue: "[]", required: true });
 
 model.addIndex({ type: 1, _id: 1 });
-model.addProp("type", "string");
+model.addProp("type", "string", { sort: { icon: "Category", label: "Type" } });
 
 model.addIndex({ watchStatus: 1, _id: 1 });
 model.addProp("watchStatus", "'dropped' | 'inactive' | 'unwatched' | 'watched' | 'watching'", {
   defaultValue: '"unwatched" as const',
   required: true,
   schemaType: "{ type: String, enum: ['dropped', 'inactive', 'unwatched', 'watched', 'watching'] }",
+});
+
+model.addIndex({ watchStatusOrder: 1, _id: 1 });
+model.addProp("watchStatusOrder", "number", {
+  sort: { icon: "Visibility", label: "Watch Status" },
 });
 
 model.addProp("watchedFileIds", "File.id[]", { defaultValue: "[]", required: true });

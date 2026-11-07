@@ -16,11 +16,16 @@ import {
 import { rpc } from "medior/utils/server";
 import { FileImportBatch, FileImportBatchSearch } from ".";
 
+/** A file being imported, with its latest progress once it reports one. */
+export interface ActiveImport {
+  filePath: string;
+  progress: TaskProgress | null;
+}
+
 @model("medior/ImportManager")
 export class ImportManager extends Model({
   activeBatch: prop<FileImportBatch>(null).withSetter(),
-  activeFilePath: prop<string>(null).withSetter(),
-  activeFileProgress: prop<TaskProgress>(null).withSetter(),
+  activeImports: prop<ActiveImport[]>(() => []).withSetter(),
   isImporting: prop<boolean>(false).withSetter(),
   isLoading: prop<boolean>(false).withSetter(),
   isOpen: prop<boolean>(false).withSetter(),
@@ -78,6 +83,11 @@ export class ImportManager extends Model({
     }
   }
 
+  @modelAction
+  endActiveImport(filePath: string) {
+    this.activeImports = this.activeImports.filter((active) => active.filePath !== filePath);
+  }
+
   /** Imports in progress refresh each loaded batch's counts at most once per second. */
   queueStatusCounts(id: string) {
     if (!this.isOpen) return;
@@ -95,6 +105,21 @@ export class ImportManager extends Model({
 
         if (ids.length) this.loadStatusCounts(ids);
       }, 1000);
+  }
+
+  /** Progress only updates imports still listed, as it can arrive after an import ended. */
+  @modelAction
+  setActiveImportProgress(filePath: string, progress: TaskProgress) {
+    const active = this.activeImports.find((cur) => cur.filePath === filePath);
+    if (active) active.progress = progress;
+  }
+
+  /** Imports run several files at once, each listed in the order it started. */
+  @modelAction
+  startActiveImport(filePath: string) {
+    const active = this.activeImports.find((cur) => cur.filePath === filePath);
+    if (active) active.progress = null;
+    else this.activeImports.push({ filePath, progress: null });
   }
 
   /* ------------------------------ ASYNC ACTIONS ----------------------------- */
@@ -190,8 +215,7 @@ export class ImportManager extends Model({
 
       if (!batch) {
         this.setActiveBatch(null);
-        this.setActiveFilePath(null);
-        this.setActiveFileProgress(null);
+        this.setActiveImports([]);
       } else if (this.activeBatch?.id === batch.id) {
         this.activeBatch.updateHeader(batch);
 
@@ -246,18 +270,35 @@ export class ImportManager extends Model({
     await this.getImporterStatus();
   });
 
+  /**
+   * Batches are reprocessed one at a time; a failure stops the rest. Batches whose upload never
+   * finished have no stored files, so they are skipped.
+   */
   @modelFlow
-  reprocessStoredImports = asyncAction(async (args: { id: string }) => {
+  reprocessStoredImports = asyncAction(async (ids: string[]) => {
     await this.pauseImporter();
 
-    const res = await rpc.reprocessStoredImports({ id: args.id });
+    const readyIds = ids.filter((id) => this.search.getResult(id)?.isReady !== false);
+    let deletedCount = 0;
+    let requeuedCount = 0;
 
-    if (!res.success) throw new Error(res.error);
+    try {
+      for (const [index, id] of readyIds.entries()) {
+        const res = await rpc.reprocessStoredImports({ id });
+        if (!res.success)
+          throw new Error(
+            `Reprocessed ${index} of ${readyIds.length} batches before failure: ${res.error}`,
+          );
 
-    await this.loadActiveBatch();
-    await this.getImporterStatus();
+        deletedCount += res.data.deletedCount;
+        requeuedCount += res.data.requeuedCount;
+      }
+    } finally {
+      await this.loadActiveBatch();
+      await this.getImporterStatus();
+    }
 
-    return res.data;
+    return { deletedCount, requeuedCount };
   });
 
   @modelFlow
