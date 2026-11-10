@@ -9,8 +9,6 @@ import { rpc } from "medior/utils/server";
 @model("medior/TagManagerStore")
 export class TagManagerStore extends Model({
   isLoading: prop<boolean>(false).withSetter(),
-  /** The modal is hidden while its job runs in the background. */
-  isMinimized: prop<boolean>(false).withSetter(),
   isMultiTagEditorOpen: prop<boolean>(false).withSetter(),
   isOpen: prop<boolean>(false).withSetter(),
   /** The server job deleting tags or regenerating their RegEx, started here. */
@@ -29,19 +27,24 @@ export class TagManagerStore extends Model({
 
     stores.home.followJob(jobId, this.finishJob, () => {
       this.jobTagIds.set(jobId, tagIds);
-      this.setIsMinimized(false);
       this.setJobId(jobId);
     });
   }
 
   /* ---------------------------- STANDARD ACTIONS ---------------------------- */
+  /** Shows the Tag Manager searching the tags on the files with the given tag. */
   @modelAction
   findTagsOnSameFiles(tag: TagOption) {
+    const stores = getRootStore<RootStore>(this);
+
+    const wasOpen = this.isOpen;
+
     this.search.reset();
     this.search.setFileTags([tag]);
+    stores.home.openView("tags");
 
-    if (this.isOpen) this.search.loadFiltered({ page: 1 });
-    else this.setIsOpen(true);
+    // Opening the manager loads its first page.
+    if (wasOpen) this.search.loadFiltered({ page: 1 });
   }
 
   /* ------------------------------ ASYNC ACTIONS ----------------------------- */
@@ -99,12 +102,6 @@ export class TagManagerStore extends Model({
     }
 
     if (job.error) toast.error(job.error);
-
-    // A minimized manager closes once its job ends, rather than covering the window again.
-    if (this.isMinimized) {
-      this.setIsMinimized(false);
-      this.setIsOpen(false);
-    }
   });
 
   @modelFlow

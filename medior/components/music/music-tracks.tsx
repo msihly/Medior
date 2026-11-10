@@ -103,7 +103,7 @@ export const MusicTracks = Comp(() => {
             </>
           )}
 
-          <FileActionButtons isHome store={store.search} />
+          <FileActionButtons store={store.search} />
 
           <SelectionButtons itemLabel="tracks" store={store.search} toast={toast} />
         </>

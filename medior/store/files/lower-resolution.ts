@@ -53,8 +53,6 @@ export class LowerResolutionStore extends Model({
   isGrouping: prop<boolean>(false).withSetter(),
   /** Grouping was paused, keeping the groups built so far, until it is resumed. */
   isGroupingPaused: prop<boolean>(false).withSetter(),
-  /** The modal is hidden while its archiving runs in the background. */
-  isMinimized: prop<boolean>(false).withSetter(),
   isOpen: prop<boolean>(false).withSetter(),
   isPageLoading: prop<boolean>(false).withSetter(),
   isSelecting: prop<boolean>(false).withSetter(),
@@ -173,13 +171,6 @@ export class LowerResolutionStore extends Model({
     this.setSelection({});
     this.setKeepOneGroupId(null);
     this.setLastSelectedId(null);
-  }
-
-  @modelAction
-  close() {
-    this.cancelPageLoad();
-    this.setIsMinimized(false);
-    this.setIsOpen(false);
   }
 
   /** Opens the file tag editor on a group's files or the current selection. */
@@ -405,9 +396,7 @@ export class LowerResolutionStore extends Model({
 
     this.queueReviewOptions();
 
-    // A minimized modal closes once its archiving ends, rather than covering the window again.
-    if (this.isMinimized) this.close();
-    else if (this.isOpen) await this.loadPage(this.page);
+    if (this.isOpen) await this.loadPage(this.page);
   });
 
   /**
@@ -589,15 +578,17 @@ export class LowerResolutionStore extends Model({
     if (this.scanId) await this.watchScan();
   });
 
-  /** Shows the library search's activity before the modal is first opened. */
+  /** Shows the library search's activity before Find Duplicates is first opened. */
   @modelFlow
   loadStatus = asyncAction(async () => {
     if (!this.isOpen && !this.scanId) await this.loadScan();
   });
 
+  /** Opens Find Duplicates, which stays open as a tab, loading its search the first time. */
   @modelFlow
   open = asyncAction(async () => {
-    this.setIsMinimized(false);
+    if (this.isOpen) return;
+
     this.setIsOpen(true);
 
     if (this.isScanning || this.isStarting || this.isArchiving) {

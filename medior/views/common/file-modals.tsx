@@ -8,11 +8,10 @@ import {
   InfoModal,
   JobProgress,
   LoadingOverlay,
-  LowerResolutionModal,
   Modal,
+  ModalGroupContext,
   SimilarityModal,
   Text,
-  VideoTransformerModal,
   View,
 } from "medior/components";
 import { useStores } from "medior/store";
@@ -58,43 +57,42 @@ export const FileModals = Comp(() => {
 
       {store.isInfoModalOpen && <InfoModal />}
 
-      {store.isRefreshOpen && <FileRefreshModal />}
-
       {store.similarity.isOpen && <SimilarityModal />}
-
-      {store.lowerResolution.isOpen && <LowerResolutionModal />}
-
-      {store.videoTransformer.isOpen && <VideoTransformerModal />}
-
-      {store.isConfirmDeleteOpen && <DeleteFilesModal />}
 
       {store.exporter.isOpen && <FileExportModal />}
 
-      {store.isActionRunning && !store.isConfirmDeleteOpen && (
-        <Modal.Container
-          visible={!store.isActionMinimized}
-          onClose={handleActionClose}
-          width="30rem"
-          height="20rem"
-        >
-          <LoadingOverlay
-            isLoading
-            sub={
-              store.isActionPreparing ? (
-                <View column align="center" spacing="1rem">
-                  <Text>{"Preparing files…"}</Text>
+      {/* Jobs' progress shows over every view until it's minimized to the corner. */}
+      <ModalGroupContext.Provider value={undefined}>
+        {store.isRefreshOpen && <FileRefreshModal />}
 
-                  <Button text="Cancel" icon="Close" onClick={store.cancelActionPreparation} />
-                </View>
-              ) : (
-                store.actionJob && (
-                  <JobProgress job={store.actionJob} onMinimize={handleActionMinimize} />
+        {store.isConfirmDeleteOpen && <DeleteFilesModal />}
+
+        {store.isActionRunning && !store.isConfirmDeleteOpen && (
+          <Modal.Container
+            visible={!store.isActionMinimized}
+            onClose={handleActionClose}
+            width="30rem"
+            height="20rem"
+          >
+            <LoadingOverlay
+              isLoading
+              sub={
+                store.isActionPreparing ? (
+                  <View column align="center" spacing="1rem">
+                    <Text>{"Preparing files…"}</Text>
+
+                    <Button text="Cancel" icon="Close" onClick={store.cancelActionPreparation} />
+                  </View>
+                ) : (
+                  store.actionJob && (
+                    <JobProgress job={store.actionJob} onMinimize={handleActionMinimize} />
+                  )
                 )
-              )
-            }
-          />
-        </Modal.Container>
-      )}
+              }
+            />
+          </Modal.Container>
+        )}
+      </ModalGroupContext.Provider>
     </>
   );
 });

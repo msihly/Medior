@@ -4,15 +4,13 @@ import { useStores } from "medior/store";
 import { makeClasses } from "medior/utils/client";
 
 /**
- * Operations running in the background, stacked in the corner while their modals are hidden.
- * Operations started in another window, or before a reload, can only be stopped from here.
+ * Operations running in the background, stacked in the corner while their modals or tabs are
+ * hidden. Operations started in another window, or before a reload, can only be stopped from here.
  */
 export const MinimizedJobs = Comp(() => {
   const stores = useStores();
   const file = stores.file;
-  const lowerResolution = file.lowerResolution;
   const repair = stores.home.settings.repair;
-  const tagManager = stores.tag.manager;
 
   const { css } = useClasses(null);
 
@@ -24,18 +22,18 @@ export const MinimizedJobs = Comp(() => {
   // Exports run only from here once started, with nothing to restore.
   const backgroundView = { isShown: false, jobId: null, restore: null };
   const tagManagerView = {
-    isShown: tagManager.isOpen && !tagManager.isMinimized,
-    jobId: tagManager.jobId,
-    restore: () => tagManager.setIsMinimized(false),
+    isShown: stores.home.view === "tags",
+    jobId: stores.tag.manager.jobId,
+    restore: () => stores.home.openView("tags"),
   };
   const views: Record<JobType, { isShown: boolean; jobId: string; restore: () => void }> = {
     copyFiles: backgroundView,
     deleteFiles: fileActionView,
     deleteTags: tagManagerView,
     mergeDuplicates: {
-      isShown: lowerResolution.isOpen && !lowerResolution.isMinimized,
-      jobId: lowerResolution.archiveJobId,
-      restore: () => lowerResolution.open(),
+      isShown: stores.home.view === "duplicates",
+      jobId: file.lowerResolution.archiveJobId,
+      restore: () => stores.home.openView("duplicates"),
     },
     moveFilesBack: backgroundView,
     refreshFiles: {

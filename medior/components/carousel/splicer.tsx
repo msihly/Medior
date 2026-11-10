@@ -13,7 +13,7 @@ import {
   View,
 } from "medior/components";
 import { useStores } from "medior/store";
-import { colors, toast } from "medior/utils/client";
+import { colors, openHomeView, toast } from "medior/utils/client";
 import { parseTimestampPairs, sleep } from "medior/utils/common";
 
 const SPLICE_MODE_OPTIONS: Array<{ label: string; value: SpliceMode }> = [
@@ -68,17 +68,19 @@ export const Splicer = Comp(() => {
     if (!res.success) toast.error(res.error);
   };
 
+  // The Media Transformer renders the splice in the main window.
   const startRender = async () => {
     try {
-      stores.file.videoTransformer.setTimestampPairs(
-        parseTimestampPairs(
+      openHomeView({
+        fileIds: [file.id],
+        fnType: "splice",
+        spliceMode: store.spliceMode,
+        timestampPairs: parseTimestampPairs(
           file.timestamps.find((timeline) => timeline.id === store.timestampId).pairs,
           file.duration,
         ),
-      );
-
-      stores.file.videoTransformer.setSpliceMode(store.spliceMode);
-      stores.file.openVideoTransformer([file.id], "splice");
+        view: "transformer",
+      });
 
       return true;
     } catch (error) {

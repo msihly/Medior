@@ -4,8 +4,8 @@ import { dayjs, Fmt } from "trabecula/utils/common";
 
 /** How episodes are labeled: by their number alone, or with their season's. */
 export const MEDIA_PROGRAM_EPISODE_LABELS = [
-  { label: "EP 104", value: "episode" },
-  { label: "S05E03", value: "season" },
+  { label: "EP ##", value: "episode" },
+  { label: "S##E##", value: "season" },
 ] as const;
 
 export type MediaProgramEpisodeLabels = (typeof MEDIA_PROGRAM_EPISODE_LABELS)[number]["value"];
@@ -801,7 +801,7 @@ export const getSeasonSortKey = (seasonNumber: number | null) => {
   else return seasonNumber;
 };
 
-/** An episode's label, such as EP 104, or S05E03 with its season's number when it has one. */
+/** An episode's label, as EP ##, or S##E## with its season's number when it has one. */
 export const makeEpisodeLabel = (
   episodeNumber: number,
   seasonNumber: number | null,

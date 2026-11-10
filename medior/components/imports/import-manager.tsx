@@ -27,6 +27,12 @@ import { getImportConfigRootPaths } from "medior/store/saved-import-config";
 import { colors, toast } from "medior/utils/client";
 import { Fmt, round } from "medior/utils/common";
 
+/** Fits a file's path, progress message and bar, so every active import's card matches. */
+const ACTIVE_IMPORT_HEIGHT = "5rem";
+
+/** Batches import up to 4 files at once, so the list keeps room for 4 and never resizes. */
+const ACTIVE_IMPORTS_HEIGHT = `calc(4 * ${ACTIVE_IMPORT_HEIGHT} + 3 * 0.5rem)`;
+
 export const ImportManager = Comp(() => {
   const stores = useStores();
   const store = stores.import.manager;
@@ -43,8 +49,6 @@ export const ImportManager = Comp(() => {
     : store.isImporting
       ? colors.custom.blue
       : colors.custom.lightGrey;
-
-  const handleClose = () => store.setIsOpen(false);
 
   const handleConfirmDelete = async () => {
     const res = await store.deleteBatches([...store.search.selectedIds]);
@@ -79,13 +83,13 @@ export const ImportManager = Comp(() => {
 
     handleSavedConfigsIngest({
       folderPaths: getImportConfigRootPaths(stores.import.savedConfigs),
-      store: stores.import.ingester,
+      store: stores.import.editor,
     });
   };
 
   useEffect(() => {
-    if (store.isOpen) stores.import.loadSavedConfigs();
-  }, [store.isOpen]);
+    stores.import.loadSavedConfigs();
+  }, []);
 
   // Batches updating during an import keep the reader's position; only page changes scroll up.
   useEffect(() => {
@@ -94,65 +98,72 @@ export const ImportManager = Comp(() => {
 
   return (
     <>
-      <Modal.Container visible={store.isOpen} onClose={handleClose} width="100%" height="100%">
-        <Modal.Content row dividers={false} overflow="hidden" padding={{ top: "1rem" }}>
-          {store.isReady ? (
-            <>
-              <View column flex={1} minHeight={0} minWidth={0} overflow="hidden" spacing="0.5rem">
-                <Card
-                  flex="none"
-                  width="100%"
-                  padding={{ all: "0.8rem" }}
+      <Modal.Content row dividers={false} overflow="hidden" padding={{ all: 0 }}>
+        {store.isReady ? (
+          <>
+            <View column flex={1} minHeight={0} minWidth={0} overflow="hidden" spacing="0.5rem">
+              <Card
+                flex="none"
+                width="100%"
+                padding={{ all: "0.8rem" }}
+                spacing="0.5rem"
+                header={
+                  <UniformList row flex={1} justify="space-between">
+                    <View row align="center" spacing="0.5rem">
+                      <IconButton
+                        name={store.isPaused ? "PlayArrow" : "Pause"}
+                        iconProps={{ color: statusColor }}
+                        onClick={store.togglePaused}
+                      />
+
+                      <Text fontWeight={500} color={statusColor}>
+                        {store.isPaused ? "Paused" : store.isImporting ? "Importing" : "Inactive"}
+                      </Text>
+                    </View>
+
+                    <View row justify="center" align="center">
+                      <Text preset="title">{"Active Batch"}</Text>
+                    </View>
+
+                    <View row justify="flex-end" />
+                  </UniformList>
+                }
+                headerProps={SEARCH_HEADER_PROPS}
+              >
+                {store.activeBatch && (
+                  <>
+                    <ProgressBar
+                      numerator={store.activeBatch.processedCount}
+                      denominator={store.activeBatch.fileCount}
+                      withText
+                      minWidth="5rem"
+                    />
+
+                    <ProgressBar
+                      numerator={store.bytesCompleted || null}
+                      denominator={store.bytesTotal || null}
+                      numeratorFormatter={Fmt.bytes}
+                      denominatorFormatter={Fmt.bytes}
+                      withText
+                      minWidth="5rem"
+                    />
+                  </>
+                )}
+
+                <View
+                  column
+                  justify={store.activeImports.length ? undefined : "center"}
+                  minHeight={ACTIVE_IMPORTS_HEIGHT}
                   spacing="0.5rem"
-                  header={
-                    <UniformList row flex={1} justify="space-between">
-                      <View row align="center" spacing="0.5rem">
-                        <IconButton
-                          name={store.isPaused ? "PlayArrow" : "Pause"}
-                          iconProps={{ color: statusColor }}
-                          onClick={store.togglePaused}
-                        />
-
-                        <Text fontWeight={500} color={statusColor}>
-                          {store.isPaused ? "Paused" : store.isImporting ? "Importing" : "Inactive"}
-                        </Text>
-                      </View>
-
-                      <View row justify="center" align="center">
-                        <Text preset="title">{"Active Batch"}</Text>
-                      </View>
-
-                      <View row justify="flex-end" />
-                    </UniformList>
-                  }
-                  headerProps={SEARCH_HEADER_PROPS}
                 >
-                  {store.activeBatch && (
-                    <>
-                      <ProgressBar
-                        numerator={store.activeBatch.processedCount}
-                        denominator={store.activeBatch.fileCount}
-                        withText
-                        minWidth="5rem"
-                      />
-
-                      <ProgressBar
-                        numerator={store.bytesCompleted || null}
-                        denominator={store.bytesTotal || null}
-                        numeratorFormatter={Fmt.bytes}
-                        denominatorFormatter={Fmt.bytes}
-                        withText
-                        minWidth="5rem"
-                      />
-                    </>
-                  )}
-
                   {store.activeImports.length ? (
                     store.activeImports.map(({ filePath, progress }) => (
                       // A headerless card lays its body out in a row, so it sizes to the
                       // path's full width unless it may shrink.
                       <Card
                         key={filePath}
+                        justify="center"
+                        height={ACTIVE_IMPORT_HEIGHT}
                         minWidth={0}
                         spacing="0.3rem"
                         bgColor={colors.foregroundCard}
@@ -185,122 +196,116 @@ export const ImportManager = Comp(() => {
                       {"No active import"}
                     </Text>
                   )}
-                </Card>
+                </View>
+              </Card>
 
-                {store.activeBatch && (
-                  <ImportEditor.ImportFolderList folder={store.activeBatch} fill />
+              {store.activeBatch && (
+                <ImportEditor.ImportFolderList folder={store.activeBatch} fill />
+              )}
+            </View>
+
+            <Card
+              flex={1}
+              minHeight={0}
+              minWidth={0}
+              overflow="hidden"
+              padding={{ all: 0 }}
+              header={
+                <UniformList row flex={1} justify="space-between">
+                  <View row align="center" spacing="0.5rem">
+                    <ImportsFilterMenu store={store.search} />
+
+                    {!hasNoSelection && (
+                      <Chip label={`${store.search.selectedIds.length} Selected`} />
+                    )}
+                  </View>
+
+                  <View row justify="center" align="center">
+                    <Text preset="title">{"Search"}</Text>
+                  </View>
+
+                  <View row justify="flex-end" spacing="0.5rem">
+                    <MultiActionButton
+                      name="Refresh"
+                      tooltip="Reprocess Stored Files of Selected Batches"
+                      onClick={handleReprocess}
+                      disabled={hasNoSelection}
+                    />
+
+                    <MultiActionButton
+                      name="Delete"
+                      tooltip="Delete Selected Batches"
+                      onClick={handleDelete}
+                      disabled={hasNoSelection}
+                      iconProps={{
+                        color: hasNoSelection ? colors.custom.grey : colors.custom.red,
+                      }}
+                    />
+
+                    <DeselectAllButton itemLabel="batches" store={store.search} toast={toast} />
+
+                    <SelectAllInQueryButton
+                      itemLabel="batches"
+                      store={store.search}
+                      toast={toast}
+                    />
+                  </View>
+                </UniformList>
+              }
+              headerProps={SEARCH_HEADER_PROPS}
+            >
+              <SearchLoadingOverlay store={store.search} />
+
+              <View
+                column
+                spacing="1rem"
+                flex={1}
+                minHeight={0}
+                overflow="hidden auto"
+                padding={{ all: "0.5rem" }}
+                ref={batchesRef}
+              >
+                {store.search.results?.length ? (
+                  store.search.results.map((batch) => (
+                    <ImportEditor.ImportFolderList
+                      key={batch.id}
+                      folder={batch}
+                      withListItems={false}
+                      collapsible
+                      selectable
+                    />
+                  ))
+                ) : (
+                  <CenteredText text="No Results Found" color={colors.custom.lightGrey} />
                 )}
               </View>
 
-              <Card
-                flex={1}
-                minHeight={0}
-                minWidth={0}
-                overflow="hidden"
-                padding={{ all: 0 }}
-                header={
-                  <UniformList row flex={1} justify="space-between">
-                    <View row align="center" spacing="0.5rem">
-                      <ImportsFilterMenu store={store.search} />
+              <Pagination
+                inline
+                count={store.search.pageCount}
+                page={store.search.page}
+                isLoading={store.search.isPageCountLoading && !store.search.isLoading}
+                onChange={handlePageChange}
+                onFullLoad={handleFullPageLoad}
+                siblingCount={2}
+              />
+            </Card>
+          </>
+        ) : (
+          <CenteredText text="Import history is upgrading in the background. Check Activity for progress or Retry. You can continue browsing your library." />
+        )}
+      </Modal.Content>
 
-                      {!hasNoSelection && (
-                        <Chip label={`${store.search.selectedIds.length} Selected`} />
-                      )}
-                    </View>
+      <Modal.Footer>
+        <Button text="Saved Configs" icon="Settings" onClick={() => setIsConfigsModalOpen(true)} />
 
-                    <View row justify="center" align="center">
-                      <Text preset="title">{"Search"}</Text>
-                    </View>
-
-                    <View row justify="flex-end" spacing="0.5rem">
-                      <MultiActionButton
-                        name="Refresh"
-                        tooltip="Reprocess Stored Files of Selected Batches"
-                        onClick={handleReprocess}
-                        disabled={hasNoSelection}
-                      />
-
-                      <MultiActionButton
-                        name="Delete"
-                        tooltip="Delete Selected Batches"
-                        onClick={handleDelete}
-                        disabled={hasNoSelection}
-                        iconProps={{
-                          color: hasNoSelection ? colors.custom.grey : colors.custom.red,
-                        }}
-                      />
-
-                      <DeselectAllButton itemLabel="batches" store={store.search} toast={toast} />
-
-                      <SelectAllInQueryButton
-                        itemLabel="batches"
-                        store={store.search}
-                        toast={toast}
-                      />
-                    </View>
-                  </UniformList>
-                }
-                headerProps={SEARCH_HEADER_PROPS}
-              >
-                <SearchLoadingOverlay store={store.search} />
-
-                <View
-                  column
-                  spacing="1rem"
-                  flex={1}
-                  minHeight={0}
-                  overflow="hidden auto"
-                  padding={{ all: "0.5rem" }}
-                  ref={batchesRef}
-                >
-                  {store.search.results?.length ? (
-                    store.search.results.map((batch) => (
-                      <ImportEditor.ImportFolderList
-                        key={batch.id}
-                        folder={batch}
-                        withListItems={false}
-                        collapsible
-                        selectable
-                      />
-                    ))
-                  ) : (
-                    <CenteredText text="No Results Found" color={colors.custom.lightGrey} />
-                  )}
-                </View>
-
-                <Pagination
-                  inline
-                  count={store.search.pageCount}
-                  page={store.search.page}
-                  isLoading={store.search.isPageCountLoading && !store.search.isLoading}
-                  onChange={handlePageChange}
-                  onFullLoad={handleFullPageLoad}
-                  siblingCount={2}
-                />
-              </Card>
-            </>
-          ) : (
-            <CenteredText text="Import history is upgrading in the background. Check Activity for progress or Retry. You can continue browsing your library." />
-          )}
-        </Modal.Content>
-
-        <Modal.Footer>
-          <Button
-            text="Saved Configs"
-            icon="Settings"
-            onClick={() => setIsConfigsModalOpen(true)}
-          />
-
-          <Button
-            text="Scan Saved Configs"
-            icon="ManageSearch"
-            onClick={handleScanSavedConfigs}
-            disabled={stores.import.ingester.isOpen}
-          />
-
-          <Button text="Close" icon="Close" onClick={handleClose} />
-        </Modal.Footer>
-      </Modal.Container>
+        <Button
+          text="Scan Saved Configs"
+          icon="ManageSearch"
+          onClick={handleScanSavedConfigs}
+          disabled={stores.import.editor.isOpen}
+        />
+      </Modal.Footer>
 
       {isConfigsModalOpen && (
         <SavedImportConfigsModal onClose={() => setIsConfigsModalOpen(false)} />

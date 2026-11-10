@@ -8,12 +8,12 @@ import {
   NumInput,
   View,
 } from "medior/components";
-import { Ingester, Reingester } from "medior/store";
+import { ImportEditorStore } from "medior/store";
 import { colors, makeClasses } from "medior/utils/client";
 
 export interface ImportOptionsProps {
   scan: () => Promise<void>;
-  store: Ingester | Reingester;
+  store: ImportEditorStore;
 }
 
 export const ImportOptions = Comp(({ scan, store }: ImportOptionsProps) => {

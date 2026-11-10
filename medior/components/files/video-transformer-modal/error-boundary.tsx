@@ -21,13 +21,19 @@ export class MediaTransformerErrorBoundary extends Component<
     console.error("Media Transformer render failed:", error, info.componentStack);
   }
 
+  /** The transformer stays open as a tab, so it renders again when next shown. */
+  close = () => {
+    this.setState({ error: null });
+    this.props.onClose();
+  };
+
   openDevTools = () => getCurrentWindow().webContents.openDevTools();
 
   render() {
     if (!this.state.error) return this.props.children;
 
     return (
-      <Modal.Container onClose={this.props.onClose} width="45rem">
+      <Modal.Container onClose={this.close} width="45rem">
         <Modal.Header>
           <Text preset="title">{"Media Transformer could not be displayed"}</Text>
         </Modal.Header>
@@ -43,7 +49,7 @@ export class MediaTransformerErrorBoundary extends Component<
         <Modal.Footer>
           <Button text="Open DevTools" icon="Code" onClick={this.openDevTools} />
 
-          <Button text="Close" icon="Close" onClick={this.props.onClose} />
+          <Button text="Close" icon="Close" onClick={this.close} />
         </Modal.Footer>
       </Modal.Container>
     );

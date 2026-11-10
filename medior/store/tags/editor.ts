@@ -1,9 +1,9 @@
 import autoBind from "auto-bind";
 import { ListTagRegExOverlapsOutput } from "medior/_generated/server";
 import { computed, reaction } from "mobx";
-import { Model, model, modelAction, modelFlow, prop } from "mobx-keystone";
+import { getRootStore, Model, model, modelAction, modelFlow, prop } from "mobx-keystone";
 import { IconName } from "medior/components";
-import { RootStore } from "medior/store";
+import { HomeView, RootStore } from "medior/store";
 import { Tag } from "medior/store/tags/tag";
 import { asyncAction, CssColor, toast } from "medior/utils/client";
 import {
@@ -41,9 +41,11 @@ export class TagEditorStore extends Model({
   categoryInheritable: prop<boolean>(false).withSetter(),
   categorySortRank: prop<number>(null).withSetter(),
   childTags: prop<Tag[]>(() => []).withSetter(),
+  /** The view the editor opened over, where it waits while another view shows. */
+  homeView: prop<HomeView>(null),
   isDuplicate: prop<boolean>(false).withSetter(),
   isLoading: prop<boolean>(false).withSetter(),
-  isOpen: prop<boolean>(false).withSetter(),
+  isOpen: prop<boolean>(false),
   label: prop<string>(""),
   parentTags: prop<Tag[]>(() => []).withSetter(),
   regExCustom: prop<string>("").withSetter(),
@@ -182,6 +184,17 @@ export class TagEditorStore extends Model({
   setAllRegExTermModes(mode: TagRegExTermSetting) {
     this.pendingLabelMode = mode;
     this.regExTermModes = Object.fromEntries(this.regExTerms.map(({ key }) => [key, mode]));
+  }
+
+  @modelAction
+  setIsOpen(isOpen: boolean) {
+    const stores = getRootStore<RootStore>(this);
+
+    // Asked to open again, the editor shows the view it waits in.
+    if (isOpen && this.isOpen) stores.home.openView(this.homeView);
+    else if (isOpen) this.homeView = stores.home.view;
+
+    this.isOpen = isOpen;
   }
 
   /** A renamed label moves its match mode to its new term. Alias terms keep their own modes. */

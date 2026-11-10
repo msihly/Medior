@@ -52,11 +52,11 @@ export class RootStore extends Model({
     if (isChanged((c) => c.collection.manager.search.sort))
       this.collection.manager.search.setSortValue(config.collection.manager.search.sort);
 
-    if (isChanged((c) => c.file.search.pageSize))
-      this.file.search.setPageSize(config.file.search.pageSize);
+    for (const search of this.file.searchTabs) {
+      if (isChanged((c) => c.file.search.pageSize)) search.setPageSize(config.file.search.pageSize);
 
-    if (isChanged((c) => c.file.search.sort))
-      this.file.search.setSortValue(config.file.search.sort);
+      if (isChanged((c) => c.file.search.sort)) search.setSortValue(config.file.search.sort);
+    }
 
     if (isChanged((c) => c.file.transforms.search.pageSize))
       this.file.videoTransformer.search.setPageSize(config.file.transforms.search.pageSize);
@@ -99,27 +99,20 @@ export class RootStore extends Model({
   }
 
   /* ----------------------------- DYNAMIC GETTERS ---------------------------- */
+  /** Modals covering the window. The drawer's views never do, opening as main window tabs. */
   _getIsBlockingModalOpen() {
     return (
       this.collection?.editor?.isOpen ||
-      this.collection?.manager?.isOpen ||
       this.faceRecog?.isModalOpen ||
-      this.import?.ingester?.isOpen ||
-      this.import?.manager?.isOpen ||
-      this.import?.reingester?.isOpen ||
-      (this.file?.lowerResolution?.isOpen && !this.file?.lowerResolution?.isMinimized) ||
+      this.import?.editor?.isOpen ||
       this.file?.similarity?.isOpen ||
       this.file?.tagsEditor?.isOpen ||
       (this.file?.isRefreshOpen && !this.file?.isRefreshMinimized) ||
-      (this.file?.videoTransformer?.isOpen && !this.file?.videoTransformer?.isMinimized) ||
       this.mediaProgram?.editor?.isOpen ||
-      this.mediaProgram?.manager?.isOpen ||
       this.music?.editor?.isOpen ||
-      this.music?.manager?.isOpen ||
       this.music?.playlistPickerFileIds?.length > 0 ||
       this.tag?.editor?.isOpen ||
-      this.tag?.merger?.isOpen ||
-      (this.tag?.manager?.isOpen && !this.tag?.manager?.isMinimized)
+      this.tag?.merger?.isOpen
     );
   }
 }

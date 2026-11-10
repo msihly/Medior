@@ -1,6 +1,6 @@
 import { app } from "@electron/remote";
 import { BrowserRouter, HashRouter, Route, Routes } from "react-router";
-import { CarouselWindow, HomeWindow, MusicPlayerWindow, SearchWindow, Views } from "medior/views";
+import { CarouselWindow, HomeWindow, MusicPlayerWindow, Views } from "medior/views";
 
 export const App = () => {
   const routes = (
@@ -10,8 +10,6 @@ export const App = () => {
       <Route path="/carousel" element={<CarouselWindow />} />
 
       <Route path="/music-player" element={<MusicPlayerWindow />} />
-
-      <Route path="/search" element={<SearchWindow />} />
     </Routes>
   );
 

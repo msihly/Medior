@@ -1,5 +1,12 @@
 import { useEffect, useState } from "react";
-import { Card, Comp, MinimizedJobs, RepairModal, View, WindowTitleBar } from "medior/components";
+import {
+  Comp,
+  MinimizedJobs,
+  RepairModal,
+  VideoTransformerModal,
+  View,
+  WindowTitleBar,
+} from "medior/components";
 import { useStores } from "medior/store";
 import { makeClasses } from "medior/utils/client";
 import { useSockets, Views } from "./common";
@@ -24,7 +31,7 @@ export const HMR = Comp(() => {
         <WindowTitleBar title="Medior" />
 
         <View column flex={1} overflow="hidden" padding={{ all: "0.5rem" }} position="relative">
-          <Card height="100%" width="100%" />
+          {stores.file.videoTransformer.isOpen && <VideoTransformerModal />}
 
           <Views.CollectionModals />
 

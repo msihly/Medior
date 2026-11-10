@@ -3,7 +3,7 @@ import Color from "color";
 import { TagSchema } from "medior/_generated/server";
 import { Comp, ContextMenu, FileBase, getRatingMeta, Icon, Text, View } from "medior/components";
 import { tagToOption, useStores } from "medior/store";
-import { colors, getContrastText, makeClasses, openSearchWindow, toast } from "medior/utils/client";
+import { colors, getContrastText, makeClasses, openHomeView, toast } from "medior/utils/client";
 import { Fmt } from "medior/utils/common";
 
 export interface TagCardProps {
@@ -48,7 +48,7 @@ export const TagCard = Comp(({ tag }: TagCardProps) => {
 
   const handleRefresh = () => store.refreshTag({ id: tag.id });
 
-  const handleSearch = () => openSearchWindow({ tagIds: [tag.id] });
+  const handleSearch = () => openHomeView({ tagIds: [tag.id], view: "files" });
 
   return (
     <ContextMenu

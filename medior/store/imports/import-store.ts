@@ -10,13 +10,13 @@ import {
   SavedImportConfig,
   SavedImportConfigSearch,
 } from "../saved-import-config";
-import { ImportManager, Ingester, Reingester } from ".";
+import { ImportEditorStore, ImportManager } from ".";
 
 @model("medior/ImportStore")
 export class ImportStore extends Model({
-  ingester: prop<Ingester>(() => new Ingester({})),
+  /** The Ingester, which also reingests library files. */
+  editor: prop<ImportEditorStore>(() => new ImportEditorStore({})),
   manager: prop<ImportManager>(() => new ImportManager({})),
-  reingester: prop<Reingester>(() => new Reingester({})),
   savedConfigs: prop<SavedImportConfig[]>(() => []).withSetter(),
   savedConfigSearch: prop<SavedImportConfigSearch>(() => new SavedImportConfigSearch({})),
 }) {

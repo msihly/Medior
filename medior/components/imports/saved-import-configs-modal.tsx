@@ -14,14 +14,14 @@ import {
   View,
 } from "medior/components";
 import { formatDate } from "medior/components/drawer/activity-meta";
-import { Ingester, Reingester, SavedImportConfig, useStores } from "medior/store";
+import { ImportEditorStore, SavedImportConfig, useStores } from "medior/store";
 import { normalizeImportConfigPath } from "medior/store/saved-import-config";
 import { colors, toast } from "medior/utils/client";
 import { SavedImportConfigsFilterMenu } from "./saved-import-configs-filter-menu";
 
 export interface SavedImportConfigsModalProps {
   onClose: () => void;
-  store?: Ingester | Reingester;
+  store?: ImportEditorStore;
 }
 
 export const SavedImportConfigsModal = Comp(
@@ -325,16 +325,16 @@ export const SavedImportConfigsModal = Comp(
   },
 );
 
-const getEditorRootPath = (store: Ingester | Reingester) => {
+const getEditorRootPath = (store: ImportEditorStore) => {
   const pathParts = store?.rootFolderPath?.split(path.sep) ?? [];
 
   return pathParts.slice(0, Math.min(store.rootFolderIndex + 1, pathParts.length)).join(path.sep);
 };
 
-const getEditorConfigPath = (store: Ingester | Reingester) =>
+const getEditorConfigPath = (store: ImportEditorStore) =>
   store?.rootFolderPath ? path.join(getEditorRootPath(store), "*") : "";
 
-const getDefaultConfigLabel = (store: Ingester | Reingester) =>
+const getDefaultConfigLabel = (store: ImportEditorStore) =>
   store?.rootFolderPath ? path.basename(getEditorRootPath(store)) || getEditorRootPath(store) : "";
 
 const getSaveFolderPath = (folderPath: string) => {

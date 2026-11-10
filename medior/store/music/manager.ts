@@ -1,6 +1,6 @@
 import autoBind from "auto-bind";
 import { computed } from "mobx";
-import { Model, model, modelAction, prop } from "mobx-keystone";
+import { Model, model, prop } from "mobx-keystone";
 import { getConfig } from "medior/utils/server";
 import { MusicAlbumSearch, MusicArtistSearch, MusicPlaylistSearch, MusicTrackSearch } from ".";
 
@@ -11,7 +11,7 @@ export class MusicManagerStore extends Model({
   albums: prop<MusicAlbumSearch>(() => new MusicAlbumSearch({})),
   artists: prop<MusicArtistSearch>(() => new MusicArtistSearch({})),
   isLoading: prop<boolean>(false).withSetter(),
-  isOpen: prop<boolean>(false),
+  isOpen: prop<boolean>(false).withSetter(),
   playlists: prop<MusicPlaylistSearch>(() => new MusicPlaylistSearch({})),
   tab: prop<MusicManagerTab>("tracks").withSetter(),
   tracks: prop<MusicTrackSearch>(
@@ -25,16 +25,6 @@ export class MusicManagerStore extends Model({
 }) {
   onInit() {
     autoBind(this);
-  }
-
-  /* ---------------------------- STANDARD ACTIONS ---------------------------- */
-  @modelAction
-  setIsOpen(isOpen: boolean) {
-    this.isOpen = isOpen;
-    this.albums.reset();
-    this.artists.reset();
-    this.playlists.reset();
-    this.tracks.reset();
   }
 
   /* --------------------------------- GETTERS -------------------------------- */

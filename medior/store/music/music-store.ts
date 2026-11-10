@@ -3,6 +3,7 @@ import autoBind from "auto-bind";
 import { reaction } from "mobx";
 import { Model, model, modelFlow, prop } from "mobx-keystone";
 import { FileSchema } from "medior/server/database";
+import { RootStore } from "medior/store";
 import { asyncAction, openWithPlayer, toast, writePlaylist } from "medior/utils/client";
 import { chunkArray, getMusicCountLabel, getMusicTrackTitle } from "medior/utils/common";
 import { getConfig, rpc } from "medior/utils/server";
@@ -18,17 +19,19 @@ export class MusicStore extends Model({
   /** Files being added to a playlist chosen in the playlist picker, which shows while set. */
   playlistPickerFileIds: prop<string[]>(() => []).withSetter(),
 }) {
-  onInit() {
-    autoBind(this);
-
-    // Closing the music view while a track plays, or loads to play, moves it into the compact
+  onAttachedToRootStore(stores: RootStore) {
+    // Leaving the music view while a track plays, or loads to play, moves it into the compact
     // player window.
-    reaction(
-      () => this.manager.isOpen || this.editor.isOpen,
-      (isOpen) => {
-        if (!isOpen && this.player.isActive) this.player.popOut();
+    return reaction(
+      () => stores.home.view === "music",
+      (isShown) => {
+        if (!isShown && this.player.isActive) this.player.popOut();
       },
     );
+  }
+
+  onInit() {
+    autoBind(this);
   }
 
   /* ------------------------------ ASYNC ACTIONS ----------------------------- */

@@ -1,6 +1,6 @@
 import autoBind from "auto-bind";
 import { ObjectId } from "bson";
-import { computed, reaction } from "mobx";
+import { computed, reaction, when } from "mobx";
 import { Model, model, modelAction, modelFlow, prop } from "mobx-keystone";
 import type { ImportStatus } from "medior/server/database";
 import { asyncAction } from "medior/utils/client";
@@ -42,21 +42,13 @@ export class ImportManager extends Model({
   onInit() {
     autoBind(this);
 
-    reaction(
+    // The manager stays open as a tab once opened, following the importer from then on.
+    when(
       () => this.isOpen,
       () => {
-        if (!this.isOpen) {
-          clearTimeout(this.statusCountsTimer);
-          this.statusCountsTimer = null;
-          this.queuedStatusCountIds.clear();
-          this.statusCountsRevisions.clear();
-          this.setIsLoading(true);
-          this.search.reset();
-        } else {
-          this.setIsLoading(false);
-          this.setIsReady(false);
-          this.getImporterStatus();
-        }
+        this.setIsLoading(false);
+        this.setIsReady(false);
+        this.getImporterStatus();
       },
     );
 

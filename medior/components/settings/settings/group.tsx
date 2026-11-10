@@ -27,7 +27,9 @@ export const Group = ({ children, description, rightNode, title }: GroupProps) =
         {rightNode}
       </View>
 
-      {children}
+      <View column spacing="0.5rem" padding={{ left: "1rem" }}>
+        {children}
+      </View>
     </View>
   );
 };

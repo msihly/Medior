@@ -1,12 +1,14 @@
 import { useRef, useState } from "react";
 import {
   Button,
+  Card,
   CardGrid,
   Comp,
   FileFilter,
   HomeMultiActionBar,
   Modal,
   Pagination,
+  SEARCH_HEADER_PROPS,
   SearchLoadingOverlay,
   Text,
 } from "medior/components";
@@ -63,31 +65,39 @@ export const SimilarityModal = Comp(() => {
       </Modal.Header>
 
       <Modal.Content dividers={false} overflow="hidden" padding={{ all: 0 }} spacing={0}>
-        <HomeMultiActionBar isHome store={store.search} />
-
-        <CardGrid
-          padding={{ all: "0.3rem" }}
-          ref={filesRef}
-          cards={store.search.results.map((file) => (
-            <FileCard
-              key={file.id}
-              file={file}
-              store={store.search}
-              carouselFileIds={store.search.ids}
-              carouselStartTimes={store.carouselStartTimes}
-              similarity={store.getCandidate(file.id)}
-            />
-          ))}
+        <Card
+          flex={1}
+          height="100%"
+          padding={{ all: 0 }}
+          overflow="hidden"
           bgColor={colors.background}
-          noResultsText={isLoading ? "" : store.error || "No similar files found"}
-        />
+          headerProps={SEARCH_HEADER_PROPS}
+          header={<HomeMultiActionBar store={store.search} />}
+        >
+          <CardGrid
+            padding={{ all: "0.3rem" }}
+            ref={filesRef}
+            cards={store.search.results.map((file) => (
+              <FileCard
+                key={file.id}
+                file={file}
+                store={store.search}
+                carouselFileIds={store.search.ids}
+                carouselStartTimes={store.carouselStartTimes}
+                similarity={store.getCandidate(file.id)}
+              />
+            ))}
+            bgColor={colors.background}
+            noResultsText={isLoading ? "" : store.error || "No similar files found"}
+          />
 
-        <Pagination
-          inline
-          count={store.search.pageCount}
-          page={store.search.page}
-          onChange={handlePageChange}
-        />
+          <Pagination
+            inline
+            count={store.search.pageCount}
+            page={store.search.page}
+            onChange={handlePageChange}
+          />
+        </Card>
       </Modal.Content>
 
       <Modal.Footer>

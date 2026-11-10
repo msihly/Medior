@@ -75,7 +75,7 @@ export const CustomSlider = (props: CustomSliderProps) => {
 
 const useClasses = makeClasses({
   slider: {
-    marginBottom: "0 !important",
+    marginBottom: 0,
   },
   sliderContainer: {
     backgroundColor: "rgb(0, 0, 0, 0.5)",

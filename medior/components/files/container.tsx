@@ -5,21 +5,18 @@ import { colors } from "medior/utils/client";
 import { useHotkeys } from "medior/views";
 import { FileCard } from ".";
 
-interface FileContainerProps {
-  view: "home" | "search";
-}
-
-export const FileContainer = Comp(({ view }: FileContainerProps) => {
+export const FileContainer = Comp(() => {
   const stores = useStores();
-  const store = stores.file.search;
+  const store = stores.file.shownSearch;
 
   const filesRef = useRef<HTMLDivElement>(null);
 
-  const { handleKeyPress } = useHotkeys({ view });
+  const { handleKeyPress } = useHotkeys({ view: "home" });
 
+  // Search tabs share the grid, so each starts at the top when shown.
   useEffect(() => {
     scrollToTop();
-  }, [store.page, store.pageCount]);
+  }, [store, store.page, store.pageCount]);
 
   useEffect(() => {
     if (!store.isLoading && !store.isPageCountLoading && store.page > Math.max(store.pageCount, 1))

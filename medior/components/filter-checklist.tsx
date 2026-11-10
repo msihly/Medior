@@ -1,11 +1,13 @@
 import { ReactNode } from "react";
 import { Checkbox, Comp, View } from "medior/components";
+import { CssColor } from "medior/utils/client";
 
 export interface FilterChecklistProps {
   /** Shown under the options, such as a related filter. */
   children?: ReactNode;
   label: string;
-  options: { label: string; value: string }[];
+  /** Each option's checkbox takes its color, such as a status's chip color. */
+  options: { color?: CssColor; label: string; value: string }[];
   selected: string[];
   setSelected: (selected: string[]) => void;
 }
@@ -41,6 +43,7 @@ export const FilterChecklist = Comp(
               label={option.label}
               checked={selected.includes(option.value)}
               setChecked={(checked) => handleChecked(option.value, checked)}
+              color={option.color}
               flex="none"
             />
           ))}

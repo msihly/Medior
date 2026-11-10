@@ -3,7 +3,7 @@ import { FileSearch, useStores } from "medior/store";
 
 export const SelectedFilesTooltip = Comp(({ store: suppliedStore }: { store?: FileSearch }) => {
   const stores = useStores();
-  const store = suppliedStore ?? stores.file.search;
+  const store = suppliedStore ?? stores.file.shownSearch;
 
   const { fileInfo, loadFileInfo } = useFileInfo();
 

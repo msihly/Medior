@@ -1,8 +1,16 @@
 import autoBind from "auto-bind";
 import { computed } from "mobx";
-import { Model, model, modelAction, ModelCreationData, modelFlow, prop } from "mobx-keystone";
+import {
+  getRootStore,
+  Model,
+  model,
+  modelAction,
+  ModelCreationData,
+  modelFlow,
+  prop,
+} from "mobx-keystone";
 import { SortMenuProps } from "medior/components";
-import { File, FileSearch, Tag } from "medior/store";
+import { File, FileSearch, HomeView, RootStore, Tag } from "medior/store";
 import { asyncAction, derefMobx, toast } from "medior/utils/client";
 import { isDeepEqual, moveSelectedItems } from "medior/utils/common";
 import { getConfig, rpc } from "medior/utils/server";
@@ -16,6 +24,8 @@ export class CollectionEditor extends Model({
     () => new FileSearch({ pageSize: getConfig().collection.editor.fileSearch.pageSize }),
   ),
   hasUnsavedChanges: prop<boolean>(false).withSetter(),
+  /** The view the editor opened over, where it waits while another view shows. */
+  homeView: prop<HomeView>(null),
   isLoading: prop<boolean>(false).withSetter(),
   isOpen: prop<boolean>(false),
   isSaving: prop<boolean>(false).withSetter(),
@@ -56,6 +66,12 @@ export class CollectionEditor extends Model({
 
   @modelAction
   setIsOpen(isOpen: boolean) {
+    const stores = getRootStore<RootStore>(this);
+
+    // Asked to open again, the editor shows the view it waits in.
+    if (isOpen && this.isOpen) stores.home.openView(this.homeView);
+    else if (isOpen) this.homeView = stores.home.view;
+
     this.cancelLoad();
     this.isOpen = isOpen;
 

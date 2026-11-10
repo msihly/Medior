@@ -383,8 +383,9 @@ const useClasses = makeClasses((props: ClassesProps) => ({
     "& .MuiAutocomplete-inputRoot": {
       justifyContent: props.center ? "center" : undefined,
     },
-    "& .MuiAutocomplete-input": {
-      minWidth: "0 !important",
+    // Matches MUI's selector for its 30px minimum, which this later rule then overrides.
+    "& .MuiAutocomplete-inputRoot .MuiAutocomplete-input": {
+      minWidth: 0,
     },
   },
   listbox: {

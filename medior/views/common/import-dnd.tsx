@@ -34,7 +34,7 @@ export const ImportDnD = Comp(
           path: electron.webUtils.getPathForFile(file),
           type: file.type,
         })),
-        store: stores.import.ingester,
+        store: stores.import.editor,
       });
     };
 

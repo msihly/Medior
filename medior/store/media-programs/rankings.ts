@@ -84,6 +84,8 @@ export class MediaProgramRankingStore extends Model({
       }),
   ),
 }) {
+  /** The order as last searched or saved, which discarding the moves since restores. */
+  private baseRankedIds: string[] = [];
   private loadRevision = 0;
   /** The filters the shown order was searched with, saved along with it. */
   private searchedProps: Record<string, any> = null;
@@ -106,6 +108,7 @@ export class MediaProgramRankingStore extends Model({
     const removedIds = new Set(ids);
     if (!this.rankedIds.some((id) => removedIds.has(id))) return;
 
+    this.baseRankedIds = this.baseRankedIds.filter((id) => !removedIds.has(id));
     this.rankedIds = this.rankedIds.filter((id) => !removedIds.has(id));
     this.search.setIds([...this.rankedIds]);
   }
@@ -124,6 +127,7 @@ export class MediaProgramRankingStore extends Model({
     this.isExportOpen = false;
     this.isReversed = false;
     this.hasUnsavedChanges = false;
+    this.baseRankedIds = [];
     this.rankedIds = [];
     this.rankedSavedSearchId = null;
     this.searchedProps = null;
@@ -135,6 +139,26 @@ export class MediaProgramRankingStore extends Model({
   }
 
   /* ------------------------------ ASYNC ACTIONS ----------------------------- */
+  /** Restores the order as last searched or saved, dropping the moves since. */
+  @modelFlow
+  discardOrder = asyncAction(async () => {
+    const revision = ++this.loadRevision;
+
+    this.setIsLoading(true);
+
+    try {
+      this.setRankedIds([...this.baseRankedIds]);
+      this.search.setIds([...this.baseRankedIds]);
+      this.setHasUnsavedChanges(false);
+
+      // The page's cached filters hold the moved order.
+      const pageRes = await this.search.loadFiltered({ noCache: true });
+      if (revision === this.loadRevision && !pageRes.success) throw new Error(pageRes.error);
+    } finally {
+      if (revision === this.loadRevision) this.setIsLoading(false);
+    }
+  });
+
   /** Loads the top programs and their posters for an export. */
   @modelFlow
   loadExportPrograms = asyncAction(async (count: number) => {
@@ -201,6 +225,7 @@ export class MediaProgramRankingStore extends Model({
         if (sortValue.isDesc) rankedIds.reverse();
       }
 
+      this.baseRankedIds = rankedIds;
       this.searchedProps = searchProps;
       this.setIsReversed(isCustom && sortValue.isDesc);
       this.setRankedSavedSearchId(savedSearchId);
@@ -302,6 +327,7 @@ export class MediaProgramRankingStore extends Model({
       const loaded = await this.filter.loadSavedSearches();
       if (!loaded.success) throw new Error(loaded.error);
 
+      this.baseRankedIds = [...this.rankedIds];
       this.setHasUnsavedChanges(false);
     } finally {
       this.setIsSaving(false);

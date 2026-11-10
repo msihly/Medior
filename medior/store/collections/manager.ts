@@ -5,7 +5,8 @@ import { asyncAction } from "medior/utils/client";
 import { rpc } from "medior/utils/server";
 import { FileCollection, FileCollectionSearch } from ".";
 
-export const SELECTED_FILES_PAGE_SIZE = 3;
+/** One full-width row of the Selected Files card grid. */
+export const SELECTED_FILES_PAGE_SIZE = 6;
 
 @model("medior/CollectionManager")
 export class CollectionManager extends Model({
@@ -13,7 +14,7 @@ export class CollectionManager extends Model({
   currentCollectionsPage: prop<number>(1).withSetter(),
   currentCollectionsPageCount: prop<number>(0).withSetter(),
   isLoading: prop<boolean>(false).withSetter(),
-  isOpen: prop<boolean>(false),
+  isOpen: prop<boolean>(false).withSetter(),
   isRelatedQueueOpen: prop<boolean>(false).withSetter(),
   isTriagerOpen: prop<boolean>(false).withSetter(),
   search: prop<FileCollectionSearch>(() => new FileCollectionSearch({})),
@@ -28,28 +29,28 @@ export class CollectionManager extends Model({
   }
 
   /* ---------------------------- STANDARD ACTIONS ---------------------------- */
+  /**
+   * Shows the manager picking collections for the given files, or copying collections into a
+   * program's seasons, or only browsing them without either.
+   */
   @modelAction
-  setIsOpen(isOpen: boolean) {
+  open({
+    fileIds = [],
+    seasonsProgramId = null,
+  }: { fileIds?: string[]; seasonsProgramId?: string } = {}) {
     const stores = getRootStore<RootStore>(this);
+    const editor = stores.collection.editor;
 
-    this.isOpen = isOpen;
+    // Picking collections for files closes a collection editor that would cover the manager.
+    if (fileIds.length && editor.isOpen && editor.homeView === "collections")
+      editor.setIsOpen(false);
 
-    if (isOpen) stores.collection.editor.setIsOpen(false);
-    else {
-      this.isRelatedQueueOpen = false;
-      this.isTriagerOpen = false;
-    }
+    this.seasonsProgramId = seasonsProgramId;
 
-    this.search.reset();
-    this.currentCollectionsPage = 1;
-    this.currentCollectionsPageCount = 0;
-    this.selectedFilesPage = 1;
+    // Picked files reload each time, while browsing keeps the manager's page.
+    if (fileIds.length || this.selectedFileIds.length) this.selectedFileIds = fileIds;
 
-    if (!isOpen) {
-      this.seasonsProgramId = null;
-      this.selectedFileIds = [];
-      this.selectedFiles = [];
-    }
+    stores.home.openView("collections");
   }
 
   /* ------------------------------ ASYNC ACTIONS ----------------------------- */

@@ -76,7 +76,7 @@ const HOTKEY_TABS: HotkeyTab[] = [
       ...getRatingFields("home"),
       { configKey: "hotkeys.home.selectAll", label: "Select All in View" },
     ],
-    label: "Home",
+    label: "Files",
   },
   {
     fields: [
@@ -91,19 +91,6 @@ const HOTKEY_TABS: HotkeyTab[] = [
       { configKey: "hotkeys.music.selectAll", label: "Select All in View" },
     ],
     label: "Music",
-  },
-  {
-    fields: [
-      { configKey: "hotkeys.search.deleteFiles", label: "Delete Files" },
-      { configKey: "hotkeys.search.detectFaces", label: "Detect Faces" },
-      { configKey: "hotkeys.search.editTags", label: "Edit Tags" },
-      { configKey: "hotkeys.search.fileInfo", label: "File Info" },
-      { configKey: "hotkeys.search.nextFile", label: "Next File" },
-      { configKey: "hotkeys.search.previousFile", label: "Previous File" },
-      ...getRatingFields("search"),
-      { configKey: "hotkeys.search.selectAll", label: "Select All in View" },
-    ],
-    label: "Search",
   },
   {
     fields: [

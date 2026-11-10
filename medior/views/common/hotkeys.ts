@@ -8,7 +8,7 @@ export interface UseHotkeysProps {
   embedded?: boolean;
   rootRef?: MutableRefObject<HTMLElement>;
   videoRef?: MutableRefObject<HTMLVideoElement>;
-  view: "carousel" | "collectionEditor" | "home" | "search";
+  view: "carousel" | "collectionEditor" | "home";
 }
 
 export const useHotkeys = ({ embedded = false, rootRef, videoRef, view }: UseHotkeysProps) => {
@@ -28,7 +28,6 @@ export const useHotkeys = ({ embedded = false, rootRef, videoRef, view }: UseHot
     const isCarouselModalOpen =
       view === "carousel" &&
       (!rootRef?.current?.contains(event.target as Node) ||
-        (stores.tag.manager.isOpen && !stores.tag.manager.isMinimized) ||
         stores.tag.manager.isMultiTagEditorOpen ||
         (!embedded &&
           (stores._getIsBlockingModalOpen() ||
@@ -48,7 +47,7 @@ export const useHotkeys = ({ embedded = false, rootRef, videoRef, view }: UseHot
       return;
 
     const searchStore =
-      view === "collectionEditor" ? stores.collection.editor.search : stores.file.search;
+      view === "collectionEditor" ? stores.collection.editor.search : stores.file.shownSearch;
 
     const fileIds = view === "carousel" ? [store.activeFileId] : [...searchStore.selectedIds];
 
@@ -185,7 +184,7 @@ export const useHotkeys = ({ embedded = false, rootRef, videoRef, view }: UseHot
   const selectFileByArrowKey = (
     isLeft: boolean,
     selectedId: string,
-    searchStore: typeof stores.file.search,
+    searchStore: typeof stores.file.shownSearch,
   ) => {
     if (searchStore.results.length) {
       const indexOfSelected = searchStore.results.findIndex((file) => file.id === selectedId);

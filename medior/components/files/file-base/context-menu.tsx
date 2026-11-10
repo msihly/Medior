@@ -13,6 +13,7 @@ import { FileCollectionSearch, FileSearch, FileTransformSearch, useStores } from
 import {
   colors,
   copyToClipboard,
+  openHomeView,
   openWithPlayer,
   toast,
   useCancellableLoad,
@@ -61,10 +62,9 @@ export const ContextMenu = Comp(
 
     const handleAddToPlaylist = () => stores.music.setPlaylistPickerFileIds(getActionFileIds());
 
-    const handleCollections = () => {
-      stores.collection.manager.setSelectedFileIds(getActionFileIds());
-      stores.collection.manager.setIsOpen(true);
-    };
+    // Carousels share this menu, so the drawer's views it opens show in the main window.
+    const handleCollections = () =>
+      openHomeView({ fileIds: getActionFileIds(), view: "collections" });
 
     const handleDelete = () => fileStore.confirmDeleteFiles(getActionFileIds());
 
@@ -75,23 +75,26 @@ export const ContextMenu = Comp(
 
     const handleRefresh = () => fileStore.refreshFiles({ ids: [file.id] });
 
-    const handleReencode = () => fileStore.openVideoTransformer([file.id], "reencode");
+    const handleReencode = () =>
+      openHomeView({ fileIds: [file.id], fnType: "reencode", view: "transformer" });
 
-    const handleRemux = () => fileStore.openVideoTransformer([file.id], "remux");
+    const handleRemux = () =>
+      openHomeView({ fileIds: [file.id], fnType: "remux", view: "transformer" });
 
     const handleSimilarity = () => fileStore.similarity.open(file.id);
 
-    const handleSplice = (timeline: FileSchema["timestamps"][number]) => {
-      fileStore.videoTransformer.setTimestampPairs(
-        [...timeline.pairs]
+    const handleSplice = (timeline: FileSchema["timestamps"][number]) =>
+      openHomeView({
+        fileIds: [file.id],
+        fnType: "splice",
+        timestampPairs: [...timeline.pairs]
           .sort((a, b) => a.order - b.order)
           .map((pair) => [
             durationToSeconds(pair.startDuration),
             durationToSeconds(pair.endDuration),
           ]),
-      );
-      fileStore.openVideoTransformer([file.id], "splice");
-    };
+        view: "transformer",
+      });
 
     const handleUnarchive = () => fileStore.unarchiveFiles({ fileIds: [file.id] });
 
@@ -253,7 +256,7 @@ export const ContextMenu = Comp(
                   })),
                 }
               : null,
-            fileStore.search.isArchived
+            fileStore.shownSearch.isArchived
               ? {
                   color: colors.custom.green,
                   icon: "Unarchive",

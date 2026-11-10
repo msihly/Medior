@@ -8,6 +8,7 @@ import {
   ConfirmModal,
   getWatchStatusMeta,
   ListItem,
+  LoadingOverlay,
   MediaProgramCard,
   MediaProgramFilterMenu,
   MediaProgramRankingExportModal,
@@ -36,21 +37,14 @@ export const MediaProgramManager = Comp(() => {
 
   const [isConfirmDiscardOpen, setIsConfirmDiscardOpen] = useState(false);
 
-  const close = async () => {
-    if (rankings.isOpen) rankings.setIsOpen(false);
+  const discardOrder = async () => {
+    const res = await rankings.discardOrder();
+    if (!res.success) toast.error(res.error);
 
-    store.search.cancelLoad();
-    store.setIsOpen(false);
-
-    return true;
+    return res.success;
   };
 
-  const handleClose = () => {
-    if (store.isLoading || rankings.isSaving) return;
-
-    if (rankings.hasUnsavedChanges) setIsConfirmDiscardOpen(true);
-    else close();
-  };
+  const handleCancel = () => setIsConfirmDiscardOpen(true);
 
   const handleExport = () => rankings.setIsExportOpen(true);
 
@@ -81,26 +75,24 @@ export const MediaProgramManager = Comp(() => {
   };
 
   return (
-    <Modal.Container
-      isLoading={store.isLoading || rankings.isSaving}
-      onClose={handleClose}
-      height="100%"
-      width="100%"
-    >
+    <>
+      <LoadingOverlay isLoading={store.isLoading || rankings.isSaving} />
+
       <Modal.Content dividers={false} overflow="hidden" padding={{ all: 0 }}>
         {store.isRankingsView ? <MediaProgramRankings /> : <ProgramsView />}
       </Modal.Content>
 
       <Modal.Footer>
-        <Button
-          text={rankings.hasUnsavedChanges ? "Cancel" : "Close"}
-          icon="Close"
-          onClick={handleClose}
-          colorOnHover={colors.custom.red}
-        />
-
         {store.isRankingsView ? (
           <>
+            <Button
+              text="Cancel"
+              icon="Close"
+              onClick={handleCancel}
+              disabled={!rankings.hasUnsavedChanges || rankings.isLoading}
+              colorOnHover={colors.custom.red}
+            />
+
             <Button
               text="Export"
               icon="IosShare"
@@ -130,15 +122,15 @@ export const MediaProgramManager = Comp(() => {
           subText="Are you sure you want to discard the unsaved order?"
           confirmText="Discard"
           setVisible={setIsConfirmDiscardOpen}
-          onConfirm={close}
+          onConfirm={discardOrder}
         />
       )}
-    </Modal.Container>
+    </>
   );
 });
 
 /**
- * Switches the Media Programs modal between browsing and ranking. The rankings load when first
+ * Switches the Media Programs view between browsing and ranking. The rankings load when first
  * shown and keep their unsaved order while the programs are.
  */
 export const MediaProgramRankingsToggle = Comp(() => {
@@ -163,7 +155,9 @@ export const MediaProgramRankingsToggle = Comp(() => {
       text="Rankings"
       icon="EmojiEvents"
       onClick={handleToggle}
-      color={store.isRankingsView ? colors.custom.purple : undefined}
+      color={store.isRankingsView ? colors.control : "transparent"}
+      colorOnHover={colors.control}
+      textColor={store.isRankingsView ? colors.custom.white : colors.custom.lightGrey}
     />
   );
 });
@@ -184,7 +178,7 @@ const ProgramsView = Comp(() => {
   const page = store.search.page;
   const pageCount = store.search.pageCount;
 
-  // Opening the modal starts on the first page; returning from the rankings keeps the page.
+  // Opening the view starts on the first page; returning from the rankings keeps the page.
   useEffect(() => {
     handlePageChange(page);
   }, []);

@@ -59,7 +59,7 @@ export const ReencodeCandidates = Comp(() => {
       const saved = await settings.save();
       if (!saved.success) return toast.error(saved.error);
 
-      if (!types.length) toast.success("Stopped adding re-encodes");
+      if (!types.length) toast.success("Stopped auto-queueing re-encodes");
       else {
         const res = await store.queueReencodeCandidates(types);
         if (!res.success) return toast.error(res.error);
@@ -84,7 +84,7 @@ export const ReencodeCandidates = Comp(() => {
   return (
     <>
       <Button
-        text="Add Re-encodes"
+        text="Auto-Queue Re-encodes"
         icon="PlaylistAdd"
         onClick={handleOpen}
         disabled={store.isUpdating}
@@ -112,7 +112,7 @@ export const ReencodeCandidates = Comp(() => {
           />
 
           <Modal.Header>
-            <Text preset="title">{"Add Re-encodes"}</Text>
+            <Text preset="title">{"Auto-Queue Re-encodes"}</Text>
           </Modal.Header>
 
           <Modal.Content dividers={false}>

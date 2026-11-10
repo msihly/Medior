@@ -2,9 +2,18 @@ import fs from "fs/promises";
 import path from "path";
 import autoBind from "auto-bind";
 import { computed, reaction } from "mobx";
-import { Model, model, modelAction, ModelCreationData, modelFlow, prop } from "mobx-keystone";
+import {
+  getRootStore,
+  Model,
+  model,
+  modelAction,
+  ModelCreationData,
+  modelFlow,
+  prop,
+} from "mobx-keystone";
 import { extendFileName } from "trabecula/utils/server";
 import { FlatFolder, TagToUpsert } from "medior/components";
+import { HomeView, RootStore } from "medior/store";
 import { asyncAction, derefMobx } from "medior/utils/client";
 import {
   AudioFileTags,
@@ -18,11 +27,13 @@ import {
   Fmt,
   ImportMusicPreview,
   makeSeasonTitle,
+  MediaProgramImport,
   MediaProgramPlan,
   mergeTagDefinitions,
   parseFileMusic,
   PromiseQueue,
   sleep,
+  sumArray,
 } from "medior/utils/common";
 import {
   getConfig,
@@ -32,8 +43,12 @@ import {
   rpc,
   sortByStoredNtfsIdentity,
 } from "medior/utils/server";
+import { getCommonSourceFolder } from "medior/utils/server/source-folders";
 import { ImportEditorOptions } from "./editor-options";
 import { FileImport } from "./file-import";
+
+/** The editor imports new files, or imports library files again. */
+export type ImportEditorMode = "ingest" | "reingest";
 
 export interface Sidecar extends FileSidecar {
   tags?: TagToUpsert[];
@@ -76,11 +91,15 @@ const getValidIds = (ids: unknown): string[] => (Array.isArray(ids) ? ids.filter
 
 @model("medior/ImportEditorStore")
 export class ImportEditorStore extends Model({
+  /** The library files a reingest imports again. */
+  fileIds: prop<string[]>(() => []).withSetter(),
   flatTagsToUpsert: prop<TagToUpsert[]>(() => []).withSetter(),
   folderPage: prop<number>(0),
   folderPageSize: prop<number>(IMPORT_FOLDER_PAGE_SIZE),
   folderTotalCount: prop<number>(0),
   hasChangesSinceLastScan: prop<boolean>(false).withSetter(),
+  /** The view the editor opened over, where it waits while another view shows. */
+  homeView: prop<HomeView>(null),
   importCount: prop<number>(0),
   importSize: prop<number>(0),
   ingestCancelToken: prop<number>(0),
@@ -90,12 +109,15 @@ export class ImportEditorStore extends Model({
   isConfirmDiscardOpen: prop<boolean>(false).withSetter(),
   isInitDone: prop<boolean>(false).withSetter(),
   isLoading: prop<boolean>(true).withSetter(),
-  isOpen: prop<boolean>(false).withSetter(),
+  isOpen: prop<boolean>(false),
   isSaving: prop<boolean>(false).withSetter(),
   mediaPrograms: prop<MediaProgramPlan[]>(() => []).withSetter(),
+  mode: prop<ImportEditorMode>("ingest"),
   options: prop<ImportEditorOptions>(() => new ImportEditorOptions({})),
   rootFolderIndex: prop<number>(0).withSetter(),
   rootFolderPath: prop<string>("").withSetter(),
+  /** Saved config folders that open in turn after this ingest. */
+  savedConfigFolderPaths: prop<string[]>(() => []).withSetter(),
   saveStatus: prop<string>("").withSetter(),
   /** The root level the import started from, kept when a saved config moves the root above it. */
   sourceRootIndex: prop<number>(0).withSetter(),
@@ -209,9 +231,22 @@ export class ImportEditorStore extends Model({
   }
 
   @modelAction
+  removeFolder(folderName: string) {
+    const folder = this.allFlatFolderHierarchy.get(folderName);
+    if (!folder) return;
+
+    this.allFlatFolderHierarchy.delete(folderName);
+    this.folderTotalCount = this.allFlatFolderHierarchy.size;
+    this.importCount -= folder.imports.length;
+    this.importSize -= sumArray(folder.imports, (imp) => imp.size);
+    this.setVisibleFolderPage();
+  }
+
+  @modelAction
   reset() {
     this.allFlatFolderHierarchy = new Map();
     this.audioTags = new Map();
+    this.fileIds = [];
     this.filePaths = new Map();
     this.flatTagsToUpsert = [];
     this.folderPage = 0;
@@ -232,6 +267,7 @@ export class ImportEditorStore extends Model({
     this.options = new ImportEditorOptions({});
     this.rootFolderIndex = 0;
     this.rootFolderPath = "";
+    this.savedConfigFolderPaths = [];
     this.saveStatus = "";
     this.sourceRootIndex = 0;
     this.visibleFolderNames = [];
@@ -270,6 +306,17 @@ export class ImportEditorStore extends Model({
     this.imports = imports;
     this.importCount = imports.length;
     this.importSize = imports.reduce((total, imp) => total + imp.size, 0);
+  }
+
+  @modelAction
+  setIsOpen(isOpen: boolean) {
+    const stores = getRootStore<RootStore>(this);
+
+    // Asked to open again, the editor shows the view it waits in.
+    if (isOpen && this.isOpen) stores.home.openView(this.homeView);
+    else if (isOpen) this.homeView = stores.home.view;
+
+    this.isOpen = isOpen;
   }
 
   /** Default program fields chosen in the options apply to every detected program. */
@@ -312,6 +359,20 @@ export class ImportEditorStore extends Model({
 
     this.folderPage = page;
     this.visibleFolderNames = visibleFolderNames;
+  }
+
+  /** Opens the editor to prepare an ingest or reingest, replacing any it was still preparing. */
+  @modelAction
+  startInit(mode: ImportEditorMode) {
+    this.ingestCancelToken++;
+    this.isInitDone = false;
+    this.mode = mode;
+    this.setIsOpen(true);
+    this.isLoading = true;
+
+    // A reingest ends a run through saved config folders, which only ingests continue.
+    if (mode === "ingest") this.fileIds = [];
+    else this.savedConfigFolderPaths = [];
   }
 
   @modelAction
@@ -369,6 +430,67 @@ export class ImportEditorStore extends Model({
     }
 
     await queue.resolve();
+  });
+
+  /**
+   * Loads every file a reingest imports again at once, rooted at the folder they share, so programs
+   * and their seasons are detected across folders.
+   */
+  @modelFlow
+  loadFiles = asyncAction(async () => {
+    const cancelToken = this.ingestCancelToken;
+    const files: Awaited<ReturnType<typeof rpc.listFileReingestMetadata>>["data"] = [];
+
+    this.setIsInitDone(false);
+
+    for (const fileIds of chunkArray(this.fileIds, 1000)) {
+      const res = await rpc.listFileReingestMetadata({ fileIds });
+
+      if (cancelToken !== this.ingestCancelToken) return;
+
+      if (!res.success) throw new Error(res.error);
+
+      files.push(...res.data);
+    }
+
+    if (!files.length) {
+      this.setIsOpen(false);
+
+      return;
+    }
+
+    files.sort((a, b) => {
+      const lengthDiff =
+        a.originalPath.split(path.sep).length - b.originalPath.split(path.sep).length;
+
+      return lengthDiff || a.originalName.localeCompare(b.originalName);
+    });
+
+    const filePaths = files.map((file) => file.originalPath);
+    // Files sharing no folder below their drive root start from the shallowest file's folder.
+    const rootFolderPath = getCommonSourceFolder(filePaths) ?? path.dirname(filePaths[0]);
+    const rootFolderIndex = rootFolderPath.split(path.sep).length - 1;
+    const imports: ModelCreationData<FileImport>[] = [];
+
+    this.setRootFolderPath(rootFolderPath);
+    this.setRootFolderIndex(rootFolderIndex);
+    this.setSourceRootIndex(rootFolderIndex);
+
+    for (const original of files) {
+      imports.push({
+        dateCreated: original.dateCreated,
+        extension: original.ext,
+        fileId: original.id,
+        name: original.originalName,
+        path: original.originalPath,
+        size: original.size,
+        status: "PENDING",
+      });
+    }
+
+    this.setImports(imports);
+    this.setFilePaths(new Map(filePaths.map((p) => [path.resolve(p), p])));
+    this.setIsInitDone(true);
   });
 
   /**
@@ -586,6 +708,19 @@ export class ImportEditorStore extends Model({
 
       if (!isCancelled() && failedCount)
         throw new Error(`Failed to read ${failedCount} sidecars. ${firstError}`);
+    },
+  );
+
+  /** Adds the folder's tags to its files, then adds them to its program season or collection. */
+  @modelFlow
+  reingestFolder = asyncAction(
+    async (args: {
+      collectionTitle: string;
+      fileTagIds: { fileId: string; tagIds: string[] }[];
+      mediaProgram: MediaProgramImport;
+    }) => {
+      const res = await rpc.reingestFolder(args);
+      if (!res.success) throw new Error(res.error);
     },
   );
 

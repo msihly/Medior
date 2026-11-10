@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import {
   Button,
+  Card,
   CardGrid,
   Checkbox,
   Chip,
@@ -12,7 +13,9 @@ import {
   Modal,
   Pagination,
   ProgressBar,
+  SEARCH_HEADER_PROPS,
   Text,
+  UniformList,
   View,
 } from "medior/components";
 import { useStores } from "medior/store";
@@ -22,6 +25,7 @@ import { DuplicateGroupCard } from "./lower-resolution-modal/duplicate-group-car
 import { SearchSettings } from "./lower-resolution-modal/search-settings";
 import { SearchStatus } from "./lower-resolution-modal/search-status";
 
+/** The Find Duplicates tab. Archiving covers it while the other tabs stay usable. */
 export const LowerResolutionModal = Comp(() => {
   const stores = useStores();
   const store = stores.file.lowerResolution;
@@ -94,14 +98,6 @@ export const LowerResolutionModal = Comp(() => {
       : null,
   ].filter(Boolean);
 
-  /** Archiving keeps going in the background while the modal is hidden. */
-  const handleClose = () => {
-    if (store.isArchiving) handleMinimize();
-    else store.close();
-  };
-
-  const handleMinimize = () => store.setIsMinimized(true);
-
   const handlePageChange = (page: number) => {
     if (!store.isArchiving) store.loadPage(page);
   };
@@ -109,162 +105,170 @@ export const LowerResolutionModal = Comp(() => {
   const handleTagSelected = () => store.editTags(Object.keys(store.selection));
 
   return (
-    <Modal.Container visible={!store.isMinimized} height="100%" width="100%" onClose={handleClose}>
+    <>
       <LoadingOverlay
         isLoading={store.isArchiving}
-        sub={store.archiveJob && <JobProgress job={store.archiveJob} onMinimize={handleMinimize} />}
+        sub={store.archiveJob && <JobProgress job={store.archiveJob} />}
       />
 
-      <Modal.Header>
-        <Text preset="title">{"Find Duplicates"}</Text>
-      </Modal.Header>
+      <Modal.Content dividers={false} overflow="hidden" padding={{ all: 0 }}>
+        <Card
+          flex={1}
+          height="100%"
+          overflow="hidden"
+          spacing="0.5rem"
+          bgColor={colors.background}
+          headerProps={SEARCH_HEADER_PROPS}
+          header={
+            <UniformList row flex={1} justify="space-between">
+              <View row />
 
-      <Modal.Content dividers={false} overflow="hidden">
-        <View row flex="none" spacing="0.5rem">
-          <SearchSettings />
-
-          <SearchStatus />
-        </View>
-
-        {notices.map(({ color, text }) => (
-          <View key={text} row align="center" spacing="0.5rem">
-            <Icon name="Info" size="1.1em" color={color} />
-
-            <Text fontSize="0.85em" whiteSpace="normal">
-              {text}
-            </Text>
-          </View>
-        ))}
-
-        {errors.map((error) => (
-          <View key={error} row align="center" spacing="0.5rem">
-            <Icon name="Error" size="1.1em" color={colors.custom.red} />
-
-            <Text
-              color={colors.custom.red}
-              fontSize="0.85em"
-              whiteSpace="normal"
-              overflowWrap="anywhere"
-            >
-              {error}
-            </Text>
-          </View>
-        ))}
-
-        {store.groups.length ? (
-          <View column flex={1} minHeight={0} spacing="0.5rem">
-            <View row wrap="wrap" align="center" justify="space-between" spacing="1rem">
-              <View row align="center" spacing="0.5rem">
-                <Text bold>
-                  {`${Fmt.commas(store.reviewCount)} groups at ${store.minSimilarity.toFixed(1)}%+`}
-                </Text>
-
-                {!!store.selectedCount && (
-                  <Chip label={`${Fmt.commas(store.selectedCount)} Selected`} />
-                )}
+              <View row justify="center" align="center">
+                <Text preset="title">{"Find Duplicates"}</Text>
               </View>
 
-              <View row align="center" spacing="0.5rem">
-                <Button
-                  text={store.isSelecting ? "Selecting…" : "Select All Duplicates"}
-                  icon="SelectAll"
-                  onClick={store.selectAllDuplicates}
-                  disabled={store.isArchiving || store.isGrouping || store.isSelecting}
-                  tooltip="Select every file except the best one in each group, across all pages. Shift-click tiles to select a range."
-                />
+              <View row justify="flex-end" />
+            </UniformList>
+          }
+        >
+          <View row flex="none" spacing="0.5rem">
+            <SearchSettings />
 
-                <Button
-                  text="Clear"
-                  icon="Deselect"
-                  onClick={store.clearSelection}
-                  disabled={store.isArchiving || !store.selectedCount}
-                />
+            <SearchStatus />
+          </View>
 
-                <Divider orientation="vertical" />
+          {notices.map(({ color, text }) => (
+            <View key={text} row align="center" spacing="0.5rem">
+              <Icon name="Info" size="1.1em" color={color} />
 
-                <Button
-                  text="Tag Selected"
-                  icon="Label"
-                  onClick={handleTagSelected}
-                  disabled={store.isArchiving || !store.selectedCount}
-                />
-
-                <Button
-                  text={store.isDismissing ? "Marking…" : "Not Duplicates"}
-                  icon="DoNotDisturb"
-                  onClick={store.dismissSelected}
-                  disabled={isBusy || !store.selectedCount}
-                  tooltip="Mark the selected files as not duplicates of their group's best-quality file, such as confirmed variations. They leave their groups and stay apart in later searches until either file changes."
-                />
-
-                <Divider orientation="vertical" />
-
-                <Checkbox
-                  label="Merge into kept file"
-                  checked={store.mergeMetadata}
-                  setChecked={store.setMergeMetadata}
-                  disabled={store.isArchiving}
-                  flex="none"
-                  width="auto"
-                />
-
-                <Button
-                  text={`Archive ${Fmt.commas(store.selectedCount)}`}
-                  icon="Archive"
-                  color={colors.custom.red}
-                  onClick={store.archive}
-                  disabled={isBusy || !store.selectedCount}
-                />
-              </View>
+              <Text fontSize="0.85em" whiteSpace="normal">
+                {text}
+              </Text>
             </View>
+          ))}
 
-            <CardGrid
-              maxCards={2}
-              padding={{ all: 0 }}
-              ref={groupsRef}
-              cards={store.groups.map((group) => (
-                <DuplicateGroupCard key={group.id} group={group} />
-              ))}
-            />
+          {errors.map((error) => (
+            <View key={error} row align="center" spacing="0.5rem">
+              <Icon name="Error" size="1.1em" color={colors.custom.red} />
 
-            {store.pageCount > 1 && (
-              <Pagination
-                inline
-                count={store.pageCount}
-                page={store.page}
-                onChange={handlePageChange}
+              <Text
+                color={colors.custom.red}
+                fontSize="0.85em"
+                whiteSpace="normal"
+                overflowWrap="anywhere"
+              >
+                {error}
+              </Text>
+            </View>
+          ))}
+
+          {store.groups.length ? (
+            <View column flex={1} minHeight={0} spacing="0.5rem">
+              <View row wrap="wrap" align="center" justify="space-between" spacing="1rem">
+                <View row align="center" spacing="0.5rem">
+                  <Text bold>
+                    {`${Fmt.commas(store.reviewCount)} groups at ${store.minSimilarity.toFixed(1)}%+`}
+                  </Text>
+
+                  {!!store.selectedCount && (
+                    <Chip label={`${Fmt.commas(store.selectedCount)} Selected`} />
+                  )}
+                </View>
+
+                <View row align="center" spacing="0.5rem">
+                  <Button
+                    text={store.isSelecting ? "Selecting…" : "Select All Duplicates"}
+                    icon="SelectAll"
+                    onClick={store.selectAllDuplicates}
+                    disabled={store.isArchiving || store.isGrouping || store.isSelecting}
+                    tooltip="Select every file except the best one in each group, across all pages. Shift-click tiles to select a range."
+                  />
+
+                  <Button
+                    text="Clear"
+                    icon="Deselect"
+                    onClick={store.clearSelection}
+                    disabled={store.isArchiving || !store.selectedCount}
+                  />
+
+                  <Divider orientation="vertical" />
+
+                  <Button
+                    text="Tag Selected"
+                    icon="Label"
+                    onClick={handleTagSelected}
+                    disabled={store.isArchiving || !store.selectedCount}
+                  />
+
+                  <Button
+                    text={store.isDismissing ? "Marking…" : "Not Duplicates"}
+                    icon="DoNotDisturb"
+                    onClick={store.dismissSelected}
+                    disabled={isBusy || !store.selectedCount}
+                    tooltip="Mark the selected files as not duplicates of their group's best-quality file, such as confirmed variations. They leave their groups and stay apart in later searches until either file changes."
+                  />
+
+                  <Divider orientation="vertical" />
+
+                  <Checkbox
+                    label="Merge into kept file"
+                    checked={store.mergeMetadata}
+                    setChecked={store.setMergeMetadata}
+                    disabled={store.isArchiving}
+                    flex="none"
+                    width="auto"
+                  />
+
+                  <Button
+                    text={`Archive ${Fmt.commas(store.selectedCount)}`}
+                    icon="Archive"
+                    color={colors.custom.red}
+                    onClick={store.archive}
+                    disabled={isBusy || !store.selectedCount}
+                  />
+                </View>
+              </View>
+
+              <CardGrid
+                maxCards={2}
+                padding={{ all: 0 }}
+                ref={groupsRef}
+                cards={store.groups.map((group) => (
+                  <DuplicateGroupCard key={group.id} group={group} />
+                ))}
               />
-            )}
-          </View>
-        ) : store.isPageLoading ? (
-          <ProgressBar variant="indeterminate" viewProps={{ flex: "none" }} />
-        ) : (
-          <View column flex={1} align="center" justify="center" spacing="0.5rem">
-            <Icon name="ImageSearch" size="3rem" color={colors.custom.grey} />
 
-            <Text bold whiteSpace="normal">
-              {emptyState.title}
-            </Text>
+              {store.pageCount > 1 && (
+                <Pagination
+                  inline
+                  count={store.pageCount}
+                  page={store.page}
+                  onChange={handlePageChange}
+                />
+              )}
+            </View>
+          ) : store.isPageLoading ? (
+            <ProgressBar variant="indeterminate" viewProps={{ flex: "none" }} />
+          ) : (
+            <View column flex={1} align="center" justify="center" spacing="0.5rem">
+              <Icon name="ImageSearch" size="3rem" color={colors.custom.grey} />
 
-            <Text
-              color={colors.custom.lightGrey}
-              fontSize="0.85em"
-              whiteSpace="normal"
-              textAlign="center"
-            >
-              {emptyState.description}
-            </Text>
-          </View>
-        )}
+              <Text bold whiteSpace="normal">
+                {emptyState.title}
+              </Text>
+
+              <Text
+                color={colors.custom.lightGrey}
+                fontSize="0.85em"
+                whiteSpace="normal"
+                textAlign="center"
+              >
+                {emptyState.description}
+              </Text>
+            </View>
+          )}
+        </Card>
       </Modal.Content>
-
-      <Modal.Footer>
-        <Button
-          text={store.isScanning || store.isGrouping ? "Run in Background" : "Close"}
-          icon="Close"
-          onClick={handleClose}
-        />
-      </Modal.Footer>
-    </Modal.Container>
+    </>
   );
 });

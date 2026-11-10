@@ -1,5 +1,7 @@
 import { ipcRenderer } from "electron";
+import { derefMobx } from "trabecula/utils/client";
 import { FileSchema } from "medior/server/database";
+import type { HomeViewRequest } from "medior/store";
 
 export const openCarouselWindow = ({
   file,
@@ -19,7 +21,6 @@ export const openCarouselWindow = ({
     width: file.width,
   });
 
-export const openSearchWindow = ({ tagIds }: { tagIds?: string[] } = {}) =>
-  ipcRenderer.send("createSearchWindow", {
-    tagIds: tagIds?.length ? [...tagIds] : [],
-  });
+/** Shows a view in the main window, which comes to the front, from this or any other window. */
+export const openHomeView = (request: HomeViewRequest) =>
+  ipcRenderer.send("openHomeView", derefMobx(request));

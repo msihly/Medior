@@ -10,7 +10,7 @@ interface SelectFilesModalProps {
 
 export const SelectFilesModal = Comp(({ onClose, store: suppliedStore }: SelectFilesModalProps) => {
   const stores = useStores();
-  const store = suppliedStore ?? stores.file.search;
+  const store = suppliedStore ?? stores.file.shownSearch;
 
   const [isSelecting, setIsSelecting] = useState(false);
   const [limit, setLimit] = useState(store.pageSize);

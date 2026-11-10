@@ -1,9 +1,4 @@
-import {
-  Comp,
-  DeleteCollectionModal,
-  FileCollectionEditor,
-  FileCollectionManager,
-} from "medior/components";
+import { Comp, DeleteCollectionModal, FileCollectionEditor } from "medior/components";
 import { useStores } from "medior/store";
 
 export const CollectionModals = Comp(() => {
@@ -12,8 +7,6 @@ export const CollectionModals = Comp(() => {
 
   return (
     <>
-      {store.manager.isOpen && <FileCollectionManager />}
-
       {store.editor.isOpen && <FileCollectionEditor />}
 
       {store.isConfirmDeleteOpen && <DeleteCollectionModal />}

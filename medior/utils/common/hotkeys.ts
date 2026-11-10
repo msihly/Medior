@@ -45,8 +45,9 @@ export interface Hotkeys {
   collectionEditor: Omit<FileHotkeys, "deleteFiles"> & {
     removeFiles: string;
   };
+  /** The Files view's searches. */
   home: FileHotkeys;
-  /** The Media Programs modal's programs and the program editor's episodes. */
+  /** The Media Programs view's programs and the program editor's episodes. */
   mediaPrograms: RatingHotkeys & {
     selectAll: string;
   };
@@ -54,7 +55,6 @@ export interface Hotkeys {
   music: RatingHotkeys & {
     selectAll: string;
   };
-  search: FileHotkeys;
   tagManager: RatingHotkeys & {
     selectAll: string;
   };
@@ -108,7 +108,6 @@ export const DEFAULT_HOTKEYS: Hotkeys = {
   home: { deleteFiles: "Delete", ...FILE_HOTKEY_DEFAULTS, selectAll: "Ctrl+A" },
   mediaPrograms: { ...RATING_HOTKEY_DEFAULTS, selectAll: "Ctrl+A" },
   music: { ...RATING_HOTKEY_DEFAULTS, selectAll: "Ctrl+A" },
-  search: { deleteFiles: "Delete", ...FILE_HOTKEY_DEFAULTS, selectAll: "Ctrl+A" },
   tagManager: { ...RATING_HOTKEY_DEFAULTS, selectAll: "Ctrl+A" },
 };
 

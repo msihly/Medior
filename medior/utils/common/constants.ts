@@ -28,7 +28,6 @@ export interface Constants extends _Constants {
   };
   HOME: {
     DRAWER: { WIDTH: number };
-    TOP_BAR: { HEIGHT: number };
   };
   VECTOR: {
     DEFAULT_THREAD_POOL_SIZE: number;
@@ -68,7 +67,6 @@ export const CONSTANTS: Constants = {
   },
   HOME: {
     DRAWER: { WIDTH: 55 },
-    TOP_BAR: { HEIGHT: 45 },
   },
   VECTOR: {
     DEFAULT_THREAD_POOL_SIZE: 4,

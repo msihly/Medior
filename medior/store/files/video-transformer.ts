@@ -1,6 +1,6 @@
 import autoBind from "auto-bind";
 import { FileSchema, FileTransformSchema } from "medior/_generated/server";
-import { computed, reaction } from "mobx";
+import { computed, when } from "mobx";
 import { Model, model, modelAction, modelFlow, prop } from "mobx-keystone";
 import { SortValue } from "medior/store/_generated";
 import type { SpliceMode } from "medior/server/database";
@@ -10,6 +10,18 @@ import { ReencodeCandidateType, rpc } from "medior/utils/server";
 import { File, FileTransform, FileTransformSearch } from ".";
 
 export type FileTransformType = "reencode" | "remux" | "splice";
+
+/** Files sent to the Media Transformer, and how to transform them. */
+export interface VideoTransformRequest {
+  fileIds: string[];
+  fnType: FileTransformType;
+  /** The sort of the search the files were chosen from, which their transforms keep. */
+  sortValue?: SortValue;
+  /** Replaces the original by default. */
+  spliceMode?: SpliceMode;
+  /** Shared splice timestamps. Without them, each video is spliced by its own single timeline. */
+  timestampPairs?: Array<[number, number]>;
+}
 
 export interface FileTransformSizeBucket {
   compressedSize: number;
@@ -40,7 +52,6 @@ export class VideoTransformerStore extends Model({
   isAuto: prop<boolean>(false).withSetter(),
   isConfigOpen: prop<boolean>(false).withSetter(),
   isLoading: prop<boolean>(false).withSetter(),
-  isMinimized: prop<boolean>(false).withSetter(),
   isOpen: prop<boolean>(false).withSetter(),
   isQueueRefreshing: prop<boolean>(false).withSetter(),
   isSizeHistoryLoading: prop<boolean>(false).withSetter(),
@@ -67,22 +78,20 @@ export class VideoTransformerStore extends Model({
   onInit() {
     autoBind(this);
 
-    reaction(
+    // The transformer stays open as a tab once opened, following its queue from then on.
+    when(
       () => this.isOpen,
       () => {
-        if (!this.isOpen) this.reset();
-        else {
-          this.getTransformerStatus();
+        this.getTransformerStatus();
 
-          // Requested before the slower totals so they claim the first of the limited connections.
-          if (!this.fileIds.length || !this.fnType) {
-            this.loadActiveTransform();
-            this.loadQueue({ page: 1 });
-          }
-
-          this.loadQueueCount();
-          this.loadSizeHistory();
+        // Requested before the slower totals so they claim the first of the limited connections.
+        if (!this.fileIds.length || !this.fnType) {
+          this.loadActiveTransform();
+          this.loadQueue({ page: 1 });
         }
+
+        this.loadQueueCount();
+        this.loadSizeHistory();
       },
     );
   }
@@ -171,30 +180,6 @@ export class VideoTransformerStore extends Model({
   }
 
   @modelAction
-  reset() {
-    this.cancelLoad();
-    this.queueCountLoadId++;
-    this.sizeHistoryLoadId++;
-    this.transformerStatusLoadId++;
-    clearTimeout(this.sizeHistoryTimer);
-    this.sizeHistoryTimer = null;
-    this.setActiveTransform(null);
-    this.setActiveFile(null);
-    this.setFileIds([]);
-    this.setFocusedTransformId(null);
-    this.setFnType(null);
-    this.setIsMinimized(false);
-    this.setIsQueueRefreshing(false);
-    this.setIsSizeHistoryLoading(false);
-    this.setPendingCount(0);
-    this.setSizeHistory([]);
-    this.setSourceSortValue(null);
-    this.setSpliceMode("replace");
-    this.setTimestampPairs([]);
-    this.search.reset();
-  }
-
-  @modelAction
   resetEmptyConstrainedQueue() {
     if (!this.search.forcePages || this.search.ids.length) return false;
 
@@ -242,14 +227,17 @@ export class VideoTransformerStore extends Model({
   createTransforms = asyncAction(async () => {
     if (!this.fileIds.length || !this.fnType || this.isUpdating) return;
 
+    const fileIds = [...this.fileIds];
     const isSplice = this.fnType === "splice";
     let transformIds: string[];
 
+    // Files sent while these are created wait for their own turn.
+    this.setFileIds([]);
     this.setIsUpdating(true);
 
     try {
       const res = await rpc.createFileTransforms({
-        fileIds: this.fileIds,
+        fileIds,
         sortValue: this.sourceSortValue,
         spliceMode: isSplice ? this.spliceMode : undefined,
         timestampPairs: this.timestampPairs.map(([start, end]) => ({ end, start })),
@@ -266,7 +254,6 @@ export class VideoTransformerStore extends Model({
         );
 
       this.setFocusedTransformId(transformIds[0]);
-      this.setFileIds([]);
       this.search.setIds(transformIds);
       this.search.setForcePages(true);
 

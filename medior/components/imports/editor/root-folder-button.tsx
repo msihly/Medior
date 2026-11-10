@@ -1,12 +1,12 @@
 import Color from "color";
 import { Button, Comp, Text } from "medior/components";
-import { Ingester, Reingester } from "medior/store";
+import { ImportEditorStore } from "medior/store";
 import { colors, CssColor } from "medior/utils/client";
 
 export interface RootFolderButtonProps {
   folderPart: string;
   index: number;
-  store: Ingester | Reingester;
+  store: ImportEditorStore;
 }
 
 export const RootFolderButton = Comp(({ folderPart, index, store }: RootFolderButtonProps) => {

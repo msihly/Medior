@@ -1,15 +1,11 @@
-import { useState } from "react";
-import { Button, Card, Comp, LoadingOverlay, Settings, UniformList, View } from "medior/components";
+import { Card, Comp, Settings, UniformList, View } from "medior/components";
 import { useStores } from "medior/store";
-import { colors, toast } from "medior/utils/client";
+import { colors } from "medior/utils/client";
 import { ConfigKey } from "medior/utils/server";
 import { ConfigTags } from "./config-tags";
 
 export const TransformConfig = Comp(() => {
   const stores = useStores();
-  const store = stores.file.videoTransformer;
-
-  const [isSaving, setIsSaving] = useState(false);
 
   const overrideKey = "file.reencode.override" as ConfigKey;
 
@@ -21,49 +17,13 @@ export const TransformConfig = Comp(() => {
         .filter(Boolean),
     });
 
-  const handleSaveConfig = async () => {
-    setIsSaving(true);
-
-    try {
-      const result = await stores.home.settings.save();
-
-      if (!result.success) toast.error(result.error);
-      else toast.success("Transform config saved");
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  const handleToggleConfig = () => store.setIsConfigOpen(!store.isConfigOpen);
-
   return (
     <Card
       spacing="0.5rem"
       height="fit-content"
       overflow="hidden auto"
       bgColor={colors.foregroundCard}
-      header={
-        <View row justify="space-between" align="center" width="100%">
-          <Button
-            text="Save"
-            icon="Save"
-            onClick={handleSaveConfig}
-            disabled={!stores.home.settings.hasUnsavedChanges}
-            color={stores.home.settings.hasUnsavedChanges ? colors.custom.blue : undefined}
-          />
-
-          <Button
-            text={store.isConfigOpen ? "Hide Config" : "Config"}
-            icon="Settings"
-            onClick={handleToggleConfig}
-            color={store.isConfigOpen ? colors.custom.blue : undefined}
-          />
-        </View>
-      }
-      headerProps={{ justify: "flex-start", padding: { all: "0.45rem" } }}
     >
-      <LoadingOverlay isLoading={isSaving} />
-
       <View column spacing="0.5rem" width="100%">
         <Card header="Video" row spacing="0.5rem">
           <Settings.Input header="Codec" configKey="file.reencode.codec" width="8rem" dense />
@@ -162,7 +122,7 @@ export const TransformConfig = Comp(() => {
           <View row spacing="1rem">
             <UniformList row flex={1} spacing="0.5rem" height="5.5rem">
               <ConfigTags
-                label="Add Re-encodes - Exclude (Descendants)"
+                label="Auto-Queue Re-encodes - Exclude (Descendants)"
                 configKey="file.reencode.excludedDescTagIds"
               />
             </UniformList>

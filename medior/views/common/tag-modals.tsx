@@ -1,15 +1,8 @@
-import {
-  Comp,
-  FileTagEditor,
-  MultiTagEditor,
-  TagEditor,
-  TagManager,
-  TagMerger,
-} from "medior/components";
+import { Comp, FileTagEditor, MultiTagEditor, TagEditor, TagMerger } from "medior/components";
 import { useStores } from "medior/store";
 
 interface TagModalsProps {
-  view: "carousel" | "home" | "search";
+  view: "carousel" | "home";
 }
 
 export const TagModals = Comp(({ view }: TagModalsProps) => {
@@ -33,8 +26,6 @@ export const TagModals = Comp(({ view }: TagModalsProps) => {
       {store.subEditor.isOpen && <TagEditor isSubEditor />}
 
       {store.merger.isOpen && <TagMerger />}
-
-      {store.manager.isOpen && <TagManager />}
     </>
   );
 });

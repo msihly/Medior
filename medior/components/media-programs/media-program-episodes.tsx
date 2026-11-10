@@ -220,7 +220,7 @@ export const MediaProgramEpisodes = Comp(() => {
             disabled={isDisabled}
           />
 
-          <FileActionButtons isHome store={store.search} />
+          <FileActionButtons store={store.search} />
 
           <SelectionButtons itemLabel="episodes" store={store.episodeSelection} toast={toast} />
 

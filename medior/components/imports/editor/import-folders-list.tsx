@@ -1,13 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import { List, ListImperativeAPI, RowComponentProps } from "react-window";
 import { Card, Comp, FlatFolder, Pagination, View } from "medior/components";
-import { Ingester, Reingester } from "medior/store";
+import { ImportEditorStore } from "medior/store";
 import { getImportFolderHeight, ImportFolderList } from "./import-folder";
 
 const FOLDER_GAP = 10;
 
 export interface ImportFoldersListProps {
-  store: Ingester | Reingester;
+  store: ImportEditorStore;
 }
 
 export const ImportFoldersList = Comp(({ store }: ImportFoldersListProps) => {
@@ -67,7 +67,12 @@ interface FolderRowProps {
   folders: FlatFolder[];
 }
 
-const FolderRow = ({ collectionTitles, folders, index, style }: RowComponentProps<FolderRowProps>) => (
+const FolderRow = ({
+  collectionTitles,
+  folders,
+  index,
+  style,
+}: RowComponentProps<FolderRowProps>) => (
   <View style={style} padding={{ all: "0 0.5rem" }}>
     <ImportFolderList collectionTitle={collectionTitles[index]} folder={folders[index]} noStatus />
   </View>

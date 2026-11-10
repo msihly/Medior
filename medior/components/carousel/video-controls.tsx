@@ -375,7 +375,7 @@ const useClasses = makeClasses({
     position: "relative",
   },
   slider: {
-    marginBottom: "0 !important",
+    marginBottom: 0,
   },
   videoControlBar: {
     "&:hover": { opacity: 1 },

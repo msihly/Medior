@@ -10,7 +10,7 @@ import {
   Text,
   View,
 } from "medior/components";
-import { useStores } from "medior/store";
+import { FileSearch, useStores } from "medior/store";
 import { colors, toast } from "medior/utils/client";
 import { rpc } from "medior/utils/server";
 import { CarouselWindow } from "medior/views";
@@ -26,13 +26,14 @@ export const CollectionTriager = Comp(() => {
 
   const carouselSnapshot = useRef(getSnapshot(stores.carousel));
   const disposed = useRef(false);
-  const fileSearchSnapshot = useRef(getSnapshot(stores.file.search));
   const loadRevision = useRef(0);
 
   const collection = stores.collection.editor.collection;
 
+  // The carousel loads its files into a search of its own, leaving the Files tabs' searches alone.
   useEffect(() => {
     disposed.current = false;
+    stores.file.setTriageSearch(new FileSearch({}));
     loadQueue();
 
     return () => {
@@ -40,11 +41,8 @@ export const CollectionTriager = Comp(() => {
       loadRevision.current++;
       stores.collection.editor.setIsOpen(false);
       applySnapshot(stores.carousel, carouselSnapshot.current);
-      applySnapshot(stores.file.search, {
-        ...fileSearchSnapshot.current,
-        isLoading: false,
-        loadId: stores.file.search.loadId + 1,
-      });
+      stores.file.search.cancelLoad();
+      stores.file.setTriageSearch(null);
     };
   }, []);
 

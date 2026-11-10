@@ -3,7 +3,6 @@ import * as Dropdown from "./dropdown";
 import * as ExtCheckbox from "./ext-checkbox";
 import * as ExtColumn from "./ext-column";
 import * as Field from "./field";
-import * as Grid from "./grid";
 import * as Group from "./group";
 import * as Input from "./input";
 import * as ListInput from "./list-input";
@@ -21,7 +20,6 @@ export const Settings = {
   ...ExtCheckbox,
   ...ExtColumn,
   ...Field,
-  ...Grid,
   ...Group,
   ...Input,
   ...ListInput,

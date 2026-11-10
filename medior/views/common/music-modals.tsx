@@ -4,7 +4,6 @@ import {
   Comp,
   ConfirmModal,
   MusicEditor,
-  MusicManager,
   MusicPlayerAudio,
   MusicPlaylistPickerModal,
 } from "medior/components";
@@ -18,10 +17,10 @@ export const MusicModals = Comp(() => {
 
   const deleteCount = store.idsForConfirmDelete.length;
 
-  // The compact player docks its queue back here, in the music view, which opens to show it.
+  // The compact player docks its queue back here, in the music view, which shows to play it.
   useEffect(() => {
     const handleDock = async (_, playback: MusicPlayback) => {
-      if (!store.manager.isOpen && !store.editor.isOpen) store.manager.setIsOpen(true);
+      stores.home.openView("music");
 
       const res = await store.player.resume(playback);
       if (!res.success) toast.error(res.error);
@@ -49,8 +48,6 @@ export const MusicModals = Comp(() => {
     <>
       {/* The music view's player plays here, so switching between its pages never stops it. */}
       <MusicPlayerAudio />
-
-      {store.manager.isOpen && <MusicManager />}
 
       {store.editor.isOpen && <MusicEditor />}
 

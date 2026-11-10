@@ -21,7 +21,7 @@ import {
   View,
 } from "medior/components";
 import { useStores } from "medior/store";
-import { colors, openSearchWindow, toast } from "medior/utils/client";
+import { colors, openHomeView, toast } from "medior/utils/client";
 import { Fmt } from "medior/utils/common";
 import { RegExMapCard, TagInputs } from ".";
 
@@ -79,8 +79,9 @@ export const TagEditor = Comp(({ isSubEditor = false }: TagEditorProps) => {
 
   const handleDelete = () => setIsConfirmDeleteOpen(true);
 
+  // Carousels share the editor, so the Tag Manager and searches it opens show in the main window.
   const handleFindTagsOnSameFiles = () => {
-    stores.tag.manager.findTagsOnSameFiles(store.tag.tagOption);
+    openHomeView({ tag: store.tag.tagOption, view: "tags" });
     handleClose();
   };
 
@@ -95,7 +96,7 @@ export const TagEditor = Comp(({ isSubEditor = false }: TagEditorProps) => {
     await store.loadTag({ id: store.tag.id });
   };
 
-  const handleSearch = () => openSearchWindow({ tagIds: [store.tag.id] });
+  const handleSearch = () => openHomeView({ tagIds: [store.tag.id], view: "files" });
 
   const handleSubEditorClick = (tagOpt: TagToUpsert) => {
     if (!tagOpt.id || tagOpt.id === store.tag?.id) return;

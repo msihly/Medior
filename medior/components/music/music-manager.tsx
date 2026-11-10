@@ -8,6 +8,7 @@ import {
   Comp,
   FileActionButtons,
   IconName,
+  LoadingOverlay,
   Modal,
   MultiActionButton,
   MusicAlbumCard,
@@ -75,11 +76,6 @@ export const MusicManager = Comp(() => {
     cardsRef.current?.scrollTo({ behavior: "instant", top: 0 });
   }, [page, pageCount, store.tab]);
 
-  const handleClose = () => {
-    search.cancelLoad();
-    store.setIsOpen(false);
-  };
-
   const handleCreate = async () => {
     store.setIsLoading(true);
 
@@ -123,13 +119,9 @@ export const MusicManager = Comp(() => {
   };
 
   return (
-    <Modal.Container
-      isLoading={store.isLoading}
-      onClose={handleClose}
-      height="100%"
-      width="100%"
-      className={css.modal}
-    >
+    <View column flex={1} minHeight={0} overflow="hidden" className={css.root}>
+      <LoadingOverlay isLoading={store.isLoading} />
+
       <Modal.Content dividers={false} overflow="hidden" padding={{ all: 0 }}>
         <Card
           flex={1}
@@ -181,7 +173,7 @@ export const MusicManager = Comp(() => {
                   />
                 )}
 
-                {store.tab === "tracks" && <FileActionButtons isHome store={store.tracks} />}
+                {store.tab === "tracks" && <FileActionButtons store={store.tracks} />}
 
                 <SelectionButtons itemLabel={store.tab} store={search} toast={toast} />
               </View>
@@ -235,28 +227,24 @@ export const MusicManager = Comp(() => {
         </Card>
       </Modal.Content>
 
-      <Modal.Footer>
-        <Button text="Close" icon="Close" onClick={handleClose} colorOnHover={colors.custom.red} />
+      {isPlaylists && (
+        <Modal.Footer>
+          <Button
+            text="Import"
+            icon="Download"
+            onClick={handleImport}
+            colorOnHover={colors.custom.blue}
+          />
 
-        {isPlaylists && (
-          <>
-            <Button
-              text="Import"
-              icon="Download"
-              onClick={handleImport}
-              colorOnHover={colors.custom.blue}
-            />
-
-            <Button
-              text="Create"
-              icon="Add"
-              onClick={handleCreate}
-              colorOnHover={colors.custom.blue}
-            />
-          </>
-        )}
-      </Modal.Footer>
-    </Modal.Container>
+          <Button
+            text="Create"
+            icon="Add"
+            onClick={handleCreate}
+            colorOnHover={colors.custom.blue}
+          />
+        </Modal.Footer>
+      )}
+    </View>
   );
 });
 
@@ -266,10 +254,8 @@ interface ClassesProps {
 }
 
 const useClasses = makeClasses((props: ClassesProps) => ({
-  modal: {
-    "& .MuiDialog-paper": {
-      background: props.background,
-    },
+  root: {
+    background: props.background,
   },
   pagination: {
     backgroundColor: props.background,

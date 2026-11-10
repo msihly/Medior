@@ -1,8 +1,16 @@
 import autoBind from "auto-bind";
 import { computed, reaction } from "mobx";
-import { Model, model, modelAction, ModelCreationData, modelFlow, prop } from "mobx-keystone";
+import {
+  getRootStore,
+  Model,
+  model,
+  modelAction,
+  ModelCreationData,
+  modelFlow,
+  prop,
+} from "mobx-keystone";
 import { SortMenuProps } from "medior/components";
-import { FileSearch, TagOption } from "medior/store";
+import { FileSearch, HomeView, RootStore, TagOption } from "medior/store";
 import { asyncAction, derefMobx, openCarouselWindow } from "medior/utils/client";
 import {
   chunkArray,
@@ -64,7 +72,7 @@ export class MediaProgramEditorStore extends Model({
   /** A season the metadata source lists without files, shown while no season of the program is. */
   activeMissingSeasonNumber: prop<number>(null).withSetter(),
   activeSeasonId: prop<string>(null).withSetter(),
-  /** How episodes are labeled, as EP 104 or with their season as S05E03. */
+  /** How episodes are labeled, as EP ## or with their season as S##E##. */
   episodeLabels: prop<MediaProgramEpisodeLabels>(
     () => getConfig().mediaPrograms.episodes.labels,
   ).withSetter(),
@@ -74,6 +82,8 @@ export class MediaProgramEditorStore extends Model({
   ).withSetter(),
   /** The Genres modal's edits, kept here so tag merges and deletions reach them. */
   genres: prop<TagOption[]>(() => []).withSetter(),
+  /** The view the editor opened over, where it waits while another view shows. */
+  homeView: prop<HomeView>(null),
   isLoading: prop<boolean>(false).withSetter(),
   isOpen: prop<boolean>(false),
   isSaving: prop<boolean>(false).withSetter(),
@@ -153,6 +163,12 @@ export class MediaProgramEditorStore extends Model({
   /** Opening starts from the default episode labels and order in Settings. */
   @modelAction
   setIsOpen(isOpen: boolean) {
+    const stores = getRootStore<RootStore>(this);
+
+    // Asked to open again, the editor shows the view it waits in.
+    if (isOpen && this.isOpen) stores.home.openView(this.homeView);
+    else if (isOpen) this.homeView = stores.home.view;
+
     this.cancelLoad();
     this.isOpen = isOpen;
 
@@ -861,7 +877,7 @@ export class MediaProgramEditorStore extends Model({
   }
 
   /* ----------------------------- DYNAMIC GETTERS ---------------------------- */
-  /** The shown season's episode's label, such as EP 104 or S05E03. */
+  /** The shown season's episode's label, as EP ## or S##E##. */
   getEpisodeLabel(episodeNumber: number) {
     return makeEpisodeLabel(episodeNumber, this.activeSourceSeasonNumber, this.episodeLabels);
   }

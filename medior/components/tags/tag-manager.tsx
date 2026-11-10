@@ -23,9 +23,10 @@ import {
   View,
 } from "medior/components";
 import { useStores } from "medior/store";
-import { colors, openSearchWindow, toast } from "medior/utils/client";
+import { colors, openHomeView, toast } from "medior/utils/client";
 import { getHotkeyRating, matchesHotkey } from "medior/utils/common";
 
+/** The Tag Manager tab. A running job covers it while the other tabs stay usable. */
 export const TagManager = Comp(() => {
   const stores = useStores();
   const manager = stores.tag.manager;
@@ -45,15 +46,6 @@ export const TagManager = Comp(() => {
   useEffect(() => {
     tagsRef.current?.scrollTo({ behavior: "instant", top: 0 });
   }, [store.page, store.pageCount]);
-
-  /** A running job keeps going in the background while the manager is hidden. */
-  const handleClose = () => {
-    if (manager.jobId) handleMinimize();
-    else {
-      manager.setIsOpen(false);
-      store.reset();
-    }
-  };
 
   const handleConfirmDelete = async () => {
     const res = await manager.deleteTags([...store.selectedIds]);
@@ -89,8 +81,6 @@ export const TagManager = Comp(() => {
     }
   };
 
-  const handleMinimize = () => manager.setIsMinimized(true);
-
   const handlePageChange = (page: number) => store.loadFiltered({ page });
 
   const handleRegenerateRegEx = async () => {
@@ -99,25 +89,22 @@ export const TagManager = Comp(() => {
     if (!res.success) toast.error(res.error);
   };
 
-  const handleSearchWindow = () => openSearchWindow({ tagIds: store.selectedIds });
+  const handleSearch = () => openHomeView({ tagIds: [...store.selectedIds], view: "files" });
 
   return (
-    <Modal.Container
-      visible={!manager.isMinimized}
-      onClose={handleClose}
-      height="100%"
-      width="100%"
-    >
+    <>
       <LoadingOverlay
         isLoading={manager.isLoading || !!manager.jobId}
-        sub={manager.job && <JobProgress job={manager.job} onMinimize={handleMinimize} />}
+        sub={manager.job && <JobProgress job={manager.job} />}
       />
 
-      <Modal.Content dividers={false} padding={{ top: "1rem" }} overflow="hidden">
+      <Modal.Content dividers={false} overflow="hidden" padding={{ all: 0 }}>
         <Card
           flex={1}
+          height="100%"
           padding={{ all: 0 }}
           overflow="hidden"
+          bgColor={colors.background}
           headerProps={SEARCH_HEADER_PROPS}
           header={
             <UniformList row flex={1} justify="space-between">
@@ -146,8 +133,8 @@ export const TagManager = Comp(() => {
 
                 <MultiActionButton
                   name="Search"
-                  tooltip="Open Search Window with Selected Tags"
-                  onClick={handleSearchWindow}
+                  tooltip="Search Selected Tags in a New Tab"
+                  onClick={handleSearch}
                   disabled={hasNoSelection}
                 />
 
@@ -206,8 +193,6 @@ export const TagManager = Comp(() => {
       </Modal.Content>
 
       <Modal.Footer>
-        <Button text="Close" icon="Close" onClick={handleClose} colorOnHover={colors.custom.red} />
-
         <Button text="Create" icon="Add" onClick={handleCreate} colorOnHover={colors.custom.blue} />
       </Modal.Footer>
 
@@ -221,6 +206,6 @@ export const TagManager = Comp(() => {
       )}
 
       {isRegExOverlapsOpen && <RegExOverlapsModal setVisible={setIsRegExOverlapsOpen} />}
-    </Modal.Container>
+    </>
   );
 });

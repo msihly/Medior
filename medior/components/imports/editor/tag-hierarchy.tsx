@@ -1,6 +1,6 @@
 import { useLayoutEffect, useRef, useState } from "react";
 import { Comp, IconButton, sortTags, TagChip, TagToUpsert, View } from "medior/components";
-import { Ingester, Reingester, useStores } from "medior/store";
+import { ImportEditorStore, useStores } from "medior/store";
 import { toast } from "medior/utils/client";
 import { mergeTagDefinitions } from "medior/utils/common";
 
@@ -14,7 +14,7 @@ export interface TagHierarchyProps {
   onTagClick?: (tag: TagToUpsert) => void;
   onToggle: () => void;
   onWidth: (width: number) => void;
-  store?: Ingester | Reingester;
+  store?: ImportEditorStore;
   tag: TagToUpsert;
 }
 

@@ -11,7 +11,7 @@ import {
   View,
 } from "medior/components";
 import { SearchTagType, TagOption, useStores } from "medior/store";
-import { colors, CssColor } from "medior/utils/client";
+import { colors, CssColor, makeClasses } from "medior/utils/client";
 
 const TAG_SEARCH_META: {
   [key in SearchTagType]: { color: CssColor; icon: IconName; text: string };
@@ -67,6 +67,8 @@ export const TagInputRow = Comp(
     const stores = useStores();
     const store = stores.tag;
 
+    const { css, cx } = useClasses(null);
+
     const category = store.getCategory(tag);
     const hasClick = hasEditor || !!onClick;
     const searchType = hasSearchMenu
@@ -110,11 +112,13 @@ export const TagInputRow = Comp(
             <MenuButton
               anchorOrigin={{ horizontal: "left", vertical: "top" }}
               transformOrigin={{ horizontal: "left", vertical: "top" }}
+              // A dark fill keeps the red or green icon readable on any tag color.
               button={(onOpen) => (
                 <Button
                   onClick={onOpen}
                   icon={searchMeta?.icon}
                   iconProps={{ color: searchMeta?.color }}
+                  color={colors.background}
                   padding={{ all: "0.3em" }}
                   boxShadow="none"
                 />
@@ -127,6 +131,7 @@ export const TagInputRow = Comp(
                     {...{ icon, text }}
                     iconProps={{ color }}
                     onClick={() => handleMenuClick(type as SearchTagType)}
+                    className={cx(type === searchType && css.active)}
                   />
                 ))}
               </View>
@@ -137,3 +142,10 @@ export const TagInputRow = Comp(
     );
   },
 );
+
+const useClasses = makeClasses({
+  // The current search mode, marked like an active tab.
+  active: {
+    backgroundColor: colors.control,
+  },
+});

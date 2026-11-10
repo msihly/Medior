@@ -11,95 +11,94 @@ import {
   Text,
   View,
 } from "medior/components";
-import { Ingester, Reingester } from "medior/store";
+import { useImportEditor, useStores } from "medior/store";
 import { colors } from "medior/utils/client";
 import { Fmt } from "medior/utils/common";
 
-export interface ImportEditorModalProps {
-  loadingLabel: string;
-  onSubmit: () => Promise<void>;
-  scan: () => Promise<void>;
-  store: Ingester | Reingester;
-  submitText: string;
-  type: "Ingester" | "Reingester";
-}
+/** The Ingester, which imports new files or, as the Reingester, imports library files again. */
+export const ImportEditorModal = Comp(() => {
+  const stores = useStores();
+  const store = stores.import.editor;
 
-export const ImportEditorModal = Comp(
-  ({ loadingLabel, onSubmit, scan, store, submitText, type }: ImportEditorModalProps) => {
-    const [isConfigsModalOpen, setIsConfigsModalOpen] = useState(false);
+  const [isConfigsModalOpen, setIsConfigsModalOpen] = useState(false);
 
-    const progressTotal = store.initProgressTotal;
-    const status = store.initProgressStatus || store.saveStatus || loadingLabel;
+  const { ingest, reingest, scan } = useImportEditor(store);
 
-    return (
-      <>
-        <Modal.Container width="100%" height="100%">
-          <LoadingOverlay
-            isLoading={store.isLoading || store.isSaving}
-            sub={
-              <View column align="center" spacing="1rem" width="28rem">
-                <Text preset="title">{status}</Text>
+  const isReingest = store.mode === "reingest";
+  const progressTotal = store.initProgressTotal;
+  const status =
+    store.initProgressStatus ||
+    store.saveStatus ||
+    (isReingest ? "Preparing re-import" : "Preparing import");
 
-                {progressTotal > 0 && (
-                  <Chip
-                    label={Fmt.commas(store.initProgressCompleted)}
-                    denominator={Fmt.commas(progressTotal)}
-                  />
-                )}
+  return (
+    <>
+      <Modal.Container width="100%" height="100%">
+        <LoadingOverlay
+          isLoading={store.isLoading || store.isSaving}
+          sub={
+            <View column align="center" spacing="1rem" width="28rem">
+              <Text preset="title">{status}</Text>
 
-                <Button
-                  text="Cancel"
-                  icon="Delete"
-                  onClick={store.cancelInit}
-                  colorOnHover={colors.custom.red}
+              {progressTotal > 0 && (
+                <Chip
+                  label={Fmt.commas(store.initProgressCompleted)}
+                  denominator={Fmt.commas(progressTotal)}
                 />
-              </View>
-            }
+              )}
+
+              <Button
+                text="Cancel"
+                icon="Delete"
+                onClick={store.cancelInit}
+                colorOnHover={colors.custom.red}
+              />
+            </View>
+          }
+        />
+
+        <ImportEditor.Header />
+
+        <Modal.Content row>
+          <Card width="17rem" overflow="hidden auto">
+            <ImportEditor.ImportOptions {...{ scan, store }} />
+          </Card>
+
+          <View column width="100%" spacing="0.5rem" overflow="hidden">
+            <ImportEditor.TagSelector options={store.options} store={store} />
+
+            {store.mediaPrograms.length > 0 && <ImportEditor.MediaProgramPlans store={store} />}
+
+            <ImportEditor.ImportFoldersList store={store} />
+          </View>
+        </Modal.Content>
+
+        <Modal.Footer>
+          <ImportEditor.CancelButton store={store} />
+
+          <Button
+            text="Saved Configs"
+            icon="Settings"
+            onClick={() => setIsConfigsModalOpen(true)}
           />
 
-          <ImportEditor.Header type={type} />
+          <Button
+            text={isReingest ? "Reingest" : "Ingest"}
+            icon="Check"
+            onClick={isReingest ? reingest : ingest}
+            disabled={
+              store.isDisabled ||
+              store.hasChangesSinceLastScan ||
+              store.mediaPrograms.some((plan) => !plan.name.trim())
+            }
+            color={colors.custom.blue}
+          />
+        </Modal.Footer>
+      </Modal.Container>
 
-          <Modal.Content row>
-            <Card width="17rem" overflow="hidden auto">
-              <ImportEditor.ImportOptions {...{ scan, store }} />
-            </Card>
-
-            <View column width="100%" spacing="0.5rem" overflow="hidden">
-              <ImportEditor.TagSelector options={store.options} store={store} />
-
-              {store.mediaPrograms.length > 0 && <ImportEditor.MediaProgramPlans store={store} />}
-
-              <ImportEditor.ImportFoldersList store={store} />
-            </View>
-          </Modal.Content>
-
-          <Modal.Footer>
-            <ImportEditor.CancelButton store={store} />
-
-            <Button
-              text="Saved Configs"
-              icon="Settings"
-              onClick={() => setIsConfigsModalOpen(true)}
-            />
-
-            <Button
-              text={submitText}
-              icon="Check"
-              onClick={onSubmit}
-              disabled={
-                store.isDisabled ||
-                store.hasChangesSinceLastScan ||
-                store.mediaPrograms.some((plan) => !plan.name.trim())
-              }
-              color={colors.custom.blue}
-            />
-          </Modal.Footer>
-        </Modal.Container>
-
-        {isConfigsModalOpen && (
-          <SavedImportConfigsModal store={store} onClose={() => setIsConfigsModalOpen(false)} />
-        )}
-      </>
-    );
-  },
-);
+      {isConfigsModalOpen && (
+        <SavedImportConfigsModal store={store} onClose={() => setIsConfigsModalOpen(false)} />
+      )}
+    </>
+  );
+});

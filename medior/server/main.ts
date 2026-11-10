@@ -45,7 +45,7 @@ const {
   resourcesFolder: "medior",
 });
 
-type WindowType = "carousel" | "home" | "musicPlayer" | "search";
+type WindowType = "carousel" | "home" | "musicPlayer";
 
 const lastDisplayIds: Partial<Record<WindowType, number>> = {};
 
@@ -155,7 +155,7 @@ const createMainWindow = async () => {
 
     mainWindow.on("closed", () => app.quit());
     mainWindow.on("close", () =>
-      [...carouselWindows, ...searchWindows, musicPlayerWindow].forEach((window) => {
+      [...carouselWindows, musicPlayerWindow].forEach((window) => {
         if (window && !window.isDestroyed()) window.close();
       }),
     );
@@ -207,65 +207,14 @@ const createMainWindow = async () => {
 
 app.on("window-all-closed", app.quit);
 
-/* -------------------------------------------------------------------------- */
-/*                               SEARCH WINDOWS                               */
-/* -------------------------------------------------------------------------- */
-let searchWindows: BrowserWindow[] = [];
+/** Shows a view any window asks for, such as a tag's search, in the main window. */
+ipcMain.on("openHomeView", (_, request) => {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
 
-const createSearchWindow = async ({ tagIds }) => {
-  if (isShuttingDown()) return;
-
-  try {
-    const display = getLastDisplay("search");
-
-    const searchWindow = new BrowserWindow({
-      autoHideMenuBar: true,
-      backgroundColor: "#111",
-      frame: false,
-      show: false,
-      webPreferences: {
-        contextIsolation: false,
-        nodeIntegration: true,
-        nodeIntegrationInSubFrames: true,
-        webSecurity: false,
-      },
-      x: display.workArea.x,
-      y: display.workArea.y,
-    });
-
-    searchWindows.push(searchWindow);
-    searchWindow.on("closed", () => {
-      searchWindows = searchWindows.filter((window) => window !== searchWindow);
-    });
-
-    searchWindow.maximize();
-    remoteMain.enable(searchWindow.webContents);
-    registerDevToolsShortcuts(searchWindow);
-    searchWindow.show();
-    trackWindowDisplay(searchWindow, "search");
-
-    if (!isPackaged) {
-      const mode = getConfig().dev.devTools.search;
-
-      if (mode) searchWindow.webContents.openDevTools({ mode });
-    }
-
-    fileLog("Creating search window...");
-    await searchWindow.loadURL(`${baseUrl}${isBundled ? "#" : "/"}search`);
-    fileLog("Search window created.");
-
-    setTimeout(() => {
-      if (!searchWindow.isDestroyed() && !searchWindow.webContents.isDestroyed())
-        searchWindow.webContents.send("init", { tagIds });
-    }, 100);
-
-    return searchWindow;
-  } catch (err) {
-    fileLog(err.stack, { type: "error" });
-  }
-};
-
-ipcMain.on("createSearchWindow", (_, args) => createSearchWindow(args));
+  mainWindow.webContents.send("openHomeView", request);
+  mainWindow.show();
+  mainWindow.focus();
+});
 
 /* -------------------------------------------------------------------------- */
 /*                              CAROUSEL WINDOWS                              */

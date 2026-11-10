@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { DiskSpace } from "check-disk-space";
-import { Comp, Icon, IconName, Text, View } from "medior/components";
+import { Chip, Comp, Icon, IconName, Text, View } from "medior/components";
 import { colors, CssColor } from "medior/utils/client";
 import { Fmt } from "medior/utils/common";
 import { rpc } from "medior/utils/server";
@@ -92,12 +92,12 @@ export const DiskStatus = Comp(({ diskPath, threshold }: DiskStatusProps) => {
       ) : !diskStats ? (
         <Text color={colors.custom.lightGrey}>{"Loading..."}</Text>
       ) : (
-        <View row spacing="1rem">
+        <View row align="center" spacing="1rem">
           <Text color={status.color} fontWeight={500}>
             {`${(percentFilled * 100).toFixed(2)}%`}
           </Text>
 
-          <Text>{`${Fmt.bytes(diskStats.free)} / ${Fmt.bytes(diskStats.size)}`}</Text>
+          <Chip label={Fmt.bytes(diskStats.free)} denominator={Fmt.bytes(diskStats.size)} />
         </View>
       )}
     </View>

@@ -20,11 +20,7 @@ export interface CollectionFilterMenuProps {
 
 export const CollectionFilterMenu = Comp(({ store }: CollectionFilterMenuProps) => {
   return (
-    <FilterMenu
-      store={store}
-      sortOptions={SORT_OPTIONS.FileCollection}
-      viewProps={{ width: "40rem" }}
-    >
+    <FilterMenu store={store} sortOptions={SORT_OPTIONS.FileCollection}>
       <View row spacing="0.5rem">
         <Card flex={1}>
           <TagInput
@@ -35,11 +31,11 @@ export const CollectionFilterMenu = Comp(({ store }: CollectionFilterMenuProps) 
             hasDelete
             hasEditor
             hasSearchMenu
-            width="13rem"
+            width="12rem"
           />
         </Card>
 
-        <Card spacing="0.5rem">
+        <Card flex="none" width="22rem" spacing="0.5rem">
           <Input
             header={
               <FilterHeader label="Title" mode={store.titleMode} setMode={store.setTitleMode} />

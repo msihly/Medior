@@ -238,7 +238,7 @@ const useClasses = makeClasses(({ position }: { position: number }) => ({
     },
     height: "100%",
     left: 0,
-    padding: "0 !important",
+    padding: 0,
     pointerEvents: "none",
     position: "absolute",
     top: 0,

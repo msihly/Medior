@@ -26,11 +26,13 @@ import { reloadItemTags } from "medior/utils/client/tags";
 import { isDeepEqual } from "medior/utils/common";
 import { socket } from "medior/utils/server";
 
+type FilterTagOptions = [TagOption[], (options: TagOption[]) => void];
+
 type MusicSearch = MusicAlbumSearch | MusicArtistSearch | MusicPlaylistSearch;
 
 export interface UseSocketsProps {
   enabled?: boolean;
-  view: "carousel" | "home" | "search";
+  view: "carousel" | "home";
 }
 
 export const useSockets = ({ enabled = true, view }: UseSocketsProps) => {
@@ -124,7 +126,7 @@ export const useSockets = ({ enabled = true, view }: UseSocketsProps) => {
   };
 
   const getActiveFileSearches = () => [
-    ...(view === "home" || view === "search" ? [stores.file.search] : []),
+    ...(view === "home" ? stores.file.searches : []),
     ...(stores.file.similarity.isOpen ? [stores.file.similarity.search] : []),
     ...(stores.collection.editor.isOpen
       ? [stores.collection.editor.search, stores.collection.editor.fileSearch]
@@ -177,7 +179,7 @@ export const useSockets = ({ enabled = true, view }: UseSocketsProps) => {
     const hasReplacedTag = (tags: { id: string }[]) => tags.some((tag) => replacedIds.has(tag.id));
 
     const files = [
-      ...stores.file.search.results,
+      ...stores.file.searches.flatMap((search) => search.results),
       ...stores.file.similarity.search.results,
       ...stores.collection.editor.search.results,
       ...stores.collection.editor.fileSearch.results,
@@ -248,8 +250,8 @@ export const useSockets = ({ enabled = true, view }: UseSocketsProps) => {
   };
 
   /** Each search's tag filter options with their setter. */
-  const getFilterTagOptions = (): [TagOption[], (options: TagOption[]) => void][] => [
-    [stores.file.search.tags, stores.file.search.setTags],
+  const getFilterTagOptions = (): FilterTagOptions[] => [
+    ...stores.file.searches.map((search): FilterTagOptions => [search.tags, search.setTags]),
     [stores.collection.manager.search.tags, stores.collection.manager.search.setTags],
     [stores.collection.editor.search.tags, stores.collection.editor.search.setTags],
     [stores.collection.editor.fileSearch.tags, stores.collection.editor.fileSearch.setTags],
@@ -285,7 +287,8 @@ export const useSockets = ({ enabled = true, view }: UseSocketsProps) => {
         );
     };
 
-    for (const file of stores.file.search.results) updateTags(file.tags, file.setTags);
+    for (const file of stores.file.searches.flatMap((search) => search.results))
+      updateTags(file.tags, file.setTags);
 
     for (const file of stores.file.similarity.search.results) updateTags(file.tags, file.setTags);
 
@@ -366,7 +369,7 @@ export const useSockets = ({ enabled = true, view }: UseSocketsProps) => {
   const reloadVisibleTagChips = async (fileIds: string[]) => {
     const requestedIds = new Set(fileIds);
     const files = [
-      ...stores.file.search.results,
+      ...stores.file.searches.flatMap((search) => search.results),
       ...(stores.file.similarity.isOpen ? stores.file.similarity.search.results : []),
       ...(stores.collection.editor.isOpen
         ? [
@@ -416,7 +419,8 @@ export const useSockets = ({ enabled = true, view }: UseSocketsProps) => {
         stores.carousel.removeFiles(fileIds);
 
       if (view !== "carousel") {
-        stores.file.search.removeFiles(fileIds);
+        for (const search of stores.file.searches) search.removeFiles(fileIds);
+
         stores.file.videoTransformer.removeQueueFiles(fileIds);
 
         if (stores.file.videoTransformer.isOpen) {
@@ -442,7 +446,6 @@ export const useSockets = ({ enabled = true, view }: UseSocketsProps) => {
         stores.collection.manager.setSelectedFiles(
           stores.collection.manager.selectedFiles.filter((file) => !fileIds.includes(file.id)),
         );
-        stores.file.search.removeFiles(fileIds);
         stores.file.videoTransformer.removeQueueFiles(fileIds);
 
         if (stores.file.videoTransformer.isOpen) {
@@ -450,7 +453,10 @@ export const useSockets = ({ enabled = true, view }: UseSocketsProps) => {
           stores.file.videoTransformer.loadActiveTransform({ isBackground: true });
         }
 
-        stores.file.search.setHasChanges(true);
+        for (const search of stores.file.searches) {
+          search.removeFiles(fileIds);
+          search.setHasChanges(true);
+        }
       }
     });
 
@@ -534,7 +540,8 @@ export const useSockets = ({ enabled = true, view }: UseSocketsProps) => {
 
     // Files changed in bulk without their own updates leave the loaded results as they are.
     makeSocket("onReloadFiles", () => {
-      if (view !== "carousel") stores.file.search.setHasChanges(true);
+      if (view !== "carousel")
+        for (const search of stores.file.searches) search.setHasChanges(true);
     });
 
     makeSocket("onTagCreated", (tag) => {
@@ -557,7 +564,8 @@ export const useSockets = ({ enabled = true, view }: UseSocketsProps) => {
       replaceVisibleTags(ids);
       removeResults(stores.tag.manager.search, ids);
 
-      if (view !== "carousel") stores.file.search.setHasChanges(true);
+      if (view !== "carousel")
+        for (const search of stores.file.searches) search.setHasChanges(true);
     });
 
     makeSocket("onTagMerged", async (args) => {
@@ -713,7 +721,7 @@ export const useSockets = ({ enabled = true, view }: UseSocketsProps) => {
       });
 
       makeSocket("onImportBatchCompleted", ({ id }) => {
-        stores.file.search.setHasChanges(true);
+        for (const search of stores.file.searches) search.setHasChanges(true);
 
         if (view === "home") {
           const store = stores.import.manager;

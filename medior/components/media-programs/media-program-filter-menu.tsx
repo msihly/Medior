@@ -8,10 +8,12 @@ import {
   FilterHeader,
   FilterMenu,
   FilterMenuProps,
+  getWatchStatusMeta,
   Input,
   LogOpsInput,
   NumRange,
   TagInput,
+  UniformList,
   View,
 } from "medior/components";
 import { MediaProgramSearch, useStores } from "medior/store";
@@ -50,6 +52,11 @@ export const MediaProgramFilterMenu = Comp(
     const languageOptions = toOptions(settings.languages);
     const mediumOptions = toOptions(settings.mediums);
     const typeOptions = toOptions(settings.types);
+    const watchStatusOptions = WATCH_STATUS_OPTIONS.map(({ label, value }) => ({
+      color: getWatchStatusMeta(value, false).bgColor,
+      label,
+      value,
+    }));
 
     const handleLanguages = (checked: string[]) =>
       store.setExcludedLanguages(getOtherValues(languageOptions, checked));
@@ -188,7 +195,7 @@ export const MediaProgramFilterMenu = Comp(
           <Card width={CHECKLIST_WIDTH} overflow="auto">
             <FilterChecklist
               label="Watch Status"
-              options={WATCH_STATUS_OPTIONS}
+              options={watchStatusOptions}
               selected={getOtherValues(WATCH_STATUS_OPTIONS, store.excludedWatchStatuses)}
               setSelected={handleWatchStatuses}
             >
@@ -201,23 +208,25 @@ export const MediaProgramFilterMenu = Comp(
             </FilterChecklist>
           </Card>
 
-          <Card width={CHECKLIST_WIDTH} overflow="auto">
-            <FilterChecklist
-              label="Type"
-              options={typeOptions}
-              selected={getOtherValues(typeOptions, store.excludedTypes)}
-              setSelected={handleTypes}
-            />
-          </Card>
+          <UniformList column width={CHECKLIST_WIDTH} spacing="0.5rem">
+            <Card overflow="auto">
+              <FilterChecklist
+                label="Type"
+                options={typeOptions}
+                selected={getOtherValues(typeOptions, store.excludedTypes)}
+                setSelected={handleTypes}
+              />
+            </Card>
 
-          <Card width={CHECKLIST_WIDTH} overflow="auto">
-            <FilterChecklist
-              label="Medium"
-              options={mediumOptions}
-              selected={getOtherValues(mediumOptions, store.excludedMediums)}
-              setSelected={handleMediums}
-            />
-          </Card>
+            <Card overflow="auto">
+              <FilterChecklist
+                label="Medium"
+                options={mediumOptions}
+                selected={getOtherValues(mediumOptions, store.excludedMediums)}
+                setSelected={handleMediums}
+              />
+            </Card>
+          </UniformList>
 
           <Card width={CHECKLIST_WIDTH} overflow="auto">
             <FilterChecklist

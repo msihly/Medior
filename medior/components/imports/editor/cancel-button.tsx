@@ -1,9 +1,9 @@
 import { Button, Comp, ConfirmModal } from "medior/components";
-import { Ingester, Reingester } from "medior/store";
+import { ImportEditorStore } from "medior/store";
 import { colors } from "medior/utils/client";
 
 export interface CancelButtonProps {
-  store: Ingester | Reingester;
+  store: ImportEditorStore;
 }
 
 export const CancelButton = Comp(({ store }: CancelButtonProps) => {

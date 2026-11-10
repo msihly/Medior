@@ -4,7 +4,6 @@ import { FileModals } from "./file-modals";
 import { ImportDnD } from "./import-dnd";
 import { ImportModals } from "./import-modals";
 import { MediaProgramModals } from "./media-program-modals";
-import { MuiProvider } from "./mui-provider";
 import { MusicModals } from "./music-modals";
 import { Search } from "./search";
 import { StoreProvider } from "./store-provider";
@@ -20,7 +19,6 @@ export const Views = {
   ImportDnD,
   ImportModals,
   MediaProgramModals,
-  MuiProvider,
   MusicModals,
   Search,
   StoreProvider,

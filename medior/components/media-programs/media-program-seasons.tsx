@@ -47,11 +47,8 @@ export const MediaProgramSeasons = Comp(() => {
     return res.success;
   };
 
-  const handleCopyCollections = () => {
-    stores.collection.manager.setSelectedFileIds([]);
-    stores.collection.manager.setIsOpen(true);
-    stores.collection.manager.setSeasonsProgramId(store.program.id);
-  };
+  const handleCopyCollections = () =>
+    stores.collection.manager.open({ seasonsProgramId: store.program.id });
 
   const handleMetaOpen = () => stores.mediaProgram.setMetaMatchProgramId(store.program.id);
 

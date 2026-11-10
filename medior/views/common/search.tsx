@@ -1,37 +1,38 @@
 import {
+  Card,
   Comp,
-  Drawer,
   FileContainer,
   HomeMultiActionBar,
+  SEARCH_HEADER_PROPS,
   SearchLoadingOverlay,
   View,
 } from "medior/components";
 import { useStores } from "medior/store";
-import { makeClasses } from "medior/utils/client";
+import { colors, makeClasses } from "medior/utils/client";
 
-interface SearchProps {
-  isHome?: boolean;
-}
-
-export const Search = Comp(({ isHome = false }: SearchProps) => {
+/** The Files view, showing the search of its shown tab. */
+export const Search = Comp(() => {
   const stores = useStores();
 
   const { css } = useClasses(null);
 
   return (
-    <View row className={css.root}>
-      <Drawer hasDuplicates={isHome} hasImports={isHome} hasSettings={isHome} />
-
-      <View column flex={1} position="relative" overflow="hidden">
-        <HomeMultiActionBar isHome={isHome} />
-
-        <View column className={css.main}>
-          <FileContainer view={isHome ? "home" : "search"} />
-        </View>
-
-        <SearchLoadingOverlay store={stores.file.search} />
+    <Card
+      flex={1}
+      height="100%"
+      minHeight={0}
+      padding={{ all: 0 }}
+      overflow="hidden"
+      bgColor={colors.background}
+      headerProps={SEARCH_HEADER_PROPS}
+      header={<HomeMultiActionBar />}
+    >
+      <View column className={css.main}>
+        <FileContainer />
       </View>
-    </View>
+
+      <SearchLoadingOverlay store={stores.file.shownSearch} />
+    </Card>
   );
 });
 
@@ -42,10 +43,5 @@ const useClasses = makeClasses({
     flex: 1,
     minHeight: 0,
     overflow: "auto",
-  },
-  root: {
-    flex: 1,
-    minHeight: 0,
-    overflow: "hidden",
   },
 });

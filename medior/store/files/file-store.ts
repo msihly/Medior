@@ -9,9 +9,9 @@ import {
   modelFlow,
   prop,
 } from "mobx-keystone";
-import { _FileStore, SortValue } from "medior/store/_generated";
+import { _FileStore } from "medior/store/_generated";
 import * as db from "medior/server/database";
-import { FaceModel, RootStore } from "medior/store";
+import { FaceModel, RootStore, tagToOption } from "medior/store";
 import { asyncAction, toast } from "medior/utils/client";
 import { chunkArray, Fmt } from "medior/utils/common";
 import { rpc } from "medior/utils/server";
@@ -23,6 +23,7 @@ import {
   FileTagsEditorStore,
   LowerResolutionStore,
   VideoTransformerStore,
+  VideoTransformRequest,
 } from ".";
 
 @model("medior/FileStore")
@@ -43,9 +44,14 @@ export class FileStore extends ExtendedModel(_FileStore, {
   lowerResolution: prop<LowerResolutionStore>(() => new LowerResolutionStore({})),
   /** The server job refreshing files that this window follows. */
   refreshJobId: prop<string>(null).withSetter(),
-  search: prop<FileSearch>(() => new FileSearch({})),
+  /** The search tab the Files view shows. */
+  searchIndex: prop<number>(0).withSetter(),
+  /** The Files view's searches, each in its own tab, the first of which is always kept. */
+  searchTabs: prop<FileSearch[]>(() => [new FileSearch({})]),
   similarity: prop<FileSimilarityStore>(() => new FileSimilarityStore({})),
   tagsEditor: prop<FileTagsEditorStore>(() => new FileTagsEditorStore({})),
+  /** The search the Collection Triager's carousel loads its files into while it's open. */
+  triageSearch: prop<FileSearch>(null).withSetter(),
   videoTransformer: prop<VideoTransformerStore>(() => new VideoTransformerStore({})),
 }) {
   private actionAbortController: AbortController = null;
@@ -80,20 +86,47 @@ export class FileStore extends ExtendedModel(_FileStore, {
     this.search.results.splice(index + 1, 0, new File(file));
   }
 
+  /** Adds a search tab after the others and shows it. */
+  @modelAction
+  addSearchTab() {
+    const search = new FileSearch({});
+
+    this.searchTabs.push(search);
+    this.searchIndex = this.searchTabs.length - 1;
+
+    return search;
+  }
+
   cancelActionPreparation() {
     this.actionAbortController?.abort();
   }
 
+  /** Closes a search tab after the first. Closing the shown tab shows the one before it. */
   @modelAction
-  openVideoTransformer(
-    fileIds: string[],
-    fnType: "reencode" | "remux" | "splice",
-    sortValue?: SortValue,
-  ) {
-    if (sortValue && this.search.ids.length) {
+  closeSearchTab(index: number) {
+    if (index === 0) return;
+
+    this.searchTabs[index].cancelLoad();
+    this.searchTabs.splice(index, 1);
+
+    if (this.searchIndex >= index) this.searchIndex--;
+  }
+
+  /** Sends files to the Media Transformer, which creates their transforms once it shows. */
+  @modelAction
+  openVideoTransformer({
+    fileIds,
+    fnType,
+    sortValue,
+    spliceMode = "replace",
+    timestampPairs = [],
+  }: VideoTransformRequest) {
+    const stores = getRootStore<RootStore>(this);
+
+    if (sortValue && this.shownSearch.ids.length) {
       const selectedIds = new Set(fileIds);
 
-      fileIds = this.search.ids.filter((id) => selectedIds.has(id));
+      fileIds = this.shownSearch.ids.filter((id) => selectedIds.has(id));
       sortValue = null;
     }
 
@@ -101,7 +134,10 @@ export class FileStore extends ExtendedModel(_FileStore, {
     this.videoTransformer.setFnType(fnType);
     this.videoTransformer.setQueueType(fnType);
     this.videoTransformer.setSourceSortValue(sortValue ? { ...sortValue } : null);
-    this.videoTransformer.setIsOpen(true);
+    this.videoTransformer.setSpliceMode(spliceMode);
+    this.videoTransformer.setTimestampPairs(timestampPairs);
+
+    stores.home.openView("transformer");
   }
 
   @modelAction
@@ -147,7 +183,9 @@ export class FileStore extends ExtendedModel(_FileStore, {
     fileIds: string[];
     removedTagIds: string[];
   }) {
-    this.search.updateFileTags({ addedTagIds, fileIds, removedTagIds });
+    for (const search of this.searches)
+      search.updateFileTags({ addedTagIds, fileIds, removedTagIds });
+
     this.similarity.search.updateFileTags({ addedTagIds, fileIds, removedTagIds });
   }
 
@@ -158,7 +196,8 @@ export class FileStore extends ExtendedModel(_FileStore, {
       Omit<ModelCreationData<File>, "faceModels"> & { faceModels?: ModelCreationData<FaceModel>[] }
     >,
   ) {
-    fileIds.forEach((id) => this.search.getResult(id)?.update(updates));
+    for (const search of this.searches)
+      fileIds.forEach((id) => search.getResult(id)?.update(updates));
   }
 
   @modelAction
@@ -228,7 +267,7 @@ export class FileStore extends ExtendedModel(_FileStore, {
   confirmDeleteArchivedFiles = asyncAction(async () => {
     if (!this.hasArchivedFiles) return;
 
-    this.search.setSelectedIds([...this.archivedFileIds]);
+    this.shownSearch.setSelectedIds([...this.archivedFileIds]);
     this.setIdsForConfirmDelete([...this.archivedFileIds]);
     this.setIsConfirmDeleteOpen(true);
   });
@@ -336,6 +375,28 @@ export class FileStore extends ExtendedModel(_FileStore, {
     this.setFileLocks(res.data);
   });
 
+  /** Opens a search tab in the Files view, searching the given tags. */
+  @modelFlow
+  openSearchTab = asyncAction(async ({ tagIds = [] }: { tagIds?: string[] } = {}) => {
+    const stores = getRootStore<RootStore>(this);
+
+    const search = this.addSearchTab();
+    stores.home.openView("files");
+
+    if (tagIds.length) {
+      const tagRes = await rpc.listTag({ filter: { id: tagIds } });
+      if (!tagRes.success) throw new Error(tagRes.error);
+
+      // A tab closed while its tags loaded is left alone.
+      if (!this.searchTabs.includes(search)) return;
+
+      search.setTags(tagRes.data.map(tagToOption));
+    }
+
+    const res = await search.loadFiltered({ noCache: true, page: 1 });
+    if (!res.success) throw new Error(res.error);
+  });
+
   /**
    * Starts refreshing files on the server, or adds them to the refresh already running. Returns
    * the refresh's job ID, or nothing when it couldn't start.
@@ -420,12 +481,15 @@ export class FileStore extends ExtendedModel(_FileStore, {
 
     this.actionFileIds = [];
     this.setIsActionMinimized(false);
-    this.search.toggleSelected(processedIds.map((id) => ({ id, isSelected: false })));
+
+    for (const search of this.searches)
+      search.toggleSelected(processedIds.map((id) => ({ id, isSelected: false })));
 
     if (job.error) toast.error(job.error);
 
     if (job.type === "unarchiveFiles") {
-      this.search.removeFiles(processedIds);
+      for (const search of this.searches) search.removeFiles(processedIds);
+
       toast.info(`${Fmt.commas(job.processed)} files unarchived`);
     } else {
       this.setIdsForConfirmDelete([]);
@@ -469,6 +533,24 @@ export class FileStore extends ExtendedModel(_FileStore, {
 
   get refreshJob() {
     return getRootStore<RootStore>(this).home.getJobById(this.refreshJobId);
+  }
+
+  /**
+   * The search the carousel loads its files into: the Collection Triager's while it's open, or
+   * else the shown tab's.
+   */
+  get search() {
+    return this.triageSearch ?? this.shownSearch;
+  }
+
+  /** Every search files are loaded into, including the triager's while it's open. */
+  get searches() {
+    return this.triageSearch ? [...this.searchTabs, this.triageSearch] : this.searchTabs;
+  }
+
+  /** The search of the tab the Files view shows. */
+  get shownSearch() {
+    return this.searchTabs[this.searchIndex];
   }
 
   getById(id: string) {

@@ -1,11 +1,32 @@
 import autoBind from "auto-bind";
 import { BackgroundOperationSchema, NotificationSchema } from "medior/_generated/server";
-import { Model, model, modelAction, modelFlow, prop } from "mobx-keystone";
+import { reaction } from "mobx";
+import { getRootStore, Model, model, modelAction, modelFlow, prop } from "mobx-keystone";
 import type { JobState, JobType } from "medior/server/database";
-import { SettingsStore } from "medior/store";
+import { RootStore, SettingsStore, TagOption, VideoTransformRequest } from "medior/store";
 import { asyncAction, derefMobx } from "medior/utils/client";
 import { isDeepEqual } from "medior/utils/common";
 import { getConfig, rpc } from "medior/utils/server";
+
+/** The views the drawer switches between, each staying open with its state once opened. */
+export type HomeView =
+  | "activity"
+  | "collections"
+  | "duplicates"
+  | "files"
+  | "imports"
+  | "mediaPrograms"
+  | "music"
+  | "settings"
+  | "tags"
+  | "transformer";
+
+/** A view any window asks the main window to show, along with what it shows. */
+export type HomeViewRequest =
+  | { fileIds: string[]; view: "collections" }
+  | { tag: TagOption; view: "tags" }
+  | { tagIds: string[]; view: "files" }
+  | (VideoTransformRequest & { view: "transformer" });
 
 const hasOperationAction = (operation: BackgroundOperationSchema) =>
   ["PENDING", "RUNNING", "CANCELLED", "ERROR"].includes(operation.status);
@@ -64,6 +85,7 @@ export class HomeStore extends Model({
   notifications: prop<NotificationSchema[]>(() => []).withSetter(),
   settings: prop<SettingsStore>(() => new SettingsStore({})),
   showFileName: prop<boolean>(() => getConfig().file.showFileName).withSetter(),
+  view: prop<HomeView>("files").withSetter(),
 }) {
   private activityLoad: Promise<void>;
   private activityLoadRevision = 0;
@@ -77,6 +99,14 @@ export class HomeStore extends Model({
 
   onInit() {
     autoBind(this);
+
+    // Leaving Activity marks the notifications it showed as read.
+    reaction(
+      () => this.view,
+      (_, previousView) => {
+        if (previousView === "activity") this.readNotifications();
+      },
+    );
   }
 
   /* ---------------------------- STANDARD ACTIONS ---------------------------- */
@@ -158,6 +188,23 @@ export class HomeStore extends Model({
         ids.includes(notification.id) ? { ...notification, isRead: true } : notification,
       ),
     );
+  }
+
+  /** Shows a view beside the drawer, opening it the first time. */
+  openView(view: HomeView) {
+    const stores = getRootStore<RootStore>(this);
+
+    this.setView(view);
+
+    if (view === "activity") this.setIsActivityOpen(true);
+    else if (view === "collections") stores.collection.manager.setIsOpen(true);
+    else if (view === "duplicates") stores.file.lowerResolution.open();
+    else if (view === "imports") stores.import.manager.setIsOpen(true);
+    else if (view === "mediaPrograms") stores.mediaProgram.manager.setIsOpen(true);
+    else if (view === "music") stores.music.manager.setIsOpen(true);
+    else if (view === "settings") this.settings.setIsOpen(true);
+    else if (view === "tags") stores.tag.manager.setIsOpen(true);
+    else if (view === "transformer") stores.file.videoTransformer.setIsOpen(true);
   }
 
   @modelAction
@@ -273,6 +320,20 @@ export class HomeStore extends Model({
       ...res.data.running.filter(({ id }) => !this.finishedJobs.has(id)),
       ...this.jobs.filter(({ id }) => !knownIds.has(id) && !runningIds.has(id)),
     ]);
+  });
+
+  /** Shows the view a window asked for, with the files, tag, or transform it asked to show. */
+  @modelFlow
+  openRequestedView = asyncAction(async (request: HomeViewRequest) => {
+    const stores = getRootStore<RootStore>(this);
+
+    if (request.view === "collections")
+      stores.collection.manager.open({ fileIds: request.fileIds });
+    else if (request.view === "files") {
+      const res = await stores.file.openSearchTab({ tagIds: request.tagIds });
+      if (!res.success) throw new Error(res.error);
+    } else if (request.view === "tags") stores.tag.manager.findTagsOnSameFiles(request.tag);
+    else stores.file.openVideoTransformer(request);
   });
 
   @modelFlow

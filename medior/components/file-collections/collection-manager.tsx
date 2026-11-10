@@ -77,16 +77,20 @@ export const FileCollectionManager = Comp(() => {
       handlePageChange(Math.max(pageCount, 1));
   }, [store.search.isLoading, store.search.isPageCountLoading, page, pageCount]);
 
+  /** Copying ends picking seasons, returning to the program editor they were picked for. */
   const handleCopySeasons = async () => {
     if (stores.mediaProgram.editor.program?.id !== store.seasonsProgramId) {
       toast.error("The program these seasons were for is no longer open");
-      return handleClose();
+      return store.setSeasonsProgramId(null);
     }
 
     const res = await stores.mediaProgram.editor.copyCollections([...store.search.selectedIds]);
 
     if (!res.success) toast.error(res.error);
-    else handleClose();
+    else {
+      store.setSeasonsProgramId(null);
+      stores.home.openView("mediaPrograms");
+    }
   };
 
   const handleAddToCollection = async () => {
@@ -115,14 +119,6 @@ export const FileCollectionManager = Comp(() => {
     load.cancel();
     merge.cancelLoad();
     store.search.cancelLoad();
-  };
-
-  const handleClose = () => {
-    if (store.isLoading || merge.isQuickMergeSaving) return;
-
-    load.cancel();
-    merge.cancelLoad();
-    store.setIsOpen(false);
   };
 
   const handleDelete = () => {
@@ -228,12 +224,9 @@ export const FileCollectionManager = Comp(() => {
   const scrollToTop = () => collsRef.current?.scrollTo({ behavior: "instant", top: 0 });
 
   return (
-    <Modal.Container
-      isLoading={store.isLoading || merge.isQuickMergeSaving}
-      onClose={handleClose}
-      height="100%"
-      width="100%"
-    >
+    <>
+      <LoadingOverlay isLoading={store.isLoading || merge.isQuickMergeSaving} />
+
       <LoadingOverlay
         isLoading={load.isLoading || (merge.isLoading && !merge.isMergeEditorOpen)}
         sub={<Button text="Cancel" icon="Close" onClick={handleCancelLoad} />}
@@ -398,8 +391,6 @@ export const FileCollectionManager = Comp(() => {
       </Modal.Content>
 
       <Modal.Footer>
-        <Button text="Close" icon="Close" onClick={handleClose} colorOnHover={colors.custom.red} />
-
         <Button
           text="New Collection"
           icon="Add"
@@ -462,6 +453,6 @@ export const FileCollectionManager = Comp(() => {
           onSave={merge.handleMerge}
         />
       )}
-    </Modal.Container>
+    </>
   );
 });

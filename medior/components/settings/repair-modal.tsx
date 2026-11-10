@@ -445,7 +445,7 @@ export const RepairModal = Comp(() => {
         options: {
           deleteOnImport: false,
           ignorePrevDeleted: false,
-          rootFolderPath: stores.import.ingester.rootFolder,
+          rootFolderPath: stores.import.editor.rootFolder,
         },
       });
 

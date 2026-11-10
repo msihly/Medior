@@ -1,22 +1,32 @@
 import { useEffect } from "react";
-import { Button, Card, Comp, Icon, Modal, Text, View } from "medior/components";
+import {
+  Button,
+  Card,
+  Comp,
+  Icon,
+  Modal,
+  SEARCH_HEADER_PROPS,
+  Text,
+  UniformList,
+  View,
+} from "medior/components";
 import { useStores } from "medior/store";
 import { colors } from "medior/utils/client";
 import { formatDate, NOTIFICATION_TYPE_META } from "./activity-meta";
 import { OperationCard } from "./operation-card";
 
+/** The Activity tab, which refreshes while shown. Leaving it marks its notifications read. */
 export const BackgroundActivityModal = Comp(() => {
   const stores = useStores();
   const store = stores.home;
 
-  const handleClose = () => {
-    store.setIsActivityOpen(false);
-    store.readNotifications();
-  };
+  const isShown = store.view === "activity";
 
   const handleRefresh = () => store.loadBackgroundActivity();
 
   useEffect(() => {
+    if (!isShown) return;
+
     let cancelled = false;
     let timer: ReturnType<typeof setTimeout>;
 
@@ -32,15 +42,31 @@ export const BackgroundActivityModal = Comp(() => {
       cancelled = true;
       clearTimeout(timer);
     };
-  }, []);
+  }, [isShown]);
 
   return (
-    <Modal.Container onClose={handleClose} height="90%" width="90%">
-      <Modal.Header>
-        <Text preset="title">{"Activity"}</Text>
-      </Modal.Header>
+    <>
+      <Card
+        row
+        flex={1}
+        minHeight={0}
+        minWidth={0}
+        overflow="hidden"
+        spacing="1rem"
+        bgColor={colors.background}
+        headerProps={SEARCH_HEADER_PROPS}
+        header={
+          <UniformList row flex={1} justify="space-between">
+            <View row />
 
-      <Modal.Content row minHeight={0} minWidth={0} overflow="hidden" spacing="1rem">
+            <View row justify="center" align="center">
+              <Text preset="title">{"Activity"}</Text>
+            </View>
+
+            <View row justify="flex-end" />
+          </UniformList>
+        }
+      >
         <Card
           flex={1}
           header="Operations"
@@ -110,13 +136,11 @@ export const BackgroundActivityModal = Comp(() => {
             </View>
           )}
         </Card>
-      </Modal.Content>
+      </Card>
 
       <Modal.Footer>
         <Button text="Refresh" icon="Refresh" onClick={handleRefresh} />
-
-        <Button text="Close" icon="Close" onClick={handleClose} />
       </Modal.Footer>
-    </Modal.Container>
+    </>
   );
 });

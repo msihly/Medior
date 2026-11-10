@@ -6,7 +6,7 @@ import { ModelCreationData } from "mobx-keystone";
 import { checkFileExists, dirToFilePaths, makePerfLog } from "trabecula/utils/server";
 import { TagSchema } from "medior/server/database";
 import { FlatFolder, TagToUpsert } from "medior/components";
-import { FileImport, Ingester, Reingester, RootStore, useStores } from "medior/store";
+import { FileImport, ImportEditorStore, RootStore, useStores } from "medior/store";
 import { derefMobx, toast } from "medior/utils/client";
 import {
   chunkArray,
@@ -67,11 +67,11 @@ const throwIfIngestCancelled = (isCancelled?: () => boolean) => {
   if (isCancelled?.()) throw new IngestCancelledError();
 };
 
-const getIsCancelled = (store: Ingester | Reingester, cancelToken: number) => () =>
+const getIsCancelled = (store: ImportEditorStore, cancelToken: number) => () =>
   !store.isOpen || store.ingestCancelToken !== cancelToken;
 
 const makeSetInitProgress =
-  (store: Ingester | Reingester, isCancelled: () => boolean) =>
+  (store: ImportEditorStore, isCancelled: () => boolean) =>
   (status: string, completed = 0, total = 0) => {
     if (isCancelled()) return;
 
@@ -386,17 +386,16 @@ export const handleIngest = async ({
   store,
 }: {
   fileList: { name: string; path: string; type: string }[];
-  store: Ingester;
+  store: ImportEditorStore;
 }) => {
+  store.startInit("ingest");
+
   const isCancelled = getIsCancelled(store, store.ingestCancelToken);
   const setInitProgress = makeSetInitProgress(store, isCancelled);
 
   try {
     const { perfLog, perfLogTotal } = makePerfLog("[Ingest]");
 
-    store.setIsInitDone(false);
-    store.setIsOpen(true);
-    store.setIsLoading(true);
     setInitProgress("Preparing import");
 
     const sortedList = [...fileList].sort((a, b) => {
@@ -513,7 +512,7 @@ export const handleSavedConfigsIngest = async ({
   store,
 }: {
   folderPaths: string[];
-  store: Ingester;
+  store: ImportEditorStore;
 }) => {
   for (let idx = 0; idx < folderPaths.length; idx++) {
     const folderPath = folderPaths[idx];
@@ -542,15 +541,14 @@ export const handleReingest = async ({
   store,
 }: {
   fileIds: string[];
-  store: Reingester;
+  store: ImportEditorStore;
 }) => {
+  store.startInit("reingest");
+
   const isCancelled = getIsCancelled(store, store.ingestCancelToken);
   const setInitProgress = makeSetInitProgress(store, isCancelled);
 
   try {
-    store.setIsInitDone(false);
-    store.setIsOpen(true);
-    store.setIsLoading(true);
     setInitProgress("Preparing re-import", 0, fileIds.length);
     store.setFileIds(fileIds);
 
@@ -570,7 +568,7 @@ export const handleReingest = async ({
   }
 };
 
-export const useImportEditor = (store: Ingester | Reingester) => {
+export const useImportEditor = (store: ImportEditorStore) => {
   const config = getConfig();
 
   const stores = useStores();
@@ -1665,9 +1663,9 @@ export const useImportEditor = (store: Ingester | Reingester) => {
       if (DEBUG) perfLogTotal("Import batches created");
 
       toast.success(`Queued ${res.data.count} import batches`);
-      savedConfigFolderPaths = [...stores.import.ingester.savedConfigFolderPaths];
+      savedConfigFolderPaths = [...store.savedConfigFolderPaths];
       store.setIsOpen(false);
-      stores.import.manager.setIsOpen(true);
+      stores.home.openView("imports");
 
       // Starting the importer doesn't hold up the ingest, so its result is reported on its own.
       (async () => {
@@ -1687,10 +1685,7 @@ export const useImportEditor = (store: Ingester | Reingester) => {
     }
 
     if (savedConfigFolderPaths.length)
-      handleSavedConfigsIngest({
-        folderPaths: savedConfigFolderPaths,
-        store: stores.import.ingester,
-      });
+      handleSavedConfigsIngest({ folderPaths: savedConfigFolderPaths, store });
   };
 
   const reingest = async () => {
@@ -1721,7 +1716,7 @@ export const useImportEditor = (store: Ingester | Reingester) => {
         // Each import's resolved tags are at its place among the folder's imports.
         const { imports, tagIds } = await createFolderTagIds(folder);
 
-        const res = await stores.import.reingester.reingestFolder({
+        const res = await store.reingestFolder({
           collectionTitle: mediaProgram ? null : folder.collectionTitle,
           fileTagIds: folder.imports.map((imp, index) => ({
             fileId: imp.fileId,
@@ -1732,7 +1727,7 @@ export const useImportEditor = (store: Ingester | Reingester) => {
         if (!res.success) throw new Error(res.error);
 
         // A retry after a failure skips the folders already reingested.
-        stores.import.reingester.removeFolder(folder.folderName);
+        store.removeFolder(folder.folderName);
       }
 
       if (DEBUG) perfLogTotal("Folders reingested");

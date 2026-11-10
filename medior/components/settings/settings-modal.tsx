@@ -12,6 +12,7 @@ import {
   LoadingOverlay,
   MediaProgramDropdown,
   Modal,
+  SEARCH_HEADER_PROPS,
   Text,
   UniformList,
   View,
@@ -97,20 +98,15 @@ export const SettingsModal = Comp(() => {
     if (folder) store.addLinkedFolder(folder);
   };
 
-  const handleCancel = () => {
-    if (store.hasUnsavedChanges) setIsConfirmDiscardOpen(true);
-    else handleClose();
-  };
-
-  const handleClose = async () => {
-    load.cancel();
-    if (store.hasUnsavedChanges) store.applyConfig(getConfig());
-
-    store.setIsOpen(false);
+  /** Changes apply as they're made, so discarding them restores the saved config. */
+  const discardChanges = async () => {
+    store.applyConfig(getConfig());
     store.setHasUnsavedChanges(false);
 
     return true;
   };
+
+  const handleCancel = () => setIsConfirmDiscardOpen(true);
 
   const handleLoadConfig = () =>
     load.run(async (signal) => {
@@ -218,23 +214,35 @@ export const SettingsModal = Comp(() => {
   const toggleFoldersToTagsHierarchical = () => store.setFolderToTagsMode("hierarchical");
 
   return (
-    <Modal.Container
-      isLoading={store.isLoading}
-      onClose={handleCancel}
-      height="100%"
-      width="100%"
-      maxWidth="80rem"
-    >
+    <>
+      <LoadingOverlay isLoading={store.isLoading} />
+
       <LoadingOverlay
         isLoading={load.isLoading}
-        sub={<Button text="Cancel" icon="Close" onClick={handleClose} />}
+        sub={<Button text="Cancel" icon="Close" onClick={load.cancel} />}
       />
 
-      <Modal.Header>
-        <Text preset="title">{"Settings"}</Text>
-      </Modal.Header>
+      <Card
+        row
+        justify="center"
+        flex={1}
+        minHeight={0}
+        overflow="hidden"
+        spacing="1rem"
+        bgColor={colors.background}
+        headerProps={SEARCH_HEADER_PROPS}
+        header={
+          <UniformList row flex={1} justify="space-between">
+            <View row />
 
-      <Modal.Content row overflow="hidden" spacing="1rem">
+            <View row justify="center" align="center">
+              <Text preset="title">{"Settings"}</Text>
+            </View>
+
+            <View row justify="flex-end" />
+          </UniformList>
+        }
+      >
         <Card flex="none" width="14rem" spacing="0.3rem" overflow="hidden auto">
           {TABS.map((tab) => {
             const isActive = tab.label === activeTab;
@@ -262,23 +270,21 @@ export const SettingsModal = Comp(() => {
                 title="Database"
                 rightNode={<Button text="Repair Database" icon="Build" onClick={handleRepair} />}
               >
-                <Settings.Grid>
-                  <Settings.Field label="Path" description="Changing it restarts the servers." wide>
-                    <Settings.Input
-                      configKey="db.path"
-                      onClick={handlePathClick(store.setDbPath, store.db.path)}
-                      flex={1}
-                    />
-                  </Settings.Field>
+                <Settings.Field label="Path" description="Changing it restarts the servers." wide>
+                  <Settings.Input
+                    configKey="db.path"
+                    onClick={handlePathClick(store.setDbPath, store.db.path)}
+                    flex={1}
+                  />
+                </Settings.Field>
 
-                  <Settings.Field label="Port">
-                    <Settings.NumInput configKey="ports.db" />
-                  </Settings.Field>
-                </Settings.Grid>
+                <Settings.Field label="Port">
+                  <Settings.NumInput configKey="ports.db" />
+                </Settings.Field>
               </Settings.Group>
 
               <Settings.Group title="Servers">
-                <Settings.Grid>
+                <UniformList row spacing="1rem">
                   <Settings.Field label="Server Port">
                     <Settings.NumInput configKey="ports.server" />
                   </Settings.Field>
@@ -286,39 +292,37 @@ export const SettingsModal = Comp(() => {
                   <Settings.Field label="Socket Port">
                     <Settings.NumInput configKey="ports.socket" />
                   </Settings.Field>
-                </Settings.Grid>
+                </UniformList>
               </Settings.Group>
 
               <Settings.Group title="File Storage">
-                <Settings.Grid>
-                  <Settings.Field
-                    label="Locations"
-                    description="Filled in order, top first."
-                    alignTop
-                    wide
-                  >
-                    <Settings.StorageInputs selectLocation={selectStorageLocation} />
-                  </Settings.Field>
+                <Settings.Field
+                  label="Locations"
+                  description="Filled in order, top first."
+                  alignTop
+                  wide
+                >
+                  <Settings.StorageInputs selectLocation={selectStorageLocation} />
+                </Settings.Field>
 
-                  <Settings.Field
-                    label="Scratch Folder"
-                    description="Temp files. Blank uses the storage locations."
-                    wide
-                  >
-                    <Settings.ScratchInput selectLocation={selectStorageLocation} />
-                  </Settings.Field>
+                <Settings.Field
+                  label="Scratch Folder"
+                  description="Temp files. Blank uses the storage locations."
+                  wide
+                >
+                  <Settings.ScratchInput selectLocation={selectStorageLocation} />
+                </Settings.Field>
 
-                  <Settings.Field label="Full Warning At">
-                    <Settings.NumInput
-                      configKey="db.fileStorage.threshold"
-                      value={Math.round(store.db.fileStorage.threshold * 100)}
-                      setValue={handleStorageThreshold}
-                      adornment="%"
-                      minValue={1}
-                      maxValue={100}
-                    />
-                  </Settings.Field>
-                </Settings.Grid>
+                <Settings.Field label="Full Warning At">
+                  <Settings.NumInput
+                    configKey="db.fileStorage.threshold"
+                    value={Math.round(store.db.fileStorage.threshold * 100)}
+                    setValue={handleStorageThreshold}
+                    adornment="%"
+                    minValue={1}
+                    maxValue={100}
+                  />
+                </Settings.Field>
               </Settings.Group>
 
               <Settings.Group
@@ -342,19 +346,19 @@ export const SettingsModal = Comp(() => {
           {activeTab === "Vectors" && (
             <>
               <Settings.Group title="Database">
-                <Settings.Grid>
-                  <Settings.Field
-                    label="Path"
-                    description="Restarts the servers. A folder without vectors needs a full Similarity Search Index repair."
-                    wide
-                  >
-                    <Settings.Input
-                      configKey="db.vector.path"
-                      onClick={handlePathClick(store.setVectorDbPath, store.db.vector.path)}
-                      flex={1}
-                    />
-                  </Settings.Field>
+                <Settings.Field
+                  label="Path"
+                  description="Restarts the servers. A folder without vectors needs a full Similarity Search Index repair."
+                  wide
+                >
+                  <Settings.Input
+                    configKey="db.vector.path"
+                    onClick={handlePathClick(store.setVectorDbPath, store.db.vector.path)}
+                    flex={1}
+                  />
+                </Settings.Field>
 
+                <UniformList row spacing="1rem">
                   <Settings.Field label="Port" description="Restarts the servers.">
                     <Settings.NumInput configKey="ports.vector" />
                   </Settings.Field>
@@ -369,30 +373,30 @@ export const SettingsModal = Comp(() => {
                       maxValue={navigator.hardwareConcurrency}
                     />
                   </Settings.Field>
+                </UniformList>
 
-                  <Settings.Field label="Writer Batch" description="Vectors saved per write.">
-                    <Settings.NumInput configKey="file.similarity.writerBatchSize" minValue={1} />
-                  </Settings.Field>
-                </Settings.Grid>
+                <Settings.Field label="Writer Batch" description="Vectors saved per write.">
+                  <Settings.NumInput configKey="file.similarity.writerBatchSize" minValue={1} />
+                </Settings.Field>
               </Settings.Group>
 
               <Settings.Group title="Inference">
-                <Settings.Grid>
-                  <Settings.Field
-                    label="Model Cache Path"
-                    description="A new folder downloads the model again."
-                    wide
-                  >
-                    <Settings.Input
-                      configKey="file.similarity.modelCachePath"
-                      onClick={handlePathClick(
-                        store.setSimilarityModelCachePath,
-                        store.file.similarity.modelCachePath,
-                      )}
-                      flex={1}
-                    />
-                  </Settings.Field>
+                <Settings.Field
+                  label="Model Cache Path"
+                  description="A new folder downloads the model again."
+                  wide
+                >
+                  <Settings.Input
+                    configKey="file.similarity.modelCachePath"
+                    onClick={handlePathClick(
+                      store.setSimilarityModelCachePath,
+                      store.file.similarity.modelCachePath,
+                    )}
+                    flex={1}
+                  />
+                </Settings.Field>
 
+                <UniformList row spacing="1rem">
                   <Settings.Field label="Device" description="Hardware that generates new vectors.">
                     <Settings.Dropdown
                       configKey="file.similarity.visual.device"
@@ -410,11 +414,11 @@ export const SettingsModal = Comp(() => {
                       minValue={1}
                     />
                   </Settings.Field>
-                </Settings.Grid>
+                </UniformList>
               </Settings.Group>
 
               <Settings.Group title="Audio">
-                <Settings.Grid>
+                <UniformList row spacing="1rem">
                   <Settings.Field
                     label="Model"
                     description="Exported to the model cache by scripts/export-ced-onnx.py. Each model and layer keeps its own vectors."
@@ -436,7 +440,9 @@ export const SettingsModal = Comp(() => {
                       width="8rem"
                     />
                   </Settings.Field>
+                </UniformList>
 
+                <UniformList row spacing="1rem">
                   <Settings.Field
                     label="Device"
                     description="Hardware that generates audio vectors."
@@ -454,7 +460,9 @@ export const SettingsModal = Comp(() => {
                   >
                     <Settings.NumInput configKey="file.similarity.audio.batchSize" minValue={1} />
                   </Settings.Field>
+                </UniformList>
 
+                <UniformList row spacing="1rem">
                   <Settings.Field
                     label="Window"
                     description="Audio each stored vector covers. Changing it regenerates audio vectors."
@@ -476,33 +484,26 @@ export const SettingsModal = Comp(() => {
                       minValue={160}
                     />
                   </Settings.Field>
-                </Settings.Grid>
+                </UniformList>
               </Settings.Group>
 
               <Settings.Group title="Find Similar">
-                <Settings.Grid>
-                  <Settings.Field label="Results Limit" description="Results per page.">
-                    <Settings.NumInput
-                      configKey="file.similarity.defaultLimit"
-                      minValue={1}
-                      maxValue={CONSTANTS.VECTOR.MAX_SIMILAR_RESULTS}
-                    />
-                  </Settings.Field>
-                </Settings.Grid>
+                <Settings.Field label="Results Limit" description="Results per page.">
+                  <Settings.NumInput
+                    configKey="file.similarity.defaultLimit"
+                    minValue={1}
+                    maxValue={CONSTANTS.VECTOR.MAX_SIMILAR_RESULTS}
+                  />
+                </Settings.Field>
               </Settings.Group>
 
               <Settings.Group title="Search Index">
-                <Settings.Grid>
-                  <Settings.Field
-                    label="Probes"
-                    description="Index partitions checked per duplicate lookup. Higher is more thorough but slower."
-                  >
-                    <Settings.NumInput
-                      configKey="file.similarity.index.ivfPq.nprobes"
-                      minValue={1}
-                    />
-                  </Settings.Field>
-                </Settings.Grid>
+                <Settings.Field
+                  label="Probes"
+                  description="Index partitions checked per duplicate lookup. Higher is more thorough but slower."
+                >
+                  <Settings.NumInput configKey="file.similarity.index.ivfPq.nprobes" minValue={1} />
+                </Settings.Field>
               </Settings.Group>
             </>
           )}
@@ -510,7 +511,7 @@ export const SettingsModal = Comp(() => {
           {activeTab === "Collections" && (
             <>
               <Settings.Group title="Editor">
-                <Settings.Grid>
+                <UniformList row spacing="1rem">
                   <Settings.Field label="Page Size">
                     <Settings.NumInput
                       configKey="collection.editor.search.pageSize"
@@ -525,19 +526,19 @@ export const SettingsModal = Comp(() => {
                       rows={SORT_OPTIONS.FileCollectionFile}
                     />
                   </Settings.Field>
+                </UniformList>
 
-                  <Settings.Field label="File Search Page Size">
-                    <Settings.NumInput
-                      configKey="collection.editor.fileSearch.pageSize"
-                      minValue={1}
-                      maxValue={200}
-                    />
-                  </Settings.Field>
-                </Settings.Grid>
+                <Settings.Field label="File Search Page Size">
+                  <Settings.NumInput
+                    configKey="collection.editor.fileSearch.pageSize"
+                    minValue={1}
+                    maxValue={200}
+                  />
+                </Settings.Field>
               </Settings.Group>
 
               <Settings.Group title="Manager">
-                <Settings.Grid>
+                <UniformList row spacing="1rem">
                   <Settings.Field label="Page Size">
                     <Settings.NumInput
                       configKey="collection.manager.search.pageSize"
@@ -552,7 +553,7 @@ export const SettingsModal = Comp(() => {
                       rows={SORT_OPTIONS.FileCollection}
                     />
                   </Settings.Field>
-                </Settings.Grid>
+                </UniformList>
               </Settings.Group>
             </>
           )}
@@ -560,7 +561,7 @@ export const SettingsModal = Comp(() => {
           {activeTab === "Files" && (
             <>
               <Settings.Group title="Search">
-                <Settings.Grid>
+                <UniformList row spacing="1rem">
                   <Settings.Field label="Page Size">
                     <Settings.NumInput
                       configKey="file.search.pageSize"
@@ -572,11 +573,11 @@ export const SettingsModal = Comp(() => {
                   <Settings.Field label="Default Sort">
                     <Settings.SortMenu configKey="file.search.sort" rows={SORT_OPTIONS.File} />
                   </Settings.Field>
-                </Settings.Grid>
+                </UniformList>
               </Settings.Group>
 
               <Settings.Group title="Display">
-                <Settings.Grid>
+                <UniformList row spacing="1rem">
                   <Settings.Field label="Show File Names">
                     <Settings.Checkbox configKey="file.showFileName" width="auto" />
                   </Settings.Field>
@@ -589,11 +590,11 @@ export const SettingsModal = Comp(() => {
                       width="8rem"
                     />
                   </Settings.Field>
+                </UniformList>
 
-                  <Settings.Field label="Hide Unrated Icons">
-                    <Settings.Checkbox configKey="file.hideUnratedIcon" width="auto" />
-                  </Settings.Field>
-                </Settings.Grid>
+                <Settings.Field label="Hide Unrated Icons">
+                  <Settings.Checkbox configKey="file.hideUnratedIcon" width="auto" />
+                </Settings.Field>
               </Settings.Group>
 
               <Settings.Group
@@ -610,24 +611,22 @@ export const SettingsModal = Comp(() => {
                   </View>
                 }
               >
-                <Settings.Grid>
-                  <Settings.Field
-                    label="Shape"
-                    description="Card chips sit flush against the card's corners."
-                  >
-                    <Settings.Dropdown
-                      configKey="file.ratingDisplay.shape"
-                      options={RATING_SHAPE_OPTIONS}
-                      width="8rem"
-                    />
-                  </Settings.Field>
-                </Settings.Grid>
+                <Settings.Field
+                  label="Shape"
+                  description="Card chips sit flush against the card's corners."
+                >
+                  <Settings.Dropdown
+                    configKey="file.ratingDisplay.shape"
+                    options={RATING_SHAPE_OPTIONS}
+                    width="8rem"
+                  />
+                </Settings.Field>
 
                 <Settings.RatingLevels />
               </Settings.Group>
 
               <Settings.Group title="Audio Metadata">
-                <Settings.Grid>
+                <UniformList row spacing="1rem">
                   <Settings.Field label="Waveforms">
                     <Settings.Checkbox configKey="file.waveform.enabled" width="auto" />
                   </Settings.Field>
@@ -635,7 +634,9 @@ export const SettingsModal = Comp(() => {
                   <Settings.Field label="Transcriptions">
                     <Settings.Checkbox configKey="file.transcription.enabled" width="auto" />
                   </Settings.Field>
+                </UniformList>
 
+                <UniformList row spacing="1rem">
                   <Settings.Field label="Transcription Model">
                     <Settings.Dropdown
                       configKey="file.transcription.model"
@@ -658,36 +659,32 @@ export const SettingsModal = Comp(() => {
                       width="8rem"
                     />
                   </Settings.Field>
+                </UniformList>
 
-                  <Settings.Field label="Model Cache Path" wide>
-                    <Settings.Input
-                      configKey="file.transcription.modelCachePath"
-                      onClick={handlePathClick(
-                        store.setTranscriptionModelCachePath,
-                        store.file.transcription.modelCachePath,
-                      )}
-                      flex={1}
-                    />
-                  </Settings.Field>
-                </Settings.Grid>
+                <Settings.Field label="Model Cache Path" wide>
+                  <Settings.Input
+                    configKey="file.transcription.modelCachePath"
+                    onClick={handlePathClick(
+                      store.setTranscriptionModelCachePath,
+                      store.file.transcription.modelCachePath,
+                    )}
+                    flex={1}
+                  />
+                </Settings.Field>
               </Settings.Group>
 
               <Settings.Group title="Deleted Files">
-                <Settings.Grid>
-                  <Settings.Field label="Keep Metadata">
-                    <Settings.Checkbox configKey="file.keepDeletedMetadata" width="auto" />
-                  </Settings.Field>
-                </Settings.Grid>
+                <Settings.Field label="Keep Metadata">
+                  <Settings.Checkbox configKey="file.keepDeletedMetadata" width="auto" />
+                </Settings.Field>
               </Settings.Group>
 
               <Settings.Group title="Video Player">
-                <Settings.Grid pairs={1}>
-                  <Settings.PlayerFields
-                    configKey="file.videoPlayer"
-                    description="Opens the playlists Open Natively makes for videos. Blank uses Windows' default program."
-                    selectProgram={selectProgram}
-                  />
-                </Settings.Grid>
+                <Settings.PlayerFields
+                  configKey="file.videoPlayer"
+                  description="Opens the playlists Open Natively makes for videos. Blank uses Windows' default program."
+                  selectProgram={selectProgram}
+                />
               </Settings.Group>
 
               <Settings.Group title="Formats">
@@ -731,7 +728,7 @@ export const SettingsModal = Comp(() => {
               </Settings.Group>
 
               <Settings.Group title="Media Transformer">
-                <Settings.Grid>
+                <UniformList row spacing="1rem">
                   <Settings.Field label="Page Size">
                     <Settings.NumInput
                       configKey="file.transforms.search.pageSize"
@@ -746,7 +743,7 @@ export const SettingsModal = Comp(() => {
                       rows={SORT_OPTIONS.FileTransform}
                     />
                   </Settings.Field>
-                </Settings.Grid>
+                </UniformList>
               </Settings.Group>
             </>
           )}
@@ -977,51 +974,45 @@ export const SettingsModal = Comp(() => {
 
               <View column flex={1} minWidth={0} spacing="0.5rem">
                 <Settings.Group title="Folder Tags">
-                  <Settings.Grid pairs={1}>
-                    <Settings.Field label="Delimiter">
-                      <Settings.Input
-                        configKey="imports.folderDelimiter"
-                        width="8rem"
-                        textAlign="center"
-                      />
-                    </Settings.Field>
-                  </Settings.Grid>
+                  <Settings.Field label="Delimiter">
+                    <Settings.Input
+                      configKey="imports.folderDelimiter"
+                      width="8rem"
+                      textAlign="center"
+                    />
+                  </Settings.Field>
                 </Settings.Group>
 
                 <Settings.Group title="Subtitles">
-                  <Settings.Grid pairs={1}>
-                    <Settings.Field label="Mode">
-                      <Settings.Dropdown
-                        configKey="imports.subtitleMode"
-                        options={[...SUBTITLE_MODES]}
-                        width="12rem"
-                      />
-                    </Settings.Field>
-                  </Settings.Grid>
+                  <Settings.Field label="Mode">
+                    <Settings.Dropdown
+                      configKey="imports.subtitleMode"
+                      options={[...SUBTITLE_MODES]}
+                      width="12rem"
+                    />
+                  </Settings.Field>
                 </Settings.Group>
 
                 <Settings.Group title="Diffusion Tag Labels">
-                  <Settings.Grid pairs={1}>
-                    <Settings.Field label="Diffusion">
-                      <Settings.Input configKey="imports.labelDiff" />
-                    </Settings.Field>
+                  <Settings.Field label="Diffusion">
+                    <Settings.Input configKey="imports.labelDiff" width="16rem" />
+                  </Settings.Field>
 
-                    <Settings.Field label="Model">
-                      <Settings.Input configKey="imports.labelDiffModel" />
-                    </Settings.Field>
+                  <Settings.Field label="Model">
+                    <Settings.Input configKey="imports.labelDiffModel" width="16rem" />
+                  </Settings.Field>
 
-                    <Settings.Field label="Original">
-                      <Settings.Input configKey="imports.labelDiffOriginal" />
-                    </Settings.Field>
+                  <Settings.Field label="Original">
+                    <Settings.Input configKey="imports.labelDiffOriginal" width="16rem" />
+                  </Settings.Field>
 
-                    <Settings.Field label="Upscaled">
-                      <Settings.Input configKey="imports.labelDiffUpscaled" />
-                    </Settings.Field>
-                  </Settings.Grid>
+                  <Settings.Field label="Upscaled">
+                    <Settings.Input configKey="imports.labelDiffUpscaled" width="16rem" />
+                  </Settings.Field>
                 </Settings.Group>
 
                 <Settings.Group title="Import Manager">
-                  <Settings.Grid pairs={1}>
+                  <UniformList row spacing="1rem">
                     <Settings.Field label="Page Size">
                       <Settings.NumInput
                         configKey="imports.manager.search.pageSize"
@@ -1036,7 +1027,7 @@ export const SettingsModal = Comp(() => {
                         rows={SORT_OPTIONS.FileImportBatch}
                       />
                     </Settings.Field>
-                  </Settings.Grid>
+                  </UniformList>
                 </Settings.Group>
               </View>
             </View>
@@ -1045,7 +1036,7 @@ export const SettingsModal = Comp(() => {
           {activeTab === "Media Programs" && (
             <>
               <Settings.Group title="Manager">
-                <Settings.Grid>
+                <UniformList row spacing="1rem">
                   <Settings.Field label="Page Size">
                     <Settings.NumInput
                       configKey="mediaPrograms.manager.search.pageSize"
@@ -1060,11 +1051,11 @@ export const SettingsModal = Comp(() => {
                       rows={SORT_OPTIONS.MediaProgram}
                     />
                   </Settings.Field>
-                </Settings.Grid>
+                </UniformList>
               </Settings.Group>
 
               <Settings.Group title="Episodes">
-                <Settings.Grid>
+                <UniformList row spacing="1rem">
                   <Settings.Field
                     label="Labels"
                     description="How the program editor labels episodes when it opens: by number alone, or with their season's number."
@@ -1085,11 +1076,11 @@ export const SettingsModal = Comp(() => {
                       rows={SORT_OPTIONS.MediaProgramEpisode}
                     />
                   </Settings.Field>
-                </Settings.Grid>
+                </UniformList>
               </Settings.Group>
 
               <Settings.Group title="Rankings">
-                <Settings.Grid>
+                <UniformList row spacing="1rem">
                   <Settings.Field label="Page Size">
                     <Settings.NumInput
                       configKey="mediaPrograms.rankings.search.pageSize"
@@ -1104,7 +1095,7 @@ export const SettingsModal = Comp(() => {
                       rows={SORT_OPTIONS.MediaProgramRanking}
                     />
                   </Settings.Field>
-                </Settings.Grid>
+                </UniformList>
               </Settings.Group>
 
               <Settings.Group title="Lists">
@@ -1122,7 +1113,7 @@ export const SettingsModal = Comp(() => {
           {activeTab === "Music" && (
             <>
               <Settings.Group title="Tracks">
-                <Settings.Grid>
+                <UniformList row spacing="1rem">
                   <Settings.Field label="Page Size">
                     <Settings.NumInput
                       configKey="music.tracks.search.pageSize"
@@ -1137,11 +1128,11 @@ export const SettingsModal = Comp(() => {
                       rows={SORT_OPTIONS.MusicTrack}
                     />
                   </Settings.Field>
-                </Settings.Grid>
+                </UniformList>
               </Settings.Group>
 
               <Settings.Group title="Artists">
-                <Settings.Grid>
+                <UniformList row spacing="1rem">
                   <Settings.Field label="Page Size">
                     <Settings.NumInput
                       configKey="music.artists.search.pageSize"
@@ -1156,11 +1147,11 @@ export const SettingsModal = Comp(() => {
                       rows={SORT_OPTIONS.MusicArtist}
                     />
                   </Settings.Field>
-                </Settings.Grid>
+                </UniformList>
               </Settings.Group>
 
               <Settings.Group title="Albums">
-                <Settings.Grid>
+                <UniformList row spacing="1rem">
                   <Settings.Field label="Page Size">
                     <Settings.NumInput
                       configKey="music.albums.search.pageSize"
@@ -1175,11 +1166,11 @@ export const SettingsModal = Comp(() => {
                       rows={SORT_OPTIONS.MusicAlbum}
                     />
                   </Settings.Field>
-                </Settings.Grid>
+                </UniformList>
               </Settings.Group>
 
               <Settings.Group title="Playlists">
-                <Settings.Grid>
+                <UniformList row spacing="1rem">
                   <Settings.Field label="Page Size">
                     <Settings.NumInput
                       configKey="music.playlists.search.pageSize"
@@ -1194,39 +1185,33 @@ export const SettingsModal = Comp(() => {
                       rows={SORT_OPTIONS.MusicPlaylist}
                     />
                   </Settings.Field>
-                </Settings.Grid>
+                </UniformList>
               </Settings.Group>
 
               <Settings.Group title="Player">
-                <Settings.Grid pairs={1}>
-                  <Settings.Field
-                    label="Cover Art Colors"
-                    description="Colors the player bar, the music view's header and tracks, and the compact player's title bar and queue with the dominant colors of the playing track's cover art."
-                  >
-                    <Settings.Checkbox configKey="music.coverColors" width="auto" />
-                  </Settings.Field>
-                </Settings.Grid>
+                <Settings.Field
+                  label="Cover Art Colors"
+                  description="Colors the player bar, the music view's header and tracks, and the compact player's title bar and queue with the dominant colors of the playing track's cover art."
+                >
+                  <Settings.Checkbox configKey="music.coverColors" width="auto" />
+                </Settings.Field>
               </Settings.Group>
 
               <Settings.Group title="External Player">
-                <Settings.Grid pairs={1}>
-                  <Settings.PlayerFields
-                    configKey="music.player"
-                    description="Opens audio files from Open Natively and tracks from Open in Player. Blank uses Windows' default program."
-                    selectProgram={selectProgram}
-                  />
-                </Settings.Grid>
+                <Settings.PlayerFields
+                  configKey="music.player"
+                  description="Opens audio files from Open Natively and tracks from Open in Player. Blank uses Windows' default program."
+                  selectProgram={selectProgram}
+                />
               </Settings.Group>
 
               <Settings.Group title="Name Parsing">
-                <Settings.Grid pairs={1}>
-                  <Settings.Field
-                    label="Name Pattern"
-                    description="{artist} and {title} mark where Parse Name reads them from file names. Spaces match any spacing, and a dash matches any dash."
-                  >
-                    <Settings.Input configKey="music.namePattern" width="16rem" />
-                  </Settings.Field>
-                </Settings.Grid>
+                <Settings.Field
+                  label="Name Pattern"
+                  description="{artist} and {title} mark where Parse Name reads them from file names. Spaces match any spacing, and a dash matches any dash."
+                >
+                  <Settings.Input configKey="music.namePattern" width="16rem" />
+                </Settings.Field>
               </Settings.Group>
 
               <Settings.Group title="Lists">
@@ -1239,7 +1224,7 @@ export const SettingsModal = Comp(() => {
 
           {activeTab === "Tags" && (
             <Settings.Group title="Manager">
-              <Settings.Grid>
+              <UniformList row spacing="1rem">
                 <Settings.Field label="Page Size">
                   <Settings.NumInput
                     configKey="tags.manager.search.pageSize"
@@ -1251,24 +1236,16 @@ export const SettingsModal = Comp(() => {
                 <Settings.Field label="Default Sort">
                   <Settings.SortMenu configKey="tags.manager.search.sort" rows={SORT_OPTIONS.Tag} />
                 </Settings.Field>
-              </Settings.Grid>
+              </UniformList>
             </Settings.Group>
           )}
 
           {activeTab === "Developer" && (
             <Settings.Group title="Dev Tools">
-              <Settings.Grid>
+              <UniformList row spacing="1rem">
                 <Settings.Field label="Home Window">
                   <Settings.Dropdown
                     configKey="dev.devTools.home"
-                    options={DEV_TOOLS_MODES}
-                    width="10rem"
-                  />
-                </Settings.Field>
-
-                <Settings.Field label="Search Window">
-                  <Settings.Dropdown
-                    configKey="dev.devTools.search"
                     options={DEV_TOOLS_MODES}
                     width="10rem"
                   />
@@ -1281,14 +1258,19 @@ export const SettingsModal = Comp(() => {
                     width="10rem"
                   />
                 </Settings.Field>
-              </Settings.Grid>
+              </UniformList>
             </Settings.Group>
           )}
         </Settings.Section>
-      </Modal.Content>
+      </Card>
 
       <Modal.Footer>
-        <Button text="Cancel" icon="Close" onClick={handleCancel} />
+        <Button
+          text="Cancel"
+          icon="Close"
+          onClick={handleCancel}
+          disabled={!store.hasUnsavedChanges}
+        />
 
         <Button
           text="Save"
@@ -1305,9 +1287,9 @@ export const SettingsModal = Comp(() => {
           subText="Are you sure you want to discard your changes?"
           confirmText="Discard"
           setVisible={setIsConfirmDiscardOpen}
-          onConfirm={handleClose}
+          onConfirm={discardChanges}
         />
       )}
-    </Modal.Container>
+    </>
   );
 });

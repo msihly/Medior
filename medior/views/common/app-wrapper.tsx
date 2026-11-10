@@ -1,7 +1,8 @@
 import { ipcRenderer } from "electron";
 import { ReactNode, useEffect, useState } from "react";
-import { Text, View } from "medior/components";
+import { MuiProvider, Text, View } from "medior/components";
 import { colors, ToastContainer } from "medior/utils/client";
+import { CONSTANTS } from "medior/utils/common";
 import { loadConfig, setupRpc } from "medior/utils/server";
 import { Views } from "medior/views";
 import { RuntimeSync } from "./runtime-sync";
@@ -32,20 +33,20 @@ export const AppWrapper = ({ children }: AppWrapperProps) => {
   }, []);
 
   return error ? (
-    <Views.MuiProvider>
+    <MuiProvider titleBarHeight={CONSTANTS.WINDOW.TITLE_BAR.HEIGHT}>
       <View column align="center" justify="center" height="100vh" padding={{ all: "0 2rem" }}>
         <Text align="center" color={colors.custom.red} overflowWrap="anywhere" whiteSpace="normal">
           {`Failed to start Medior: ${error}`}
         </Text>
       </View>
-    </Views.MuiProvider>
+    </MuiProvider>
   ) : isLoading ? null : (
-    <Views.MuiProvider>
+    <MuiProvider titleBarHeight={CONSTANTS.WINDOW.TITLE_BAR.HEIGHT}>
       <Views.StoreProvider>
         <ToastContainer />
 
         <RuntimeSync>{children}</RuntimeSync>
       </Views.StoreProvider>
-    </Views.MuiProvider>
+    </MuiProvider>
   );
 };

@@ -10,7 +10,7 @@ import {
   TextProps,
   View,
 } from "medior/components";
-import { Ingester, Reingester } from "medior/store";
+import { ImportEditorStore } from "medior/store";
 import { colors } from "medior/utils/client";
 import {
   Fmt,
@@ -29,7 +29,7 @@ const COLUMN_PROPS: Partial<TextProps> = {
 const WIDTHS = { count: "5rem", detail: "9rem", program: "6rem", year: "6rem" };
 
 export interface MediaProgramPlansProps {
-  store: Ingester | Reingester;
+  store: ImportEditorStore;
 }
 
 export const MediaProgramPlans = Comp(({ store }: MediaProgramPlansProps) => {

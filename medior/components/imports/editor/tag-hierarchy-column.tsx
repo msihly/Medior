@@ -1,7 +1,7 @@
 import { useCallback, useLayoutEffect, useMemo, useState } from "react";
 import { List, RowComponentProps, useListCallbackRef } from "react-window";
 import { Comp, ImportEditor, TagToUpsert, View } from "medior/components";
-import { Ingester, Reingester } from "medior/store";
+import { ImportEditorStore } from "medior/store";
 import { colors, makeClasses } from "medior/utils/client";
 import { createImportTagHierarchy, getImportTagRows, IMPORT_TAG_ROW_HEIGHT } from "./tag-hierarchy";
 
@@ -10,7 +10,7 @@ export interface TagHierarchyColumnData {
   hierarchy: ReturnType<typeof createImportTagHierarchy>;
   onToggle: (key: string) => void;
   onWidth: (label: string, width: number) => void;
-  store: Ingester | Reingester;
+  store: ImportEditorStore;
 }
 
 export const TagHierarchyColumn = Comp(
@@ -110,7 +110,7 @@ interface TagHierarchyColumnRowProps {
   onToggle: (key: string) => void;
   onWidth: (width: number) => void;
   rows: ReturnType<typeof getImportTagRows>;
-  store: Ingester | Reingester;
+  store: ImportEditorStore;
 }
 
 /** The root row sits above the list, so list rows start at the second row. */

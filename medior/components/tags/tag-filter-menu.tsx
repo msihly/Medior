@@ -33,14 +33,6 @@ export const TagFilterMenu = Comp(({ store }: TagFilterMenuProps) => {
             hasSearchMenu
           />
 
-          <Checkbox
-            label="Has RegEx"
-            checked={store.hasRegEx}
-            indeterminate={store.hasRegEx === false}
-            setChecked={store.toggleHasRegEx}
-            flex={0}
-          />
-
           <TagInput
             header="On Files with Tag"
             value={store.fileTags}
@@ -48,6 +40,14 @@ export const TagFilterMenu = Comp(({ store }: TagFilterMenuProps) => {
             width="12rem"
             maxTags={1}
             hasEditor={false}
+          />
+
+          <Checkbox
+            label="Has RegEx"
+            checked={store.hasRegEx}
+            indeterminate={store.hasRegEx === false}
+            setChecked={store.toggleHasRegEx}
+            flex={0}
           />
         </Card>
 

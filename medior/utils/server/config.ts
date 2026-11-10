@@ -196,7 +196,6 @@ export interface Config {
     devTools: {
       carousel: DevToolsMode;
       home: DevToolsMode;
-      search: DevToolsMode;
     };
   };
   file: {
@@ -210,7 +209,7 @@ export interface Config {
     ratingDisplay: RatingDisplay;
     reencode: {
       codec: string;
-      /** Files with these tags or their descendants never qualify for Add Re-encodes. */
+      /** Files with these tags or their descendants never qualify for Auto-Queue Re-encodes. */
       excludedDescTagIds: string[];
       imageConcurrency: number;
       imageExt: ImageExt;
@@ -238,7 +237,7 @@ export interface Config {
         removeTagIds: string[];
       };
       override: string[];
-      /** Longest video, in seconds, that qualifies for Add Re-encodes. Null has no limit. */
+      /** Longest video, in seconds, that qualifies for Auto-Queue Re-encodes. Null has no limit. */
       queueMaxDuration: number | null;
       /** Types whose next qualifying batch is queued whenever the re-encode queue runs out. */
       queueTypes: ReencodeCandidateType[];
@@ -423,7 +422,7 @@ export const DEFAULT_CONFIG: Config = {
         sort: { isDesc: true, key: "dateCreated" },
       },
       search: {
-        pageSize: 50,
+        pageSize: 48,
         sort: { isDesc: false, key: "custom" },
       },
     },
@@ -449,8 +448,7 @@ export const DEFAULT_CONFIG: Config = {
   dev: {
     devTools: {
       carousel: null,
-      home: "left",
-      search: null,
+      home: null,
     },
   },
   file: {
@@ -498,7 +496,7 @@ export const DEFAULT_CONFIG: Config = {
       toMp4: ["ts"],
     },
     search: {
-      pageSize: 100,
+      pageSize: 96,
       sort: { isDesc: true, key: "dateCreated" },
     },
     showFileName: false,
@@ -513,7 +511,7 @@ export const DEFAULT_CONFIG: Config = {
         windowMs: 2000,
       },
       cpuThreads: Math.max(1, Math.floor(availableParallelism() / 4)),
-      defaultLimit: 100,
+      defaultLimit: 96,
       index: {
         ivfPq: {
           maxIterations: 20,
@@ -557,7 +555,7 @@ export const DEFAULT_CONFIG: Config = {
     },
     transforms: {
       search: {
-        pageSize: 20,
+        pageSize: 18,
         sort: { isDesc: false, key: "dateCreated" },
       },
     },
@@ -609,13 +607,13 @@ export const DEFAULT_CONFIG: Config = {
   },
   mediaPrograms: {
     episodes: {
-      labels: "episode",
+      labels: "season",
       sort: { isDesc: false, key: "custom" },
     },
     languages: ["English", "Korean", "Japanese", "Chinese", "French", "Spanish", "German"],
     manager: {
       search: {
-        pageSize: 50,
+        pageSize: 48,
         sort: { isDesc: true, key: "dateModified" },
       },
     },
@@ -634,7 +632,7 @@ export const DEFAULT_CONFIG: Config = {
         width: 1080,
       },
       search: {
-        pageSize: 50,
+        pageSize: 48,
         sort: { isDesc: false, key: "custom" },
       },
     },
@@ -643,13 +641,13 @@ export const DEFAULT_CONFIG: Config = {
   music: {
     albums: {
       search: {
-        pageSize: 50,
+        pageSize: 48,
         sort: { isDesc: false, key: "name" },
       },
     },
     artists: {
       search: {
-        pageSize: 50,
+        pageSize: 48,
         sort: { isDesc: false, key: "name" },
       },
     },
@@ -658,13 +656,13 @@ export const DEFAULT_CONFIG: Config = {
     player: { args: "{path}", path: "" },
     playlists: {
       search: {
-        pageSize: 50,
+        pageSize: 48,
         sort: { isDesc: true, key: "dateModified" },
       },
     },
     tracks: {
       search: {
-        pageSize: 100,
+        pageSize: 96,
         sort: { isDesc: false, key: "music.artist" },
       },
     },
@@ -679,7 +677,7 @@ export const DEFAULT_CONFIG: Config = {
   tags: {
     manager: {
       search: {
-        pageSize: 50,
+        pageSize: 48,
         sort: { isDesc: true, key: "dateCreated" },
       },
     },

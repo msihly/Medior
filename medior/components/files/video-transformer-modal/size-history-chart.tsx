@@ -28,15 +28,20 @@ export const SizeHistoryChart = Comp(() => {
   return (
     <View column flex="none" spacing="0.5rem" width="30rem">
       <View row justify="flex-end" spacing="0.3rem">
-        {SIZE_HISTORY_RANGES.map(({ label, value }) => (
-          <Button
-            key={value}
-            text={label}
-            onClick={() => handleRange(value)}
-            color={store.sizeHistoryRange === value ? colors.custom.purple : undefined}
-            colorOnHover={colors.custom.purple}
-          />
-        ))}
+        {SIZE_HISTORY_RANGES.map(({ label, value }) => {
+          const isActive = store.sizeHistoryRange === value;
+
+          return (
+            <Button
+              key={value}
+              text={label}
+              onClick={() => handleRange(value)}
+              color={isActive ? colors.control : "transparent"}
+              colorOnHover={colors.control}
+              textColor={isActive ? colors.custom.white : colors.custom.lightGrey}
+            />
+          );
+        })}
       </View>
 
       <View column position="relative" height="220px">

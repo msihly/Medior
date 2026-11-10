@@ -2,7 +2,6 @@ import {
   Comp,
   DeleteMediaProgramModal,
   MediaProgramEditor,
-  MediaProgramManager,
   MediaProgramMetaModal,
 } from "medior/components";
 import { useStores } from "medior/store";
@@ -15,8 +14,6 @@ export const MediaProgramModals = Comp(() => {
 
   return (
     <>
-      {store.manager.isOpen && <MediaProgramManager />}
-
       {store.editor.isOpen && <MediaProgramEditor />}
 
       {store.metaMatchProgram && (

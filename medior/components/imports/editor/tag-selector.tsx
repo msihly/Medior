@@ -2,14 +2,14 @@ import path from "path";
 import { useCallback, useLayoutEffect, useMemo, useState } from "react";
 import { Grid, GridProps, useGridCallbackRef } from "react-window";
 import { Card, Comp, ImportEditor, Text, View } from "medior/components";
-import { ImportEditorOptions, Ingester, Reingester } from "medior/store";
+import { ImportEditorOptions, ImportEditorStore } from "medior/store";
 import { createImportTagHierarchy, IMPORT_TAG_ROW_HEIGHT } from "./tag-hierarchy";
 import { TagHierarchyCell } from "./tag-hierarchy-cell";
 import { TagHierarchyColumnData } from "./tag-hierarchy-column";
 
 export interface TagSelectorProps {
   options: ImportEditorOptions;
-  store: Ingester | Reingester;
+  store: ImportEditorStore;
 }
 
 export const TagSelector = Comp(({ options, store }: TagSelectorProps) => {
@@ -99,7 +99,13 @@ export const TagSelector = Comp(({ options, store }: TagSelectorProps) => {
         <Grid
           gridRef={setGrid}
           cellComponent={TagHierarchyCell}
-          cellProps={{ expanded, hierarchy, onToggle: toggleExpanded, onWidth: setColumnWidth, store }}
+          cellProps={{
+            expanded,
+            hierarchy,
+            onToggle: toggleExpanded,
+            onWidth: setColumnWidth,
+            store,
+          }}
           columnCount={hierarchy.roots.length}
           columnKey={getColumnKey}
           columnWidth={getColumnWidth}
