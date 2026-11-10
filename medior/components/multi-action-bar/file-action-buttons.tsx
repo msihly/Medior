@@ -21,6 +21,8 @@ export const FileActionButtons = Comp(
 
     // const handleAutoDetect = () => stores.faceRecog.addFilesToAutoDetectQueue(selectedIds);
 
+    const handleAddToPlaylist = () => stores.music.setPlaylistPickerFileIds(selectedIds);
+
     const handleDelete = () => stores.file.confirmDeleteFiles(selectedIds);
 
     const handleEditCollections = () => {
@@ -122,6 +124,13 @@ export const FileActionButtons = Comp(
           name="Collections"
           tooltip="Edit Collections"
           onClick={handleEditCollections}
+          disabled={hasNoSelection}
+        />
+
+        <MultiActionButton
+          name="PlaylistAdd"
+          tooltip="Add to Playlist"
+          onClick={handleAddToPlaylist}
           disabled={hasNoSelection}
         />
 

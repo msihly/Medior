@@ -1,11 +1,14 @@
 import { useRef, useState } from "react";
+import { SORT_OPTIONS } from "medior/store/_generated";
 import {
+  Button,
   CenteredText,
   Chip,
   Comp,
   ConfirmModal,
   FileActionButtons,
   ListItem,
+  MEDIA_PROGRAM_BUTTON_PROPS,
   MediaProgramEpisode,
   MediaProgramEpisodeNumbering,
   MediaProgramEpisodeNumberModal,
@@ -16,12 +19,14 @@ import {
   Pagination,
   SearchLoadingOverlay,
   SelectionButtons,
+  SortMenu,
+  SortMenuProps,
   useMediaProgramHotkeys,
   View,
 } from "medior/components";
 import { useStores } from "medior/store";
 import { colors, makeClasses, toast } from "medior/utils/client";
-import { Fmt, makeSeasonLabel } from "medior/utils/common";
+import { Fmt, makeSeasonLabel, MEDIA_PROGRAM_EPISODE_LABELS } from "medior/utils/common";
 
 /** The active season's episodes, with actions on the selected ones. */
 export const MediaProgramEpisodes = Comp(() => {
@@ -39,11 +44,15 @@ export const MediaProgramEpisodes = Comp(() => {
     itemLabel: "episodes",
     rate: (id, rating) => stores.file.setFileRating({ fileIds: [id], rating }),
     search: store.search,
+    selection: store.episodeSelection,
   });
 
   const activeSeason = store.activeSeason;
   const missingSeason = store.activeMissingSeason;
-  const episodeCount = activeSeason?.fileIds.length ?? missingSeason?.episodes.length;
+  // A season's episodes without files show among its episodes, so they count among them too.
+  const episodeCount = activeSeason
+    ? activeSeason.fileIds.length + store.missingEpisodes.length
+    : missingSeason?.episodes.length;
   const otherSeasons = store.seasons.filter((season) => season.id !== store.activeSeasonId);
   const selectedCount = store.search.selectedIds.length;
   const selectedMissingCount = store.selectedMissingNumbers.length;
@@ -54,6 +63,10 @@ export const MediaProgramEpisodes = Comp(() => {
   const selectedNumbers = store.search.selectedIds
     .map((id) => store.activeEpisodeNumbers.get(id))
     .filter(Boolean);
+  const labels = MEDIA_PROGRAM_EPISODE_LABELS.find(({ value }) => value === store.episodeLabels);
+  const otherLabels = MEDIA_PROGRAM_EPISODE_LABELS.find((option) => option !== labels);
+
+  const handleLabelsToggle = () => store.setEpisodeLabels(otherLabels.value);
 
   const handleMarkSkipped = async () => {
     const res = await store.markMissingEpisodes("skipped");
@@ -108,6 +121,11 @@ export const MediaProgramEpisodes = Comp(() => {
     if (!res.success) toast.error(res.error);
 
     return res.success;
+  };
+
+  const handleSort = async (sortValue: SortMenuProps["value"]) => {
+    const res = await store.sortEpisodes(sortValue);
+    if (!res.success) toast.error(res.error);
   };
 
   return (
@@ -204,7 +222,24 @@ export const MediaProgramEpisodes = Comp(() => {
 
           <FileActionButtons isHome store={store.search} />
 
-          <SelectionButtons itemLabel="episodes" store={store.search} toast={toast} />
+          <SelectionButtons itemLabel="episodes" store={store.episodeSelection} toast={toast} />
+
+          <Button
+            {...MEDIA_PROGRAM_BUTTON_PROPS}
+            text={labels.label}
+            icon="Numbers"
+            tooltip={`Label Episodes as ${otherLabels.label}`}
+            onClick={handleLabelsToggle}
+            margins={{ left: "0.3rem", right: "0.5rem" }}
+          />
+
+          <SortMenu
+            value={store.episodeSort}
+            setValue={handleSort}
+            rows={SORT_OPTIONS.MediaProgramEpisode}
+            width="9rem"
+            disabled={isBusy}
+          />
         </>
       }
     >

@@ -46,6 +46,8 @@ export const HomeWindow = Comp(() => {
 
           <Views.MediaProgramModals />
 
+          <Views.MusicModals />
+
           <Views.TagModals view="home" />
 
           {store.settings.isOpen && <SettingsModal />}

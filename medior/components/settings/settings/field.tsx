@@ -1,11 +1,13 @@
 import { ReactNode } from "react";
 import { Text, View } from "medior/components";
 import { makeClasses } from "medior/utils/client";
+import { InfoTooltip } from "./info-tooltip";
 
 export interface FieldProps {
   /** Keeps the label beside the top of a control taller than one row. */
   alignTop?: boolean;
   children: ReactNode | ReactNode[];
+  /** Details shown from an info icon beside the label, so every row stays one line. */
   description?: string;
   label: string;
   /** Spans the control across the rest of the row. */
@@ -24,14 +26,10 @@ export const Field = ({
 
   return (
     <>
-      <View column className={cx(alignTop && css.top)}>
+      <View row align="center" spacing="0.3rem" className={cx(alignTop && css.top)}>
         <Text>{label}</Text>
 
-        {description && (
-          <Text preset="sub-text" fontSize="0.8em" whiteSpace="normal">
-            {description}
-          </Text>
-        )}
+        {description && <InfoTooltip text={description} />}
       </View>
 
       <View row align="center" minWidth={0} spacing="0.5rem" className={cx(wide && css.wide)}>

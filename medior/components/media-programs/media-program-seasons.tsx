@@ -34,6 +34,7 @@ export const MediaProgramSeasons = Comp(() => {
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [isRemoveOpen, setIsRemoveOpen] = useState(false);
   const [isRenameOpen, setIsRenameOpen] = useState(false);
+  const [isSplitOpen, setIsSplitOpen] = useState(false);
 
   const activeSeason = store.activeSeason;
   const isBusy = store.isLoading || store.isSaving;
@@ -103,6 +104,16 @@ export const MediaProgramSeasons = Comp(() => {
     if (!res.success) toast.error(res.error);
   };
 
+  const handleSplit = async () => {
+    const res = await store.splitSeasons();
+    if (!res.success) toast.error(res.error);
+    else if (!res.data.namedCount) toast.info("No file names give a season, such as S02E05");
+    else if (!res.data.movedCount) toast.info("Episodes are already where their names put them");
+    else toast.success(`Moved ${Fmt.commas(res.data.movedCount)} episodes by their file names`);
+
+    return res.success;
+  };
+
   /** A season's own menu acts on every chosen season when it's one of them. */
   const handleWatched = async (id: string, isWatched: boolean) => {
     const ids = store.selectedSeasonIdSet.has(id) ? [...store.selectedSeasonIdSet] : [id];
@@ -121,6 +132,13 @@ export const MediaProgramSeasons = Comp(() => {
   const openRename = (id: string) => {
     handleSelect(id);
     setIsRenameOpen(true);
+  };
+
+  /** A season's own menu splits every chosen season when it's one of them, and otherwise it alone. */
+  const openSplit = (id: string) => {
+    if (!store.selectedSeasonIdSet.has(id)) handleSelect(id);
+
+    setIsSplitOpen(true);
   };
 
   return (
@@ -177,6 +195,13 @@ export const MediaProgramSeasons = Comp(() => {
           />
 
           <MultiActionButton
+            name="CallSplit"
+            tooltip="Split Selected Seasons by File Names"
+            onClick={() => setIsSplitOpen(true)}
+            disabled={isBusy || !activeSeason}
+          />
+
+          <MultiActionButton
             name="CheckCircle"
             tooltip="Mark Selected Seasons Watched"
             iconProps={{
@@ -222,6 +247,7 @@ export const MediaProgramSeasons = Comp(() => {
               onRate={handleRating}
               onRemove={openRemove}
               onRename={openRename}
+              onSplit={openSplit}
               onWatched={handleWatched}
               season={season}
             />
@@ -274,6 +300,16 @@ export const MediaProgramSeasons = Comp(() => {
           onConfirm={handleRemove}
         />
       )}
+
+      {isSplitOpen && (
+        <ConfirmModal
+          headerText="Split by File Names"
+          subText={`Move each episode of the ${selectedCount > 1 ? `${Fmt.commas(selectedCount)} selected seasons` : "season"} into the season its file name gives, numbered as it gives, such as S02E05 into S02 as episode 5? Seasons are added as needed, episodes given one number share it, and seasons left empty are removed.`}
+          confirmText="Split"
+          setVisible={setIsSplitOpen}
+          onConfirm={handleSplit}
+        />
+      )}
     </MediaProgramSection>
   );
 });
@@ -285,6 +321,7 @@ interface SeasonCardProps {
   onRate: (id: string, rating: number) => void;
   onRemove: (id: string) => void;
   onRename: (id: string) => void;
+  onSplit: (id: string) => void;
   onWatched: (id: string, isWatched: boolean) => void;
   season: MediaProgramSeason;
 }
@@ -301,6 +338,7 @@ const SeasonCard = Comp(
     onRate,
     onRemove,
     onRename,
+    onSplit,
     onWatched,
     season,
   }: SeasonCardProps) => {
@@ -308,6 +346,7 @@ const SeasonCard = Comp(
     const store = stores.mediaProgram.editor;
 
     const posterPath = season.meta?.posterPath ?? store.program?.meta?.posterPath;
+    const episodeCounts = store.getEpisodeCounts(season);
     const label = season.label || "Untitled Season";
     const index = store.seasons.findIndex(({ id }) => id === season.id);
     const menuItems: ContextMenuProps["menuItems"] = [
@@ -336,6 +375,7 @@ const SeasonCard = Comp(
       ...((index < store.seasons.length - 1
         ? [{ icon: "ArrowForward", label: "Move Later", onClick: () => onMove(season.id, true) }]
         : []) satisfies ContextMenuProps["menuItems"]),
+      { icon: "CallSplit", label: "Split by File Names", onClick: () => onSplit(season.id) },
       { icon: "TravelExplore", label: "Match Metadata", onClick: onMatchMeta },
       {
         color: colors.custom.red,
@@ -369,8 +409,8 @@ const SeasonCard = Comp(
           <WatchStatusChip
             position="top-right"
             size="small"
-            total={season.fileIds.length}
-            watched={store.getWatchedCount(season)}
+            total={episodeCounts.total}
+            watched={episodeCounts.watched}
           />
 
           <FileBase.Footer height={season.meta?.title ? "3rem" : "1.8rem"}>

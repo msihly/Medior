@@ -2,11 +2,13 @@ import { useState } from "react";
 import { Button, Comp, Icon, IconName, ProgressCircle, Text, View } from "medior/components";
 import { colors, CssColor, useCancellableLoad } from "medior/utils/client";
 import { Fmt } from "medior/utils/common";
-import { getIsVideo, rpc } from "medior/utils/server";
+import { getIsAudio, getIsVideo, rpc } from "medior/utils/server";
 
 export interface SelectedFilesInfoProps {
   isLoading: boolean;
   onCancel: () => void;
+  totalAudio: number;
+  totalAudioSize: number;
   totalFiles: number;
   totalFilesSize: number;
   totalImages: number;
@@ -19,6 +21,8 @@ export const SelectedFilesInfo = Comp(
   ({
     isLoading,
     onCancel,
+    totalAudio,
+    totalAudioSize,
     totalFiles,
     totalFilesSize,
     totalImages,
@@ -55,6 +59,16 @@ export const SelectedFilesInfo = Comp(
             />
           ) : null}
 
+          {totalAudio > 0 ? (
+            <FileTypeRow
+              label="Audio"
+              icon="MusicNote"
+              color={colors.custom.green}
+              count={totalAudio}
+              size={totalAudioSize}
+            />
+          ) : null}
+
           {totalFiles > 0 ? (
             <FileTypeRow
               label="Files"
@@ -75,6 +89,8 @@ export const SelectedFilesInfo = Comp(
 export const useFileInfo = () => {
   const load = useCancellableLoad();
 
+  const [totalAudio, setTotalAudio] = useState(0);
+  const [totalAudioSize, setTotalAudioSize] = useState(0);
   const [totalFiles, setTotalFiles] = useState(0);
   const [totalFilesSize, setTotalFilesSize] = useState(0);
   const [totalImages, setTotalImages] = useState(0);
@@ -90,29 +106,33 @@ export const useFileInfo = () => {
 
       if (!res?.success) throw new Error(res.error);
 
-      const [images, videos, imagesSize, videosSize] = res.data.items.reduce(
+      const [audio, images, videos, audioSize, imagesSize, videosSize] = res.data.items.reduce(
         (acc, cur) => {
-          const isVideo = getIsVideo(cur.ext);
+          const index = getIsAudio(cur.ext) ? 0 : getIsVideo(cur.ext) ? 2 : 1;
 
-          acc[isVideo ? 1 : 0]++;
-          acc[isVideo ? 3 : 2] += cur.size;
+          acc[index]++;
+          acc[index + 3] += cur.size;
 
           return acc;
         },
-        [0, 0, 0, 0],
+        [0, 0, 0, 0, 0, 0],
       );
 
+      setTotalAudio(audio);
+      setTotalAudioSize(audioSize);
       setTotalImages(images);
       setTotalImagesSize(imagesSize);
       setTotalVideos(videos);
       setTotalVideosSize(videosSize);
-      setTotalFiles(images + videos);
-      setTotalFilesSize(imagesSize + videosSize);
+      setTotalFiles(audio + images + videos);
+      setTotalFilesSize(audioSize + imagesSize + videosSize);
     });
 
   const fileInfo: SelectedFilesInfoProps = {
     isLoading: load.isLoading,
     onCancel: load.cancel,
+    totalAudio,
+    totalAudioSize,
     totalFiles,
     totalFilesSize,
     totalImages,

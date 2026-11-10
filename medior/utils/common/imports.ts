@@ -55,6 +55,7 @@ export type ImportBatchOptions = Pick<
   | "deleteOnImport"
   | "ignorePrevDeleted"
   | "mediaProgram"
+  | "music"
   | "rootFolderPath"
   | "subtitleMode"
 > & { tagIds?: string[] };

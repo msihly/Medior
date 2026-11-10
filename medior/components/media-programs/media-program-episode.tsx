@@ -12,7 +12,9 @@ export interface MediaProgramEpisodeProps {
 
 /**
  * An episode with its still, title, and air date from the metadata source when it has them, marked
- * missing when its file is no longer on disk.
+ * missing when its file is no longer on disk. Hovering a still plays the file's own frames when it
+ * has them, which shows when a file sits at another episode's number. Files sharing a number are conflicts, and a
+ * file at a number the source doesn't list is unmatched.
  */
 export const MediaProgramEpisode = Comp(({ episodeNumber, file }: MediaProgramEpisodeProps) => {
   const stores = useStores();
@@ -36,11 +38,21 @@ export const MediaProgramEpisode = Comp(({ episodeNumber, file }: MediaProgramEp
   }, [file.path]);
 
   const isWatched = store.program?.watchedIdSet.has(file.id);
+  // Hovering only cycles from a still to frames, since cycling between two images flickers.
+  const isAnimated = file.thumb?.frameHeight > 0 && file.thumb?.frameWidth > 0;
   const meta = store.getEpisodeMeta(file.id);
   const title = meta?.title ?? file.originalName;
   const subtitle = [formatMediaProgramDate(meta?.airDate), meta?.title ? file.originalName : null]
     .filter(Boolean)
     .join(" · ");
+  const footerOffset = subtitle ? "2.6rem" : "1.5rem";
+  const statusChip = isMissing
+    ? null
+    : store.conflictNumbers.has(episodeNumber)
+      ? { bgColor: colors.custom.orange, label: "Conflict" }
+      : store.getIsUnmatched(file.id)
+        ? { bgColor: colors.custom.blueGrey, label: "Unmatched" }
+        : null;
 
   const handleClick = async (event: React.MouseEvent) => {
     const res = await store.search.handleSelect({
@@ -68,7 +80,11 @@ export const MediaProgramEpisode = Comp(({ episodeNumber, file }: MediaProgramEp
         >
           <View position="relative" overflow="hidden" className={css.thumb}>
             {meta?.stillPath ? (
-              <FileBase.Image thumb={{ path: meta.stillPath }} title={title} fit="cover" />
+              <FileBase.Image
+                thumbs={[{ path: meta.stillPath }, ...(isAnimated ? [file.thumb] : [])]}
+                title={title}
+                fit="cover"
+              />
             ) : (
               <FileBase.Image
                 thumb={file.thumb}
@@ -84,7 +100,7 @@ export const MediaProgramEpisode = Comp(({ episodeNumber, file }: MediaProgramEp
             <FileBase.Chip
               position="top-right"
               size="small"
-              label={`EP ${episodeNumber}`}
+              label={store.getEpisodeLabel(episodeNumber)}
               icon={isWatched ? "CheckCircle" : undefined}
               iconColor={colors.custom.green}
               color={colors.custom.white}
@@ -94,7 +110,17 @@ export const MediaProgramEpisode = Comp(({ episodeNumber, file }: MediaProgramEp
               <MediaProgramMissingChip
                 position="bottom-left"
                 size="small"
-                footerOffset={subtitle ? "2.6rem" : "1.5rem"}
+                footerOffset={footerOffset}
+              />
+            )}
+
+            {statusChip && (
+              <FileBase.Chip
+                {...statusChip}
+                position="bottom-left"
+                size="small"
+                color={colors.custom.white}
+                footerOffset={footerOffset}
               />
             )}
 
@@ -102,7 +128,7 @@ export const MediaProgramEpisode = Comp(({ episodeNumber, file }: MediaProgramEp
               position="bottom-right"
               size="small"
               file={file}
-              footerOffset={subtitle ? "2.6rem" : "1.5rem"}
+              footerOffset={footerOffset}
             />
 
             <FileBase.Footer height={subtitle ? "3rem" : "1.8rem"}>

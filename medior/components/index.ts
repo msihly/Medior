@@ -11,6 +11,7 @@ export * from "./imports";
 export * from "./jobs";
 export * from "./media-programs";
 export * from "./multi-action-bar";
+export * from "./music";
 export * from "./search-header";
 export * from "./search-loading-overlay";
 export * from "./settings";

@@ -110,11 +110,13 @@ export const CarouselTopBar = Comp(() => {
           tooltip={store.isPinned ? "Unpin" : "Pin"}
         />
 
-        <IconButton
-          name={isAspectRatioLocked ? "Lock" : "LockOpen"}
-          onClick={toggleAspectRatioLock}
-          tooltip={`${isAspectRatioLocked ? "Unlock" : "Lock"} Aspect Ratio`}
-        />
+        {!file?.isAudio && (
+          <IconButton
+            name={isAspectRatioLocked ? "Lock" : "LockOpen"}
+            onClick={toggleAspectRatioLock}
+            tooltip={`${isAspectRatioLocked ? "Unlock" : "Lock"} Aspect Ratio`}
+          />
+        )}
 
         <IconButton name="Label" onClick={handleEditTags} tooltip="Edit Tags" />
 
@@ -149,34 +151,36 @@ export const CarouselTopBar = Comp(() => {
             />
           </>
         ) : (
-          <>
-            {canEditImage && (
-              <>
-                <IconButton
-                  name="Crop"
-                  onClick={handleOpenCrop}
-                  tooltip="Crop Image"
-                  disabled={store.isEditingImage}
-                />
+          !file?.isAudio && (
+            <>
+              {canEditImage && (
+                <>
+                  <IconButton
+                    name="Crop"
+                    onClick={handleOpenCrop}
+                    tooltip="Crop Image"
+                    disabled={store.isEditingImage}
+                  />
 
-                <IconButton
-                  name="RotateLeft"
-                  onClick={handleRotateLeft}
-                  tooltip="Rotate Left and Save"
-                  disabled={store.isEditingImage}
-                />
+                  <IconButton
+                    name="RotateLeft"
+                    onClick={handleRotateLeft}
+                    tooltip="Rotate Left and Save"
+                    disabled={store.isEditingImage}
+                  />
 
-                <IconButton
-                  name="RotateRight"
-                  onClick={handleRotateRight}
-                  tooltip="Rotate Right and Save"
-                  disabled={store.isEditingImage}
-                />
-              </>
-            )}
+                  <IconButton
+                    name="RotateRight"
+                    onClick={handleRotateRight}
+                    tooltip="Rotate Right and Save"
+                    disabled={store.isEditingImage}
+                  />
+                </>
+              )}
 
-            <ZoomControls panZoomRef={panZoomRef} />
-          </>
+              <ZoomControls panZoomRef={panZoomRef} />
+            </>
+          )
         )}
       </View>
 

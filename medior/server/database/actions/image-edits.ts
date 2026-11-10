@@ -17,6 +17,7 @@ import {
 } from "medior/server/database/metadata-work";
 import { dayjs } from "medior/utils/common";
 import {
+  getDerivedMediaFolder,
   getIsAnimated,
   getIsImage,
   leanModelToJson,
@@ -92,9 +93,11 @@ export const editImage = makeAction(
         ? source.ext
         : "png";
 
-      const outputPath = path.join(path.dirname(source.path), `${editId}.${ext}`);
-      const tempPath = path.join(path.dirname(source.path), `${editId}-pending.${ext}`);
-      const thumbPath = path.join(path.dirname(source.path), `${editId}-thumb.jpg`);
+      // Edits of linked images go to storage, since Medior never writes beside linked files.
+      const outputFolder = getDerivedMediaFolder(source.path, source.hash);
+      const outputPath = path.join(outputFolder, `${editId}.${ext}`);
+      const tempPath = path.join(outputFolder, `${editId}-pending.${ext}`);
+      const thumbPath = path.join(outputFolder, `${editId}-thumb.jpg`);
 
       await FileOperationModel.updateOne(
         { _id: operationId },
@@ -138,6 +141,7 @@ export const editImage = makeAction(
             throw new Error("Crop must stay within the image bounds.");
         }
 
+        await fs.mkdir(outputFolder, { recursive: true });
         await runImageTask({
           edit: { crop: args.crop, rotation: args.rotation },
           format: (ext === "tif" ? "tiff" : ext) as keyof FormatEnum,

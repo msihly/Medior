@@ -8,6 +8,7 @@ export * from "./hotkeys";
 export * from "./imports";
 export * from "./media-metadata";
 export * from "./media-programs";
+export * from "./music";
 export * from "./progress";
 export * from "./ratings";
 export * from "./search";

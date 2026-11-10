@@ -14,7 +14,10 @@ import {
 import { _File } from "medior/store/_generated";
 import { asyncAction, reloadItemTags } from "medior/utils/client";
 import { CONSTANTS, dayjs, WebVideoCodec, WebVideoExt } from "medior/utils/common";
-import { getIsVideo, rpc } from "medior/utils/server";
+import { getIsAudio, getIsVideo, rpc } from "medior/utils/server";
+
+/** Audio has no frames, so the player steps through it at this many per second. */
+const AUDIO_FRAME_RATE = 30;
 
 const WEB_AUDIO_CODECS: Record<string, string> = {
   aac: "mp4a.40.2",
@@ -90,6 +93,17 @@ export class File extends ExtendedModel(_File, {
   }
 
   @computed
+  get isAudio() {
+    return getIsAudio(this.ext);
+  }
+
+  /** Audio and video play in the carousel's player. */
+  @computed
+  get isPlayable() {
+    return this.isAudio || this.isVideo;
+  }
+
+  @computed
   get isWebPlayable() {
     const audioCodec = this.audioCodec?.toLowerCase();
 
@@ -113,7 +127,12 @@ export class File extends ExtendedModel(_File, {
   }
 
   @computed
+  get playbackFrameRate() {
+    return this.isAudio ? AUDIO_FRAME_RATE : this.frameRate;
+  }
+
+  @computed
   get totalFrames() {
-    return this.frameRate * this.duration;
+    return this.playbackFrameRate * this.duration;
   }
 }

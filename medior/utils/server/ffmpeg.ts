@@ -10,6 +10,7 @@ export const getFfprobePath = () => process.env.FFPROBE_PATH || "ffprobe";
 /** The parts of ffprobe's JSON output that Medior reads. */
 export interface FfprobeData {
   format: {
+    bit_rate?: string;
     duration?: number;
     format_name?: string;
     size?: number;
@@ -20,9 +21,12 @@ export interface FfprobeData {
     bit_rate?: string;
     codec_name?: string;
     codec_type?: string;
+    /** Marks a video stream that is an audio file's cover art. */
+    disposition?: { attached_pic?: number };
     duration?: string;
     height?: number;
     r_frame_rate?: string;
+    tags?: Record<string, string | number>;
     width?: number;
   }[];
 }

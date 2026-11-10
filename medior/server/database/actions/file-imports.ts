@@ -51,6 +51,7 @@ import {
 } from "medior/utils/common";
 import {
   getIsActiveScratchPath,
+  getIsAudio,
   getIsImage,
   getIsStoragePath,
   getIsStorageScratchPath,
@@ -1087,7 +1088,13 @@ export const isImporterPaused = () => importerStatus.getIsPaused();
 export const importMediaFile = makeAction(async (args: MediaImportInput) => importMedia(args));
 
 const getImportKind = (extension: string) =>
-  getIsImage(extension) ? "image" : getIsVideo(extension) ? "video" : null;
+  getIsImage(extension)
+    ? "image"
+    : getIsVideo(extension)
+      ? "video"
+      : getIsAudio(extension)
+        ? "audio"
+        : null;
 
 export const runImportBatch = makeAction(async (args: { id: string }) => {
   if (isServerStopping()) throw new Error("Importer is shutting down");
@@ -1140,7 +1147,7 @@ export const runImportBatch = makeAction(async (args: { id: string }) => {
               // lets each be busy with a different file.
               await runConcurrent(
                 pending,
-                kind === "image" ? 4 : 3,
+                kind === "audio" || kind === "image" ? 4 : 3,
                 (file) =>
                   importBatchFile({
                     batchId: id,
@@ -1149,6 +1156,7 @@ export const runImportBatch = makeAction(async (args: { id: string }) => {
                     diffusionParams: file.diffusionParams,
                     ext: file.extension,
                     ignorePrevDeleted: batch.ignorePrevDeleted,
+                    musicOptions: batch.music ?? null,
                     originalName: file.name,
                     originalPath: file.path,
                     rootFolderPath: batch.rootFolderPath,

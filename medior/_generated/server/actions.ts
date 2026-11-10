@@ -77,6 +77,7 @@ export type CreateFileFilterPipelineInput = {
   frameRate?: { logOp: LogicalOp | ""; value: number };
   frameRateMode?: "optional" | "required";
   hasDiffParams?: boolean;
+  hasMusic?: boolean;
   hasTimeline?: boolean;
   heightMode?: "optional" | "required";
   ids?: string[];
@@ -107,6 +108,7 @@ export type CreateFileFilterPipelineInput = {
   requiredDescTagIds?: string[];
   requiredTagIds?: string[];
   selectedAudioCodecs?: Types.SelectedAudioCodecs;
+  selectedAudioExts?: Types.SelectedAudioExts;
   selectedImageExts?: Types.SelectedImageExts;
   selectedVideoCodecs?: Types.SelectedVideoCodecs;
   selectedVideoExts?: Types.SelectedVideoExts;
@@ -132,6 +134,9 @@ export const createFileFilterPipeline = async (args: CreateFileFilterPipelineInp
         [{ $eq: [{ $type: "$diffusionParams" }, "string"] }, { $ne: ["$diffusionParams", ""] }],
       ),
     );
+
+  if (args.hasMusic != null && !isDeepEqual(args.hasMusic, false))
+    setObj($match, ["music.artists.key", "$type"], "string");
 
   if (args.hasTimeline != null && !isDeepEqual(args.hasTimeline, false))
     setObj($match, ["timestamps.id", "$exists"], true);
@@ -179,14 +184,20 @@ export const createFileFilterPipeline = async (args: CreateFileFilterPipelineInp
     );
 
   if (
-    Object.values({ ...args.selectedImageExts, ...args.selectedVideoExts }).some(
-      (selected) => !selected,
-    )
+    Object.values({
+      ...args.selectedAudioExts,
+      ...args.selectedImageExts,
+      ...args.selectedVideoExts,
+    }).some((selected) => !selected)
   )
     setObj(
       $match,
       ["ext", "$nin"],
-      Object.entries({ ...args.selectedImageExts, ...args.selectedVideoExts })
+      Object.entries({
+        ...args.selectedAudioExts,
+        ...args.selectedImageExts,
+        ...args.selectedVideoExts,
+      })
         .filter(([, val]) => !val)
         .map(([ext]) => ext),
     );
@@ -1878,6 +1889,736 @@ export const listFilteredMediaProgram = makeAction(
   },
 );
 
+export type CreateMusicAlbumFilterPipelineInput = {
+  artistIds?: string[];
+  artistName?: string;
+  artistNameMode?: "optional" | "required";
+  dateCreatedEnd?: string;
+  dateCreatedMode?: "optional" | "required";
+  dateCreatedStart?: string;
+  dateModifiedEnd?: string;
+  dateModifiedMode?: "optional" | "required";
+  dateModifiedStart?: string;
+  fileCount?: { logOp: LogicalOp | ""; value: number };
+  fileCountMode?: "optional" | "required";
+  ids?: string[];
+  maxYear?: number;
+  minYear?: number;
+  name?: string;
+  nameMode?: "optional" | "required";
+  rating?: { logOp: LogicalOp | ""; value: number };
+  ratingMode?: "optional" | "required";
+  sortValue?: SortMenuProps["value"];
+  yearMode?: "optional" | "required";
+};
+
+export const createMusicAlbumFilterPipeline = async (args: CreateMusicAlbumFilterPipelineInput) => {
+  const $match: QueryFilter<models.MusicAlbumSchema> = {};
+
+  if (args.artistIds != null && !isDeepEqual(args.artistIds, []))
+    setObj($match, ["artistId", "$in"], objectIds(args.artistIds));
+
+  if (args.ids != null && !isDeepEqual(args.ids, []))
+    ($match.$and ??= []).push(setObj({}, ["_id", "$in"], objectIds(args.ids)));
+
+  {
+    const filter: QueryFilter<models.MusicAlbumSchema> = {};
+
+    if (args.artistName != null && args.artistName !== "" && !isDeepEqual(args.artistName, ""))
+      addRegexSearchFilter(filter, ["artistName", "$regex"], args.artistName);
+
+    if (Object.keys(filter).length) {
+      const operator = args.artistNameMode === "optional" ? "$or" : "$and";
+
+      ($match[operator] ??= []).push(filter);
+    }
+  }
+
+  {
+    const filter: QueryFilter<models.MusicAlbumSchema> = {};
+
+    if (
+      args.dateCreatedEnd != null &&
+      args.dateCreatedEnd !== "" &&
+      !isDeepEqual(args.dateCreatedEnd, "")
+    )
+      setObj(filter, ["dateCreated", "$lte"], args.dateCreatedEnd);
+
+    if (
+      args.dateCreatedStart != null &&
+      args.dateCreatedStart !== "" &&
+      !isDeepEqual(args.dateCreatedStart, "")
+    )
+      setObj(filter, ["dateCreated", "$gte"], args.dateCreatedStart);
+
+    if (Object.keys(filter).length) {
+      const operator = args.dateCreatedMode === "optional" ? "$or" : "$and";
+
+      ($match[operator] ??= []).push(filter);
+    }
+  }
+
+  {
+    const filter: QueryFilter<models.MusicAlbumSchema> = {};
+
+    if (
+      args.dateModifiedEnd != null &&
+      args.dateModifiedEnd !== "" &&
+      !isDeepEqual(args.dateModifiedEnd, "")
+    )
+      setObj(filter, ["dateModified", "$lte"], args.dateModifiedEnd);
+
+    if (
+      args.dateModifiedStart != null &&
+      args.dateModifiedStart !== "" &&
+      !isDeepEqual(args.dateModifiedStart, "")
+    )
+      setObj(filter, ["dateModified", "$gte"], args.dateModifiedStart);
+
+    if (Object.keys(filter).length) {
+      const operator = args.dateModifiedMode === "optional" ? "$or" : "$and";
+
+      ($match[operator] ??= []).push(filter);
+    }
+  }
+
+  {
+    const filter: QueryFilter<models.MusicAlbumSchema> = {};
+
+    if (args.fileCount?.logOp && args.fileCount?.value != null)
+      setObj(filter, ["fileCount", logicOpsToMongo(args.fileCount.logOp)], args.fileCount.value);
+
+    if (Object.keys(filter).length) {
+      const operator = args.fileCountMode === "optional" ? "$or" : "$and";
+
+      ($match[operator] ??= []).push(filter);
+    }
+  }
+
+  {
+    const filter: QueryFilter<models.MusicAlbumSchema> = {};
+
+    if (args.name != null && args.name !== "" && !isDeepEqual(args.name, ""))
+      addRegexSearchFilter(filter, ["name", "$regex"], args.name);
+
+    if (Object.keys(filter).length) {
+      const operator = args.nameMode === "optional" ? "$or" : "$and";
+
+      ($match[operator] ??= []).push(filter);
+    }
+  }
+
+  {
+    const filter: QueryFilter<models.MusicAlbumSchema> = {};
+
+    if (args.rating?.logOp && args.rating?.value != null)
+      setObj(filter, ["rating", logicOpsToMongo(args.rating.logOp)], args.rating.value);
+
+    if (Object.keys(filter).length) {
+      const operator = args.ratingMode === "optional" ? "$or" : "$and";
+
+      ($match[operator] ??= []).push(filter);
+    }
+  }
+
+  {
+    const filter: QueryFilter<models.MusicAlbumSchema> = {};
+
+    if (args.maxYear != null && !isDeepEqual(args.maxYear, null))
+      setObj(filter, ["year", "$lte"], args.maxYear);
+
+    if (args.minYear != null && !isDeepEqual(args.minYear, null))
+      setObj(filter, ["year", "$gte"], args.minYear);
+
+    if (Object.keys(filter).length) {
+      const operator = args.yearMode === "optional" ? "$or" : "$and";
+
+      ($match[operator] ??= []).push(filter);
+    }
+  }
+
+  // Callers that only need the match, like duplicate grouping, pass no sort value.
+  const sortValue = args.sortValue ?? { isDesc: false, key: "_id" };
+  const sortDir = sortValue.isDesc ? -1 : 1;
+
+  return {
+    $match,
+    $sort: { [sortValue.key]: sortDir, _id: sortDir } as { [key: string]: 1 | -1 },
+  };
+};
+
+export type GetShiftSelectedMusicAlbumInput = CreateMusicAlbumFilterPipelineInput & {
+  clickedId: string;
+  selectedIds: string[];
+};
+
+export const getShiftSelectedMusicAlbum = makeAction(
+  async ({ clickedId, selectedIds, ...filterParams }: GetShiftSelectedMusicAlbumInput) => {
+    const filterPipeline = await createMusicAlbumFilterPipeline(filterParams);
+
+    return getShiftSelectedItems({
+      clickedId,
+      filterPipeline,
+      ids: filterParams.ids,
+      model: models.MusicAlbumModel,
+      selectedIds,
+    });
+  },
+);
+
+export type GetFilteredMusicAlbumCountInput = CreateMusicAlbumFilterPipelineInput & {
+  curMaxPage: number;
+  forcePages?: boolean;
+  page: number;
+  pageSize: number;
+  withFull: boolean;
+};
+
+export const getFilteredMusicAlbumCount = makeAction(
+  async ({
+    curMaxPage,
+    forcePages,
+    pageSize,
+    withFull,
+    ...filterParams
+  }: GetFilteredMusicAlbumCountInput) => {
+    const filterPipeline = await createMusicAlbumFilterPipeline(filterParams);
+    let count: number;
+    let pageCount: number;
+
+    if (forcePages || filterParams.ids?.length) {
+      const items = await listItemsByIds({
+        ids: filterParams.ids ?? [],
+        model: models.MusicAlbumModel,
+        select: { _id: 1 },
+      });
+
+      count = items.length;
+      pageCount = Math.ceil(count / pageSize);
+    } else if (withFull) {
+      count = await models.MusicAlbumModel.countDocuments(filterPipeline.$match).allowDiskUse(true);
+
+      pageCount = Math.ceil(count / pageSize);
+    } else {
+      const targetPage = Math.max(1, filterParams.page ?? 1);
+      const targetMaxPage = targetPage >= (curMaxPage ?? 0) ? targetPage + 1000 : curMaxPage;
+      const probeLimit = targetMaxPage * pageSize;
+
+      count = await models.MusicAlbumModel.countDocuments(filterPipeline.$match, {
+        limit: probeLimit,
+      }).allowDiskUse(true);
+
+      pageCount = count < probeLimit ? Math.ceil(count / pageSize) : targetMaxPage;
+    }
+
+    return { count, pageCount };
+  },
+);
+
+export type ListFilteredMusicAlbumInput = CreateMusicAlbumFilterPipelineInput & {
+  forcePages?: boolean;
+  page: number;
+  pageSize: number;
+  select?: Record<string, 1 | -1>;
+};
+
+export const listFilteredMusicAlbum = makeAction(
+  async ({ forcePages, page, pageSize, select, ...filterParams }: ListFilteredMusicAlbumInput) => {
+    const filterPipeline = await createMusicAlbumFilterPipeline(filterParams);
+    const hasIds = forcePages || filterParams.ids?.length > 0;
+
+    const items = await (hasIds
+      ? listItemsByIds({
+          ids: filterParams.ids ?? [],
+          model: models.MusicAlbumModel,
+          ...(forcePages ? { page, pageSize } : {}),
+          select,
+        })
+      : models.MusicAlbumModel.find(filterPipeline.$match)
+          .sort(filterPipeline.$sort)
+          .select(select)
+          .skip(Math.max(0, page - 1) * pageSize)
+          .limit(pageSize)
+          .allowDiskUse(true)
+          .lean());
+
+    if (!items) throw new Error("Failed to load filtered MusicAlbum");
+
+    return items.map((i) => leanModelToJson<models.MusicAlbumSchema>(i));
+  },
+);
+
+export type CreateMusicArtistFilterPipelineInput = {
+  albumCount?: { logOp: LogicalOp | ""; value: number };
+  albumCountMode?: "optional" | "required";
+  dateCreatedEnd?: string;
+  dateCreatedMode?: "optional" | "required";
+  dateCreatedStart?: string;
+  dateModifiedEnd?: string;
+  dateModifiedMode?: "optional" | "required";
+  dateModifiedStart?: string;
+  fileCount?: { logOp: LogicalOp | ""; value: number };
+  fileCountMode?: "optional" | "required";
+  ids?: string[];
+  name?: string;
+  nameMode?: "optional" | "required";
+  rating?: { logOp: LogicalOp | ""; value: number };
+  ratingMode?: "optional" | "required";
+  sortValue?: SortMenuProps["value"];
+};
+
+export const createMusicArtistFilterPipeline = async (
+  args: CreateMusicArtistFilterPipelineInput,
+) => {
+  const $match: QueryFilter<models.MusicArtistSchema> = {};
+
+  if (args.ids != null && !isDeepEqual(args.ids, []))
+    ($match.$and ??= []).push(setObj({}, ["_id", "$in"], objectIds(args.ids)));
+
+  {
+    const filter: QueryFilter<models.MusicArtistSchema> = {};
+
+    if (args.albumCount?.logOp && args.albumCount?.value != null)
+      setObj(filter, ["albumCount", logicOpsToMongo(args.albumCount.logOp)], args.albumCount.value);
+
+    if (Object.keys(filter).length) {
+      const operator = args.albumCountMode === "optional" ? "$or" : "$and";
+
+      ($match[operator] ??= []).push(filter);
+    }
+  }
+
+  {
+    const filter: QueryFilter<models.MusicArtistSchema> = {};
+
+    if (
+      args.dateCreatedEnd != null &&
+      args.dateCreatedEnd !== "" &&
+      !isDeepEqual(args.dateCreatedEnd, "")
+    )
+      setObj(filter, ["dateCreated", "$lte"], args.dateCreatedEnd);
+
+    if (
+      args.dateCreatedStart != null &&
+      args.dateCreatedStart !== "" &&
+      !isDeepEqual(args.dateCreatedStart, "")
+    )
+      setObj(filter, ["dateCreated", "$gte"], args.dateCreatedStart);
+
+    if (Object.keys(filter).length) {
+      const operator = args.dateCreatedMode === "optional" ? "$or" : "$and";
+
+      ($match[operator] ??= []).push(filter);
+    }
+  }
+
+  {
+    const filter: QueryFilter<models.MusicArtistSchema> = {};
+
+    if (
+      args.dateModifiedEnd != null &&
+      args.dateModifiedEnd !== "" &&
+      !isDeepEqual(args.dateModifiedEnd, "")
+    )
+      setObj(filter, ["dateModified", "$lte"], args.dateModifiedEnd);
+
+    if (
+      args.dateModifiedStart != null &&
+      args.dateModifiedStart !== "" &&
+      !isDeepEqual(args.dateModifiedStart, "")
+    )
+      setObj(filter, ["dateModified", "$gte"], args.dateModifiedStart);
+
+    if (Object.keys(filter).length) {
+      const operator = args.dateModifiedMode === "optional" ? "$or" : "$and";
+
+      ($match[operator] ??= []).push(filter);
+    }
+  }
+
+  {
+    const filter: QueryFilter<models.MusicArtistSchema> = {};
+
+    if (args.fileCount?.logOp && args.fileCount?.value != null)
+      setObj(filter, ["fileCount", logicOpsToMongo(args.fileCount.logOp)], args.fileCount.value);
+
+    if (Object.keys(filter).length) {
+      const operator = args.fileCountMode === "optional" ? "$or" : "$and";
+
+      ($match[operator] ??= []).push(filter);
+    }
+  }
+
+  {
+    const filter: QueryFilter<models.MusicArtistSchema> = {};
+
+    if (args.name != null && args.name !== "" && !isDeepEqual(args.name, ""))
+      addRegexSearchFilter(filter, ["name", "$regex"], args.name);
+
+    if (Object.keys(filter).length) {
+      const operator = args.nameMode === "optional" ? "$or" : "$and";
+
+      ($match[operator] ??= []).push(filter);
+    }
+  }
+
+  {
+    const filter: QueryFilter<models.MusicArtistSchema> = {};
+
+    if (args.rating?.logOp && args.rating?.value != null)
+      setObj(filter, ["rating", logicOpsToMongo(args.rating.logOp)], args.rating.value);
+
+    if (Object.keys(filter).length) {
+      const operator = args.ratingMode === "optional" ? "$or" : "$and";
+
+      ($match[operator] ??= []).push(filter);
+    }
+  }
+
+  // Callers that only need the match, like duplicate grouping, pass no sort value.
+  const sortValue = args.sortValue ?? { isDesc: false, key: "_id" };
+  const sortDir = sortValue.isDesc ? -1 : 1;
+
+  return {
+    $match,
+    $sort: { [sortValue.key]: sortDir, _id: sortDir } as { [key: string]: 1 | -1 },
+  };
+};
+
+export type GetShiftSelectedMusicArtistInput = CreateMusicArtistFilterPipelineInput & {
+  clickedId: string;
+  selectedIds: string[];
+};
+
+export const getShiftSelectedMusicArtist = makeAction(
+  async ({ clickedId, selectedIds, ...filterParams }: GetShiftSelectedMusicArtistInput) => {
+    const filterPipeline = await createMusicArtistFilterPipeline(filterParams);
+
+    return getShiftSelectedItems({
+      clickedId,
+      filterPipeline,
+      ids: filterParams.ids,
+      model: models.MusicArtistModel,
+      selectedIds,
+    });
+  },
+);
+
+export type GetFilteredMusicArtistCountInput = CreateMusicArtistFilterPipelineInput & {
+  curMaxPage: number;
+  forcePages?: boolean;
+  page: number;
+  pageSize: number;
+  withFull: boolean;
+};
+
+export const getFilteredMusicArtistCount = makeAction(
+  async ({
+    curMaxPage,
+    forcePages,
+    pageSize,
+    withFull,
+    ...filterParams
+  }: GetFilteredMusicArtistCountInput) => {
+    const filterPipeline = await createMusicArtistFilterPipeline(filterParams);
+    let count: number;
+    let pageCount: number;
+
+    if (forcePages || filterParams.ids?.length) {
+      const items = await listItemsByIds({
+        ids: filterParams.ids ?? [],
+        model: models.MusicArtistModel,
+        select: { _id: 1 },
+      });
+
+      count = items.length;
+      pageCount = Math.ceil(count / pageSize);
+    } else if (withFull) {
+      count = await models.MusicArtistModel.countDocuments(filterPipeline.$match).allowDiskUse(
+        true,
+      );
+
+      pageCount = Math.ceil(count / pageSize);
+    } else {
+      const targetPage = Math.max(1, filterParams.page ?? 1);
+      const targetMaxPage = targetPage >= (curMaxPage ?? 0) ? targetPage + 1000 : curMaxPage;
+      const probeLimit = targetMaxPage * pageSize;
+
+      count = await models.MusicArtistModel.countDocuments(filterPipeline.$match, {
+        limit: probeLimit,
+      }).allowDiskUse(true);
+
+      pageCount = count < probeLimit ? Math.ceil(count / pageSize) : targetMaxPage;
+    }
+
+    return { count, pageCount };
+  },
+);
+
+export type ListFilteredMusicArtistInput = CreateMusicArtistFilterPipelineInput & {
+  forcePages?: boolean;
+  page: number;
+  pageSize: number;
+  select?: Record<string, 1 | -1>;
+};
+
+export const listFilteredMusicArtist = makeAction(
+  async ({ forcePages, page, pageSize, select, ...filterParams }: ListFilteredMusicArtistInput) => {
+    const filterPipeline = await createMusicArtistFilterPipeline(filterParams);
+    const hasIds = forcePages || filterParams.ids?.length > 0;
+
+    const items = await (hasIds
+      ? listItemsByIds({
+          ids: filterParams.ids ?? [],
+          model: models.MusicArtistModel,
+          ...(forcePages ? { page, pageSize } : {}),
+          select,
+        })
+      : models.MusicArtistModel.find(filterPipeline.$match)
+          .sort(filterPipeline.$sort)
+          .select(select)
+          .skip(Math.max(0, page - 1) * pageSize)
+          .limit(pageSize)
+          .allowDiskUse(true)
+          .lean());
+
+    if (!items) throw new Error("Failed to load filtered MusicArtist");
+
+    return items.map((i) => leanModelToJson<models.MusicArtistSchema>(i));
+  },
+);
+
+export type CreateMusicPlaylistFilterPipelineInput = {
+  dateCreatedEnd?: string;
+  dateCreatedMode?: "optional" | "required";
+  dateCreatedStart?: string;
+  dateModifiedEnd?: string;
+  dateModifiedMode?: "optional" | "required";
+  dateModifiedStart?: string;
+  fileCount?: { logOp: LogicalOp | ""; value: number };
+  fileCountMode?: "optional" | "required";
+  ids?: string[];
+  name?: string;
+  nameMode?: "optional" | "required";
+  rating?: { logOp: LogicalOp | ""; value: number };
+  ratingMode?: "optional" | "required";
+  sortValue?: SortMenuProps["value"];
+};
+
+export const createMusicPlaylistFilterPipeline = async (
+  args: CreateMusicPlaylistFilterPipelineInput,
+) => {
+  const $match: QueryFilter<models.MusicPlaylistSchema> = {};
+
+  if (args.ids != null && !isDeepEqual(args.ids, []))
+    ($match.$and ??= []).push(setObj({}, ["_id", "$in"], objectIds(args.ids)));
+
+  {
+    const filter: QueryFilter<models.MusicPlaylistSchema> = {};
+
+    if (
+      args.dateCreatedEnd != null &&
+      args.dateCreatedEnd !== "" &&
+      !isDeepEqual(args.dateCreatedEnd, "")
+    )
+      setObj(filter, ["dateCreated", "$lte"], args.dateCreatedEnd);
+
+    if (
+      args.dateCreatedStart != null &&
+      args.dateCreatedStart !== "" &&
+      !isDeepEqual(args.dateCreatedStart, "")
+    )
+      setObj(filter, ["dateCreated", "$gte"], args.dateCreatedStart);
+
+    if (Object.keys(filter).length) {
+      const operator = args.dateCreatedMode === "optional" ? "$or" : "$and";
+
+      ($match[operator] ??= []).push(filter);
+    }
+  }
+
+  {
+    const filter: QueryFilter<models.MusicPlaylistSchema> = {};
+
+    if (
+      args.dateModifiedEnd != null &&
+      args.dateModifiedEnd !== "" &&
+      !isDeepEqual(args.dateModifiedEnd, "")
+    )
+      setObj(filter, ["dateModified", "$lte"], args.dateModifiedEnd);
+
+    if (
+      args.dateModifiedStart != null &&
+      args.dateModifiedStart !== "" &&
+      !isDeepEqual(args.dateModifiedStart, "")
+    )
+      setObj(filter, ["dateModified", "$gte"], args.dateModifiedStart);
+
+    if (Object.keys(filter).length) {
+      const operator = args.dateModifiedMode === "optional" ? "$or" : "$and";
+
+      ($match[operator] ??= []).push(filter);
+    }
+  }
+
+  {
+    const filter: QueryFilter<models.MusicPlaylistSchema> = {};
+
+    if (args.fileCount?.logOp && args.fileCount?.value != null)
+      setObj(filter, ["fileCount", logicOpsToMongo(args.fileCount.logOp)], args.fileCount.value);
+
+    if (Object.keys(filter).length) {
+      const operator = args.fileCountMode === "optional" ? "$or" : "$and";
+
+      ($match[operator] ??= []).push(filter);
+    }
+  }
+
+  {
+    const filter: QueryFilter<models.MusicPlaylistSchema> = {};
+
+    if (args.name != null && args.name !== "" && !isDeepEqual(args.name, ""))
+      addRegexSearchFilter(filter, ["name", "$regex"], args.name);
+
+    if (Object.keys(filter).length) {
+      const operator = args.nameMode === "optional" ? "$or" : "$and";
+
+      ($match[operator] ??= []).push(filter);
+    }
+  }
+
+  {
+    const filter: QueryFilter<models.MusicPlaylistSchema> = {};
+
+    if (args.rating?.logOp && args.rating?.value != null)
+      setObj(filter, ["rating", logicOpsToMongo(args.rating.logOp)], args.rating.value);
+
+    if (Object.keys(filter).length) {
+      const operator = args.ratingMode === "optional" ? "$or" : "$and";
+
+      ($match[operator] ??= []).push(filter);
+    }
+  }
+
+  // Callers that only need the match, like duplicate grouping, pass no sort value.
+  const sortValue = args.sortValue ?? { isDesc: false, key: "_id" };
+  const sortDir = sortValue.isDesc ? -1 : 1;
+
+  return {
+    $match,
+    $sort: { [sortValue.key]: sortDir, _id: sortDir } as { [key: string]: 1 | -1 },
+  };
+};
+
+export type GetShiftSelectedMusicPlaylistInput = CreateMusicPlaylistFilterPipelineInput & {
+  clickedId: string;
+  selectedIds: string[];
+};
+
+export const getShiftSelectedMusicPlaylist = makeAction(
+  async ({ clickedId, selectedIds, ...filterParams }: GetShiftSelectedMusicPlaylistInput) => {
+    const filterPipeline = await createMusicPlaylistFilterPipeline(filterParams);
+
+    return getShiftSelectedItems({
+      clickedId,
+      filterPipeline,
+      ids: filterParams.ids,
+      model: models.MusicPlaylistModel,
+      selectedIds,
+    });
+  },
+);
+
+export type GetFilteredMusicPlaylistCountInput = CreateMusicPlaylistFilterPipelineInput & {
+  curMaxPage: number;
+  forcePages?: boolean;
+  page: number;
+  pageSize: number;
+  withFull: boolean;
+};
+
+export const getFilteredMusicPlaylistCount = makeAction(
+  async ({
+    curMaxPage,
+    forcePages,
+    pageSize,
+    withFull,
+    ...filterParams
+  }: GetFilteredMusicPlaylistCountInput) => {
+    const filterPipeline = await createMusicPlaylistFilterPipeline(filterParams);
+    let count: number;
+    let pageCount: number;
+
+    if (forcePages || filterParams.ids?.length) {
+      const items = await listItemsByIds({
+        ids: filterParams.ids ?? [],
+        model: models.MusicPlaylistModel,
+        select: { _id: 1 },
+      });
+
+      count = items.length;
+      pageCount = Math.ceil(count / pageSize);
+    } else if (withFull) {
+      count = await models.MusicPlaylistModel.countDocuments(filterPipeline.$match).allowDiskUse(
+        true,
+      );
+
+      pageCount = Math.ceil(count / pageSize);
+    } else {
+      const targetPage = Math.max(1, filterParams.page ?? 1);
+      const targetMaxPage = targetPage >= (curMaxPage ?? 0) ? targetPage + 1000 : curMaxPage;
+      const probeLimit = targetMaxPage * pageSize;
+
+      count = await models.MusicPlaylistModel.countDocuments(filterPipeline.$match, {
+        limit: probeLimit,
+      }).allowDiskUse(true);
+
+      pageCount = count < probeLimit ? Math.ceil(count / pageSize) : targetMaxPage;
+    }
+
+    return { count, pageCount };
+  },
+);
+
+export type ListFilteredMusicPlaylistInput = CreateMusicPlaylistFilterPipelineInput & {
+  forcePages?: boolean;
+  page: number;
+  pageSize: number;
+  select?: Record<string, 1 | -1>;
+};
+
+export const listFilteredMusicPlaylist = makeAction(
+  async ({
+    forcePages,
+    page,
+    pageSize,
+    select,
+    ...filterParams
+  }: ListFilteredMusicPlaylistInput) => {
+    const filterPipeline = await createMusicPlaylistFilterPipeline(filterParams);
+    const hasIds = forcePages || filterParams.ids?.length > 0;
+
+    const items = await (hasIds
+      ? listItemsByIds({
+          ids: filterParams.ids ?? [],
+          model: models.MusicPlaylistModel,
+          ...(forcePages ? { page, pageSize } : {}),
+          select,
+        })
+      : models.MusicPlaylistModel.find(filterPipeline.$match)
+          .sort(filterPipeline.$sort)
+          .select(select)
+          .skip(Math.max(0, page - 1) * pageSize)
+          .limit(pageSize)
+          .allowDiskUse(true)
+          .lean());
+
+    if (!items) throw new Error("Failed to load filtered MusicPlaylist");
+
+    return items.map((i) => leanModelToJson<models.MusicPlaylistSchema>(i));
+  },
+);
+
 export type CreateSavedImportConfigFilterPipelineInput = {
   dateModifiedEnd?: string;
   dateModifiedMode?: "optional" | "required";
@@ -3189,6 +3930,316 @@ export const _updateMediaProgram = makeAction(
     );
 
     socket.emitVolatile("onMediaProgramUpdated", { id: args.id, updates }, socketOpts);
+
+    return updated;
+  },
+);
+/* ------------------------------------ MusicAlbum ----------------------------------- */
+export const createMusicAlbum = makeAction(
+  async ({
+    args,
+    socketOpts,
+  }: {
+    args: Types.CreateMusicAlbumInput;
+    socketOpts?: SocketEventOptions;
+  }) => {
+    const model = {
+      ...args,
+      dateCreated: dayjs().toISOString(),
+      dateModified: null,
+      duration: 0,
+      fileCount: 0,
+      fileIds: [],
+      rating: 0,
+      size: 0,
+    };
+
+    const res = await new models.MusicAlbumModel(model).save(metadataSaveOptions());
+    const created = { ...model, id: res._id.toString() };
+
+    socket.emitVolatile("onMusicAlbumCreated", created, socketOpts);
+
+    return created;
+  },
+);
+
+export const deleteMusicAlbum = makeAction(
+  async ({
+    args,
+    socketOpts,
+  }: {
+    args: Types.DeleteMusicAlbumInput;
+    socketOpts?: SocketEventOptions;
+  }) => {
+    await models.MusicAlbumModel.deleteMany({ _id: { $in: args.ids } }, metadataWriteOptions());
+
+    socket.emitVolatile("onMusicAlbumDeleted", args, socketOpts);
+  },
+);
+
+export const listMusicAlbum = makeAction(
+  async ({
+    args,
+  }: {
+    args?: Types.ListMusicAlbumInput;
+  } = {}) => {
+    args ??= {};
+
+    const filter = { ...args.filter };
+
+    if (args.filter?.id) {
+      filter._id = Array.isArray(args.filter.id)
+        ? { $in: args.filter.id }
+        : typeof args.filter.id === "string"
+          ? { $in: [args.filter.id] }
+          : args.filter.id;
+
+      delete filter.id;
+    }
+
+    const items = await models.MusicAlbumModel.find(filter)
+      .sort(args.sort ?? { dateCreated: "desc" })
+      .skip(Math.max(0, (args.page ?? 1) - 1) * (args.pageSize ?? 0))
+      .limit(args.pageSize ?? 0)
+      .allowDiskUse(true)
+      .lean();
+
+    const totalCount = await models.MusicAlbumModel.countDocuments(filter);
+
+    if (!items || !(totalCount > -1)) throw new Error("Failed to load filtered MusicAlbum");
+
+    return {
+      items: items.map((item) => leanModelToJson<models.MusicAlbumSchema>(item)),
+      pageCount: args.pageSize > 0 ? Math.ceil(totalCount / args.pageSize) : Number(totalCount > 0),
+    };
+  },
+);
+
+export const updateMusicAlbum = makeAction(
+  async ({
+    args,
+    socketOpts,
+  }: {
+    args: Types.UpdateMusicAlbumInput;
+    socketOpts?: SocketEventOptions;
+  }) => {
+    const updates = { ...args.updates, dateModified: dayjs().toISOString() };
+
+    const updated = leanModelToJson<models.MusicAlbumSchema>(
+      await models.MusicAlbumModel.findByIdAndUpdate(args.id, updates, {
+        returnDocument: "after",
+        ...metadataWriteOptions(),
+      }).lean(),
+    );
+
+    socket.emitVolatile("onMusicAlbumUpdated", { id: args.id, updates }, socketOpts);
+
+    return updated;
+  },
+);
+/* ------------------------------------ MusicArtist ----------------------------------- */
+export const createMusicArtist = makeAction(
+  async ({
+    args,
+    socketOpts,
+  }: {
+    args: Types.CreateMusicArtistInput;
+    socketOpts?: SocketEventOptions;
+  }) => {
+    const model = {
+      ...args,
+      dateCreated: dayjs().toISOString(),
+      albumCount: 0,
+      dateModified: null,
+      duration: 0,
+      fileCount: 0,
+      fileIds: [],
+      rating: 0,
+      size: 0,
+    };
+
+    const res = await new models.MusicArtistModel(model).save(metadataSaveOptions());
+    const created = { ...model, id: res._id.toString() };
+
+    socket.emitVolatile("onMusicArtistCreated", created, socketOpts);
+
+    return created;
+  },
+);
+
+export const deleteMusicArtist = makeAction(
+  async ({
+    args,
+    socketOpts,
+  }: {
+    args: Types.DeleteMusicArtistInput;
+    socketOpts?: SocketEventOptions;
+  }) => {
+    await models.MusicArtistModel.deleteMany({ _id: { $in: args.ids } }, metadataWriteOptions());
+
+    socket.emitVolatile("onMusicArtistDeleted", args, socketOpts);
+  },
+);
+
+export const listMusicArtist = makeAction(
+  async ({
+    args,
+  }: {
+    args?: Types.ListMusicArtistInput;
+  } = {}) => {
+    args ??= {};
+
+    const filter = { ...args.filter };
+
+    if (args.filter?.id) {
+      filter._id = Array.isArray(args.filter.id)
+        ? { $in: args.filter.id }
+        : typeof args.filter.id === "string"
+          ? { $in: [args.filter.id] }
+          : args.filter.id;
+
+      delete filter.id;
+    }
+
+    const items = await models.MusicArtistModel.find(filter)
+      .sort(args.sort ?? { dateCreated: "desc" })
+      .skip(Math.max(0, (args.page ?? 1) - 1) * (args.pageSize ?? 0))
+      .limit(args.pageSize ?? 0)
+      .allowDiskUse(true)
+      .lean();
+
+    const totalCount = await models.MusicArtistModel.countDocuments(filter);
+
+    if (!items || !(totalCount > -1)) throw new Error("Failed to load filtered MusicArtist");
+
+    return {
+      items: items.map((item) => leanModelToJson<models.MusicArtistSchema>(item)),
+      pageCount: args.pageSize > 0 ? Math.ceil(totalCount / args.pageSize) : Number(totalCount > 0),
+    };
+  },
+);
+
+export const updateMusicArtist = makeAction(
+  async ({
+    args,
+    socketOpts,
+  }: {
+    args: Types.UpdateMusicArtistInput;
+    socketOpts?: SocketEventOptions;
+  }) => {
+    const updates = { ...args.updates, dateModified: dayjs().toISOString() };
+
+    const updated = leanModelToJson<models.MusicArtistSchema>(
+      await models.MusicArtistModel.findByIdAndUpdate(args.id, updates, {
+        returnDocument: "after",
+        ...metadataWriteOptions(),
+      }).lean(),
+    );
+
+    socket.emitVolatile("onMusicArtistUpdated", { id: args.id, updates }, socketOpts);
+
+    return updated;
+  },
+);
+/* ------------------------------------ MusicPlaylist ----------------------------------- */
+export const _createMusicPlaylist = makeAction(
+  async ({
+    args,
+    socketOpts,
+  }: {
+    args: Types._CreateMusicPlaylistInput;
+    socketOpts?: SocketEventOptions;
+  }) => {
+    const model = {
+      ...args,
+      dateCreated: dayjs().toISOString(),
+      dateModified: null,
+      duration: 0,
+      fileCount: 0,
+      fileIds: [],
+      rating: 0,
+      size: 0,
+    };
+
+    const res = await new models.MusicPlaylistModel(model).save(metadataSaveOptions());
+    const created = { ...model, id: res._id.toString() };
+
+    socket.emitVolatile("onMusicPlaylistCreated", created, socketOpts);
+
+    return created;
+  },
+);
+
+export const deleteMusicPlaylist = makeAction(
+  async ({
+    args,
+    socketOpts,
+  }: {
+    args: Types.DeleteMusicPlaylistInput;
+    socketOpts?: SocketEventOptions;
+  }) => {
+    await models.MusicPlaylistModel.deleteMany({ _id: { $in: args.ids } }, metadataWriteOptions());
+
+    socket.emitVolatile("onMusicPlaylistDeleted", args, socketOpts);
+  },
+);
+
+export const listMusicPlaylist = makeAction(
+  async ({
+    args,
+  }: {
+    args?: Types.ListMusicPlaylistInput;
+  } = {}) => {
+    args ??= {};
+
+    const filter = { ...args.filter };
+
+    if (args.filter?.id) {
+      filter._id = Array.isArray(args.filter.id)
+        ? { $in: args.filter.id }
+        : typeof args.filter.id === "string"
+          ? { $in: [args.filter.id] }
+          : args.filter.id;
+
+      delete filter.id;
+    }
+
+    const items = await models.MusicPlaylistModel.find(filter)
+      .sort(args.sort ?? { dateCreated: "desc" })
+      .skip(Math.max(0, (args.page ?? 1) - 1) * (args.pageSize ?? 0))
+      .limit(args.pageSize ?? 0)
+      .allowDiskUse(true)
+      .lean();
+
+    const totalCount = await models.MusicPlaylistModel.countDocuments(filter);
+
+    if (!items || !(totalCount > -1)) throw new Error("Failed to load filtered MusicPlaylist");
+
+    return {
+      items: items.map((item) => leanModelToJson<models.MusicPlaylistSchema>(item)),
+      pageCount: args.pageSize > 0 ? Math.ceil(totalCount / args.pageSize) : Number(totalCount > 0),
+    };
+  },
+);
+
+export const _updateMusicPlaylist = makeAction(
+  async ({
+    args,
+    socketOpts,
+  }: {
+    args: Types._UpdateMusicPlaylistInput;
+    socketOpts?: SocketEventOptions;
+  }) => {
+    const updates = { ...args.updates, dateModified: dayjs().toISOString() };
+
+    const updated = leanModelToJson<models.MusicPlaylistSchema>(
+      await models.MusicPlaylistModel.findByIdAndUpdate(args.id, updates, {
+        returnDocument: "after",
+        ...metadataWriteOptions(),
+      }).lean(),
+    );
+
+    socket.emitVolatile("onMusicPlaylistUpdated", { id: args.id, updates }, socketOpts);
 
     return updated;
   },

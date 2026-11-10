@@ -27,6 +27,7 @@ import {
   FileImportSidecar,
   getSubtitleFilePaths,
   hasTranscription,
+  MusicImportOptions,
   normalizeTimestampPairs,
   SubtitleMode,
   SubtitleSource,
@@ -34,7 +35,10 @@ import {
 import {
   getAvailableFileStorage,
   getConfig,
+  getDerivedMediaFolder,
   getIsActiveScratchPath,
+  getIsAudio,
+  getIsLinkedPath,
   getIsStoragePath,
   getIsStorageScratchPath,
   getIsVideo,
@@ -62,6 +66,8 @@ export interface MediaImportInput {
   diffusionParams?: string;
   ext: string;
   ignorePrevDeleted: boolean;
+  /** How an audio file is read into Music, which leaves it out without them. */
+  musicOptions?: MusicImportOptions | null;
   originalName: string;
   originalPath: string;
   /** Batch root, within which folders emptied by deleting this source are removed. */
@@ -550,14 +556,32 @@ export const importMedia = async (args: MediaImportInput, operationId?: string) 
     // Stored media is registered in place; redundant copies and leftover scratch are deleted.
     const isStored = getIsStoragePath(args.originalPath);
     const isScratch = isStored && getIsStorageScratchPath(args.originalPath);
+    // Linked media is registered in place too, but belongs to other apps, so it's never deleted.
+    const isLinked = getIsLinkedPath(args.originalPath);
+    const isInPlace = isStored || isLinked;
 
     if (isStored && getIsActiveScratchPath(args.originalPath))
       throw new Error("Scratch output may still be in use, so it was not imported.");
 
-    if (isStored && !operation) {
+    if (isInPlace && !operation) {
       await assertMediaPathsAvailable([args.originalPath]);
 
-      if (await isMediaPathReferenced(args.originalPath))
+      // A linked file the library already has, such as from rescanning its folder, is a duplicate.
+      const linkedFile = isLinked
+        ? await models.FileModel.findOne({ pathKey: mediaPathKey(args.originalPath) }).lean()
+        : null;
+
+      if (linkedFile) {
+        const result = {
+          file: leanModelToJson<models.FileSchema>(linkedFile),
+          hash: linkedFile.hash,
+          status: "DUPLICATE" as const,
+        };
+
+        await updateBatchImport(args, result);
+
+        return result;
+      } else if (await isMediaPathReferenced(args.originalPath))
         throw new Error(
           "The library, a transform, or another import already uses this stored file.",
         );
@@ -595,9 +619,11 @@ export const importMedia = async (args: MediaImportInput, operationId?: string) 
 
     const subtitles = getImportSubtitles(args);
 
-    // Stored media is registered as it is, beside companions its subtitle copies could overwrite.
-    if (isStored && !operation?.outputHash && (subtitles.embedded.length || subtitles.kept.length))
-      throw new Error("Subtitles cannot be imported with media already in file storage.");
+    // Media kept in place is registered as it is, beside companions subtitle copies could overwrite.
+    if (isInPlace && !operation?.outputHash && (subtitles.embedded.length || subtitles.kept.length))
+      throw new Error(
+        "Subtitles cannot be imported with media kept in place in file storage or a linked folder.",
+      );
 
     const embedSubtitles = async (contentPath: string) => {
       const isAvailable = await Promise.all(subtitles.embedded.map(getIsSubtitleAvailable));
@@ -725,7 +751,7 @@ export const importMedia = async (args: MediaImportInput, operationId?: string) 
     if (!operation?.outputHash) {
       // Sources the import may move go to storage on their own drive, as a copy would need space.
       const storage =
-        duplicate || ignored || isStored
+        duplicate || ignored || isInPlace
           ? null
           : (args.deleteOnImport &&
               !subtitles.embedded.length &&
@@ -782,19 +808,25 @@ export const importMedia = async (args: MediaImportInput, operationId?: string) 
             outputHash.slice(2, 4),
             `${outputHash}-${randomUUID()}.${args.ext}`,
           )
-        : isStored && !duplicate && !ignored
+        : isInPlace && !duplicate && !ignored
           ? args.originalPath
           : null;
 
       const tempPath = storage ? `${outputPath}.${id}.tmp` : null;
 
       // Stored media keeps its own name, which another file's thumbnail could share without the ID.
-      const thumbPath = outputPath
-        ? path.join(
-            path.dirname(outputPath),
-            `${path.parse(outputPath).name}${storage ? "" : `-${id}`}-thumb.jpg`,
-          )
-        : null;
+      // Linked media's thumbnail goes to storage instead, named by its checksum.
+      const thumbPath = !outputPath
+        ? null
+        : isLinked
+          ? path.join(
+              getDerivedMediaFolder(outputPath, outputHash),
+              `${outputHash}-${id}-thumb.jpg`,
+            )
+          : path.join(
+              path.dirname(outputPath),
+              `${path.parse(outputPath).name}${storage ? "" : `-${id}`}-thumb.jpg`,
+            );
 
       operation = {
         _id: id,
@@ -959,7 +991,7 @@ export const importMedia = async (args: MediaImportInput, operationId?: string) 
     if (!duplicate && !ignored) {
       const thumbPath =
         operation.thumbPath ??
-        path.join(path.dirname(operation.outputPath), `${hash}-${id}-thumb.jpg`);
+        path.join(getDerivedMediaFolder(operation.outputPath, hash), `${hash}-${id}-thumb.jpg`);
 
       if (operation.thumbPath !== thumbPath) {
         const previous = await describeFileCleanup(operation.thumbPath);
@@ -982,7 +1014,9 @@ export const importMedia = async (args: MediaImportInput, operationId?: string) 
         ? await genFileInfo({
             filePath: operation.outputPath,
             hash,
+            musicOptions: args.musicOptions ?? null,
             onProgress: reportProgress,
+            originalName: args.sidecar?.originalName ?? args.originalName,
             // Only thumbnails take turns with other videos; reading metadata doesn't.
             runThumbs: async (run) => {
               recordTiming("media probe");
@@ -991,6 +1025,7 @@ export const importMedia = async (args: MediaImportInput, operationId?: string) 
             signal: workSignal.getStore(),
             skipAudio: true,
             thumbId: path.basename(operation.thumbPath).replace(/-thumb\.jpg$/, ""),
+            withTagRating: true,
           })
         : null;
 
@@ -1021,7 +1056,8 @@ export const importMedia = async (args: MediaImportInput, operationId?: string) 
     const keptSourcePaths = getSubtitleFilePaths(copiedKept);
 
     // Ignored files besides leftover scratch were previously deleted and are skipped, not discarded.
-    if (args.deleteOnImport && (!ignored || isScratch)) {
+    // Linked sources stay for the apps they belong to.
+    if (args.deleteOnImport && !isLinked && (!ignored || isScratch)) {
       for (const sourcePath of [
         args.originalPath,
         extendFileName(args.originalPath, "json"),
@@ -1046,7 +1082,7 @@ export const importMedia = async (args: MediaImportInput, operationId?: string) 
 
         if (file) cleanup.push(file);
       }
-    } else if (isStored && (duplicate || isScratch)) {
+    } else if (isStored && !isLinked && (duplicate || isScratch)) {
       // Without source deletion, only redundant stored copies and leftover scratch are removed.
       cleanup.push(makeFileCleanup(sourceHash, args.originalPath));
     }
@@ -1111,8 +1147,9 @@ const attachDuplicateSubtitles = async (file: models.FileSchema, args: MediaImpo
   const { embedded, kept } = getImportSubtitles(args);
   const sources = file.sourceHash ? kept : [...embedded, ...kept];
 
-  // Copies would overwrite the identically named subtitles a file already has.
-  if (!sources.length || file.subtitles?.length) return file;
+  // Copies would overwrite the identically named subtitles a file already has, and a linked file's
+  // folder belongs to other apps.
+  if (!sources.length || file.subtitles?.length || getIsLinkedPath(file.path)) return file;
 
   const copyPaths = getSubtitleFilePaths(
     sources.map((subtitle, index) => ({
@@ -1199,7 +1236,8 @@ const commitMediaImport = async (
       originalName: args.sidecar?.originalName ?? args.originalName,
       originalPath: args.originalPath,
       path: operation.outputPath,
-      rating: args.sidecar?.rating,
+      // A sidecar's Medior rating comes before one a player saved in the file's tag.
+      rating: args.sidecar?.rating || info.rating,
       sourceHash: hash === operation.sourceHash ? undefined : operation.sourceHash,
       subtitles: subtitles?.length ? subtitles : undefined,
       tagIds: args.tagIds,
@@ -1258,7 +1296,7 @@ const commitMediaImport = async (
 
   if (
     file &&
-    getIsVideo(file.ext) &&
+    (getIsAudio(file.ext) || getIsVideo(file.ext)) &&
     file.audioCodec &&
     file.audioCodec !== "None" &&
     (!file.waveformPeaks?.length || file.peakDecibels == null) &&
@@ -1268,6 +1306,8 @@ const commitMediaImport = async (
 
     await queueImportedAudio(file.id);
   }
+
+  if (status === "COMPLETE" && file?.music) await actions.regenMusicByFileIds([file.id]);
 
   recordTiming("file metadata");
 

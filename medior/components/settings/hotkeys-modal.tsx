@@ -87,6 +87,13 @@ const HOTKEY_TABS: HotkeyTab[] = [
   },
   {
     fields: [
+      ...getRatingFields("music"),
+      { configKey: "hotkeys.music.selectAll", label: "Select All in View" },
+    ],
+    label: "Music",
+  },
+  {
+    fields: [
       { configKey: "hotkeys.search.deleteFiles", label: "Delete Files" },
       { configKey: "hotkeys.search.detectFaces", label: "Detect Faces" },
       { configKey: "hotkeys.search.editTags", label: "Edit Tags" },

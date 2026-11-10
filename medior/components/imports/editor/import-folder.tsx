@@ -20,6 +20,7 @@ import {
 import { FileImportBatch, useStores } from "medior/store";
 import { colors, CssColor, makeBorderRadiuses, makeClasses, toast } from "medior/utils/client";
 import { Fmt } from "medior/utils/common";
+import { getIsLinkedPath } from "medior/utils/server";
 import { IMPORT_LIST_ITEM_HEIGHT, ImportListItem } from "./import-list-item";
 import { IMPORT_CHIP_STYLE } from "./tooltip-chip";
 
@@ -65,6 +66,7 @@ export const ImportFolderList = Comp(
       batch?.rootFolderPath ??
       (folder?.imports[0]?.path && path.dirname(folder.imports[0].path));
 
+    const isLinked = !!folderPath && getIsLinkedPath(folderPath);
     // Program seasons are added to their program without a collection.
     const title = collectionTitle ?? folder?.collectionTitle ?? batch?.mediaProgram?.title;
     const hasCollection = title?.length > 0;
@@ -187,6 +189,12 @@ export const ImportFolderList = Comp(
                 className={cx(css.chip, css.configChip)}
               />
             ) : null}
+
+            {isLinked && (
+              <TooltipWrapper tooltip="In a linked folder: imports keep these files in place, and Medior never moves or deletes them.">
+                <Chip label="Linked" icon="Link" className={css.chip} />
+              </TooltipWrapper>
+            )}
 
             {batch &&
               (Object.keys(IMPORT_STATUSES) as ImportStatus[]).map(

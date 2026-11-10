@@ -7,6 +7,8 @@ import { extendFileName } from "trabecula/utils/server";
 import { FlatFolder, TagToUpsert } from "medior/components";
 import { asyncAction, derefMobx } from "medior/utils/client";
 import {
+  AudioFileTags,
+  chunkArray,
   dayjs,
   FILE_IMPORT_SIDECAR_FIELDS,
   FileImportSidecar,
@@ -14,12 +16,22 @@ import {
   FileSidecar,
   FileSidecarCollection,
   Fmt,
+  ImportMusicPreview,
   makeSeasonTitle,
   MediaProgramPlan,
   mergeTagDefinitions,
+  parseFileMusic,
   PromiseQueue,
   sleep,
 } from "medior/utils/common";
+import {
+  getConfig,
+  getIsAudio,
+  getNtfsFileIdentity,
+  NtfsFileIdentity,
+  rpc,
+  sortByStoredNtfsIdentity,
+} from "medior/utils/server";
 import { ImportEditorOptions } from "./editor-options";
 import { FileImport } from "./file-import";
 
@@ -27,7 +39,12 @@ export interface Sidecar extends FileSidecar {
   tags?: TagToUpsert[];
 }
 
+/** Files each request reads the tags of, so the scan's progress and cancellation follow along. */
+const AUDIO_TAG_BATCH_SIZE = 25;
+
 const IMPORT_FOLDER_PAGE_SIZE = 20;
+
+const STAT_BATCH_SIZE = 128;
 
 const isString = (value: unknown): value is string => typeof value === "string";
 
@@ -85,6 +102,8 @@ export class ImportEditorStore extends Model({
   visibleFolderNames: prop<string[]>(() => []),
 }) {
   allFlatFolderHierarchy = new Map<string, FlatFolder>();
+  /** Tags read by earlier scans while the editor is open, so rescans only read new files. */
+  audioTags = new Map<string, AudioFileTags>();
   filePaths = new Map<string, string>();
   imports: ModelCreationData<FileImport>[] = [];
 
@@ -101,6 +120,7 @@ export class ImportEditorStore extends Model({
         this.options.flattenTo,
         this.options.folderToCollectionMode,
         this.options.folderToTagsMode,
+        this.options.ignoreMusicAlbumTags,
         this.options.useSavedConfigs,
         this.options.withDelimiters,
         this.options.withDiffusionModel,
@@ -111,6 +131,9 @@ export class ImportEditorStore extends Model({
         this.options.withFlattenTo,
         this.options.withFolderNameRegEx,
         this.options.withMediaPrograms,
+        this.options.withMusic,
+        this.options.withMusicFeaturedArtists,
+        this.options.withMusicFileNames,
         this.options.withSidecar,
         this.options.subtitleMode,
         this.rootFolderIndex,
@@ -147,6 +170,13 @@ export class ImportEditorStore extends Model({
   }
 
   @modelAction
+  private setMusicPreviews(
+    previews: { imp: ModelCreationData<FileImport>; musicPreview: ImportMusicPreview }[],
+  ) {
+    for (const { imp, musicPreview } of previews) imp.musicPreview = musicPreview;
+  }
+
+  @modelAction
   addTagsToUpsert(folderName: string, tagsToUpsert: TagToUpsert[]) {
     const folder =
       this.allFlatFolderHierarchy.get(folderName) ?? this.flatFolderHierarchy.get(folderName);
@@ -154,6 +184,11 @@ export class ImportEditorStore extends Model({
     if (!folder) throw new Error(`No such folder: ${folderName}`);
 
     folder.tags = mergeTagDefinitions([...folder.tags, ...tagsToUpsert]);
+  }
+
+  @modelAction
+  cacheAudioTags(results: AudioFileTags[]) {
+    for (const result of results) this.audioTags.set(result.path, result);
   }
 
   @modelAction
@@ -176,6 +211,7 @@ export class ImportEditorStore extends Model({
   @modelAction
   reset() {
     this.allFlatFolderHierarchy = new Map();
+    this.audioTags = new Map();
     this.filePaths = new Map();
     this.flatTagsToUpsert = [];
     this.folderPage = 0;
@@ -333,6 +369,101 @@ export class ImportEditorStore extends Model({
     }
 
     await queue.resolve();
+  });
+
+  /**
+   * Previews the music each new audio file's import would read with the Music options, reading the
+   * files no earlier scan read one after another in disk order, so a hard drive doesn't seek between
+   * them. Nothing is read with Music off, and re-imported files keep the music they have.
+   */
+  @modelFlow
+  loadMusicPreviews = asyncAction(async (imports: ModelCreationData<FileImport>[]) => {
+    const cancelToken = this.ingestCancelToken;
+
+    const isCancelled = () => !this.isOpen || this.ingestCancelToken !== cancelToken;
+
+    const options = this.options.musicOptions;
+    const audioImports = options
+      ? imports.filter((imp) => !imp.fileId && getIsAudio(imp.extension))
+      : [];
+    const unreadPaths = [...new Set(audioImports.map((imp) => imp.path))].filter(
+      (filePath) => !this.audioTags.has(filePath),
+    );
+
+    if (unreadPaths.length) {
+      const identities = new Map<string, Partial<NtfsFileIdentity>>();
+      let completed = 0;
+
+      this.setInitProgressStatus("Reading music tags");
+      this.setInitProgressCompleted(0);
+      this.setInitProgressTotal(unreadPaths.length);
+
+      for (const paths of chunkArray(unreadPaths, STAT_BATCH_SIZE)) {
+        if (isCancelled()) return;
+
+        await Promise.all(
+          paths.map(async (filePath) => {
+            try {
+              identities.set(filePath, await getNtfsFileIdentity(filePath));
+            } catch {
+              // A file that can't be found is read last, where the read reports why.
+              identities.set(filePath, {});
+            }
+          }),
+        );
+      }
+
+      const orderedPaths = sortByStoredNtfsIdentity(unreadPaths, (filePath) =>
+        identities.get(filePath),
+      );
+
+      for (const paths of chunkArray(orderedPaths, AUDIO_TAG_BATCH_SIZE)) {
+        if (isCancelled()) return;
+
+        const res = await rpc.listAudioFileTags({ paths });
+        if (!res.success) throw new Error(res.error);
+
+        completed += paths.length;
+        this.cacheAudioTags(res.data);
+        this.setInitProgressCompleted(completed);
+      }
+    }
+
+    if (isCancelled()) return;
+
+    const settings = getConfig().music;
+
+    this.setMusicPreviews(
+      audioImports.map((imp) => {
+        const tags = this.audioTags.get(imp.path);
+
+        const readMusic = (withFileNames: boolean) =>
+          tags.error
+            ? null
+            : parseFileMusic({
+                // The import names the file as its sidecar does, when it has one.
+                fileName: imp.sidecar?.originalName ?? imp.name,
+                hasCover: tags.hasCover,
+                options: { ...options, withFileNames },
+                settings,
+                tagSets: tags.musicTags,
+              });
+
+        // Read again without the name, to tell what the name added.
+        const music = readMusic(options.withFileNames);
+        const tagMusic = readMusic(false);
+
+        return {
+          imp,
+          musicPreview: {
+            error: tags.error,
+            isFromName:
+              !!music && (music.artist !== tagMusic?.artist || music.title !== tagMusic?.title),
+            music,
+          },
+        };
+      }),
+    );
   });
 
   @modelFlow

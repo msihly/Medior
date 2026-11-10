@@ -13,6 +13,7 @@ import {
   TagRow,
   Text,
   Tooltip,
+  TooltipWrapper,
   UniformList,
   View,
 } from "medior/components";
@@ -46,6 +47,9 @@ export const ImportListItem = Comp(
     }, [fileImport.diffusionParams]);
 
     const statusMeta = IMPORT_STATUSES[fileImport.status as ImportStatus];
+    const music = fileImport.musicPreview?.music;
+    // The import names the file as its sidecar does, when it has one.
+    const originalName = fileImport.sidecar?.originalName ?? fileImport.name;
 
     const handleOpen = async () => {
       try {
@@ -225,6 +229,40 @@ export const ImportListItem = Comp(
               </View>
             </TooltipChip>
           )}
+
+          {music ? (
+            <TooltipChip
+              icon="MusicNote"
+              label={music.artists.map((artist) => artist.name).join(", ")}
+            >
+              <Detail label="Credit" value={music.artist ?? music.albumArtist} />
+
+              <Detail label="Title" value={music.title ?? originalName} />
+
+              <Detail label="Album" value={music.album} />
+
+              <Detail
+                label="Source"
+                value={fileImport.musicPreview.isFromName ? "File Name" : "Tags"}
+              />
+            </TooltipChip>
+          ) : fileImport.musicPreview?.error ? (
+            <TooltipWrapper tooltip={fileImport.musicPreview.error}>
+              <Chip
+                icon="MusicOff"
+                label="Unreadable"
+                bgColor={colors.custom.red}
+                className={css.chip}
+              />
+            </TooltipWrapper>
+          ) : fileImport.musicPreview ? (
+            <Chip
+              icon="MusicOff"
+              label="No Artist"
+              bgColor={colors.custom.orange}
+              className={css.chip}
+            />
+          ) : null}
 
           <Chip label={Fmt.bytes(fileImport.size)} className={css.chip} />
 

@@ -48,6 +48,8 @@ export const Drawer = Comp(
 
     const handleMediaPrograms = () => stores.mediaProgram.manager.setIsOpen(true);
 
+    const handleMusic = () => stores.music.manager.setIsOpen(true);
+
     const handleSearchWindow = () => openSearchWindow();
 
     const handleSettings = () => stores.home.settings.setIsOpen(true);
@@ -111,6 +113,13 @@ export const Drawer = Comp(
             name="LiveTv"
             tooltip="Open Media Programs"
             onClick={handleMediaPrograms}
+            tooltipProps={TOOLTIP_PROPS}
+          />
+
+          <IconButton
+            name="LibraryMusic"
+            tooltip="Open Music"
+            onClick={handleMusic}
             tooltipProps={TOOLTIP_PROPS}
           />
 
@@ -256,7 +265,7 @@ const useClasses = makeClasses((_, theme) => ({
   },
   count: {
     borderRadius: 10,
-    backgroundColor: theme.palette.primary.main,
-    color: theme.palette.primary.contrastText,
+    backgroundColor: colors.custom.blue,
+    color: colors.custom.white,
   },
 }));

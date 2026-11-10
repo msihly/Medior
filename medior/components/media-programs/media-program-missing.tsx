@@ -71,7 +71,7 @@ export const MediaProgramMissingEpisode = Comp(({ episode }: MediaProgramMissing
         <FileBase.Chip
           position="top-right"
           size="small"
-          label={`EP ${episode.number}`}
+          label={store.getEpisodeLabel(episode.number)}
           icon={mark === "watched" ? "CheckCircle" : undefined}
           iconColor={colors.custom.green}
           color={colors.custom.white}

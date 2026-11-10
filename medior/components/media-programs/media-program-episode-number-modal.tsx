@@ -34,7 +34,7 @@ export const MediaProgramEpisodeNumberModal = Comp(
     const hasError = !Number.isSafeInteger(value) || value < (isNames ? 0 : 1);
 
     const summary = isNames
-      ? `The selected episodes take the numbers their file names give${offset ? `, less ${Fmt.commas(offset)}` : ""}.`
+      ? `The selected episodes take the numbers their file names give${offset ? `, less ${Fmt.commas(offset)}` : ""}, sharing any number given twice.`
       : count > 1
         ? `The ${Fmt.commas(count)} selected episodes become episodes ${Fmt.commas(startNumber)} to ${Fmt.commas(startNumber + count - 1)}.`
         : `The selected episode becomes episode ${Fmt.commas(startNumber)}.`;

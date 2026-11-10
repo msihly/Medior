@@ -4,9 +4,11 @@ import { socket } from "medior/utils/server";
 import { FileLockOwner, lockFiles, runAsLockOwner, unlockFiles } from "./file-locks";
 
 export type JobType =
+  | "copyFiles"
   | "deleteFiles"
   | "deleteTags"
   | "mergeDuplicates"
+  | "moveFilesBack"
   | "refreshFiles"
   | "regenerateTagRegEx"
   | "unarchiveFiles";

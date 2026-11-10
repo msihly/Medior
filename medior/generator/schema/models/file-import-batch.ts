@@ -42,6 +42,11 @@ model.addProp("mediaProgram", 'import("medior/utils/common/media-programs").Medi
   schemaType: "Schema.Types.Mixed",
 });
 
+/** How the batch's audio files are read into Music, which leaves them out without it. */
+model.addProp("music", 'import("medior/utils/common/music").MusicImportOptions', {
+  schemaType: "Schema.Types.Mixed",
+});
+
 model.addProp("processedCount", "number", { defaultValue: "0", required: true });
 
 model.addProp("processedSize", "number", { defaultValue: "0", required: true });

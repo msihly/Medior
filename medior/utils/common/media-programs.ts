@@ -2,6 +2,14 @@ import path from "path";
 import type { CssColor } from "trabecula/utils/client";
 import { dayjs, Fmt } from "trabecula/utils/common";
 
+/** How episodes are labeled: by their number alone, or with their season's. */
+export const MEDIA_PROGRAM_EPISODE_LABELS = [
+  { label: "EP 104", value: "episode" },
+  { label: "S05E03", value: "season" },
+] as const;
+
+export type MediaProgramEpisodeLabels = (typeof MEDIA_PROGRAM_EPISODE_LABELS)[number]["value"];
+
 export const MEDIA_PROGRAM_META_SOURCES = [
   { label: "AniList", value: "anilist" },
   { label: "TVMaze", value: "tvmaze" },
@@ -201,6 +209,27 @@ export interface MediaProgramSeasonMeta {
 /** The seasons' labels and episodes, which an edit made from an outdated copy would overwrite. */
 export type MediaProgramSeasonOutline = Pick<MediaProgramSeason, "fileIds" | "id" | "label">;
 
+/**
+ * How many episodes without files count toward a total, and how many of those were watched
+ * elsewhere. Skipped episodes count toward neither.
+ */
+export const countMissingEpisodes = (
+  seasons: { episodes: MediaProgramEpisodeMeta[]; number: number | null }[],
+  marks: MediaProgramMissingMarks | null,
+) => {
+  const keys = new Set(
+    seasons.flatMap((season) =>
+      season.episodes.map((episode) => getMissingEpisodeKey(season.number, episode.number)),
+    ),
+  );
+  const counted = [...keys].filter((key) => marks?.[key] !== "skipped");
+
+  return {
+    total: counted.length,
+    watched: counted.filter((key) => marks?.[key] === "watched").length,
+  };
+};
+
 /** Source dates may be a year, a month, or a day. */
 export const formatMediaProgramDate = (date: string | null) => {
   if (!date) return null;
@@ -257,6 +286,25 @@ export const getMediaProgramMetaSeasonNumbers = (seasons: Pick<MediaProgramSeaso
   const hasNumbers = seasons.some((season) => season.number !== null);
 
   return seasons.map((season, index) => season.number ?? (hasNumbers ? null : index + 1));
+};
+
+/**
+ * Every episode the metadata source lists without a file, by its source season: those at numbers
+ * no file of a season has, and those of the seasons the program has none of.
+ */
+export const getMediaProgramMissingEpisodes = (
+  meta: MediaProgramMeta | null,
+  seasons: MediaProgramSeason[],
+) => {
+  const numbers = getMediaProgramMetaSeasonNumbers(seasons);
+
+  return [
+    ...seasons.map((season, index) => ({
+      episodes: getSeasonMissingEpisodes(season),
+      number: numbers[index],
+    })),
+    ...getMissingMediaProgramSeasons(meta, seasons),
+  ];
 };
 
 /** The first grid option outside its range, or null when every option is within it. */
@@ -428,20 +476,31 @@ export const resolveMediaProgramFolder = (
 type SeasonEpisodes = Pick<MediaProgramSeason, "episodeNumbers" | "fileIds">;
 
 /**
- * Each episode's number in season order: its saved number when that comes after the previous
- * episode's, or else the next one, so no two episodes share a number. Seasons saved before
- * episodes had numbers count up from 1.
+ * Each episode's number in season order: its saved number unless that comes before the previous
+ * episode's, or else the next one. Episodes share a number only when saved with it, such as two
+ * files named as one episode. Seasons saved before episodes had numbers count up from 1.
  */
 export const getSeasonEpisodeNumbers = (season: SeasonEpisodes) => {
   let previous = 0;
+  let previousSaved: number = null;
 
   return season.fileIds.map((fileId) => {
     const saved = season.episodeNumbers?.[String(fileId)];
 
-    previous = saved > previous ? saved : previous + 1;
+    previous =
+      saved > previous || (saved === previous && saved === previousSaved) ? saved : previous + 1;
+    previousSaved = saved;
 
     return previous;
   });
+};
+
+/** A season's episodes the metadata source lists at numbers none of its files have. */
+export const getSeasonMissingEpisodes = (
+  season: SeasonEpisodes & Pick<MediaProgramSeason, "meta">,
+) => {
+  const numbers = new Set(getSeasonEpisodeNumbers(season));
+  return (season.meta?.episodes ?? []).filter((episode) => !numbers.has(episode.number));
 };
 
 /** The episodes in order with the numbers to save; those without one follow the episode before. */
@@ -493,7 +552,9 @@ export const addSeasonEpisodes = (
 
 /**
  * Moves the selected episodes up to `delta` numbers earlier or later: into a number no episode
- * has, or swapping with the unselected episode that has it. Episodes stop at number 1.
+ * has, or swapping with the unselected episodes that have it. Episodes leaving a number they share
+ * with unselected ones join the episodes at the next instead, so only they move until they reach a
+ * free number. Selected episodes sharing a number move together, and episodes stop at number 1.
  */
 export const moveSeasonEpisodes = (
   season: SeasonEpisodes,
@@ -502,27 +563,32 @@ export const moveSeasonEpisodes = (
 ) => {
   const resolved = getSeasonEpisodeNumbers(season);
   const numbers = new Map(season.fileIds.map((fileId, index) => [String(fileId), resolved[index]]));
-  const owners = new Map([...numbers].map(([fileId, number]) => [number, fileId]));
+  const owners = new Map<number, string[]>();
   const selectedIds = season.fileIds.map(String).filter(isSelected);
 
-  // The episode leading the move goes first, so the others follow into the number it leaves.
+  for (const [fileId, number] of numbers)
+    owners.set(number, [...(owners.get(number) ?? []), fileId]);
+
+  // The episodes leading the move go first, so the others follow into the number they leave.
   if (down) selectedIds.reverse();
 
   for (let step = 0; step < delta; step++) {
-    for (const fileId of selectedIds) {
-      const number = numbers.get(fileId);
+    for (const number of new Set(selectedIds.map((fileId) => numbers.get(fileId)))) {
       const target = down ? number + 1 : number - 1;
-      const owner = owners.get(target);
+      const targetOwners = owners.get(target) ?? [];
 
-      if (target < 1 || (owner && isSelected(owner))) continue;
+      if (target < 1 || targetOwners.some(isSelected)) continue;
 
-      numbers.set(fileId, target);
-      owners.set(target, fileId);
+      const atNumber = owners.get(number);
+      const moving = atNumber.filter(isSelected);
+      const staying = atNumber.filter((fileId) => !isSelected(fileId));
+      const swapped = staying.length ? [] : targetOwners;
 
-      if (owner) {
-        numbers.set(owner, number);
-        owners.set(number, owner);
-      } else owners.delete(number);
+      for (const fileId of moving) numbers.set(fileId, target);
+      for (const fileId of swapped) numbers.set(fileId, number);
+
+      owners.set(number, [...staying, ...swapped]);
+      owners.set(target, staying.length ? [...targetOwners, ...moving] : moving);
     }
   }
 
@@ -543,9 +609,10 @@ export const normalizeSeasonEpisodes = (season: SeasonEpisodes) =>
   );
 
 /**
- * Gives episodes the numbers targeted for them, in the targets' order, with those targeting no
- * number or a number already given following the one before. The other episodes keep their numbers
- * where free, or move to the next free one after, keeping their order and any gaps after them.
+ * Gives episodes the numbers targeted for them, in the targets' order, with those targeting the
+ * same number sharing it and those targeting none or an earlier one following the one before. The
+ * other episodes keep their numbers where free, or move to the next free one after, keeping their
+ * order, any numbers they share, and any gaps after them.
  */
 const placeSeasonEpisodes = (
   season: SeasonEpisodes,
@@ -557,25 +624,28 @@ const placeSeasonEpisodes = (
   let lastPlaced = 0;
 
   const placed = targets.map(({ fileId, number }) => {
-    lastPlaced = number > lastPlaced ? number : lastPlaced + 1;
+    lastPlaced = number > 0 && number >= lastPlaced ? number : lastPlaced + 1;
 
     return { fileId, number: lastPlaced };
   });
 
   const placedNumbers = new Set(placed.map(({ number }) => number));
   let lastOther = 0;
+  let lastResolved: number = null;
 
   const others = season.fileIds
     .map((fileId, index) => ({ fileId: String(fileId), number: resolved[index] }))
     .filter(({ fileId }) => !targetIds.has(fileId))
     .map(({ fileId, number }) => {
-      let free = Math.max(number, lastOther + 1);
+      if (number !== lastResolved) {
+        lastOther = Math.max(number, lastOther + 1);
 
-      while (placedNumbers.has(free)) free++;
+        while (placedNumbers.has(lastOther)) lastOther++;
+      }
 
-      lastOther = free;
+      lastResolved = number;
 
-      return { fileId, number: free };
+      return { fileId, number: lastOther };
     });
 
   return toSeasonEpisodes([...placed, ...others].sort((a, b) => a.number - b.number));
@@ -597,7 +667,8 @@ export const numberSeasonEpisodes = (
 
 /**
  * Numbers episodes by the numbers their names give less the offset, such as 13 to 24 becoming 1 to
- * 12 for a second season named in a run across seasons. Those whose names give none go last.
+ * 12 for a second season named in a run across seasons. Those whose names give the same number
+ * share it, and those whose names give none go last.
  */
 export const numberSeasonEpisodesFromNames = (
   season: SeasonEpisodes,
@@ -617,12 +688,128 @@ export const numberSeasonEpisodesFromNames = (
       .sort((a, b) => (a.number ?? Infinity) - (b.number ?? Infinity)),
   );
 
+/**
+ * Moves each episode of the source seasons whose file name gives a season, such as S02E05, into
+ * that season at the number it gives, adding the seasons the program lacks after the last one
+ * numbered before them. Episodes given one number share it, those given episode 0 go last, and
+ * seasons the move empties are removed. Counts the episodes whose names gave a season, and those
+ * of them that changed season or number.
+ */
+export const splitSeasonsByFileNames = (
+  seasons: MediaProgramSeasonInput[],
+  sourceIds: Set<string>,
+  fileNames: Map<string, string>,
+) => {
+  const moves = new Map<
+    string,
+    {
+      number: number | null;
+      seasonNumber: number;
+      source: MediaProgramSeasonInput;
+      sourceNumber: number;
+    }
+  >();
+
+  for (const season of seasons.filter(({ id }) => sourceIds.has(id))) {
+    const resolved = getSeasonEpisodeNumbers(season);
+
+    season.fileIds.map(String).forEach((fileId, index) => {
+      const name = fileNames.get(fileId) ?? "";
+      const seasonNumber = parseFileSeasonNumber(name);
+      const number = parseEpisodeNumber(name);
+
+      if (seasonNumber !== null)
+        moves.set(fileId, {
+          number: number > 0 ? number : null,
+          seasonNumber,
+          source: season,
+          sourceNumber: resolved[index],
+        });
+    });
+  }
+
+  const split = [...seasons];
+  const seasonNumbers = [
+    ...new Set([...moves.values()].map(({ seasonNumber }) => seasonNumber)),
+  ].sort((a, b) => a - b);
+
+  for (const seasonNumber of seasonNumbers) {
+    if (split.some(({ number }) => number === seasonNumber)) continue;
+
+    const sortKey = getSeasonSortKey(seasonNumber);
+    const index = split.findLastIndex(({ number }) => getSeasonSortKey(number) <= sortKey);
+
+    split.splice(index + 1, 0, {
+      episodeNumbers: {},
+      fileIds: [],
+      label: makeSeasonLabel(seasonNumber),
+      number: seasonNumber,
+      rating: 0,
+      ratingIsManual: false,
+    });
+  }
+
+  const targets = new Map(
+    seasonNumbers.map((seasonNumber) => [
+      seasonNumber,
+      split.find(({ number }) => number === seasonNumber),
+    ]),
+  );
+
+  const getTarget = (fileId: string) => targets.get(moves.get(fileId)?.seasonNumber);
+
+  const results = split.map((season) => {
+    const resolved = getSeasonEpisodeNumbers(season);
+    const kept = season.fileIds
+      .map((fileId, index) => ({ fileId: String(fileId), number: resolved[index] }))
+      .filter(
+        ({ fileId }) =>
+          !moves.has(fileId) || (!sourceIds.has(season.id) && getTarget(fileId) !== season),
+      );
+    const added = [...moves]
+      .filter(([fileId]) => getTarget(fileId) === season)
+      .map(([fileId, { number }]) => ({ fileId, number }));
+
+    return {
+      ...season,
+      ...toSeasonEpisodes(
+        [...kept, ...added].sort((a, b) => (a.number ?? Infinity) - (b.number ?? Infinity)),
+      ),
+    };
+  });
+
+  const resultsBySeason = new Map(split.map((season, index) => [season, results[index]]));
+
+  return {
+    movedCount: [...moves].filter(
+      ([fileId, { source, sourceNumber }]) =>
+        getTarget(fileId) !== source ||
+        resultsBySeason.get(source).episodeNumbers[fileId] !== sourceNumber,
+    ).length,
+    namedCount: moves.size,
+    seasons: results.filter(
+      (season, index) =>
+        season.fileIds.length || !sourceIds.has(season.id) || !split[index].fileIds.length,
+    ),
+  };
+};
+
 /** Numbered seasons first, then other folders, then specials. */
 export const getSeasonSortKey = (seasonNumber: number | null) => {
   if (seasonNumber === null) return 100_000;
   else if (seasonNumber === 0) return 200_000;
   else return seasonNumber;
 };
+
+/** An episode's label, such as EP 104, or S05E03 with its season's number when it has one. */
+export const makeEpisodeLabel = (
+  episodeNumber: number,
+  seasonNumber: number | null,
+  labels: MediaProgramEpisodeLabels,
+) =>
+  labels === "season" && seasonNumber !== null
+    ? `${makeSeasonLabel(seasonNumber)}E${Fmt.leadZeros(episodeNumber, 2)}`
+    : `EP ${episodeNumber}`;
 
 /** Labels a season like the season folders it sits beside, such as S03. */
 export const makeSeasonLabel = (seasonNumber: number) => `S${Fmt.leadZeros(seasonNumber, 2)}`;

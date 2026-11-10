@@ -123,6 +123,24 @@ export interface SocketEmitEvents {
     args: { id: string; updates: Partial<models.MediaProgramSchema> },
     options?: SocketEventOptions,
   ) => void;
+  onMusicAlbumCreated: (args: models.MusicAlbumSchema, options?: SocketEventOptions) => void;
+  onMusicAlbumDeleted: (args: { ids: string[] }, options?: SocketEventOptions) => void;
+  onMusicAlbumUpdated: (
+    args: { id: string; updates: Partial<models.MusicAlbumSchema> },
+    options?: SocketEventOptions,
+  ) => void;
+  onMusicArtistCreated: (args: models.MusicArtistSchema, options?: SocketEventOptions) => void;
+  onMusicArtistDeleted: (args: { ids: string[] }, options?: SocketEventOptions) => void;
+  onMusicArtistUpdated: (
+    args: { id: string; updates: Partial<models.MusicArtistSchema> },
+    options?: SocketEventOptions,
+  ) => void;
+  onMusicPlaylistCreated: (args: models.MusicPlaylistSchema, options?: SocketEventOptions) => void;
+  onMusicPlaylistDeleted: (args: { ids: string[] }, options?: SocketEventOptions) => void;
+  onMusicPlaylistUpdated: (
+    args: { id: string; updates: Partial<models.MusicPlaylistSchema> },
+    options?: SocketEventOptions,
+  ) => void;
   onNotificationCreated: (args: models.NotificationSchema, options?: SocketEventOptions) => void;
   onNotificationDeleted: (args: { ids: string[] }, options?: SocketEventOptions) => void;
   onNotificationsRead: (args: { ids: string[] }, options?: SocketEventOptions) => void;
@@ -215,6 +233,15 @@ export const socketEvents: SocketEmitEvent[] = [
   "onMediaProgramCreated",
   "onMediaProgramDeleted",
   "onMediaProgramUpdated",
+  "onMusicAlbumCreated",
+  "onMusicAlbumDeleted",
+  "onMusicAlbumUpdated",
+  "onMusicArtistCreated",
+  "onMusicArtistDeleted",
+  "onMusicArtistUpdated",
+  "onMusicPlaylistCreated",
+  "onMusicPlaylistDeleted",
+  "onMusicPlaylistUpdated",
   "onNotificationCreated",
   "onNotificationDeleted",
   "onNotificationUpdated",

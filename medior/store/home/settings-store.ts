@@ -28,6 +28,7 @@ export class SettingsStore extends Model({
   isLoading: prop<boolean>(false).withSetter(),
   isOpen: prop<boolean>(false).withSetter(),
   mediaPrograms: prop<Config["mediaPrograms"]>(() => getConfig().mediaPrograms),
+  music: prop<Config["music"]>(() => getConfig().music),
   ports: prop<Config["ports"]>(() => getConfig().ports),
   repair: prop<RepairStore>(() => new RepairStore({})),
   tags: prop<Config["tags"]>(() => getConfig().tags),
@@ -40,6 +41,14 @@ export class SettingsStore extends Model({
   @modelAction
   addFileStorageLocation(location: string) {
     this.db.fileStorage.locations.push(location);
+    this.setHasUnsavedChanges(true);
+  }
+
+  @modelAction
+  addLinkedFolder(folder: string) {
+    if (!this.db.fileStorage.linkedFolders.includes(folder))
+      this.db.fileStorage.linkedFolders.push(folder);
+
     this.setHasUnsavedChanges(true);
   }
 
@@ -152,6 +161,7 @@ export class SettingsStore extends Model({
       hotkeys: Partial<Config["hotkeys"]>;
       imports: Partial<Config["imports"]>;
       mediaPrograms: Partial<Config["mediaPrograms"]>;
+      music: Partial<Config["music"]>;
       ports: Partial<Config["ports"]>;
       tags: Partial<Config["tags"]>;
     }>,
@@ -188,6 +198,7 @@ export class SettingsStore extends Model({
       hotkeys: getSnapshot(this.hotkeys),
       imports: getSnapshot(this.imports),
       mediaPrograms: getSnapshot(this.mediaPrograms),
+      music: getSnapshot(this.music),
       ports: getSnapshot(this.ports),
       tags: getSnapshot(this.tags),
     } as Config;

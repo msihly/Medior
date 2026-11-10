@@ -21,12 +21,15 @@ export const MinimizedJobs = Comp(() => {
     jobId: file.actionJobId,
     restore: () => file.setIsActionMinimized(false),
   };
+  // Exports run only from here once started, with nothing to restore.
+  const backgroundView = { isShown: false, jobId: null, restore: null };
   const tagManagerView = {
     isShown: tagManager.isOpen && !tagManager.isMinimized,
     jobId: tagManager.jobId,
     restore: () => tagManager.setIsMinimized(false),
   };
   const views: Record<JobType, { isShown: boolean; jobId: string; restore: () => void }> = {
+    copyFiles: backgroundView,
     deleteFiles: fileActionView,
     deleteTags: tagManagerView,
     mergeDuplicates: {
@@ -34,6 +37,7 @@ export const MinimizedJobs = Comp(() => {
       jobId: lowerResolution.archiveJobId,
       restore: () => lowerResolution.open(),
     },
+    moveFilesBack: backgroundView,
     refreshFiles: {
       isShown: file.isRefreshOpen && !file.isRefreshMinimized,
       jobId: file.refreshJobId,

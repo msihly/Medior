@@ -71,6 +71,24 @@ model.addProp("isAudioCorrupted", "boolean");
 model.addIndex({ isCorrupted: 1 }, { unique: false });
 model.addProp("isCorrupted", "boolean");
 
+/** Audio files' music tags, which group them into music artists and albums. */
+model.addIndex(
+  { "music.albumKey": 1 },
+  { partialFilterExpression: { "music.albumKey": { $type: "string" } }, unique: false },
+);
+model.addIndex(
+  { "music.artists.key": 1 },
+  { partialFilterExpression: { "music.artists.key": { $type: "string" } }, unique: false },
+);
+model.addProp("music", 'import("medior/utils/common/music").FileMusic', {
+  schemaType: "Schema.Types.Mixed",
+});
+
+/** How an audio file was read into Music when imported, which refreshes read it with again. */
+model.addProp("musicOptions", 'import("medior/utils/common/music").MusicImportOptions', {
+  schemaType: "Schema.Types.Mixed",
+});
+
 model.addProp("originalAudioBitrate", "number");
 
 model.addProp("originalAudioCodec", "string");

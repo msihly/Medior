@@ -90,8 +90,14 @@ export class FileSearch extends ExtendedModel(_FileSearch, {
     this._minSize = val;
   }
 
+  /**
+   * Saved searches share one list, so one saved from the music view's tracks never limits file
+   * searches to music, which no file filter shows.
+   */
   @modelAction
   afterApplySearchProps(searchProps: Record<string, any>) {
+    this.hasMusic = false;
+
     this._bitrate = Number.isInteger(searchProps.bitrate?.value)
       ? searchProps.bitrate.value / 1000
       : null;

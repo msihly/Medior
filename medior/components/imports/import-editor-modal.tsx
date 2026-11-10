@@ -2,11 +2,11 @@ import { useState } from "react";
 import {
   Button,
   Card,
+  Chip,
   Comp,
   ImportEditor,
   LoadingOverlay,
   Modal,
-  ProgressBar,
   SavedImportConfigsModal,
   Text,
   View,
@@ -41,12 +41,9 @@ export const ImportEditorModal = Comp(
                 <Text preset="title">{status}</Text>
 
                 {progressTotal > 0 && (
-                  <ProgressBar
-                    numerator={store.initProgressCompleted}
-                    denominator={progressTotal}
-                    numeratorFormatter={Fmt.commas}
-                    denominatorFormatter={Fmt.commas}
-                    withText
+                  <Chip
+                    label={Fmt.commas(store.initProgressCompleted)}
+                    denominator={Fmt.commas(progressTotal)}
                   />
                 )}
 

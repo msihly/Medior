@@ -47,7 +47,7 @@ export const VideoControls = Comp(() => {
   const goToPrevFrame = () => goToFrame(Math.max(store.curFrame - 1, 1));
 
   const handleChapterSeek = (chapter: VideoChapter) => {
-    const frame = Math.max(1, round(chapter.start * activeFile.frameRate, 0));
+    const frame = Math.max(1, round(chapter.start * activeFile.playbackFrameRate, 0));
 
     setCurFrame(frame);
     seekVideoPlayer(frame);
@@ -55,9 +55,9 @@ export const VideoControls = Comp(() => {
 
   const handleFindSimilarAudio = () =>
     stores.file.similarity.openAudio({
-      end: Fmt.frameToSec(store.markOut, activeFile.frameRate),
+      end: Fmt.frameToSec(store.markOut, activeFile.playbackFrameRate),
       fileId: activeFile.id,
-      start: Fmt.frameToSec(store.markIn, activeFile.frameRate),
+      start: Fmt.frameToSec(store.markIn, activeFile.playbackFrameRate),
     });
 
   const handleFrameSeek = (frame: number) => {
@@ -86,7 +86,7 @@ export const VideoControls = Comp(() => {
 
   const handleWaveformSeek = useCallback(
     (time: number) => {
-      const frame = round(time * activeFile.frameRate, 0);
+      const frame = round(time * activeFile.playbackFrameRate, 0);
 
       setCurFrame(frame);
 
@@ -139,12 +139,12 @@ export const VideoControls = Comp(() => {
   const seekVideoPlayer = (frame: number) => {
     if (store.requiresTranscoding)
       store.transcodeVideo({
-        seekTime: Fmt.frameToSec(frame, activeFile.frameRate),
+        seekTime: Fmt.frameToSec(frame, activeFile.playbackFrameRate),
       });
     else seekToFraction(videoContext?.current, frame / activeFile.totalFrames);
   };
 
-  const setCurFrame = (frame: number) => store.setCurFrame(frame, activeFile.frameRate);
+  const setCurFrame = (frame: number) => store.setCurFrame(frame, activeFile.playbackFrameRate);
 
   const transcode = useMemo(
     () =>
@@ -153,7 +153,7 @@ export const VideoControls = Comp(() => {
 
         return await store.transcodeVideo({
           onFirstFrames: () => setCurFrame(frame),
-          seekTime: Fmt.frameToSec(frame, activeFile.frameRate),
+          seekTime: Fmt.frameToSec(frame, activeFile.playbackFrameRate),
         });
       }, 200),
     [activeFile?.id],
@@ -237,7 +237,7 @@ export const VideoControls = Comp(() => {
             <View column align="center" justify="center" width="7rem">
               <Text>{`F: ${Fmt.commas(v)} (${round((v / activeFile.totalFrames) * 100, 0)}%)`}</Text>
 
-              <Text>{`${Fmt.duration(Fmt.frameToSec(v, activeFile.frameRate))}`}</Text>
+              <Text>{`${Fmt.duration(Fmt.frameToSec(v, activeFile.playbackFrameRate))}`}</Text>
             </View>
           )}
           className={css.slider}

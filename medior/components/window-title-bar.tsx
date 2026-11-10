@@ -11,15 +11,17 @@ import {
   View,
 } from "medior/components";
 import { useStores } from "medior/store";
-import { colors, makeClasses, toast } from "medior/utils/client";
+import { colors, CssColor, makeClasses, toast } from "medior/utils/client";
 import { CONSTANTS } from "medior/utils/common";
 
 interface WindowTitleBarProps {
+  /** Replaces the background, such as with the compact player's cover art colors. */
+  bgColor?: CssColor;
   isDark?: boolean;
   title: string;
 }
 
-export const WindowTitleBar = Comp(({ isDark = false, title }: WindowTitleBarProps) => {
+export const WindowTitleBar = Comp(({ bgColor, isDark = false, title }: WindowTitleBarProps) => {
   const stores = useStores();
   const store = stores.home;
 
@@ -29,7 +31,11 @@ export const WindowTitleBar = Comp(({ isDark = false, title }: WindowTitleBarPro
   const [isHotkeysOpen, setIsHotkeysOpen] = useState(false);
   const [isMaximized, setIsMaximized] = useState(() => getCurrentWindow().isMaximized());
 
-  const { css, cx } = useClasses({ isDark, isDragEnabled: !(isDevToolsOpen && isMaximized) });
+  const { css, cx } = useClasses({
+    bgColor,
+    isDark,
+    isDragEnabled: !(isDevToolsOpen && isMaximized),
+  });
 
   const handleClose = () => getCurrentWindow().close();
 
@@ -166,7 +172,7 @@ export const WindowTitleBar = Comp(({ isDark = false, title }: WindowTitleBarPro
   );
 });
 
-interface ClassesProps extends Pick<WindowTitleBarProps, "isDark"> {
+interface ClassesProps extends Pick<WindowTitleBarProps, "bgColor" | "isDark"> {
   isDragEnabled: boolean;
 }
 
@@ -208,7 +214,8 @@ const useClasses = makeClasses((props: ClassesProps) => ({
     width: 40,
   },
   root: {
-    background: props.isDark ? CONSTANTS.CAROUSEL.TOP_BAR.BACKGROUND : colors.background,
+    background:
+      props.bgColor ?? (props.isDark ? CONSTANTS.CAROUSEL.TOP_BAR.BACKGROUND : colors.background),
     flexShrink: 0,
     height: CONSTANTS.WINDOW.TITLE_BAR.HEIGHT,
     maxHeight: CONSTANTS.WINDOW.TITLE_BAR.HEIGHT,

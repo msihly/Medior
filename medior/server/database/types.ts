@@ -1,4 +1,4 @@
-import { AudioCodec, ImageExt, VideoCodec, VideoExt } from "medior/utils/common";
+import { AudioCodec, AudioExt, ImageExt, VideoCodec, VideoExt } from "medior/utils/common";
 
 export type { JobState, JobType } from "./jobs";
 export * from "medior/_generated/server/types";
@@ -23,6 +23,8 @@ export type FileTransformType = "reencode" | "remux" | "splice";
 export type SpliceMode = "copy" | "replace";
 
 export type SelectedAudioCodecs = { [codec in AudioCodec]: boolean };
+
+export type SelectedAudioExts = { [ext in AudioExt]: boolean };
 
 export type SelectedImageExts = { [ext in ImageExt]: boolean };
 

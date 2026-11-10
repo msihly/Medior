@@ -12,7 +12,13 @@ import {
 } from "medior/server/database/file-operations";
 import { metadataWriteOptions } from "medior/server/database/metadata-work";
 import { dayjs } from "medior/utils/common";
-import { getNtfsFileIdentity, leanModelToJson, omitUndefined, socket } from "medior/utils/server";
+import {
+  getDerivedMediaFolder,
+  getNtfsFileIdentity,
+  leanModelToJson,
+  omitUndefined,
+  socket,
+} from "medior/utils/server";
 import { genFileInfo, isGeneratedMediaUnreadable } from "medior/utils/server/files";
 import {
   copyMediaFile,
@@ -91,6 +97,7 @@ export const repairThumbnail = async (
 
     if (!operation) {
       const id = randomUUID();
+      const thumbFolder = getDerivedMediaFolder(file.path, file.hash);
 
       operation = (
         await FileOperationModel.create({
@@ -99,7 +106,7 @@ export const repairThumbnail = async (
           fileId: file.id,
           kind: "thumbnail",
           outputPath: path.join(
-            path.dirname(file.path),
+            thumbFolder,
             `${skipThumbs ? file.hash : `${file.hash}-${id}`}-thumb.jpg`,
           ),
           sourceHash: file.hash,
@@ -108,7 +115,7 @@ export const repairThumbnail = async (
           state: "PREPARED",
           tempPath: skipThumbs
             ? null
-            : path.join(path.dirname(file.path), `${file.hash}-${id}-pending-thumb.jpg`),
+            : path.join(thumbFolder, `${file.hash}-${id}-pending-thumb.jpg`),
           thumbnailInput: {
             legacyPaths,
             refresh: !!refresh,
@@ -161,6 +168,7 @@ export const repairThumbnail = async (
             : operation.tempPath
               ? `${file.hash}-${operation._id}-pending`
               : undefined,
+          withTagRating: !!refresh,
           withTranscription: false,
           withWaveform: false,
           ...refresh,
@@ -265,6 +273,12 @@ export const repairThumbnail = async (
     const collections = await actions.regenCollAttrs({ fileIds: [file.id] });
 
     if (!collections.success) throw new Error(collections.error);
+
+    // A refresh rereads music tags, which can move the file to another album or artist.
+    if (refresh) await actions.regenMusicByFileIds([file.id]);
+
+    // A rating read from the file's tag counts toward its media programs' ratings too.
+    if (updates.rating) await actions.regenMediaProgramsByFileIds([file.id]);
 
     await FileOperationModel.updateOne(
       { _id: operation._id, state: "PREPARED" },

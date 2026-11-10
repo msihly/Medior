@@ -1,6 +1,7 @@
 import Color from "color";
 import type { IconName } from "trabecula/components";
 import type { CssColor } from "trabecula/utils/client";
+import { sumArray } from "trabecula/utils/common";
 
 export interface RatingLevel {
   /** Pixels of glow around the icon, in the icon's color. */
@@ -64,3 +65,10 @@ export const RATING_DISPLAY_PRESETS: Array<{ label: string; value: RatingDisplay
   { label: "Stars + Number", value: STARS_RATING_DISPLAY },
   { label: "Letters", value: LETTERS_RATING_DISPLAY },
 ];
+
+/** The average of the rated values, leaving unrated ones out, or 0 when none is rated. */
+export const getAverageRating = (ratings: number[]) => {
+  const rated = ratings.filter((rating) => rating > 0);
+
+  return rated.length ? sumArray(rated, (rating) => rating) / rated.length : 0;
+};

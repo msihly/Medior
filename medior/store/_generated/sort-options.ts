@@ -21,12 +21,16 @@ type ModelSortName =
   | "FileImportBatch"
   | "FileTransform"
   | "MediaProgram"
+  | "MusicAlbum"
+  | "MusicArtist"
+  | "MusicPlaylist"
   | "Notification"
   | "SavedImportConfig"
   | "SavedSearch"
   | "Tag";
 
-type CustomSortName = "FileCollectionFile" | "MediaProgramRanking";
+type CustomSortName =
+  "FileCollectionFile" | "MediaProgramEpisode" | "MediaProgramRanking" | "MusicTrack";
 
 const MODEL_SORT_OPTIONS: Record<ModelSortName, SortOption[]> = {
   BackgroundOperation: [{ attribute: "dateCreated", icon: "DateRange", label: "Date Created" }],
@@ -86,6 +90,36 @@ const MODEL_SORT_OPTIONS: Record<ModelSortName, SortOption[]> = {
     { attribute: "watchStatusOrder", icon: "Visibility", label: "Watch Status" },
     { attribute: "year", icon: "CalendarMonth", label: "Year" },
   ],
+  MusicAlbum: [
+    { attribute: "artistName", icon: "Person", label: "Artist" },
+    { attribute: "dateCreated", icon: "DateRange", label: "Date Created" },
+    { attribute: "dateModified", icon: "DateRange", label: "Date Modified" },
+    { attribute: "duration", icon: "HourglassBottom", label: "Duration" },
+    { attribute: "name", icon: "Title", label: "Name" },
+    { attribute: "rating", icon: "Star", label: "Rating" },
+    { attribute: "size", icon: "FormatSize", label: "Size" },
+    { attribute: "fileCount", icon: "Numbers", label: "Track Count" },
+    { attribute: "year", icon: "CalendarMonth", label: "Year" },
+  ],
+  MusicArtist: [
+    { attribute: "albumCount", icon: "Album", label: "Album Count" },
+    { attribute: "dateCreated", icon: "DateRange", label: "Date Created" },
+    { attribute: "dateModified", icon: "DateRange", label: "Date Modified" },
+    { attribute: "duration", icon: "HourglassBottom", label: "Duration" },
+    { attribute: "name", icon: "Title", label: "Name" },
+    { attribute: "rating", icon: "Star", label: "Rating" },
+    { attribute: "size", icon: "FormatSize", label: "Size" },
+    { attribute: "fileCount", icon: "Numbers", label: "Track Count" },
+  ],
+  MusicPlaylist: [
+    { attribute: "dateCreated", icon: "DateRange", label: "Date Created" },
+    { attribute: "dateModified", icon: "DateRange", label: "Date Modified" },
+    { attribute: "duration", icon: "HourglassBottom", label: "Duration" },
+    { attribute: "name", icon: "Title", label: "Name" },
+    { attribute: "rating", icon: "Star", label: "Rating" },
+    { attribute: "size", icon: "FormatSize", label: "Size" },
+    { attribute: "fileCount", icon: "Numbers", label: "Track Count" },
+  ],
   Notification: [{ attribute: "dateCreated", icon: "DateRange", label: "Date Created" }],
   SavedImportConfig: [
     { attribute: "dateCreated", icon: "DateRange", label: "Date Created" },
@@ -114,9 +148,20 @@ const CUSTOM_SORT_OPTIONS: Record<CustomSortName, SortOption[]> = {
     { attribute: "custom", icon: "Settings", label: "Custom" },
     ...MODEL_SORT_OPTIONS.File,
   ],
+  MediaProgramEpisode: [
+    { attribute: "custom", icon: "FormatListNumbered", label: "Number" },
+    ...MODEL_SORT_OPTIONS.File,
+  ],
   MediaProgramRanking: [
     { attribute: "custom", icon: "Settings", label: "Custom" },
     ...MODEL_SORT_OPTIONS.MediaProgram,
+  ],
+  MusicTrack: [
+    { attribute: "music.artist", icon: "Person", label: "Artist" },
+    { attribute: "music.title", icon: "Title", label: "Title" },
+    { attribute: "music.album", icon: "Album", label: "Album" },
+    { attribute: "music.year", icon: "CalendarMonth", label: "Year" },
+    ...MODEL_SORT_OPTIONS.File,
   ],
 };
 

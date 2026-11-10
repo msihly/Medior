@@ -57,6 +57,7 @@ export class _FileSearch extends Model({
   frameRateMode: prop<"optional" | "required">("required").withSetter(),
   hasChanges: prop<boolean>(false).withSetter(),
   hasDiffParams: prop<boolean>(false).withSetter(),
+  hasMusic: prop<boolean>(false).withSetter(),
   hasTimeline: prop<boolean>(false).withSetter(),
   heightMode: prop<"optional" | "required">("required").withSetter(),
   ids: prop<string[]>(() => []).withSetter(),
@@ -99,6 +100,12 @@ export class _FileSearch extends Model({
       Object.fromEntries(
         getConfig().file.audioCodecs.map((codec) => [codec, true]),
       ) as Types.SelectedAudioCodecs,
+  ),
+  selectedAudioExts: prop<Types.SelectedAudioExts>(
+    () =>
+      Object.fromEntries(
+        getConfig().file.audioExts.map((ext) => [ext, true]),
+      ) as Types.SelectedAudioExts,
   ),
   selectedIds: prop<string[]>(() => []).withSetter(),
   selectedImageExts: prop<Types.SelectedImageExts>(
@@ -251,6 +258,11 @@ export class _FileSearch extends Model({
   }
 
   @modelAction
+  setSelectedAudioExts(types: Partial<Types.SelectedAudioExts>) {
+    this.selectedAudioExts = { ...this.selectedAudioExts, ...types };
+  }
+
+  @modelAction
   setSelectedImageExts(types: Partial<Types.SelectedImageExts>) {
     this.selectedImageExts = { ...this.selectedImageExts, ...types };
   }
@@ -297,6 +309,7 @@ export class _FileSearch extends Model({
     this.frameRateMode = "required";
     this.hasChanges = false;
     this.hasDiffParams = false;
+    this.hasMusic = false;
     this.hasTimeline = false;
     this.heightMode = "required";
     this.ids = [];
@@ -334,6 +347,9 @@ export class _FileSearch extends Model({
     this.selectedAudioCodecs = Object.fromEntries(
       getConfig().file.audioCodecs.map((codec) => [codec, true]),
     ) as Types.SelectedAudioCodecs;
+    this.selectedAudioExts = Object.fromEntries(
+      getConfig().file.audioExts.map((ext) => [ext, true]),
+    ) as Types.SelectedAudioExts;
     this.selectedIds = [];
     this.selectedImageExts = Object.fromEntries(
       getConfig().file.imageExts.map((ext) => [ext, true]),
@@ -704,6 +720,7 @@ export class _FileSearch extends Model({
       (!isDeepEqual(this.excludedFileIds, []) ? 1 : 0) +
       (!isDeepEqual(this.frameRate, { logOp: "", value: 0 }) ? 1 : 0) +
       (!isDeepEqual(this.hasDiffParams, false) ? 1 : 0) +
+      (!isDeepEqual(this.hasMusic, false) ? 1 : 0) +
       (!isDeepEqual(this.hasTimeline, false) ? 1 : 0) +
       (!isDeepEqual(this.ids, []) ? 1 : 0) +
       (!isDeepEqual(this.isArchived, false) ? 1 : 0) +
@@ -729,6 +746,14 @@ export class _FileSearch extends Model({
         Object.fromEntries(
           getConfig().file.audioCodecs.map((codec) => [codec, true]),
         ) as Types.SelectedAudioCodecs,
+      )
+        ? 1
+        : 0) +
+      (!isDeepEqual(
+        this.selectedAudioExts,
+        Object.fromEntries(
+          getConfig().file.audioExts.map((ext) => [ext, true]),
+        ) as Types.SelectedAudioExts,
       )
         ? 1
         : 0) +
@@ -800,6 +825,7 @@ export class _FileSearch extends Model({
       frameRate: this.frameRate,
       frameRateMode: this.frameRateMode,
       hasDiffParams: this.hasDiffParams,
+      hasMusic: this.hasMusic,
       hasTimeline: this.hasTimeline,
       heightMode: this.heightMode,
       ids: this.ids,
@@ -827,6 +853,7 @@ export class _FileSearch extends Model({
       rating: this.rating,
       ratingMode: this.ratingMode,
       selectedAudioCodecs: this.selectedAudioCodecs,
+      selectedAudioExts: this.selectedAudioExts,
       selectedImageExts: this.selectedImageExts,
       selectedVideoCodecs: this.selectedVideoCodecs,
       selectedVideoExts: this.selectedVideoExts,
@@ -869,6 +896,7 @@ export class _FileSearch extends Model({
       frameRate: this.frameRate,
       frameRateMode: this.frameRateMode,
       hasDiffParams: this.hasDiffParams,
+      hasMusic: this.hasMusic,
       hasTimeline: this.hasTimeline,
       heightMode: this.heightMode,
       ids: this.ids,
@@ -896,6 +924,7 @@ export class _FileSearch extends Model({
       rating: this.rating,
       ratingMode: this.ratingMode,
       selectedAudioCodecs: this.selectedAudioCodecs,
+      selectedAudioExts: this.selectedAudioExts,
       selectedImageExts: this.selectedImageExts,
       selectedVideoCodecs: this.selectedVideoCodecs,
       selectedVideoExts: this.selectedVideoExts,
@@ -3319,6 +3348,1725 @@ export class _MediaProgramSearch extends Model({
   }
 }
 
+@model("medior/_MusicAlbumSearch")
+export class _MusicAlbumSearch extends Model({
+  artistIds: prop<string[]>(() => []).withSetter(),
+  artistName: prop<string>("").withSetter(),
+  artistNameMode: prop<"optional" | "required">("required").withSetter(),
+  cachedFilterProps: prop<object | null>(null).withSetter(),
+  dateCreatedEnd: prop<string>("").withSetter(),
+  dateCreatedMode: prop<"optional" | "required">("required").withSetter(),
+  dateCreatedStart: prop<string>("").withSetter(),
+  dateModifiedEnd: prop<string>("").withSetter(),
+  dateModifiedMode: prop<"optional" | "required">("required").withSetter(),
+  dateModifiedStart: prop<string>("").withSetter(),
+  fileCount: prop<{ logOp: LogicalOp | ""; value: number }>(() => ({ logOp: "", value: 0 })),
+  fileCountMode: prop<"optional" | "required">("required").withSetter(),
+  forcePages: prop<boolean>(false).withSetter(),
+  hasChanges: prop<boolean>(false).withSetter(),
+  ids: prop<string[]>(() => []).withSetter(),
+  isDeleteModalOpen: prop<boolean>(false).withSetter(),
+  isLoading: prop<boolean>(false).withSetter(),
+  isPageCountLoading: prop<boolean>(false).withSetter(),
+  isSaveModalOpen: prop<boolean>(false).withSetter(),
+  isSelecting: prop<boolean>(false).withSetter(),
+  loadId: prop<number>(0).withSetter(),
+  maxYear: prop<number>(null).withSetter(),
+  minYear: prop<number>(null).withSetter(),
+  name: prop<string>("").withSetter(),
+  nameMode: prop<"optional" | "required">("required").withSetter(),
+  page: prop<number>(1).withSetter(),
+  pageCount: prop<number>(1).withSetter(),
+  pageSize: prop<number>(() => getConfig().music.albums.search.pageSize).withSetter(),
+  rating: prop<{ logOp: LogicalOp | ""; value: number }>(() => ({ logOp: "", value: 0 })),
+  ratingMode: prop<"optional" | "required">("required").withSetter(),
+  results: prop<Stores.MusicAlbum[]>(() => []).withSetter(),
+  savedSearches: prop<Stores.SavedSearch[]>(() => []).withSetter(),
+  selectedIds: prop<string[]>(() => []).withSetter(),
+  selectedSavedSearchId: prop<string>("").withSetter(),
+  selectionId: prop<number>(0).withSetter(),
+  sortValue: prop<SortMenuProps["value"]>(() => getConfig().music.albums.search.sort).withSetter(),
+  yearMode: prop<"optional" | "required">("required").withSetter(),
+}) {
+  onInit() {
+    autoBind(this);
+
+    reaction(
+      () => this.getFilterProps(),
+      () => this.setHasChanges(true),
+    );
+  }
+
+  /* STANDARD ACTIONS */
+  @modelAction
+  _addResult(result: ModelCreationData<Stores.MusicAlbum>) {
+    this.results.push(new Stores.MusicAlbum(result));
+  }
+
+  @modelAction
+  applySearchProps(searchProps: Record<string, any>) {
+    this.reset();
+
+    Object.entries(searchProps).forEach(([key, value]) => {
+      if (key in this) this[key] = value;
+    });
+
+    this.cachedFilterProps = null;
+    this.hasChanges = true;
+    this.page = 1;
+    (this as any).afterApplySearchProps?.(searchProps);
+  }
+
+  @modelAction
+  cancelLoad() {
+    this.loadId += 1;
+    this.isLoading = false;
+    this.isPageCountLoading = false;
+    this.selectionId += 1;
+    this.isSelecting = false;
+  }
+
+  @modelAction
+  cancelSelection() {
+    this.selectionId += 1;
+    this.isSelecting = false;
+  }
+
+  @modelAction
+  setFileCountOp(val: LogicalOp | "") {
+    this.fileCount.logOp = val;
+
+    if (val === "") this.fileCount.value = 0;
+  }
+
+  @modelAction
+  setFileCountValue(val: number) {
+    this.fileCount.value = val;
+  }
+
+  @modelAction
+  setRatingOp(val: LogicalOp | "") {
+    this.rating.logOp = val;
+
+    if (val === "") this.rating.value = 0;
+  }
+
+  @modelAction
+  setRatingValue(val: number) {
+    this.rating.value = val;
+  }
+
+  @modelAction
+  _deleteResults(ids: string[]) {
+    const removedIds = new Set(ids);
+
+    this.results = this.results.filter((d) => !removedIds.has(d.id));
+  }
+
+  @modelAction
+  reset() {
+    this.artistIds = [];
+    this.artistName = "";
+    this.artistNameMode = "required";
+    this.cachedFilterProps = null;
+    this.dateCreatedEnd = "";
+    this.dateCreatedMode = "required";
+    this.dateCreatedStart = "";
+    this.dateModifiedEnd = "";
+    this.dateModifiedMode = "required";
+    this.dateModifiedStart = "";
+    this.fileCount = { logOp: "", value: 0 };
+    this.fileCountMode = "required";
+    this.forcePages = false;
+    this.hasChanges = false;
+    this.ids = [];
+    this.isLoading = false;
+    this.isPageCountLoading = false;
+    this.isSelecting = false;
+    this.loadId += 1;
+    this.maxYear = null;
+    this.minYear = null;
+    this.name = "";
+    this.nameMode = "required";
+    this.page = 1;
+    this.pageCount = 1;
+    this.pageSize = getConfig().music.albums.search.pageSize;
+    this.rating = { logOp: "", value: 0 };
+    this.ratingMode = "required";
+    this.results = [];
+    this.selectedIds = [];
+    this.selectionId += 1;
+    this.sortValue = getConfig().music.albums.search.sort;
+    this.yearMode = "required";
+  }
+
+  @modelAction
+  toggleSelected(selected: { id: string; isSelected?: boolean }[], withToast = false) {
+    if (!selected?.length) return;
+
+    const previous = this.selectedIdSet;
+    const next = applySelectionChanges(this.selectedIds, selected);
+
+    this.selectedIds = next;
+
+    if (withToast) {
+      const nextSet = new Set(next);
+      const addedCount = next.filter((id) => !previous.has(id)).length;
+      const removedCount = [...previous].filter((id) => !nextSet.has(id)).length;
+
+      if (addedCount && removedCount)
+        toast.success(`Selected ${addedCount} items and deselected ${removedCount} items`);
+      else if (addedCount) toast.success(`Selected ${addedCount} items`);
+      else if (removedCount) toast.success(`Deselected ${removedCount} items`);
+    }
+  }
+
+  /* ASYNC ACTIONS */
+  @modelFlow
+  applySavedSearch = asyncAction(async (id: string) => {
+    if (!this.savedSearches.some((s) => s.id === id)) await this.loadSavedSearches();
+
+    const savedSearch = this.savedSearches.find((s) => s.id === id);
+
+    if (!savedSearch) return;
+
+    this.applySearchProps(derefMobx(savedSearch.filterProps));
+    this.setSelectedSavedSearchId(id);
+    await this.loadFiltered({ noCache: true, page: 1 });
+  });
+
+  @modelFlow
+  deleteSavedSearch = asyncAction(async (id: string = this.selectedSavedSearchId) => {
+    if (!id) return;
+
+    const res = await rpc.deleteSavedSearch({ args: { ids: [id] } });
+
+    if (!res.success) throw new Error(res.error);
+
+    await this.loadSavedSearches();
+
+    if (this.selectedSavedSearchId === id) this.setSelectedSavedSearchId("");
+
+    this.setIsDeleteModalOpen(false);
+    toast.warn("Saved search deleted");
+  });
+
+  @modelFlow
+  getShiftSelected = asyncAction(
+    async ({ id, selectedIds }: { id: string; selectedIds: string[] }) => {
+      const range = getSelectionRange({
+        clickedId: id,
+        orderedIds: this.results.map((r) => r.id),
+        selectedIds,
+      });
+
+      if (range) return range;
+
+      const selectionId = this.selectionId + 1;
+
+      this.setSelectionId(selectionId);
+      this.setIsSelecting(true);
+
+      try {
+        const res = await rpc.getShiftSelectedMusicAlbum({
+          ...this.cachedFilterProps,
+          clickedId: id,
+          selectedIds,
+        });
+
+        if (selectionId !== this.selectionId) return null;
+
+        if (!res.success) throw new Error(res.error);
+
+        return res.data;
+      } catch (error) {
+        if (selectionId === this.selectionId) throw error;
+
+        return null;
+      } finally {
+        if (selectionId === this.selectionId) this.setIsSelecting(false);
+      }
+    },
+  );
+
+  @modelFlow
+  handleSelect = asyncAction(
+    async ({ hasCtrl, hasShift, id }: { hasCtrl: boolean; hasShift: boolean; id: string }) => {
+      if (hasShift) {
+        const res = await this.getShiftSelected({ id, selectedIds: this.selectedIds });
+
+        if (!res?.success) throw new Error(res.error);
+
+        if (res.data) {
+          this.toggleSelected([
+            ...res.data.idsToDeselect.map((i) => ({ id: i, isSelected: false })),
+            ...res.data.idsToSelect.map((i) => ({ id: i, isSelected: true })),
+          ]);
+        }
+      } else if (hasCtrl) {
+        this.toggleSelected([{ id, isSelected: !this.getIsSelected(id) }]);
+      } else if (this.selectedIds.length === 1 && this.getIsSelected(id)) {
+        this.setSelectedIds([]);
+      } else {
+        this.setSelectedIds([id]);
+      }
+    },
+  );
+
+  @modelFlow
+  selectAllInQuery = asyncAction(async () => {
+    const filterProps = this.cachedFilterProps ?? this.getFilterProps();
+    const selectionId = this.selectionId + 1;
+
+    this.setSelectionId(selectionId);
+    this.setIsSelecting(true);
+
+    try {
+      const countRes = await rpc.getFilteredMusicAlbumCount({
+        ...filterProps,
+        curMaxPage: this.pageCount,
+        forcePages: this.forcePages,
+        page: this.page,
+        pageSize: this.pageSize,
+        withFull: true,
+      });
+
+      if (selectionId !== this.selectionId) return null;
+
+      if (!countRes.success) throw new Error(countRes.error);
+
+      if (countRes.data.count === 0) return 0;
+
+      const res = await rpc.listFilteredMusicAlbum({
+        ...filterProps,
+        forcePages: this.forcePages,
+        page: 1,
+        pageSize: countRes.data.count,
+        select: { _id: 1 },
+      });
+
+      if (selectionId !== this.selectionId) return null;
+
+      if (!res.success) throw new Error(res.error);
+
+      this.toggleSelected(res.data.map(({ id }) => ({ id, isSelected: true })));
+
+      return res.data.length;
+    } catch (error) {
+      if (selectionId === this.selectionId) throw error;
+
+      return null;
+    } finally {
+      if (selectionId === this.selectionId) this.setIsSelecting(false);
+    }
+  });
+
+  @modelFlow
+  loadFiltered = asyncAction(
+    async ({
+      noCache,
+      page,
+      toLastPage,
+      withFullCount,
+    }: {
+      noCache?: boolean;
+      page?: number;
+      toLastPage?: boolean;
+      withFullCount?: boolean;
+    } = {}) => {
+      const loadId = this.loadId + 1;
+
+      this.setLoadId(loadId);
+      this.setIsLoading(true);
+      this.setIsPageCountLoading(true);
+
+      try {
+        const shouldCacheFilterProps = noCache || !this.cachedFilterProps;
+        const filterProps = shouldCacheFilterProps ? this.getFilterProps() : this.cachedFilterProps;
+
+        // A selection still running over the previous query would add its results to the new one.
+        if (shouldCacheFilterProps) this.cancelSelection();
+
+        const exactCount = withFullCount || toLastPage;
+        let nextPageCount = this.pageCount;
+
+        if (exactCount) {
+          const countRes = await rpc.getFilteredMusicAlbumCount({
+            ...filterProps,
+            curMaxPage: this.pageCount,
+            forcePages: this.forcePages,
+            page,
+            pageSize: this.pageSize,
+            withFull: true,
+          });
+
+          if (loadId !== this.loadId) return;
+
+          if (!countRes.success) throw new Error(countRes.error);
+
+          nextPageCount = countRes.data.pageCount;
+        }
+
+        const newPage = toLastPage
+          ? Math.max(nextPageCount, 1)
+          : exactCount
+            ? Math.min(page ?? this.page, Math.max(nextPageCount, 1))
+            : (page ?? this.page);
+
+        const itemsRes = await rpc.listFilteredMusicAlbum({
+          ...filterProps,
+          forcePages: this.forcePages,
+          page: newPage,
+          pageSize: this.pageSize,
+        });
+
+        if (loadId !== this.loadId) return;
+
+        if (!itemsRes.success) throw new Error(itemsRes.error);
+
+        let items = itemsRes.data;
+
+        this.setResults(items.map((result) => new Stores.MusicAlbum(result)));
+
+        if (shouldCacheFilterProps) this.setCachedFilterProps(derefMobx(filterProps));
+
+        if (exactCount) {
+          this.setPageCount(nextPageCount);
+          this.setIsPageCountLoading(false);
+        }
+
+        this.setPage(newPage);
+        this.setIsLoading(false);
+
+        if (noCache) this.setHasChanges(false);
+
+        if (!exactCount) {
+          (async () => {
+            try {
+              const countRes = await rpc.getFilteredMusicAlbumCount({
+                ...filterProps,
+                curMaxPage: this.pageCount,
+                forcePages: this.forcePages,
+                page: newPage,
+                pageSize: this.pageSize,
+                withFull: false,
+              });
+
+              if (loadId !== this.loadId) return;
+
+              this.setIsPageCountLoading(false);
+
+              if (!countRes.success) console.error(countRes.error);
+              else this.setPageCount(countRes.data.pageCount);
+            } catch (error) {
+              if (loadId !== this.loadId) return;
+
+              this.setIsPageCountLoading(false);
+              console.error(error);
+            }
+          })();
+        }
+
+        return items;
+      } catch (error) {
+        if (loadId !== this.loadId) return;
+
+        this.setIsLoading(false);
+        this.setIsPageCountLoading(false);
+
+        throw error;
+      }
+    },
+  );
+
+  @modelFlow
+  loadSavedSearches = asyncAction(async () => {
+    const res = await rpc.listSavedSearch({
+      args: {
+        filter: { searchType: "MusicAlbum" },
+        page: 1,
+        pageSize: 1000,
+        sort: { label: "asc" },
+      },
+    });
+
+    if (!res.success) throw new Error(res.error);
+
+    this.setSavedSearches(res.data.items.map((result) => new Stores.SavedSearch(result)));
+
+    return res.data.items;
+  });
+
+  @modelFlow
+  saveSavedSearch = asyncAction(async (label: string) => {
+    const trimmedLabel = label.trim();
+
+    if (!trimmedLabel) throw new Error("Saved search label is required");
+
+    const existing = this.savedSearches.find((s) => s.label === trimmedLabel);
+    const selected = this.savedSearches.find((s) => s.id === this.selectedSavedSearchId);
+    const filterProps = this.getSearchProps();
+    let res: Awaited<ReturnType<typeof rpc.createSavedSearch | typeof rpc.updateSavedSearch>>;
+
+    if (selected)
+      res = await rpc.updateSavedSearch({
+        args: { id: selected.id, updates: { filterProps, label: trimmedLabel } },
+      });
+    else if (existing)
+      res = await rpc.updateSavedSearch({
+        args: { id: existing.id, updates: { filterProps } },
+      });
+    else
+      res = await rpc.createSavedSearch({
+        args: {
+          dateCreated: dayjs().toISOString(),
+          filterProps,
+          label: trimmedLabel,
+          searchType: "MusicAlbum",
+        },
+      });
+
+    if (!res.success) throw new Error(res.error);
+
+    await this.loadSavedSearches();
+    this.setSelectedSavedSearchId(selected?.id ?? existing?.id ?? res.data.id);
+    this.setIsSaveModalOpen(false);
+    toast.success(selected || existing ? "Saved search updated" : "Saved search created");
+
+    return res.data;
+  });
+
+  /* GETTERS */
+  @computed
+  get numOfFilters() {
+    return (
+      (!isDeepEqual(this.artistIds, []) ? 1 : 0) +
+      (!isDeepEqual(this.artistName, "") ? 1 : 0) +
+      (!isDeepEqual(this.dateCreatedEnd, "") ? 1 : 0) +
+      (!isDeepEqual(this.dateCreatedStart, "") ? 1 : 0) +
+      (!isDeepEqual(this.dateModifiedEnd, "") ? 1 : 0) +
+      (!isDeepEqual(this.dateModifiedStart, "") ? 1 : 0) +
+      (!isDeepEqual(this.fileCount, { logOp: "", value: 0 }) ? 1 : 0) +
+      (!isDeepEqual(this.ids, []) ? 1 : 0) +
+      (!isDeepEqual(this.maxYear, null) ? 1 : 0) +
+      (!isDeepEqual(this.minYear, null) ? 1 : 0) +
+      (!isDeepEqual(this.name, "") ? 1 : 0) +
+      (!isDeepEqual(this.rating, { logOp: "", value: 0 }) ? 1 : 0) +
+      (!isDeepEqual(this.sortValue, getConfig().music.albums.search.sort) ? 1 : 0)
+    );
+  }
+
+  @computed({ keepAlive: true })
+  get resultsById() {
+    return new Map(this.results.map((result) => [result.id, result]));
+  }
+
+  @computed({ keepAlive: true })
+  get selectedIdSet() {
+    return new Set(this.selectedIds);
+  }
+
+  /* DYNAMIC GETTERS */
+  getCachedFilterProps() {
+    if (!this.cachedFilterProps) this.setCachedFilterProps(derefMobx(this.getFilterProps()));
+
+    return this.cachedFilterProps;
+  }
+
+  getFilterProps() {
+    return {
+      artistIds: this.artistIds,
+      artistName: this.artistName,
+      artistNameMode: this.artistNameMode,
+      dateCreatedEnd: this.dateCreatedEnd,
+      dateCreatedMode: this.dateCreatedMode,
+      dateCreatedStart: this.dateCreatedStart,
+      dateModifiedEnd: this.dateModifiedEnd,
+      dateModifiedMode: this.dateModifiedMode,
+      dateModifiedStart: this.dateModifiedStart,
+      fileCount: this.fileCount,
+      fileCountMode: this.fileCountMode,
+      ids: this.ids,
+      maxYear: this.maxYear,
+      minYear: this.minYear,
+      name: this.name,
+      nameMode: this.nameMode,
+      rating: this.rating,
+      ratingMode: this.ratingMode,
+      sortValue: this.sortValue,
+      yearMode: this.yearMode,
+    };
+  }
+
+  getIsSelected(id: string) {
+    return this.selectedIdSet.has(id);
+  }
+
+  getResult(id: string) {
+    return this.resultsById.get(id);
+  }
+
+  getSearchProps() {
+    return derefMobx({
+      artistIds: this.artistIds,
+      artistName: this.artistName,
+      artistNameMode: this.artistNameMode,
+      dateCreatedEnd: this.dateCreatedEnd,
+      dateCreatedMode: this.dateCreatedMode,
+      dateCreatedStart: this.dateCreatedStart,
+      dateModifiedEnd: this.dateModifiedEnd,
+      dateModifiedMode: this.dateModifiedMode,
+      dateModifiedStart: this.dateModifiedStart,
+      fileCount: this.fileCount,
+      fileCountMode: this.fileCountMode,
+      ids: this.ids,
+      maxYear: this.maxYear,
+      minYear: this.minYear,
+      name: this.name,
+      nameMode: this.nameMode,
+      rating: this.rating,
+      ratingMode: this.ratingMode,
+      sortValue: this.sortValue,
+      yearMode: this.yearMode,
+    });
+  }
+}
+
+@model("medior/_MusicArtistSearch")
+export class _MusicArtistSearch extends Model({
+  albumCount: prop<{ logOp: LogicalOp | ""; value: number }>(() => ({ logOp: "", value: 0 })),
+  albumCountMode: prop<"optional" | "required">("required").withSetter(),
+  cachedFilterProps: prop<object | null>(null).withSetter(),
+  dateCreatedEnd: prop<string>("").withSetter(),
+  dateCreatedMode: prop<"optional" | "required">("required").withSetter(),
+  dateCreatedStart: prop<string>("").withSetter(),
+  dateModifiedEnd: prop<string>("").withSetter(),
+  dateModifiedMode: prop<"optional" | "required">("required").withSetter(),
+  dateModifiedStart: prop<string>("").withSetter(),
+  fileCount: prop<{ logOp: LogicalOp | ""; value: number }>(() => ({ logOp: "", value: 0 })),
+  fileCountMode: prop<"optional" | "required">("required").withSetter(),
+  forcePages: prop<boolean>(false).withSetter(),
+  hasChanges: prop<boolean>(false).withSetter(),
+  ids: prop<string[]>(() => []).withSetter(),
+  isDeleteModalOpen: prop<boolean>(false).withSetter(),
+  isLoading: prop<boolean>(false).withSetter(),
+  isPageCountLoading: prop<boolean>(false).withSetter(),
+  isSaveModalOpen: prop<boolean>(false).withSetter(),
+  isSelecting: prop<boolean>(false).withSetter(),
+  loadId: prop<number>(0).withSetter(),
+  name: prop<string>("").withSetter(),
+  nameMode: prop<"optional" | "required">("required").withSetter(),
+  page: prop<number>(1).withSetter(),
+  pageCount: prop<number>(1).withSetter(),
+  pageSize: prop<number>(() => getConfig().music.artists.search.pageSize).withSetter(),
+  rating: prop<{ logOp: LogicalOp | ""; value: number }>(() => ({ logOp: "", value: 0 })),
+  ratingMode: prop<"optional" | "required">("required").withSetter(),
+  results: prop<Stores.MusicArtist[]>(() => []).withSetter(),
+  savedSearches: prop<Stores.SavedSearch[]>(() => []).withSetter(),
+  selectedIds: prop<string[]>(() => []).withSetter(),
+  selectedSavedSearchId: prop<string>("").withSetter(),
+  selectionId: prop<number>(0).withSetter(),
+  sortValue: prop<SortMenuProps["value"]>(() => getConfig().music.artists.search.sort).withSetter(),
+}) {
+  onInit() {
+    autoBind(this);
+
+    reaction(
+      () => this.getFilterProps(),
+      () => this.setHasChanges(true),
+    );
+  }
+
+  /* STANDARD ACTIONS */
+  @modelAction
+  _addResult(result: ModelCreationData<Stores.MusicArtist>) {
+    this.results.push(new Stores.MusicArtist(result));
+  }
+
+  @modelAction
+  applySearchProps(searchProps: Record<string, any>) {
+    this.reset();
+
+    Object.entries(searchProps).forEach(([key, value]) => {
+      if (key in this) this[key] = value;
+    });
+
+    this.cachedFilterProps = null;
+    this.hasChanges = true;
+    this.page = 1;
+    (this as any).afterApplySearchProps?.(searchProps);
+  }
+
+  @modelAction
+  cancelLoad() {
+    this.loadId += 1;
+    this.isLoading = false;
+    this.isPageCountLoading = false;
+    this.selectionId += 1;
+    this.isSelecting = false;
+  }
+
+  @modelAction
+  cancelSelection() {
+    this.selectionId += 1;
+    this.isSelecting = false;
+  }
+
+  @modelAction
+  setAlbumCountOp(val: LogicalOp | "") {
+    this.albumCount.logOp = val;
+
+    if (val === "") this.albumCount.value = 0;
+  }
+
+  @modelAction
+  setAlbumCountValue(val: number) {
+    this.albumCount.value = val;
+  }
+
+  @modelAction
+  setFileCountOp(val: LogicalOp | "") {
+    this.fileCount.logOp = val;
+
+    if (val === "") this.fileCount.value = 0;
+  }
+
+  @modelAction
+  setFileCountValue(val: number) {
+    this.fileCount.value = val;
+  }
+
+  @modelAction
+  setRatingOp(val: LogicalOp | "") {
+    this.rating.logOp = val;
+
+    if (val === "") this.rating.value = 0;
+  }
+
+  @modelAction
+  setRatingValue(val: number) {
+    this.rating.value = val;
+  }
+
+  @modelAction
+  _deleteResults(ids: string[]) {
+    const removedIds = new Set(ids);
+
+    this.results = this.results.filter((d) => !removedIds.has(d.id));
+  }
+
+  @modelAction
+  reset() {
+    this.albumCount = { logOp: "", value: 0 };
+    this.albumCountMode = "required";
+    this.cachedFilterProps = null;
+    this.dateCreatedEnd = "";
+    this.dateCreatedMode = "required";
+    this.dateCreatedStart = "";
+    this.dateModifiedEnd = "";
+    this.dateModifiedMode = "required";
+    this.dateModifiedStart = "";
+    this.fileCount = { logOp: "", value: 0 };
+    this.fileCountMode = "required";
+    this.forcePages = false;
+    this.hasChanges = false;
+    this.ids = [];
+    this.isLoading = false;
+    this.isPageCountLoading = false;
+    this.isSelecting = false;
+    this.loadId += 1;
+    this.name = "";
+    this.nameMode = "required";
+    this.page = 1;
+    this.pageCount = 1;
+    this.pageSize = getConfig().music.artists.search.pageSize;
+    this.rating = { logOp: "", value: 0 };
+    this.ratingMode = "required";
+    this.results = [];
+    this.selectedIds = [];
+    this.selectionId += 1;
+    this.sortValue = getConfig().music.artists.search.sort;
+  }
+
+  @modelAction
+  toggleSelected(selected: { id: string; isSelected?: boolean }[], withToast = false) {
+    if (!selected?.length) return;
+
+    const previous = this.selectedIdSet;
+    const next = applySelectionChanges(this.selectedIds, selected);
+
+    this.selectedIds = next;
+
+    if (withToast) {
+      const nextSet = new Set(next);
+      const addedCount = next.filter((id) => !previous.has(id)).length;
+      const removedCount = [...previous].filter((id) => !nextSet.has(id)).length;
+
+      if (addedCount && removedCount)
+        toast.success(`Selected ${addedCount} items and deselected ${removedCount} items`);
+      else if (addedCount) toast.success(`Selected ${addedCount} items`);
+      else if (removedCount) toast.success(`Deselected ${removedCount} items`);
+    }
+  }
+
+  /* ASYNC ACTIONS */
+  @modelFlow
+  applySavedSearch = asyncAction(async (id: string) => {
+    if (!this.savedSearches.some((s) => s.id === id)) await this.loadSavedSearches();
+
+    const savedSearch = this.savedSearches.find((s) => s.id === id);
+
+    if (!savedSearch) return;
+
+    this.applySearchProps(derefMobx(savedSearch.filterProps));
+    this.setSelectedSavedSearchId(id);
+    await this.loadFiltered({ noCache: true, page: 1 });
+  });
+
+  @modelFlow
+  deleteSavedSearch = asyncAction(async (id: string = this.selectedSavedSearchId) => {
+    if (!id) return;
+
+    const res = await rpc.deleteSavedSearch({ args: { ids: [id] } });
+
+    if (!res.success) throw new Error(res.error);
+
+    await this.loadSavedSearches();
+
+    if (this.selectedSavedSearchId === id) this.setSelectedSavedSearchId("");
+
+    this.setIsDeleteModalOpen(false);
+    toast.warn("Saved search deleted");
+  });
+
+  @modelFlow
+  getShiftSelected = asyncAction(
+    async ({ id, selectedIds }: { id: string; selectedIds: string[] }) => {
+      const range = getSelectionRange({
+        clickedId: id,
+        orderedIds: this.results.map((r) => r.id),
+        selectedIds,
+      });
+
+      if (range) return range;
+
+      const selectionId = this.selectionId + 1;
+
+      this.setSelectionId(selectionId);
+      this.setIsSelecting(true);
+
+      try {
+        const res = await rpc.getShiftSelectedMusicArtist({
+          ...this.cachedFilterProps,
+          clickedId: id,
+          selectedIds,
+        });
+
+        if (selectionId !== this.selectionId) return null;
+
+        if (!res.success) throw new Error(res.error);
+
+        return res.data;
+      } catch (error) {
+        if (selectionId === this.selectionId) throw error;
+
+        return null;
+      } finally {
+        if (selectionId === this.selectionId) this.setIsSelecting(false);
+      }
+    },
+  );
+
+  @modelFlow
+  handleSelect = asyncAction(
+    async ({ hasCtrl, hasShift, id }: { hasCtrl: boolean; hasShift: boolean; id: string }) => {
+      if (hasShift) {
+        const res = await this.getShiftSelected({ id, selectedIds: this.selectedIds });
+
+        if (!res?.success) throw new Error(res.error);
+
+        if (res.data) {
+          this.toggleSelected([
+            ...res.data.idsToDeselect.map((i) => ({ id: i, isSelected: false })),
+            ...res.data.idsToSelect.map((i) => ({ id: i, isSelected: true })),
+          ]);
+        }
+      } else if (hasCtrl) {
+        this.toggleSelected([{ id, isSelected: !this.getIsSelected(id) }]);
+      } else if (this.selectedIds.length === 1 && this.getIsSelected(id)) {
+        this.setSelectedIds([]);
+      } else {
+        this.setSelectedIds([id]);
+      }
+    },
+  );
+
+  @modelFlow
+  selectAllInQuery = asyncAction(async () => {
+    const filterProps = this.cachedFilterProps ?? this.getFilterProps();
+    const selectionId = this.selectionId + 1;
+
+    this.setSelectionId(selectionId);
+    this.setIsSelecting(true);
+
+    try {
+      const countRes = await rpc.getFilteredMusicArtistCount({
+        ...filterProps,
+        curMaxPage: this.pageCount,
+        forcePages: this.forcePages,
+        page: this.page,
+        pageSize: this.pageSize,
+        withFull: true,
+      });
+
+      if (selectionId !== this.selectionId) return null;
+
+      if (!countRes.success) throw new Error(countRes.error);
+
+      if (countRes.data.count === 0) return 0;
+
+      const res = await rpc.listFilteredMusicArtist({
+        ...filterProps,
+        forcePages: this.forcePages,
+        page: 1,
+        pageSize: countRes.data.count,
+        select: { _id: 1 },
+      });
+
+      if (selectionId !== this.selectionId) return null;
+
+      if (!res.success) throw new Error(res.error);
+
+      this.toggleSelected(res.data.map(({ id }) => ({ id, isSelected: true })));
+
+      return res.data.length;
+    } catch (error) {
+      if (selectionId === this.selectionId) throw error;
+
+      return null;
+    } finally {
+      if (selectionId === this.selectionId) this.setIsSelecting(false);
+    }
+  });
+
+  @modelFlow
+  loadFiltered = asyncAction(
+    async ({
+      noCache,
+      page,
+      toLastPage,
+      withFullCount,
+    }: {
+      noCache?: boolean;
+      page?: number;
+      toLastPage?: boolean;
+      withFullCount?: boolean;
+    } = {}) => {
+      const loadId = this.loadId + 1;
+
+      this.setLoadId(loadId);
+      this.setIsLoading(true);
+      this.setIsPageCountLoading(true);
+
+      try {
+        const shouldCacheFilterProps = noCache || !this.cachedFilterProps;
+        const filterProps = shouldCacheFilterProps ? this.getFilterProps() : this.cachedFilterProps;
+
+        // A selection still running over the previous query would add its results to the new one.
+        if (shouldCacheFilterProps) this.cancelSelection();
+
+        const exactCount = withFullCount || toLastPage;
+        let nextPageCount = this.pageCount;
+
+        if (exactCount) {
+          const countRes = await rpc.getFilteredMusicArtistCount({
+            ...filterProps,
+            curMaxPage: this.pageCount,
+            forcePages: this.forcePages,
+            page,
+            pageSize: this.pageSize,
+            withFull: true,
+          });
+
+          if (loadId !== this.loadId) return;
+
+          if (!countRes.success) throw new Error(countRes.error);
+
+          nextPageCount = countRes.data.pageCount;
+        }
+
+        const newPage = toLastPage
+          ? Math.max(nextPageCount, 1)
+          : exactCount
+            ? Math.min(page ?? this.page, Math.max(nextPageCount, 1))
+            : (page ?? this.page);
+
+        const itemsRes = await rpc.listFilteredMusicArtist({
+          ...filterProps,
+          forcePages: this.forcePages,
+          page: newPage,
+          pageSize: this.pageSize,
+        });
+
+        if (loadId !== this.loadId) return;
+
+        if (!itemsRes.success) throw new Error(itemsRes.error);
+
+        let items = itemsRes.data;
+
+        this.setResults(items.map((result) => new Stores.MusicArtist(result)));
+
+        if (shouldCacheFilterProps) this.setCachedFilterProps(derefMobx(filterProps));
+
+        if (exactCount) {
+          this.setPageCount(nextPageCount);
+          this.setIsPageCountLoading(false);
+        }
+
+        this.setPage(newPage);
+        this.setIsLoading(false);
+
+        if (noCache) this.setHasChanges(false);
+
+        if (!exactCount) {
+          (async () => {
+            try {
+              const countRes = await rpc.getFilteredMusicArtistCount({
+                ...filterProps,
+                curMaxPage: this.pageCount,
+                forcePages: this.forcePages,
+                page: newPage,
+                pageSize: this.pageSize,
+                withFull: false,
+              });
+
+              if (loadId !== this.loadId) return;
+
+              this.setIsPageCountLoading(false);
+
+              if (!countRes.success) console.error(countRes.error);
+              else this.setPageCount(countRes.data.pageCount);
+            } catch (error) {
+              if (loadId !== this.loadId) return;
+
+              this.setIsPageCountLoading(false);
+              console.error(error);
+            }
+          })();
+        }
+
+        return items;
+      } catch (error) {
+        if (loadId !== this.loadId) return;
+
+        this.setIsLoading(false);
+        this.setIsPageCountLoading(false);
+
+        throw error;
+      }
+    },
+  );
+
+  @modelFlow
+  loadSavedSearches = asyncAction(async () => {
+    const res = await rpc.listSavedSearch({
+      args: {
+        filter: { searchType: "MusicArtist" },
+        page: 1,
+        pageSize: 1000,
+        sort: { label: "asc" },
+      },
+    });
+
+    if (!res.success) throw new Error(res.error);
+
+    this.setSavedSearches(res.data.items.map((result) => new Stores.SavedSearch(result)));
+
+    return res.data.items;
+  });
+
+  @modelFlow
+  saveSavedSearch = asyncAction(async (label: string) => {
+    const trimmedLabel = label.trim();
+
+    if (!trimmedLabel) throw new Error("Saved search label is required");
+
+    const existing = this.savedSearches.find((s) => s.label === trimmedLabel);
+    const selected = this.savedSearches.find((s) => s.id === this.selectedSavedSearchId);
+    const filterProps = this.getSearchProps();
+    let res: Awaited<ReturnType<typeof rpc.createSavedSearch | typeof rpc.updateSavedSearch>>;
+
+    if (selected)
+      res = await rpc.updateSavedSearch({
+        args: { id: selected.id, updates: { filterProps, label: trimmedLabel } },
+      });
+    else if (existing)
+      res = await rpc.updateSavedSearch({
+        args: { id: existing.id, updates: { filterProps } },
+      });
+    else
+      res = await rpc.createSavedSearch({
+        args: {
+          dateCreated: dayjs().toISOString(),
+          filterProps,
+          label: trimmedLabel,
+          searchType: "MusicArtist",
+        },
+      });
+
+    if (!res.success) throw new Error(res.error);
+
+    await this.loadSavedSearches();
+    this.setSelectedSavedSearchId(selected?.id ?? existing?.id ?? res.data.id);
+    this.setIsSaveModalOpen(false);
+    toast.success(selected || existing ? "Saved search updated" : "Saved search created");
+
+    return res.data;
+  });
+
+  /* GETTERS */
+  @computed
+  get numOfFilters() {
+    return (
+      (!isDeepEqual(this.albumCount, { logOp: "", value: 0 }) ? 1 : 0) +
+      (!isDeepEqual(this.dateCreatedEnd, "") ? 1 : 0) +
+      (!isDeepEqual(this.dateCreatedStart, "") ? 1 : 0) +
+      (!isDeepEqual(this.dateModifiedEnd, "") ? 1 : 0) +
+      (!isDeepEqual(this.dateModifiedStart, "") ? 1 : 0) +
+      (!isDeepEqual(this.fileCount, { logOp: "", value: 0 }) ? 1 : 0) +
+      (!isDeepEqual(this.ids, []) ? 1 : 0) +
+      (!isDeepEqual(this.name, "") ? 1 : 0) +
+      (!isDeepEqual(this.rating, { logOp: "", value: 0 }) ? 1 : 0) +
+      (!isDeepEqual(this.sortValue, getConfig().music.artists.search.sort) ? 1 : 0)
+    );
+  }
+
+  @computed({ keepAlive: true })
+  get resultsById() {
+    return new Map(this.results.map((result) => [result.id, result]));
+  }
+
+  @computed({ keepAlive: true })
+  get selectedIdSet() {
+    return new Set(this.selectedIds);
+  }
+
+  /* DYNAMIC GETTERS */
+  getCachedFilterProps() {
+    if (!this.cachedFilterProps) this.setCachedFilterProps(derefMobx(this.getFilterProps()));
+
+    return this.cachedFilterProps;
+  }
+
+  getFilterProps() {
+    return {
+      albumCount: this.albumCount,
+      albumCountMode: this.albumCountMode,
+      dateCreatedEnd: this.dateCreatedEnd,
+      dateCreatedMode: this.dateCreatedMode,
+      dateCreatedStart: this.dateCreatedStart,
+      dateModifiedEnd: this.dateModifiedEnd,
+      dateModifiedMode: this.dateModifiedMode,
+      dateModifiedStart: this.dateModifiedStart,
+      fileCount: this.fileCount,
+      fileCountMode: this.fileCountMode,
+      ids: this.ids,
+      name: this.name,
+      nameMode: this.nameMode,
+      rating: this.rating,
+      ratingMode: this.ratingMode,
+      sortValue: this.sortValue,
+    };
+  }
+
+  getIsSelected(id: string) {
+    return this.selectedIdSet.has(id);
+  }
+
+  getResult(id: string) {
+    return this.resultsById.get(id);
+  }
+
+  getSearchProps() {
+    return derefMobx({
+      albumCount: this.albumCount,
+      albumCountMode: this.albumCountMode,
+      dateCreatedEnd: this.dateCreatedEnd,
+      dateCreatedMode: this.dateCreatedMode,
+      dateCreatedStart: this.dateCreatedStart,
+      dateModifiedEnd: this.dateModifiedEnd,
+      dateModifiedMode: this.dateModifiedMode,
+      dateModifiedStart: this.dateModifiedStart,
+      fileCount: this.fileCount,
+      fileCountMode: this.fileCountMode,
+      ids: this.ids,
+      name: this.name,
+      nameMode: this.nameMode,
+      rating: this.rating,
+      ratingMode: this.ratingMode,
+      sortValue: this.sortValue,
+    });
+  }
+}
+
+@model("medior/_MusicPlaylistSearch")
+export class _MusicPlaylistSearch extends Model({
+  cachedFilterProps: prop<object | null>(null).withSetter(),
+  dateCreatedEnd: prop<string>("").withSetter(),
+  dateCreatedMode: prop<"optional" | "required">("required").withSetter(),
+  dateCreatedStart: prop<string>("").withSetter(),
+  dateModifiedEnd: prop<string>("").withSetter(),
+  dateModifiedMode: prop<"optional" | "required">("required").withSetter(),
+  dateModifiedStart: prop<string>("").withSetter(),
+  fileCount: prop<{ logOp: LogicalOp | ""; value: number }>(() => ({ logOp: "", value: 0 })),
+  fileCountMode: prop<"optional" | "required">("required").withSetter(),
+  forcePages: prop<boolean>(false).withSetter(),
+  hasChanges: prop<boolean>(false).withSetter(),
+  ids: prop<string[]>(() => []).withSetter(),
+  isDeleteModalOpen: prop<boolean>(false).withSetter(),
+  isLoading: prop<boolean>(false).withSetter(),
+  isPageCountLoading: prop<boolean>(false).withSetter(),
+  isSaveModalOpen: prop<boolean>(false).withSetter(),
+  isSelecting: prop<boolean>(false).withSetter(),
+  loadId: prop<number>(0).withSetter(),
+  name: prop<string>("").withSetter(),
+  nameMode: prop<"optional" | "required">("required").withSetter(),
+  page: prop<number>(1).withSetter(),
+  pageCount: prop<number>(1).withSetter(),
+  pageSize: prop<number>(() => getConfig().music.playlists.search.pageSize).withSetter(),
+  rating: prop<{ logOp: LogicalOp | ""; value: number }>(() => ({ logOp: "", value: 0 })),
+  ratingMode: prop<"optional" | "required">("required").withSetter(),
+  results: prop<Stores.MusicPlaylist[]>(() => []).withSetter(),
+  savedSearches: prop<Stores.SavedSearch[]>(() => []).withSetter(),
+  selectedIds: prop<string[]>(() => []).withSetter(),
+  selectedSavedSearchId: prop<string>("").withSetter(),
+  selectionId: prop<number>(0).withSetter(),
+  sortValue: prop<SortMenuProps["value"]>(
+    () => getConfig().music.playlists.search.sort,
+  ).withSetter(),
+}) {
+  onInit() {
+    autoBind(this);
+
+    reaction(
+      () => this.getFilterProps(),
+      () => this.setHasChanges(true),
+    );
+  }
+
+  /* STANDARD ACTIONS */
+  @modelAction
+  _addResult(result: ModelCreationData<Stores.MusicPlaylist>) {
+    this.results.push(new Stores.MusicPlaylist(result));
+  }
+
+  @modelAction
+  applySearchProps(searchProps: Record<string, any>) {
+    this.reset();
+
+    Object.entries(searchProps).forEach(([key, value]) => {
+      if (key in this) this[key] = value;
+    });
+
+    this.cachedFilterProps = null;
+    this.hasChanges = true;
+    this.page = 1;
+    (this as any).afterApplySearchProps?.(searchProps);
+  }
+
+  @modelAction
+  cancelLoad() {
+    this.loadId += 1;
+    this.isLoading = false;
+    this.isPageCountLoading = false;
+    this.selectionId += 1;
+    this.isSelecting = false;
+  }
+
+  @modelAction
+  cancelSelection() {
+    this.selectionId += 1;
+    this.isSelecting = false;
+  }
+
+  @modelAction
+  setFileCountOp(val: LogicalOp | "") {
+    this.fileCount.logOp = val;
+
+    if (val === "") this.fileCount.value = 0;
+  }
+
+  @modelAction
+  setFileCountValue(val: number) {
+    this.fileCount.value = val;
+  }
+
+  @modelAction
+  setRatingOp(val: LogicalOp | "") {
+    this.rating.logOp = val;
+
+    if (val === "") this.rating.value = 0;
+  }
+
+  @modelAction
+  setRatingValue(val: number) {
+    this.rating.value = val;
+  }
+
+  @modelAction
+  _deleteResults(ids: string[]) {
+    const removedIds = new Set(ids);
+
+    this.results = this.results.filter((d) => !removedIds.has(d.id));
+  }
+
+  @modelAction
+  reset() {
+    this.cachedFilterProps = null;
+    this.dateCreatedEnd = "";
+    this.dateCreatedMode = "required";
+    this.dateCreatedStart = "";
+    this.dateModifiedEnd = "";
+    this.dateModifiedMode = "required";
+    this.dateModifiedStart = "";
+    this.fileCount = { logOp: "", value: 0 };
+    this.fileCountMode = "required";
+    this.forcePages = false;
+    this.hasChanges = false;
+    this.ids = [];
+    this.isLoading = false;
+    this.isPageCountLoading = false;
+    this.isSelecting = false;
+    this.loadId += 1;
+    this.name = "";
+    this.nameMode = "required";
+    this.page = 1;
+    this.pageCount = 1;
+    this.pageSize = getConfig().music.playlists.search.pageSize;
+    this.rating = { logOp: "", value: 0 };
+    this.ratingMode = "required";
+    this.results = [];
+    this.selectedIds = [];
+    this.selectionId += 1;
+    this.sortValue = getConfig().music.playlists.search.sort;
+  }
+
+  @modelAction
+  toggleSelected(selected: { id: string; isSelected?: boolean }[], withToast = false) {
+    if (!selected?.length) return;
+
+    const previous = this.selectedIdSet;
+    const next = applySelectionChanges(this.selectedIds, selected);
+
+    this.selectedIds = next;
+
+    if (withToast) {
+      const nextSet = new Set(next);
+      const addedCount = next.filter((id) => !previous.has(id)).length;
+      const removedCount = [...previous].filter((id) => !nextSet.has(id)).length;
+
+      if (addedCount && removedCount)
+        toast.success(`Selected ${addedCount} items and deselected ${removedCount} items`);
+      else if (addedCount) toast.success(`Selected ${addedCount} items`);
+      else if (removedCount) toast.success(`Deselected ${removedCount} items`);
+    }
+  }
+
+  /* ASYNC ACTIONS */
+  @modelFlow
+  applySavedSearch = asyncAction(async (id: string) => {
+    if (!this.savedSearches.some((s) => s.id === id)) await this.loadSavedSearches();
+
+    const savedSearch = this.savedSearches.find((s) => s.id === id);
+
+    if (!savedSearch) return;
+
+    this.applySearchProps(derefMobx(savedSearch.filterProps));
+    this.setSelectedSavedSearchId(id);
+    await this.loadFiltered({ noCache: true, page: 1 });
+  });
+
+  @modelFlow
+  deleteSavedSearch = asyncAction(async (id: string = this.selectedSavedSearchId) => {
+    if (!id) return;
+
+    const res = await rpc.deleteSavedSearch({ args: { ids: [id] } });
+
+    if (!res.success) throw new Error(res.error);
+
+    await this.loadSavedSearches();
+
+    if (this.selectedSavedSearchId === id) this.setSelectedSavedSearchId("");
+
+    this.setIsDeleteModalOpen(false);
+    toast.warn("Saved search deleted");
+  });
+
+  @modelFlow
+  getShiftSelected = asyncAction(
+    async ({ id, selectedIds }: { id: string; selectedIds: string[] }) => {
+      const range = getSelectionRange({
+        clickedId: id,
+        orderedIds: this.results.map((r) => r.id),
+        selectedIds,
+      });
+
+      if (range) return range;
+
+      const selectionId = this.selectionId + 1;
+
+      this.setSelectionId(selectionId);
+      this.setIsSelecting(true);
+
+      try {
+        const res = await rpc.getShiftSelectedMusicPlaylist({
+          ...this.cachedFilterProps,
+          clickedId: id,
+          selectedIds,
+        });
+
+        if (selectionId !== this.selectionId) return null;
+
+        if (!res.success) throw new Error(res.error);
+
+        return res.data;
+      } catch (error) {
+        if (selectionId === this.selectionId) throw error;
+
+        return null;
+      } finally {
+        if (selectionId === this.selectionId) this.setIsSelecting(false);
+      }
+    },
+  );
+
+  @modelFlow
+  handleSelect = asyncAction(
+    async ({ hasCtrl, hasShift, id }: { hasCtrl: boolean; hasShift: boolean; id: string }) => {
+      if (hasShift) {
+        const res = await this.getShiftSelected({ id, selectedIds: this.selectedIds });
+
+        if (!res?.success) throw new Error(res.error);
+
+        if (res.data) {
+          this.toggleSelected([
+            ...res.data.idsToDeselect.map((i) => ({ id: i, isSelected: false })),
+            ...res.data.idsToSelect.map((i) => ({ id: i, isSelected: true })),
+          ]);
+        }
+      } else if (hasCtrl) {
+        this.toggleSelected([{ id, isSelected: !this.getIsSelected(id) }]);
+      } else if (this.selectedIds.length === 1 && this.getIsSelected(id)) {
+        this.setSelectedIds([]);
+      } else {
+        this.setSelectedIds([id]);
+      }
+    },
+  );
+
+  @modelFlow
+  selectAllInQuery = asyncAction(async () => {
+    const filterProps = this.cachedFilterProps ?? this.getFilterProps();
+    const selectionId = this.selectionId + 1;
+
+    this.setSelectionId(selectionId);
+    this.setIsSelecting(true);
+
+    try {
+      const countRes = await rpc.getFilteredMusicPlaylistCount({
+        ...filterProps,
+        curMaxPage: this.pageCount,
+        forcePages: this.forcePages,
+        page: this.page,
+        pageSize: this.pageSize,
+        withFull: true,
+      });
+
+      if (selectionId !== this.selectionId) return null;
+
+      if (!countRes.success) throw new Error(countRes.error);
+
+      if (countRes.data.count === 0) return 0;
+
+      const res = await rpc.listFilteredMusicPlaylist({
+        ...filterProps,
+        forcePages: this.forcePages,
+        page: 1,
+        pageSize: countRes.data.count,
+        select: { _id: 1 },
+      });
+
+      if (selectionId !== this.selectionId) return null;
+
+      if (!res.success) throw new Error(res.error);
+
+      this.toggleSelected(res.data.map(({ id }) => ({ id, isSelected: true })));
+
+      return res.data.length;
+    } catch (error) {
+      if (selectionId === this.selectionId) throw error;
+
+      return null;
+    } finally {
+      if (selectionId === this.selectionId) this.setIsSelecting(false);
+    }
+  });
+
+  @modelFlow
+  loadFiltered = asyncAction(
+    async ({
+      noCache,
+      page,
+      toLastPage,
+      withFullCount,
+    }: {
+      noCache?: boolean;
+      page?: number;
+      toLastPage?: boolean;
+      withFullCount?: boolean;
+    } = {}) => {
+      const loadId = this.loadId + 1;
+
+      this.setLoadId(loadId);
+      this.setIsLoading(true);
+      this.setIsPageCountLoading(true);
+
+      try {
+        const shouldCacheFilterProps = noCache || !this.cachedFilterProps;
+        const filterProps = shouldCacheFilterProps ? this.getFilterProps() : this.cachedFilterProps;
+
+        // A selection still running over the previous query would add its results to the new one.
+        if (shouldCacheFilterProps) this.cancelSelection();
+
+        const exactCount = withFullCount || toLastPage;
+        let nextPageCount = this.pageCount;
+
+        if (exactCount) {
+          const countRes = await rpc.getFilteredMusicPlaylistCount({
+            ...filterProps,
+            curMaxPage: this.pageCount,
+            forcePages: this.forcePages,
+            page,
+            pageSize: this.pageSize,
+            withFull: true,
+          });
+
+          if (loadId !== this.loadId) return;
+
+          if (!countRes.success) throw new Error(countRes.error);
+
+          nextPageCount = countRes.data.pageCount;
+        }
+
+        const newPage = toLastPage
+          ? Math.max(nextPageCount, 1)
+          : exactCount
+            ? Math.min(page ?? this.page, Math.max(nextPageCount, 1))
+            : (page ?? this.page);
+
+        const itemsRes = await rpc.listFilteredMusicPlaylist({
+          ...filterProps,
+          forcePages: this.forcePages,
+          page: newPage,
+          pageSize: this.pageSize,
+        });
+
+        if (loadId !== this.loadId) return;
+
+        if (!itemsRes.success) throw new Error(itemsRes.error);
+
+        let items = itemsRes.data;
+
+        this.setResults(items.map((result) => new Stores.MusicPlaylist(result)));
+
+        if (shouldCacheFilterProps) this.setCachedFilterProps(derefMobx(filterProps));
+
+        if (exactCount) {
+          this.setPageCount(nextPageCount);
+          this.setIsPageCountLoading(false);
+        }
+
+        this.setPage(newPage);
+        this.setIsLoading(false);
+
+        if (noCache) this.setHasChanges(false);
+
+        if (!exactCount) {
+          (async () => {
+            try {
+              const countRes = await rpc.getFilteredMusicPlaylistCount({
+                ...filterProps,
+                curMaxPage: this.pageCount,
+                forcePages: this.forcePages,
+                page: newPage,
+                pageSize: this.pageSize,
+                withFull: false,
+              });
+
+              if (loadId !== this.loadId) return;
+
+              this.setIsPageCountLoading(false);
+
+              if (!countRes.success) console.error(countRes.error);
+              else this.setPageCount(countRes.data.pageCount);
+            } catch (error) {
+              if (loadId !== this.loadId) return;
+
+              this.setIsPageCountLoading(false);
+              console.error(error);
+            }
+          })();
+        }
+
+        return items;
+      } catch (error) {
+        if (loadId !== this.loadId) return;
+
+        this.setIsLoading(false);
+        this.setIsPageCountLoading(false);
+
+        throw error;
+      }
+    },
+  );
+
+  @modelFlow
+  loadSavedSearches = asyncAction(async () => {
+    const res = await rpc.listSavedSearch({
+      args: {
+        filter: { searchType: "MusicPlaylist" },
+        page: 1,
+        pageSize: 1000,
+        sort: { label: "asc" },
+      },
+    });
+
+    if (!res.success) throw new Error(res.error);
+
+    this.setSavedSearches(res.data.items.map((result) => new Stores.SavedSearch(result)));
+
+    return res.data.items;
+  });
+
+  @modelFlow
+  saveSavedSearch = asyncAction(async (label: string) => {
+    const trimmedLabel = label.trim();
+
+    if (!trimmedLabel) throw new Error("Saved search label is required");
+
+    const existing = this.savedSearches.find((s) => s.label === trimmedLabel);
+    const selected = this.savedSearches.find((s) => s.id === this.selectedSavedSearchId);
+    const filterProps = this.getSearchProps();
+    let res: Awaited<ReturnType<typeof rpc.createSavedSearch | typeof rpc.updateSavedSearch>>;
+
+    if (selected)
+      res = await rpc.updateSavedSearch({
+        args: { id: selected.id, updates: { filterProps, label: trimmedLabel } },
+      });
+    else if (existing)
+      res = await rpc.updateSavedSearch({
+        args: { id: existing.id, updates: { filterProps } },
+      });
+    else
+      res = await rpc.createSavedSearch({
+        args: {
+          dateCreated: dayjs().toISOString(),
+          filterProps,
+          label: trimmedLabel,
+          searchType: "MusicPlaylist",
+        },
+      });
+
+    if (!res.success) throw new Error(res.error);
+
+    await this.loadSavedSearches();
+    this.setSelectedSavedSearchId(selected?.id ?? existing?.id ?? res.data.id);
+    this.setIsSaveModalOpen(false);
+    toast.success(selected || existing ? "Saved search updated" : "Saved search created");
+
+    return res.data;
+  });
+
+  /* GETTERS */
+  @computed
+  get numOfFilters() {
+    return (
+      (!isDeepEqual(this.dateCreatedEnd, "") ? 1 : 0) +
+      (!isDeepEqual(this.dateCreatedStart, "") ? 1 : 0) +
+      (!isDeepEqual(this.dateModifiedEnd, "") ? 1 : 0) +
+      (!isDeepEqual(this.dateModifiedStart, "") ? 1 : 0) +
+      (!isDeepEqual(this.fileCount, { logOp: "", value: 0 }) ? 1 : 0) +
+      (!isDeepEqual(this.ids, []) ? 1 : 0) +
+      (!isDeepEqual(this.name, "") ? 1 : 0) +
+      (!isDeepEqual(this.rating, { logOp: "", value: 0 }) ? 1 : 0) +
+      (!isDeepEqual(this.sortValue, getConfig().music.playlists.search.sort) ? 1 : 0)
+    );
+  }
+
+  @computed({ keepAlive: true })
+  get resultsById() {
+    return new Map(this.results.map((result) => [result.id, result]));
+  }
+
+  @computed({ keepAlive: true })
+  get selectedIdSet() {
+    return new Set(this.selectedIds);
+  }
+
+  /* DYNAMIC GETTERS */
+  getCachedFilterProps() {
+    if (!this.cachedFilterProps) this.setCachedFilterProps(derefMobx(this.getFilterProps()));
+
+    return this.cachedFilterProps;
+  }
+
+  getFilterProps() {
+    return {
+      dateCreatedEnd: this.dateCreatedEnd,
+      dateCreatedMode: this.dateCreatedMode,
+      dateCreatedStart: this.dateCreatedStart,
+      dateModifiedEnd: this.dateModifiedEnd,
+      dateModifiedMode: this.dateModifiedMode,
+      dateModifiedStart: this.dateModifiedStart,
+      fileCount: this.fileCount,
+      fileCountMode: this.fileCountMode,
+      ids: this.ids,
+      name: this.name,
+      nameMode: this.nameMode,
+      rating: this.rating,
+      ratingMode: this.ratingMode,
+      sortValue: this.sortValue,
+    };
+  }
+
+  getIsSelected(id: string) {
+    return this.selectedIdSet.has(id);
+  }
+
+  getResult(id: string) {
+    return this.resultsById.get(id);
+  }
+
+  getSearchProps() {
+    return derefMobx({
+      dateCreatedEnd: this.dateCreatedEnd,
+      dateCreatedMode: this.dateCreatedMode,
+      dateCreatedStart: this.dateCreatedStart,
+      dateModifiedEnd: this.dateModifiedEnd,
+      dateModifiedMode: this.dateModifiedMode,
+      dateModifiedStart: this.dateModifiedStart,
+      fileCount: this.fileCount,
+      fileCountMode: this.fileCountMode,
+      ids: this.ids,
+      name: this.name,
+      nameMode: this.nameMode,
+      rating: this.rating,
+      ratingMode: this.ratingMode,
+      sortValue: this.sortValue,
+    });
+  }
+}
+
 @model("medior/_SavedImportConfigSearch")
 export class _SavedImportConfigSearch extends Model({
   cachedFilterProps: prop<object | null>(null).withSetter(),
@@ -4671,6 +6419,8 @@ export class _File extends Model({
   isArchived: prop<boolean>(null),
   isAudioCorrupted: prop<boolean>(null),
   isCorrupted: prop<boolean>(null),
+  music: prop<import("medior/utils/common/music").FileMusic>(null),
+  musicOptions: prop<import("medior/utils/common/music").MusicImportOptions>(null),
   originalAudioBitrate: prop<number>(null),
   originalAudioCodec: prop<string>(null),
   originalBitrate: prop<number>(null),
@@ -4887,6 +6637,7 @@ export class _FileImportBatch extends Model({
   lastUploadHash: prop<string>(null),
   lastUploadOffset: prop<number>(null),
   mediaProgram: prop<import("medior/utils/common/media-programs").MediaProgramImport>(null),
+  music: prop<import("medior/utils/common/music").MusicImportOptions>(null),
   processedCount: prop<number>(0),
   processedSize: prop<number>(0),
   progressRevision: prop<number>(0),
@@ -5149,6 +6900,207 @@ export class _MediaProgramStore extends Model({ isLoading: prop<boolean>(false).
 
     try {
       const res = await rpc._updateMediaProgram({ args });
+      if (!res.success) throw new Error(res.error);
+      return res.data;
+    } finally {
+      this.setIsLoading(false);
+    }
+  });
+}
+/* --------------------------------------------------------------------------- */
+/*                               MusicAlbum
+/* --------------------------------------------------------------------------- */
+
+@model("medior/_MusicAlbum")
+export class _MusicAlbum extends Model({
+  artistId: prop<string>(),
+  artistName: prop<string>(),
+  coverFileId: prop<string>(null),
+  dateCreated: prop<string>(() => dayjs().toISOString()),
+  dateModified: prop<string>(null),
+  duration: prop<number>(0),
+  fileCount: prop<number>(0),
+  fileIds: prop<string[]>(() => []),
+  id: prop<string>(),
+  key: prop<string>(),
+  name: prop<string>(),
+  rating: prop<number>(0),
+  size: prop<number>(0),
+  year: prop<number>(null),
+}) {
+  @modelAction
+  update(updates: Partial<ModelCreationData<this>>) {
+    applySnapshot(this, { ...getSnapshot(this), ...updates });
+  }
+}
+
+@model("medior/_MusicAlbumStore")
+export class _MusicAlbumStore extends Model({ isLoading: prop<boolean>(false).withSetter() }) {
+  /* ------------------------------ ASYNC ACTIONS ----------------------------- */
+  @modelFlow
+  createMusicAlbum = asyncAction(async (args: Types.CreateMusicAlbumInput) => {
+    this.setIsLoading(true);
+
+    try {
+      const res = await rpc.createMusicAlbum({ args });
+      if (!res.success) throw new Error(res.error);
+      return res.data;
+    } finally {
+      this.setIsLoading(false);
+    }
+  });
+
+  @modelFlow
+  deleteMusicAlbum = asyncAction(async (args: Types.DeleteMusicAlbumInput) => {
+    this.setIsLoading(true);
+
+    try {
+      const res = await rpc.deleteMusicAlbum({ args });
+      if (!res.success) throw new Error(res.error);
+      return res.data;
+    } finally {
+      this.setIsLoading(false);
+    }
+  });
+
+  @modelFlow
+  updateMusicAlbum = asyncAction(async (args: Types.UpdateMusicAlbumInput) => {
+    this.setIsLoading(true);
+
+    try {
+      const res = await rpc.updateMusicAlbum({ args });
+      if (!res.success) throw new Error(res.error);
+      return res.data;
+    } finally {
+      this.setIsLoading(false);
+    }
+  });
+}
+/* --------------------------------------------------------------------------- */
+/*                               MusicArtist
+/* --------------------------------------------------------------------------- */
+
+@model("medior/_MusicArtist")
+export class _MusicArtist extends Model({
+  albumCount: prop<number>(0),
+  coverFileId: prop<string>(null),
+  dateCreated: prop<string>(() => dayjs().toISOString()),
+  dateModified: prop<string>(null),
+  duration: prop<number>(0),
+  fileCount: prop<number>(0),
+  fileIds: prop<string[]>(() => []),
+  id: prop<string>(),
+  key: prop<string>(),
+  name: prop<string>(),
+  rating: prop<number>(0),
+  size: prop<number>(0),
+}) {
+  @modelAction
+  update(updates: Partial<ModelCreationData<this>>) {
+    applySnapshot(this, { ...getSnapshot(this), ...updates });
+  }
+}
+
+@model("medior/_MusicArtistStore")
+export class _MusicArtistStore extends Model({ isLoading: prop<boolean>(false).withSetter() }) {
+  /* ------------------------------ ASYNC ACTIONS ----------------------------- */
+  @modelFlow
+  createMusicArtist = asyncAction(async (args: Types.CreateMusicArtistInput) => {
+    this.setIsLoading(true);
+
+    try {
+      const res = await rpc.createMusicArtist({ args });
+      if (!res.success) throw new Error(res.error);
+      return res.data;
+    } finally {
+      this.setIsLoading(false);
+    }
+  });
+
+  @modelFlow
+  deleteMusicArtist = asyncAction(async (args: Types.DeleteMusicArtistInput) => {
+    this.setIsLoading(true);
+
+    try {
+      const res = await rpc.deleteMusicArtist({ args });
+      if (!res.success) throw new Error(res.error);
+      return res.data;
+    } finally {
+      this.setIsLoading(false);
+    }
+  });
+
+  @modelFlow
+  updateMusicArtist = asyncAction(async (args: Types.UpdateMusicArtistInput) => {
+    this.setIsLoading(true);
+
+    try {
+      const res = await rpc.updateMusicArtist({ args });
+      if (!res.success) throw new Error(res.error);
+      return res.data;
+    } finally {
+      this.setIsLoading(false);
+    }
+  });
+}
+/* --------------------------------------------------------------------------- */
+/*                               MusicPlaylist
+/* --------------------------------------------------------------------------- */
+
+@model("medior/_MusicPlaylist")
+export class _MusicPlaylist extends Model({
+  coverFileId: prop<string>(null),
+  dateCreated: prop<string>(() => dayjs().toISOString()),
+  dateModified: prop<string>(null),
+  duration: prop<number>(0),
+  fileCount: prop<number>(0),
+  fileIds: prop<string[]>(() => []),
+  id: prop<string>(),
+  name: prop<string>(),
+  rating: prop<number>(0),
+  size: prop<number>(0),
+}) {
+  @modelAction
+  update(updates: Partial<ModelCreationData<this>>) {
+    applySnapshot(this, { ...getSnapshot(this), ...updates });
+  }
+}
+
+@model("medior/_MusicPlaylistStore")
+export class _MusicPlaylistStore extends Model({ isLoading: prop<boolean>(false).withSetter() }) {
+  /* ------------------------------ ASYNC ACTIONS ----------------------------- */
+  @modelFlow
+  createMusicPlaylist = asyncAction(async (args: Types._CreateMusicPlaylistInput) => {
+    this.setIsLoading(true);
+
+    try {
+      const res = await rpc._createMusicPlaylist({ args });
+      if (!res.success) throw new Error(res.error);
+      return res.data;
+    } finally {
+      this.setIsLoading(false);
+    }
+  });
+
+  @modelFlow
+  deleteMusicPlaylist = asyncAction(async (args: Types.DeleteMusicPlaylistInput) => {
+    this.setIsLoading(true);
+
+    try {
+      const res = await rpc.deleteMusicPlaylist({ args });
+      if (!res.success) throw new Error(res.error);
+      return res.data;
+    } finally {
+      this.setIsLoading(false);
+    }
+  });
+
+  @modelFlow
+  updateMusicPlaylist = asyncAction(async (args: Types._UpdateMusicPlaylistInput) => {
+    this.setIsLoading(true);
+
+    try {
+      const res = await rpc._updateMusicPlaylist({ args });
       if (!res.success) throw new Error(res.error);
       return res.data;
     } finally {

@@ -56,6 +56,12 @@ model.addProp("hasDiffParams", "boolean", "false", {
     ]`,
 });
 
+/** Audio files read into Music, which every track has an artist credit for. */
+model.addProp("hasMusic", "boolean", "false", {
+  objPath: ["music.artists.key", "$type"],
+  objValue: "'string'",
+});
+
 model.addProp("hasTimeline", "boolean", "false", {
   objPath: ["timestamps.id", "$exists"],
   objValue: "true",
@@ -138,18 +144,31 @@ model.addProp(
 );
 
 model.addProp(
+  "selectedAudioExts",
+  "Types.SelectedAudioExts",
+  "() => Object.fromEntries(getConfig().file.audioExts.map((ext) => [ext, true])) as Types.SelectedAudioExts",
+  {
+    setter: model.makeSetterProp(
+      "selectedAudioExts",
+      ["types: Partial<Types.SelectedAudioExts>"],
+      "this.selectedAudioExts = { ...this.selectedAudioExts, ...types };",
+    ),
+  },
+);
+
+model.addProp(
   "selectedImageExts",
   "Types.SelectedImageExts",
   "() => Object.fromEntries(getConfig().file.imageExts.map((ext) => [ext, true])) as Types.SelectedImageExts",
   {
     customActionProps: [
-      // This handles both image and video exts because setObj does not support the `$or: [{}]` syntax
+      // This handles audio, image and video exts because setObj does not support the `$or: [{}]` syntax
       model.makeCustomActionProp({
         condition:
-          "Object.values({ ...args.selectedImageExts, ...args.selectedVideoExts }).some((selected) => !selected)",
+          "Object.values({ ...args.selectedAudioExts, ...args.selectedImageExts, ...args.selectedVideoExts }).some((selected) => !selected)",
         objPath: ["ext", "$nin"],
         objValue:
-          "Object.entries({ ...args.selectedImageExts, ...args.selectedVideoExts }).filter(([, val]) => !val).map(([ext]) => ext)",
+          "Object.entries({ ...args.selectedAudioExts, ...args.selectedImageExts, ...args.selectedVideoExts }).filter(([, val]) => !val).map(([ext]) => ext)",
       }),
     ],
     setter: model.makeSetterProp(

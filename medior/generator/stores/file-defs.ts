@@ -5,9 +5,22 @@ import { makeSectionComment } from "medior/generator/utils";
 
 const CUSTOM_SORT_OPTION = `{ attribute: "custom", icon: "Settings", label: "Custom" }`;
 
+/** Seasons keep their episodes in number order, which their custom sort shows. */
+const EPISODE_NUMBER_SORT_OPTION = `{ attribute: "custom", icon: "FormatListNumbered", label: "Number" }`;
+
+/** Tracks sort by their music tags as well as their files' own details. */
+const MUSIC_TRACK_SORT_OPTIONS = [
+  `{ attribute: "music.artist", icon: "Person", label: "Artist" }`,
+  `{ attribute: "music.title", icon: "Title", label: "Title" }`,
+  `{ attribute: "music.album", icon: "Album", label: "Album" }`,
+  `{ attribute: "music.year", icon: "CalendarMonth", label: "Year" }`,
+];
+
 const CUSTOM_SORT_OPTIONS: Record<string, string[]> = {
   FileCollectionFile: [CUSTOM_SORT_OPTION, `...MODEL_SORT_OPTIONS.File`],
+  MediaProgramEpisode: [EPISODE_NUMBER_SORT_OPTION, `...MODEL_SORT_OPTIONS.File`],
   MediaProgramRanking: [CUSTOM_SORT_OPTION, `...MODEL_SORT_OPTIONS.MediaProgram`],
+  MusicTrack: [...MUSIC_TRACK_SORT_OPTIONS, `...MODEL_SORT_OPTIONS.File`],
 };
 
 export const FILE_DEF_SORT_OPTIONS: FileDef = {

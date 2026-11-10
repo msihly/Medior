@@ -6,6 +6,10 @@ import {
   FileSearch,
   MediaProgram,
   MediaProgramSearch,
+  MusicAlbumSearch,
+  MusicArtistSearch,
+  MusicItemKind,
+  MusicPlaylistSearch,
   TagOption,
   TagSearch,
   tagToOption,
@@ -21,6 +25,8 @@ import {
 import { reloadItemTags } from "medior/utils/client/tags";
 import { isDeepEqual } from "medior/utils/common";
 import { socket } from "medior/utils/server";
+
+type MusicSearch = MusicAlbumSearch | MusicArtistSearch | MusicPlaylistSearch;
 
 export interface UseSocketsProps {
   enabled?: boolean;
@@ -52,10 +58,48 @@ export const useSockets = ({ enabled = true, view }: UseSocketsProps) => {
    * changes, so running it again reflects what the update moved in or out of its results.
    */
   const updateSearch = (
-    search: FileCollectionSearch | FileSearch | MediaProgramSearch | TagSearch,
+    search: FileCollectionSearch | FileSearch | MediaProgramSearch | MusicSearch | TagSearch,
     updatedKeys: string[],
   ) => {
     if (updatedKeys.length) search.setHasChanges(true);
+  };
+
+  /** Closes the open music page once its album, artist, or playlist is deleted. */
+  const closeDeletedMusicPage = (kind: MusicItemKind, ids: string[]) => {
+    const editor = stores.music.editor;
+
+    if (editor.isOpen && editor.kind === kind && ids.includes(editor.item?.id))
+      editor.setIsOpen(false);
+  };
+
+  /** Follows updates to the open music page's item, reloading its tracks or cover as they change. */
+  const updateMusicPage = (kind: MusicItemKind, id: string, updates: Record<string, unknown>) => {
+    const editor = stores.music.editor;
+
+    if (!editor.isOpen || editor.kind !== kind || editor.item?.id !== id) return;
+
+    editor.updateItem(updates);
+
+    if ("fileIds" in updates) editor.syncTracks();
+
+    if ("coverFileId" in updates) editor.loadCover();
+  };
+
+  /** Updates a music item among a search's results, loading a new cover with the page's others. */
+  const updateMusicResult = (search: MusicSearch, id: string, updates: Record<string, unknown>) => {
+    const item = search.getResult(id);
+    const keys = Object.keys(updates);
+
+    updateSearch(
+      search,
+      keys.filter((key) => !item || !isDeepEqual(item[key], updates[key])),
+    );
+
+    if (item) {
+      item.update(updates);
+
+      if (keys.includes("coverFileId")) search.loadFiles();
+    }
   };
 
   /** Removes deleted or merged-away items from a search's results and selection. */
@@ -86,6 +130,8 @@ export const useSockets = ({ enabled = true, view }: UseSocketsProps) => {
       ? [stores.collection.editor.search, stores.collection.editor.fileSearch]
       : []),
     ...(stores.mediaProgram.editor.isOpen ? [stores.mediaProgram.editor.search] : []),
+    ...(stores.music.editor.isOpen ? [stores.music.editor.search] : []),
+    ...(stores.music.manager.isOpen ? [stores.music.manager.tracks] : []),
   ];
 
   /** New tags can't be placed among loaded results, so the search shows it has changes. */
@@ -753,6 +799,61 @@ export const useSockets = ({ enabled = true, view }: UseSocketsProps) => {
             console.error(error);
           }
         }
+      });
+
+      // New music items can't be placed among loaded results, so the search shows it has changes.
+      makeSocket("onMusicAlbumCreated", () => {
+        if (stores.music.manager.isOpen) stores.music.manager.albums.setHasChanges(true);
+
+        if (stores.music.editor.isOpen) stores.music.editor.albumSearch.setHasChanges(true);
+      });
+
+      makeSocket("onMusicAlbumDeleted", ({ ids }) => {
+        removeResults(stores.music.manager.albums, ids);
+        removeResults(stores.music.editor.albumSearch, ids);
+        closeDeletedMusicPage("album", ids);
+      });
+
+      makeSocket("onMusicAlbumUpdated", ({ id, updates }) => {
+        if (stores.music.manager.isOpen)
+          updateMusicResult(stores.music.manager.albums, id, updates);
+
+        if (stores.music.editor.isOpen)
+          updateMusicResult(stores.music.editor.albumSearch, id, updates);
+
+        updateMusicPage("album", id, updates);
+      });
+
+      makeSocket("onMusicArtistCreated", () => {
+        if (stores.music.manager.isOpen) stores.music.manager.artists.setHasChanges(true);
+      });
+
+      makeSocket("onMusicArtistDeleted", ({ ids }) => {
+        removeResults(stores.music.manager.artists, ids);
+        closeDeletedMusicPage("artist", ids);
+      });
+
+      makeSocket("onMusicArtistUpdated", ({ id, updates }) => {
+        if (stores.music.manager.isOpen)
+          updateMusicResult(stores.music.manager.artists, id, updates);
+
+        updateMusicPage("artist", id, updates);
+      });
+
+      makeSocket("onMusicPlaylistCreated", () => {
+        if (stores.music.manager.isOpen) stores.music.manager.playlists.setHasChanges(true);
+      });
+
+      makeSocket("onMusicPlaylistDeleted", ({ ids }) => {
+        removeResults(stores.music.manager.playlists, ids);
+        closeDeletedMusicPage("playlist", ids);
+      });
+
+      makeSocket("onMusicPlaylistUpdated", ({ id, updates }) => {
+        if (stores.music.manager.isOpen)
+          updateMusicResult(stores.music.manager.playlists, id, updates);
+
+        updateMusicPage("playlist", id, updates);
       });
 
       makeSocket("onReloadFileCollections", () => {

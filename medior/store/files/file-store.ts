@@ -179,6 +179,11 @@ export class FileStore extends ExtendedModel(_FileStore, {
       ...stores.mediaProgram.editor.search.results,
       ...stores.mediaProgram.manager.search.files.values(),
       ...stores.mediaProgram.rankings.search.files.values(),
+      ...stores.music.editor.search.results,
+      ...stores.music.manager.albums.files.values(),
+      ...stores.music.manager.artists.files.values(),
+      ...stores.music.manager.playlists.files.values(),
+      ...stores.music.manager.tracks.results,
     ];
 
     this.updateFiles(fileIds, updates);

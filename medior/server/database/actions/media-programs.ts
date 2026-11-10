@@ -12,17 +12,22 @@ import { withMetadataMutation } from "medior/server/database/metadata-mutations"
 import { metadataSaveOptions, metadataWriteOptions } from "medior/server/database/metadata-work";
 import {
   addSeasonEpisodes,
+  countMissingEpisodes,
   dayjs,
+  getAverageRating,
   getLastEpisodeNumber,
   getMediaProgramEpisodeIds,
   getMediaProgramMetaSeasonNumbers,
+  getMediaProgramMissingEpisodes,
   getMediaProgramSeasonOutlines,
+  getMissingEpisodeKey,
   getSeasonEpisodeNumbers,
   getSeasonSortKey,
   getWatchStatusOrder,
   isDeepEqual,
   MEDIA_PROGRAM_WATCH_STATUSES,
   MediaProgramImport,
+  MediaProgramMissingMarks,
   MediaProgramSeason,
   MediaProgramSeasonInput,
   MediaProgramSeasonOutline,
@@ -56,12 +61,6 @@ type MediaProgramUpdates = Partial<
 /* -------------------------------------------------------------------------- */
 /*                              HELPER FUNCTIONS                              */
 /* -------------------------------------------------------------------------- */
-const getAverageRating = (ratings: number[]) => {
-  const rated = ratings.filter((rating) => rating > 0);
-
-  return rated.length ? sumArray(rated, (rating) => rating) / rated.length : 0;
-};
-
 /**
  * Whether saved seasons lack metadata the new ones need: a season was added or now matches another
  * source season, such as after renumbering or reordering unnumbered seasons, or one has an episode
@@ -95,7 +94,9 @@ const getWatchStatus = (
   }: { isComplete: boolean; isWatched: boolean; markedCount: number },
 ): MediaProgramWatchStatus => {
   if (isComplete) return "watched";
-  else if (!markedCount && ["watched", "watching"].includes(current)) return "unwatched";
+  // Only unmarking leaves nothing watched; skipping an episode without a file marks nothing.
+  else if (!isWatched && !markedCount && ["watched", "watching"].includes(current))
+    return "unwatched";
   // A program set to Watched stays so while episodes are replayed; unmarking one reopens it.
   else if (current === "watched") return isWatched ? "watched" : "watching";
   else if (markedCount && isWatched) return "watching";
@@ -163,6 +164,8 @@ const writeMediaProgramAttrs = async (
     .select({
       fileCount: 1,
       isRewatching: 1,
+      meta: 1,
+      missingMarks: 1,
       posterFileId: 1,
       rating: 1,
       ratingIsManual: 1,
@@ -232,10 +235,16 @@ const writeMediaProgramAttrs = async (
     updates.tagIdsWithAncestors = await actions.deriveAncestorTagIds(attrs.tagIds);
 
   // The watch status follows episodes or marks that season changes added or removed, leaving a
-  // status set by hand alone otherwise. A rewatch keeps its own.
+  // status set by hand alone otherwise. A rewatch keeps its own. Episodes without files finish the
+  // program once each was watched elsewhere or skipped.
   if (!program.isRewatching) {
+    const missing = countMissingEpisodes(
+      getMediaProgramMissingEpisodes(program.meta, seasons),
+      program.missingMarks,
+    );
     const watchedCount = attrs.watchedFileIds.length;
-    const isComplete = attrs.fileCount > 0 && watchedCount === attrs.fileCount;
+    const isComplete =
+      attrs.fileCount > 0 && watchedCount === attrs.fileCount && missing.watched === missing.total;
 
     // New episodes reopen a finished program.
     if (
@@ -257,6 +266,7 @@ const writeMediaProgramAttrs = async (
     else if (
       updates.watchedFileIds &&
       !watchedCount &&
+      !missing.watched &&
       ["watched", "watching"].includes(program.watchStatus)
     )
       updates.watchStatus = "unwatched";
@@ -275,14 +285,23 @@ const writeMediaProgramAttrs = async (
   }
 };
 
-/** Marks apply to the rewatch when one is active; finishing a rewatch counts it and clears its marks. */
+/**
+ * Marks apply to the rewatch when one is active; finishing a rewatch counts it and clears its marks.
+ * Episodes without files count as marked when watched elsewhere, and a viewing finishes once each
+ * of them was watched elsewhere or skipped.
+ */
 const writeWatchedFileIds = async (
   program: models.MediaProgramSchema & { _id: unknown },
   fileIds: string[],
   isWatched: boolean,
 ) => {
   const id = String(program._id);
-  const episodeIds = getMediaProgramEpisodeIds(readMediaProgramSeasons(program.seasons));
+  const seasons = readMediaProgramSeasons(program.seasons);
+  const episodeIds = getMediaProgramEpisodeIds(seasons);
+  const missing = countMissingEpisodes(
+    getMediaProgramMissingEpisodes(program.meta, seasons),
+    program.missingMarks,
+  );
   const dateModified = dayjs().toISOString();
   const fileIdSet = new Set(fileIds);
   const marked = new Set(
@@ -295,7 +314,10 @@ const writeWatchedFileIds = async (
   }
 
   const markedIds = episodeIds.filter((fileId) => marked.has(fileId));
-  const isComplete = episodeIds.length > 0 && markedIds.length === episodeIds.length;
+  const isComplete =
+    episodeIds.length > 0 &&
+    markedIds.length === episodeIds.length &&
+    missing.watched === missing.total;
   const lastWatchedFileId = episodeIds.filter((fileId) => fileIdSet.has(fileId)).at(-1);
 
   const updates: Partial<models.MediaProgramSchema> = {
@@ -315,7 +337,7 @@ const writeWatchedFileIds = async (
           watchStatus: getWatchStatus(program.watchStatus, {
             isComplete,
             isWatched,
-            markedCount: markedIds.length,
+            markedCount: markedIds.length + missing.watched,
           }),
         }),
   };
@@ -824,12 +846,56 @@ export const updateMediaProgram = makeAction(
       if (newSeasons) await writeMediaProgramAttrs(id, { seasons: newSeasons });
       else if (fields.ratingIsManual === false) await writeMediaProgramAttrs(id);
 
-      // Setting a program watched marks every episode, like marking all of its seasons watched.
+      // Setting a program watched marks every episode, like marking all of its seasons watched,
+      // and those without files as watched elsewhere, unless skipped.
       if (fields.watchStatus === "watched") {
         const latest = await models.MediaProgramModel.findById(id).lean();
-        const episodeIds = getMediaProgramEpisodeIds(readMediaProgramSeasons(latest.seasons));
+        const latestSeasons = readMediaProgramSeasons(latest.seasons);
+        const episodeIds = getMediaProgramEpisodeIds(latestSeasons);
+        const missingMarks: MediaProgramMissingMarks = {
+          ...Object.fromEntries(
+            getMediaProgramMissingEpisodes(latest.meta, latestSeasons).flatMap((season) =>
+              season.episodes.map((episode) => [
+                getMissingEpisodeKey(season.number, episode.number),
+                "watched",
+              ]),
+            ),
+          ),
+          ...latest.missingMarks,
+        };
 
-        if (episodeIds.length) await writeWatchedFileIds(latest, episodeIds, true);
+        if (!isDeepEqual(missingMarks, latest.missingMarks ?? {})) {
+          await models.MediaProgramModel.updateOne(
+            { _id: id },
+            { $set: { missingMarks } },
+            metadataWriteOptions(),
+          );
+
+          socket.emitVolatile("onMediaProgramUpdated", { id, updates: { missingMarks } });
+        }
+
+        if (episodeIds.length)
+          await writeWatchedFileIds({ ...latest, missingMarks }, episodeIds, true);
+      } else if (fields.missingMarks && !fields.watchStatus) {
+        // Marks watched elsewhere on episodes without files finish or reopen the program like
+        // marks on its files. Skips mark nothing, so they only finish it, and unchanged marks
+        // leave its status alone.
+        const savedMarks = saved.missingMarks ?? {};
+        const changedKeys = [
+          ...new Set([...Object.keys(savedMarks), ...Object.keys(fields.missingMarks)]),
+        ].filter((key) => savedMarks[key] !== fields.missingMarks[key]);
+
+        if (changedKeys.length) {
+          const latest = await models.MediaProgramModel.findById(id).lean();
+          const isMarked = changedKeys.some((key) => fields.missingMarks[key] === "watched");
+          const isUnmarked = changedKeys.some((key) => savedMarks[key] === "watched");
+
+          await writeWatchedFileIds(
+            latest,
+            [],
+            !isUnmarked && (isMarked || ["watched", "watching"].includes(latest.watchStatus)),
+          );
+        }
       }
 
       return {

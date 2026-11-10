@@ -20,6 +20,7 @@ import { useStores } from "medior/store";
 import { colors, toast, useCancellableLoad } from "medior/utils/client";
 import {
   CONSTANTS,
+  MEDIA_PROGRAM_EPISODE_LABELS,
   RATING_DISPLAY_PRESETS,
   RatingDisplay,
   SUBTITLE_MODES,
@@ -63,6 +64,7 @@ const TABS = [
   { icon: "InsertDriveFile", label: "Files" },
   { icon: "GetApp", label: "Imports" },
   { icon: "LiveTv", label: "Media Programs" },
+  { icon: "LibraryMusic", label: "Music" },
   { icon: "Label", label: "Tags" },
   { icon: "Code", label: "Developer" },
 ] as const satisfies readonly { icon: IconName; label: string }[];
@@ -83,10 +85,17 @@ export const SettingsModal = Comp(() => {
   const isFolderToCollectionOff = store.imports.folderToCollMode === "none";
   const isFolderToTagsOff = store.imports.folderToTagsMode === "none";
   const isMediaProgramsOff = !store.imports.withMediaPrograms;
+  const isMusicOff = !store.imports.withMusic;
 
   useEffect(() => {
     handleLoadConfig();
   }, []);
+
+  const handleAddLinkedFolder = async () => {
+    const folder = await selectStorageLocation();
+
+    if (folder) store.addLinkedFolder(folder);
+  };
 
   const handleCancel = () => {
     if (store.hasUnsavedChanges) setIsConfirmDiscardOpen(true);
@@ -186,6 +195,16 @@ export const SettingsModal = Comp(() => {
       store.setIsLoading(false);
       toast.error("Failed to save settings.");
     }
+  };
+
+  const selectProgram = async (defaultPath?: string) => {
+    const res = await dialog.showOpenDialog({
+      defaultPath,
+      filters: [{ extensions: ["exe"], name: "Programs" }],
+      properties: ["openFile"],
+    });
+
+    return res.canceled ? undefined : res.filePaths[0];
   };
 
   const selectStorageLocation = async (defaultPath?: string) => {
@@ -300,6 +319,22 @@ export const SettingsModal = Comp(() => {
                     />
                   </Settings.Field>
                 </Settings.Grid>
+              </Settings.Group>
+
+              <Settings.Group
+                title="Linked Folders"
+                description="Files imported from these folders stay where they are, under their own names, for other apps such as music players. Medior never moves, renames, or deletes them or their empty folders, keeps their thumbnails in file storage, and ignores Delete on Import for them. Removing a folder lets Medior manage the files imported from it like any others."
+                rightNode={
+                  <Button
+                    text="Add Folder"
+                    icon="CreateNewFolder"
+                    onClick={handleAddLinkedFolder}
+                  />
+                }
+              >
+                <UniformList row spacing="0.5rem" height="10rem">
+                  <Settings.ListInput label="Folders" configKey="db.fileStorage.linkedFolders" />
+                </UniformList>
               </Settings.Group>
             </>
           )}
@@ -645,12 +680,28 @@ export const SettingsModal = Comp(() => {
                 </Settings.Grid>
               </Settings.Group>
 
+              <Settings.Group title="Video Player">
+                <Settings.Grid pairs={1}>
+                  <Settings.PlayerFields
+                    configKey="file.videoPlayer"
+                    description="Opens the playlists Open Natively makes for videos. Blank uses Windows' default program."
+                    selectProgram={selectProgram}
+                  />
+                </Settings.Grid>
+              </Settings.Group>
+
               <Settings.Group title="Formats">
                 <UniformList row spacing="0.5rem" height="15rem">
                   <Settings.ExtColumn
                     label="Audio Codecs"
                     options={CONSTANTS.AUDIO.CODECS}
                     configKey="file.audioCodecs"
+                  />
+
+                  <Settings.ExtColumn
+                    label="Audio Exts"
+                    options={CONSTANTS.AUDIO.EXTS}
+                    configKey="file.audioExts"
                   />
 
                   <Settings.ExtColumn
@@ -857,6 +908,35 @@ export const SettingsModal = Comp(() => {
 
                     <Settings.Checkbox
                       {...INGESTER_CHECKBOX_PROPS}
+                      label="Music"
+                      configKey="imports.withMusic"
+                    />
+
+                    <View column margins={{ left: "1rem" }}>
+                      <Settings.Checkbox
+                        {...INGESTER_CHECKBOX_PROPS}
+                        label="Parse Name"
+                        configKey="imports.withMusicFileNames"
+                        disabled={isMusicOff}
+                      />
+
+                      <Settings.Checkbox
+                        {...INGESTER_CHECKBOX_PROPS}
+                        label="Ignore Album Tags"
+                        configKey="imports.ignoreMusicAlbumTags"
+                        disabled={isMusicOff}
+                      />
+
+                      <Settings.Checkbox
+                        {...INGESTER_CHECKBOX_PROPS}
+                        label="List Featured Artists"
+                        configKey="imports.withMusicFeaturedArtists"
+                        disabled={isMusicOff}
+                      />
+                    </View>
+
+                    <Settings.Checkbox
+                      {...INGESTER_CHECKBOX_PROPS}
                       label="Sidecar"
                       configKey="imports.withSidecar"
                     />
@@ -983,6 +1063,31 @@ export const SettingsModal = Comp(() => {
                 </Settings.Grid>
               </Settings.Group>
 
+              <Settings.Group title="Episodes">
+                <Settings.Grid>
+                  <Settings.Field
+                    label="Labels"
+                    description="How the program editor labels episodes when it opens: by number alone, or with their season's number."
+                  >
+                    <Settings.Dropdown
+                      configKey="mediaPrograms.episodes.labels"
+                      options={[...MEDIA_PROGRAM_EPISODE_LABELS]}
+                      width="8rem"
+                    />
+                  </Settings.Field>
+
+                  <Settings.Field
+                    label="Default Sort"
+                    description="The order the program editor shows episodes in when it opens. Sorting never renumbers them."
+                  >
+                    <Settings.SortMenu
+                      configKey="mediaPrograms.episodes.sort"
+                      rows={SORT_OPTIONS.MediaProgramEpisode}
+                    />
+                  </Settings.Field>
+                </Settings.Grid>
+              </Settings.Group>
+
               <Settings.Group title="Rankings">
                 <Settings.Grid>
                   <Settings.Field label="Page Size">
@@ -1009,6 +1114,124 @@ export const SettingsModal = Comp(() => {
                   <Settings.ListInput label="Mediums" configKey="mediaPrograms.mediums" />
 
                   <Settings.ListInput label="Languages" configKey="mediaPrograms.languages" />
+                </UniformList>
+              </Settings.Group>
+            </>
+          )}
+
+          {activeTab === "Music" && (
+            <>
+              <Settings.Group title="Tracks">
+                <Settings.Grid>
+                  <Settings.Field label="Page Size">
+                    <Settings.NumInput
+                      configKey="music.tracks.search.pageSize"
+                      minValue={10}
+                      maxValue={500}
+                    />
+                  </Settings.Field>
+
+                  <Settings.Field label="Default Sort">
+                    <Settings.SortMenu
+                      configKey="music.tracks.search.sort"
+                      rows={SORT_OPTIONS.MusicTrack}
+                    />
+                  </Settings.Field>
+                </Settings.Grid>
+              </Settings.Group>
+
+              <Settings.Group title="Artists">
+                <Settings.Grid>
+                  <Settings.Field label="Page Size">
+                    <Settings.NumInput
+                      configKey="music.artists.search.pageSize"
+                      minValue={10}
+                      maxValue={250}
+                    />
+                  </Settings.Field>
+
+                  <Settings.Field label="Default Sort">
+                    <Settings.SortMenu
+                      configKey="music.artists.search.sort"
+                      rows={SORT_OPTIONS.MusicArtist}
+                    />
+                  </Settings.Field>
+                </Settings.Grid>
+              </Settings.Group>
+
+              <Settings.Group title="Albums">
+                <Settings.Grid>
+                  <Settings.Field label="Page Size">
+                    <Settings.NumInput
+                      configKey="music.albums.search.pageSize"
+                      minValue={10}
+                      maxValue={250}
+                    />
+                  </Settings.Field>
+
+                  <Settings.Field label="Default Sort">
+                    <Settings.SortMenu
+                      configKey="music.albums.search.sort"
+                      rows={SORT_OPTIONS.MusicAlbum}
+                    />
+                  </Settings.Field>
+                </Settings.Grid>
+              </Settings.Group>
+
+              <Settings.Group title="Playlists">
+                <Settings.Grid>
+                  <Settings.Field label="Page Size">
+                    <Settings.NumInput
+                      configKey="music.playlists.search.pageSize"
+                      minValue={10}
+                      maxValue={250}
+                    />
+                  </Settings.Field>
+
+                  <Settings.Field label="Default Sort">
+                    <Settings.SortMenu
+                      configKey="music.playlists.search.sort"
+                      rows={SORT_OPTIONS.MusicPlaylist}
+                    />
+                  </Settings.Field>
+                </Settings.Grid>
+              </Settings.Group>
+
+              <Settings.Group title="Player">
+                <Settings.Grid pairs={1}>
+                  <Settings.Field
+                    label="Cover Art Colors"
+                    description="Colors the player bar, the music view's header and tracks, and the compact player's title bar and queue with the dominant colors of the playing track's cover art."
+                  >
+                    <Settings.Checkbox configKey="music.coverColors" width="auto" />
+                  </Settings.Field>
+                </Settings.Grid>
+              </Settings.Group>
+
+              <Settings.Group title="External Player">
+                <Settings.Grid pairs={1}>
+                  <Settings.PlayerFields
+                    configKey="music.player"
+                    description="Opens audio files from Open Natively and tracks from Open in Player. Blank uses Windows' default program."
+                    selectProgram={selectProgram}
+                  />
+                </Settings.Grid>
+              </Settings.Group>
+
+              <Settings.Group title="Name Parsing">
+                <Settings.Grid pairs={1}>
+                  <Settings.Field
+                    label="Name Pattern"
+                    description="{artist} and {title} mark where Parse Name reads them from file names. Spaces match any spacing, and a dash matches any dash."
+                  >
+                    <Settings.Input configKey="music.namePattern" width="16rem" />
+                  </Settings.Field>
+                </Settings.Grid>
+              </Settings.Group>
+
+              <Settings.Group title="Lists">
+                <UniformList row spacing="0.5rem" height="15rem">
+                  <Settings.ListInput label="Artists Kept Whole" configKey="music.wholeArtists" />
                 </UniformList>
               </Settings.Group>
             </>

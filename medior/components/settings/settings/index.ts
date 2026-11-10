@@ -8,6 +8,7 @@ import * as Group from "./group";
 import * as Input from "./input";
 import * as ListInput from "./list-input";
 import * as NumInput from "./num-input";
+import * as PlayerFields from "./player-fields";
 import * as RatingLevels from "./rating-levels";
 import * as ScratchInput from "./scratch-input";
 import * as Section from "./section";
@@ -25,6 +26,7 @@ export const Settings = {
   ...Input,
   ...ListInput,
   ...NumInput,
+  ...PlayerFields,
   ...RatingLevels,
   ...ScratchInput,
   ...Section,

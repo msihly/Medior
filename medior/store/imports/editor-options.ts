@@ -1,8 +1,9 @@
 import autoBind from "auto-bind";
+import { computed } from "mobx";
 import { Model, model, modelAction, prop } from "mobx-keystone";
 import { FolderToCollMode, FolderToTagsMode } from "medior/components";
 import { derefMobx } from "medior/utils/client";
-import { SubtitleMode } from "medior/utils/common";
+import { MusicImportOptions, SubtitleMode } from "medior/utils/common";
 import { getConfig } from "medior/utils/server";
 
 @model("medior/ImportEditorOptions")
@@ -11,6 +12,7 @@ export class ImportEditorOptions extends Model({
   flattenTo: prop<number>(null).withSetter(),
   folderToCollectionMode: prop<FolderToCollMode>("none").withSetter(),
   folderToTagsMode: prop<FolderToTagsMode>("none").withSetter(),
+  ignoreMusicAlbumTags: prop<boolean>(false).withSetter(),
   ignorePrevDeleted: prop<boolean>(false).withSetter(),
   mediaProgramLanguage: prop<string>(null).withSetter(),
   mediaProgramMedium: prop<string>(null).withSetter(),
@@ -26,6 +28,9 @@ export class ImportEditorOptions extends Model({
   withFlattenTo: prop<boolean>(false).withSetter(),
   withFolderNameRegEx: prop<boolean>(false).withSetter(),
   withMediaPrograms: prop<boolean>(false).withSetter(),
+  withMusic: prop<boolean>(true).withSetter(),
+  withMusicFeaturedArtists: prop<boolean>(false).withSetter(),
+  withMusicFileNames: prop<boolean>(true).withSetter(),
   withNewTagsToRegEx: prop<boolean>(false).withSetter(),
   withSidecar: prop<boolean>(false).withSetter(),
 }) {
@@ -51,6 +56,7 @@ export class ImportEditorOptions extends Model({
     this.setFlattenTo(config.imports.flattenTo);
     this.setFolderToCollectionMode(config.imports.folderToCollMode);
     this.setFolderToTagsMode(config.imports.folderToTagsMode);
+    this.setIgnoreMusicAlbumTags(config.imports.ignoreMusicAlbumTags);
     this.setIgnorePrevDeleted(config.imports.ignorePrevDeleted);
     this.setMediaProgramLanguage(config.imports.mediaProgramLanguage);
     this.setMediaProgramMedium(config.imports.mediaProgramMedium);
@@ -66,6 +72,9 @@ export class ImportEditorOptions extends Model({
     this.setWithFlattenTo(config.imports.withFlattenTo);
     this.setWithFolderNameRegEx(config.imports.withFolderNameRegEx);
     this.setWithMediaPrograms(config.imports.withMediaPrograms);
+    this.setWithMusic(config.imports.withMusic);
+    this.setWithMusicFeaturedArtists(config.imports.withMusicFeaturedArtists);
+    this.setWithMusicFileNames(config.imports.withMusicFileNames);
     this.setWithNewTagsToRegEx(config.imports.withNewTagsToRegEx);
     this.setWithSidecar(config.imports.withSidecar);
   }
@@ -97,7 +106,21 @@ export class ImportEditorOptions extends Model({
     this.setFolderToTagsMode("hierarchical");
   }
 
+  /* --------------------------------- GETTERS -------------------------------- */
+  /** How the import reads its audio files' music, or none when Music is off. */
+  @computed
+  get musicOptions(): MusicImportOptions | null {
+    return this.withMusic
+      ? {
+          ignoreAlbumTags: this.ignoreMusicAlbumTags,
+          withFeaturedArtists: this.withMusicFeaturedArtists,
+          withFileNames: this.withMusicFileNames,
+        }
+      : null;
+  }
+
   /* ----------------------------- DYNAMIC GETTERS ---------------------------- */
+  /** Music, like subtitles, applies to the whole import rather than to a saved config's folder. */
   toSavedConfig() {
     return derefMobx({
       deleteOnImport: this.deleteOnImport,

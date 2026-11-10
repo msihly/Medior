@@ -6,11 +6,13 @@ import { checkFileExists, fileLog, isWithinFolder } from "trabecula/utils/server
 import type { FolderToCollMode, FolderToTagsMode, SortMenuProps } from "medior/components";
 import {
   AudioCodec,
+  AudioExt,
   CONSTANTS,
   DEFAULT_HOTKEYS,
   handleErrors,
   Hotkeys,
   ImageExt,
+  MediaProgramEpisodeLabels,
   MediaProgramRankingExport,
   mergePreset,
   migrateReencodeDimensions,
@@ -155,6 +157,14 @@ type Search = {
   sort: SortMenuProps["value"];
 };
 
+/** A program Medior opens files and playlists with, in place of Windows' default program. */
+export interface ExternalPlayer {
+  /** The program's arguments, in which {path} is the file or playlist it opens. */
+  args: string;
+  /** The program, or blank to open with Windows' default program. */
+  path: string;
+}
+
 export interface Config {
   collection: {
     editor: {
@@ -167,6 +177,11 @@ export interface Config {
   };
   db: {
     fileStorage: {
+      /**
+       * Folders whose files are imported where they are, for other apps such as music players.
+       * Medior never moves, renames, deletes, or writes beside them.
+       */
+      linkedFolders: string[];
       locations: string[];
       /** Folder for intermediate media files. Empty keeps them beside their storage location. */
       scratchPath: string;
@@ -186,6 +201,7 @@ export interface Config {
   };
   file: {
     audioCodecs: Array<AudioCodec>;
+    audioExts: Array<AudioExt>;
     fileCardFit: "contain" | "cover";
     hideUnratedIcon: boolean;
     imageExts: Array<ImageExt>;
@@ -300,6 +316,8 @@ export interface Config {
     };
     videoCodecs: Array<VideoCodec>;
     videoExts: Array<VideoExt>;
+    /** Opens video playlists from Open Natively. */
+    videoPlayer: ExternalPlayer;
     waveform: {
       enabled: boolean;
     };
@@ -311,6 +329,7 @@ export interface Config {
     folderDelimiter: string;
     folderToCollMode: FolderToCollMode;
     folderToTagsMode: FolderToTagsMode;
+    ignoreMusicAlbumTags: boolean;
     ignorePrevDeleted: boolean;
     labelDiff: string;
     labelDiffModel: string;
@@ -333,10 +352,18 @@ export interface Config {
     withFlattenTo: boolean;
     withFolderNameRegEx: boolean;
     withMediaPrograms: boolean;
+    withMusic: boolean;
+    withMusicFeaturedArtists: boolean;
+    withMusicFileNames: boolean;
     withNewTagsToRegEx: boolean;
     withSidecar: boolean;
   };
   mediaPrograms: {
+    /** The episode labels and order the program editor opens with. */
+    episodes: {
+      labels: MediaProgramEpisodeLabels;
+      sort: SortMenuProps["value"];
+    };
     languages: string[];
     manager: {
       search: Search;
@@ -347,6 +374,31 @@ export interface Config {
       search: Search;
     };
     types: string[];
+  };
+  music: {
+    albums: {
+      search: Search;
+    };
+    artists: {
+      search: Search;
+    };
+    /**
+     * Colors the player and the views around it, in the music view and the compact player window,
+     * with the dominant colors of the playing track's cover art.
+     */
+    coverColors: boolean;
+    /** How file names give a missing artist and title, such as "{artist} - {title}". */
+    namePattern: string;
+    /** Opens audio files and music pages' tracks from Medior. */
+    player: ExternalPlayer;
+    playlists: {
+      search: Search;
+    };
+    tracks: {
+      search: Search;
+    };
+    /** Artist names that credits never split into several artists, such as "Above & Beyond". */
+    wholeArtists: string[];
   };
   ports: {
     db: number;
@@ -384,6 +436,7 @@ export const DEFAULT_CONFIG: Config = {
   },
   db: {
     fileStorage: {
+      linkedFolders: [],
       locations: [path.resolve("FileStorage")],
       scratchPath: "",
       threshold: 0.99,
@@ -402,6 +455,7 @@ export const DEFAULT_CONFIG: Config = {
   },
   file: {
     audioCodecs: [...CONSTANTS.AUDIO.CODECS_COMMON],
+    audioExts: [...CONSTANTS.AUDIO.EXTS_COMMON],
     fileCardFit: "contain",
     hideUnratedIcon: false,
     imageExts: [...CONSTANTS.IMAGE.EXTS_COMMON],
@@ -509,6 +563,7 @@ export const DEFAULT_CONFIG: Config = {
     },
     videoCodecs: [...CONSTANTS.VIDEO.CODECS_COMMON],
     videoExts: [...CONSTANTS.VIDEO.EXTS_COMMON],
+    videoPlayer: { args: "{path}", path: "" },
     waveform: {
       enabled: true,
     },
@@ -520,6 +575,7 @@ export const DEFAULT_CONFIG: Config = {
     folderDelimiter: ";;",
     folderToCollMode: "none",
     folderToTagsMode: "none",
+    ignoreMusicAlbumTags: false,
     ignorePrevDeleted: true,
     labelDiff: "Diffusion",
     labelDiffModel: "Diffusion Model",
@@ -545,10 +601,17 @@ export const DEFAULT_CONFIG: Config = {
     withFlattenTo: false,
     withFolderNameRegEx: true,
     withMediaPrograms: false,
+    withMusic: true,
+    withMusicFeaturedArtists: false,
+    withMusicFileNames: true,
     withNewTagsToRegEx: true,
     withSidecar: false,
   },
   mediaPrograms: {
+    episodes: {
+      labels: "episode",
+      sort: { isDesc: false, key: "custom" },
+    },
     languages: ["English", "Korean", "Japanese", "Chinese", "French", "Spanish", "German"],
     manager: {
       search: {
@@ -576,6 +639,36 @@ export const DEFAULT_CONFIG: Config = {
       },
     },
     types: ["Show", "Movie", "Podcast", "Livestream"],
+  },
+  music: {
+    albums: {
+      search: {
+        pageSize: 50,
+        sort: { isDesc: false, key: "name" },
+      },
+    },
+    artists: {
+      search: {
+        pageSize: 50,
+        sort: { isDesc: false, key: "name" },
+      },
+    },
+    coverColors: true,
+    namePattern: "{artist} - {title}",
+    player: { args: "{path}", path: "" },
+    playlists: {
+      search: {
+        pageSize: 50,
+        sort: { isDesc: true, key: "dateModified" },
+      },
+    },
+    tracks: {
+      search: {
+        pageSize: 100,
+        sort: { isDesc: false, key: "music.artist" },
+      },
+    },
+    wholeArtists: [],
   },
   ports: {
     db: 27070,
@@ -651,6 +744,40 @@ export const getIsActiveScratchPath = (filePath: string) => {
   return scratchPath ? isWithinFolder(scratchPath, filePath) : getIsStorageScratchPath(filePath);
 };
 
+/**
+ * Where Medior writes files it makes from a media file, such as thumbnails and edits: beside it,
+ * or for a linked file, in the first storage location's folder for its checksum.
+ */
+export const getDerivedMediaFolder = (filePath: string, hash: string) => {
+  const [location] = getConfig().db.fileStorage.locations;
+
+  if (!getIsLinkedPath(filePath)) return path.dirname(filePath);
+  else if (!location) throw new Error("No file storage locations are configured.");
+  else return path.join(location, hash.slice(0, 2), hash.slice(2, 4));
+};
+
+/** Whether the folder is linked or holds a linked folder, whose empty folders cleanup must leave. */
+export const getHasLinkedFolder = (folderPath: string) =>
+  getLinkedFolders().some(
+    (folder) => isWithinFolder(folder, folderPath) || isWithinFolder(folderPath, folder),
+  );
+
+/**
+ * Linked files belong to other apps, even inside file storage, so storage's own cleanup can't
+ * delete them either.
+ */
+export const getIsLinkedPath = (filePath: string) =>
+  getLinkedFolders().some((folder) => isWithinFolder(folder, filePath));
+
+/**
+ * The linked folders, without the quotes Explorer's Copy as Path adds. Relative paths would match
+ * against the app's own folder, so only absolute ones count.
+ */
+const getLinkedFolders = () =>
+  getConfig()
+    .db.fileStorage.linkedFolders.map((folder) => folder.trim().replace(/^"(.*)"$/, "$1"))
+    .filter((folder) => path.isAbsolute(folder));
+
 export const getIsStoragePath = (filePath: string) =>
   getConfig().db.fileStorage.locations.some((location) => isWithinFolder(location, filePath));
 
@@ -678,6 +805,9 @@ export const getAudioSimilarityModel = () => {
 
 export const getIsAnimated = (ext?: string | null) =>
   Boolean(ext && ["gif", ...getConfig().file.videoExts].includes(ext.toLowerCase()));
+
+export const getIsAudio = (ext?: string | null) =>
+  Boolean(ext && getConfig().file.audioExts.includes(ext.toLowerCase() as AudioExt));
 
 export const getIsImage = (ext?: string | null) =>
   Boolean(ext && getConfig().file.imageExts.includes(ext.toLowerCase() as ImageExt));
@@ -766,6 +896,10 @@ export const loadConfig = async (filePath: string) => {
     config.file.transforms.search.pageSize = +config.file.transforms.search.pageSize;
     config.mediaPrograms.manager.search.pageSize = +config.mediaPrograms.manager.search.pageSize;
     config.mediaPrograms.rankings.search.pageSize = +config.mediaPrograms.rankings.search.pageSize;
+    config.music.albums.search.pageSize = +config.music.albums.search.pageSize;
+    config.music.artists.search.pageSize = +config.music.artists.search.pageSize;
+    config.music.playlists.search.pageSize = +config.music.playlists.search.pageSize;
+    config.music.tracks.search.pageSize = +config.music.tracks.search.pageSize;
     config.ports.db = +config.ports.db;
     config.ports.server = +config.ports.server;
     config.ports.socket = +config.ports.socket;

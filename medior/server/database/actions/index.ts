@@ -1,5 +1,6 @@
 export * from "./background-operations";
 export * from "./collections";
+export * from "./file-exports";
 export * from "./file-imports";
 export * from "./file-search";
 export * from "./file-storage";
@@ -12,6 +13,7 @@ export * from "./lower-resolution";
 export * from "./media-program-meta";
 export * from "./media-program-rankings";
 export * from "./media-programs";
+export * from "./music";
 export * from "./similarity";
 export * from "./sockets";
 export * from "./tags";

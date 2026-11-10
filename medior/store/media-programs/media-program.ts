@@ -3,7 +3,11 @@ import { TagSchema } from "medior/_generated/server";
 import { computed } from "mobx";
 import { ExtendedModel, model, prop } from "mobx-keystone";
 import { _MediaProgram } from "medior/store/_generated";
-import { getMediaProgramEpisodeIds } from "medior/utils/common";
+import {
+  countMissingEpisodes,
+  getMediaProgramEpisodeIds,
+  getMediaProgramMissingEpisodes,
+} from "medior/utils/common";
 
 @model("medior/MediaProgram")
 export class MediaProgram extends ExtendedModel(_MediaProgram, {
@@ -15,6 +19,23 @@ export class MediaProgram extends ExtendedModel(_MediaProgram, {
   }
 
   /* --------------------------------- GETTERS -------------------------------- */
+  /**
+   * Watched episodes over all of them, including those the metadata source lists without files,
+   * which count as watched when marked watched elsewhere and toward neither when skipped.
+   */
+  @computed
+  get episodeCounts() {
+    const missing = countMissingEpisodes(
+      getMediaProgramMissingEpisodes(this.meta, this.seasons),
+      this.missingMarks,
+    );
+
+    return {
+      total: this.fileCount + missing.total,
+      watched: this.watchedIdSet.size + missing.watched,
+    };
+  }
+
   /** Every episode in season order; a file in several seasons plays once. */
   @computed
   get episodeIds() {

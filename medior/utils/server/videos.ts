@@ -7,10 +7,16 @@ import {
   CONSTANTS,
   fractionStringToNumber,
   getVideoResizeFilters,
+  MusicTags,
   round,
   validateTimestampPairs,
 } from "medior/utils/common";
-import { getAvailableFileStorage, getConfig, getScratchFolder } from "medior/utils/server";
+import {
+  getAvailableFileStorage,
+  getConfig,
+  getIsAudio,
+  getScratchFolder,
+} from "medior/utils/server";
 import { FfprobeData, probeMedia, runFfmpeg } from "medior/utils/server/ffmpeg";
 import { runImageTask } from "medior/utils/server/image-task";
 import { hashMediaFile, MediaOutput, publishMediaOutput } from "medior/utils/server/media-output";
@@ -52,7 +58,11 @@ export interface VideoInfo {
 
 export interface MediaInfo extends VideoInfo {
   frameDelays?: number[];
+  /** Whether an audio file has cover art, which becomes its thumbnail. */
+  hasCover?: boolean;
   isAnimated: boolean;
+  /** An audio file's container and stream tags, read with the name it was imported under. */
+  musicTags?: MusicTags[];
 }
 
 export class OutputSizeExceededError extends Error {
@@ -61,6 +71,27 @@ export class OutputSizeExceededError extends Error {
     this.name = "OutputSizeExceededError";
   }
 }
+
+/** Audio formats by the extensions files of them are saved with, the first being the usual one. */
+const AUDIO_PROBE_EXTENSIONS: Record<string, string[]> = {
+  aac: ["aac"],
+  ac3: ["ac3"],
+  aiff: ["aiff", "aif"],
+  amr: ["amr"],
+  ape: ["ape"],
+  asf: ["wma"],
+  au: ["au"],
+  caf: ["caf"],
+  dsf: ["dsf"],
+  flac: ["flac"],
+  matroska: ["mka"],
+  mov: ["m4a"],
+  mp3: ["mp3", "mp2", "mpa"],
+  ogg: ["ogg", "oga", "opus"],
+  tta: ["tta"],
+  wav: ["wav"],
+  wv: ["wv"],
+};
 
 const PROBE_EXTENSIONS: Record<string, string[]> = {
   apng: ["png", "apng"],
@@ -117,6 +148,58 @@ const splitOptions = (options: string[]) =>
 
     return parts.length === 2 ? parts : [option];
   });
+
+/**
+ * Saves an audio file's cover art as its thumbnail, or else a picture of its waveform, which also
+ * stands in for cover art that can't be decoded.
+ */
+export const audioToThumb = async (
+  inputPath: string,
+  outputPath: string,
+  hasCover: boolean,
+  signal = workSignal.getStore(),
+) => {
+  const maxDim = CONSTANTS.FILE.THUMB.MAX_DIM;
+
+  const writeWaveform = () =>
+    runFfmpeg(
+      [
+        "-i",
+        inputPath,
+        "-filter_complex",
+        `[0:a]showwavespic=s=${maxDim * 2}x${maxDim}:split_channels=0:colors=0x90caf9`,
+        "-an",
+        "-frames:v",
+        "1",
+        outputPath,
+      ],
+      { signal },
+    );
+
+  if (!hasCover) await writeWaveform();
+  else {
+    try {
+      await runFfmpeg(
+        [
+          "-i",
+          inputPath,
+          "-map",
+          "0:v:0",
+          "-frames:v",
+          "1",
+          "-vf",
+          `scale=${maxDim}:${maxDim}:force_original_aspect_ratio=decrease`,
+          outputPath,
+        ],
+        { signal },
+      );
+    } catch (error) {
+      signal?.throwIfAborted();
+      console.error(`Failed to save cover art, saving the waveform instead: ${error.message}`);
+      await writeWaveform();
+    }
+  }
+};
 
 export const extractVideoFrame = async (
   inputPath: string,
@@ -258,6 +341,45 @@ const execFfmpeg = async (
   return { hash: newHash, path: newPath };
 };
 
+/**
+ * Audio files keep their extension when the probed format allows it, such as an Opus file in an
+ * Ogg container. Their cover art, an attached picture, gives them no dimensions.
+ */
+export const getAudioInfo = async (
+  filePath: string,
+  signal = workSignal.getStore(),
+): Promise<MediaInfo> => {
+  const info = await probeMedia(filePath, signal);
+  const audioStream = info.streams.find((stream) => stream.codec_type === "audio");
+
+  if (!audioStream?.codec_name) throw new Error("No audio stream codec found.");
+
+  const extensions = AUDIO_PROBE_EXTENSIONS[info.format.format_name?.split(",")[0]];
+  const pathExt = extname(filePath).slice(1).toLowerCase();
+  const duration = [info.format.duration, audioStream.duration]
+    .map(Number)
+    .find((value) => Number.isFinite(value) && value > 0);
+  const hasCover = info.streams.some(
+    (stream) => stream.codec_type === "video" && stream.disposition?.attached_pic === 1,
+  );
+
+  return {
+    audioBitrate: parseInt(audioStream.bit_rate, 10) || null,
+    audioCodec: audioStream.codec_name,
+    bitrate: parseInt(info.format.bit_rate, 10) || null,
+    duration: duration ?? null,
+    ext: !extensions || extensions.includes(pathExt) ? pathExt : extensions[0],
+    frameRate: null,
+    hasCover,
+    height: 0,
+    isAnimated: false,
+    musicTags: [info.format.tags, audioStream.tags],
+    size: info.format.size,
+    videoCodec: null,
+    width: 0,
+  };
+};
+
 export const getVideoInfo = async (
   filePath: string,
   signal = workSignal.getStore(),
@@ -305,18 +427,22 @@ export const getMediaInfo = async (
   filePath: string,
   signal = workSignal.getStore(),
 ): Promise<MediaInfo> => {
+  const isAudio = getIsAudio(extname(filePath).slice(1));
   let metadata: Metadata;
 
-  try {
-    metadata = (await runImageTask({ input: filePath, options: { failOn: "none" } }, signal))
-      .metadata;
-  } catch {
-    signal?.throwIfAborted();
+  if (!isAudio) {
+    try {
+      metadata = (await runImageTask({ input: filePath, options: { failOn: "none" } }, signal))
+        .metadata;
+    } catch {
+      signal?.throwIfAborted();
+    }
   }
 
   let info: MediaInfo;
 
-  if (!metadata || metadata.format === "raw") info = await getVideoInfo(filePath, signal);
+  if (isAudio) info = await getAudioInfo(filePath, signal);
+  else if (!metadata || metadata.format === "raw") info = await getVideoInfo(filePath, signal);
   else if (metadata.format === "webp" && metadata.pages > 1) {
     if (
       metadata.delay?.length !== metadata.pages ||

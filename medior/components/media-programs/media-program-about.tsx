@@ -55,7 +55,7 @@ export const MediaProgramAbout = Comp(() => {
     { label: "Size", value: Fmt.bytes(program?.size ?? 0) },
     {
       label: "Watched",
-      value: `${Fmt.commas(program?.watchedIdSet.size ?? 0)} of ${fileCount}`,
+      value: `${Fmt.commas(program?.episodeCounts.watched ?? 0)} of ${Fmt.commas(program?.episodeCounts.total ?? 0)}`,
     },
     {
       label: "Rewatched",

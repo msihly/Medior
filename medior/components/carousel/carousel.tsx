@@ -40,7 +40,7 @@ export const Carousel = Comp((_, videoRef: MutableRefObject<HTMLVideoElement>) =
 
   useEffect(() => {
     panZoomRef.current =
-      activeFile?.isVideo || zoomRef.current === null
+      activeFile?.isPlayable || zoomRef.current === null
         ? null
         : Panzoom(zoomRef.current, {
             animate: true,
@@ -62,8 +62,8 @@ export const Carousel = Comp((_, videoRef: MutableRefObject<HTMLVideoElement>) =
   }, [activeFile?.path, store.activeFileId, store.isPinned]);
 
   useEffect(() => {
-    if (activeFile?.isVideo) store.setIsPlaying(true);
-  }, [activeFile?.isVideo]);
+    if (activeFile?.isPlayable) store.setIsPlaying(true);
+  }, [activeFile?.isPlayable]);
 
   useEffect(() => {
     const startTime = store.startTimes[activeFile?.id] ?? 0;
@@ -71,8 +71,11 @@ export const Carousel = Comp((_, videoRef: MutableRefObject<HTMLVideoElement>) =
     pendingSeekTime.current = startTime && !store.requiresTranscoding ? startTime : null;
     store.setSeekOffset(0);
 
-    if (activeFile?.isVideo)
-      store.setCurFrame(round(startTime * activeFile.frameRate, 0), activeFile.frameRate);
+    if (activeFile?.isPlayable)
+      store.setCurFrame(
+        round(startTime * activeFile.playbackFrameRate, 0),
+        activeFile.playbackFrameRate,
+      );
 
     store.transcodeVideo({ seekTime: startTime });
     loadChapters();
@@ -114,7 +117,8 @@ export const Carousel = Comp((_, videoRef: MutableRefObject<HTMLVideoElement>) =
 
     if (playbackError.name === "AbortError") return;
 
-    if (!store.requiresTranscoding) {
+    // Only videos can be transcoded, so audio the browser can't play reports its error instead.
+    if (activeFile.isVideo && !store.requiresTranscoding) {
       // The transcoded stream starts at the current time, so it needs no seek of its own.
       pendingSeekTime.current = null;
       store.transcodeVideo({ force: true, seekTime: store.curTime });
@@ -142,9 +146,15 @@ export const Carousel = Comp((_, videoRef: MutableRefObject<HTMLVideoElement>) =
     if (!isCurrentPlayback()) return;
 
     store.recordWatchProgress();
-    store.setCurFrame(1, activeFile.frameRate);
+    store.setCurFrame(1, activeFile.playbackFrameRate);
 
-    if (store.requiresTranscoding) {
+    // Audio plays on into the next file, like an album, while videos and the last track loop.
+    const nextFileId = activeFile.isAudio ? store.selectedFileIds[store.activeFileIndex + 1] : null;
+
+    if (nextFileId) {
+      store.setActiveFileId(nextFileId);
+      stores.file.setActiveFileId(nextFileId);
+    } else if (store.requiresTranscoding) {
       store.transcodeVideo();
       store.setIsPlaying(true);
     } else event.currentTarget.currentTime = 0;
@@ -155,7 +165,7 @@ export const Carousel = Comp((_, videoRef: MutableRefObject<HTMLVideoElement>) =
 
     videoTranscoder.setCurrentTime(playedSeconds);
 
-    const frame = round(store.seekOffset + playedSeconds * activeFile?.frameRate, 0);
+    const frame = round(store.seekOffset + playedSeconds * activeFile?.playbackFrameRate, 0);
 
     if (store.videoMarks.length === 2 && frame >= store.markOut) {
       if (store.requiresTranscoding) {
@@ -166,7 +176,7 @@ export const Carousel = Comp((_, videoRef: MutableRefObject<HTMLVideoElement>) =
         });
       } else seekToFraction(videoRef.current, store.markIn / activeFile.totalFrames);
     } else {
-      store.setCurFrame(frame, activeFile.frameRate);
+      store.setCurFrame(frame, activeFile.playbackFrameRate);
       store.recordWatchProgress();
     }
   };
@@ -223,7 +233,7 @@ export const Carousel = Comp((_, videoRef: MutableRefObject<HTMLVideoElement>) =
                   carouselFileIds={store.selectedFileIds}
                   className={css.contextMenu}
                 >
-                  {activeFile.isVideo ? (
+                  {activeFile.isPlayable ? (
                     <View
                       column
                       flex={1}
@@ -231,6 +241,18 @@ export const Carousel = Comp((_, videoRef: MutableRefObject<HTMLVideoElement>) =
                       onClick={store.toggleIsPlaying}
                       className={css.videoSurface}
                     >
+                      {activeFile.isAudio && (
+                        <View column flex={1} justify="center" overflow="hidden">
+                          <View
+                            component="img"
+                            src={activeFile.thumb.path}
+                            alt={activeFile.originalName}
+                            draggable={false}
+                            className={css.image}
+                          />
+                        </View>
+                      )}
+
                       {store.isWaitingForFrames && (
                         <View
                           column
@@ -260,6 +282,7 @@ export const Carousel = Comp((_, videoRef: MutableRefObject<HTMLVideoElement>) =
                         onCanPlay={handleCanPlay}
                         onEnded={handleVideoEnd}
                         onError={handleVideoError}
+                        display={activeFile.isAudio ? "none" : undefined}
                         width="100%"
                         height="100%"
                       />
@@ -295,7 +318,7 @@ export const Carousel = Comp((_, videoRef: MutableRefObject<HTMLVideoElement>) =
           )}
         </View>
 
-        {activeFile?.isVideo && <VideoControls />}
+        {activeFile?.isPlayable && <VideoControls />}
       </View>
     </VideoContext.Provider>
   );

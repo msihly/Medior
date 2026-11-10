@@ -165,16 +165,16 @@ export const useHotkeys = ({ embedded = false, rootRef, videoRef, view }: UseHot
       0,
       Math.min(
         totalFrames,
-        round(store.curFrame + dir * seconds * (frameRate ?? file.frameRate), 0),
+        round(store.curFrame + dir * seconds * (frameRate ?? file.playbackFrameRate), 0),
       ),
     );
 
-    const newTime = Fmt.frameToSec(newFrame, file.frameRate);
+    const newTime = Fmt.frameToSec(newFrame, file.playbackFrameRate);
     const timeDiff = round(newTime - store.curTime);
     const newPercent = round((newFrame / totalFrames) * 100, 0);
 
     if (!store.requiresTranscoding) seekToFraction(videoRef.current, newFrame / totalFrames);
-    else await transcode(newFrame, file.frameRate);
+    else await transcode(newFrame, file.playbackFrameRate);
 
     const message = `${isLeft ? "-" : "+"}${timeDiff} sec. / ${dayjs.duration(newTime, "s").format("HH:mm:ss")} (${newPercent}%)`;
 

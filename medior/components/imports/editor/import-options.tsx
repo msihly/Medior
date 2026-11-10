@@ -218,6 +218,41 @@ export const ImportOptions = Comp(({ scan, store }: ImportOptionsProps) => {
 
       <Checkbox
         {...checkboxProps}
+        label="Music"
+        checked={store.options.withMusic}
+        setChecked={store.options.setWithMusic}
+      />
+
+      <View column margins={{ left: "1rem" }}>
+        <Checkbox
+          {...checkboxProps}
+          label="Parse Name"
+          checked={store.options.withMusicFileNames}
+          setChecked={store.options.setWithMusicFileNames}
+          disabled={checkboxProps.disabled || !store.options.withMusic}
+        />
+
+        <Checkbox
+          {...checkboxProps}
+          label="Ignore Album Tags"
+          checked={store.options.ignoreMusicAlbumTags}
+          setChecked={store.options.setIgnoreMusicAlbumTags}
+          disabled={checkboxProps.disabled || !store.options.withMusic}
+        />
+
+        <Checkbox
+          {...checkboxProps}
+          label="List Featured Artists"
+          checked={store.options.withMusicFeaturedArtists}
+          setChecked={store.options.setWithMusicFeaturedArtists}
+          disabled={checkboxProps.disabled || !store.options.withMusic}
+        />
+      </View>
+
+      <Divider flexItem={false} />
+
+      <Checkbox
+        {...checkboxProps}
         label="Sidecar"
         checked={store.options.withSidecar}
         setChecked={store.options.setWithSidecar}

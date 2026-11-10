@@ -50,6 +50,10 @@ export interface Hotkeys {
   mediaPrograms: RatingHotkeys & {
     selectAll: string;
   };
+  /** The music view's tracks, in its Tracks tab and on album, artist, and playlist pages. */
+  music: RatingHotkeys & {
+    selectAll: string;
+  };
   search: FileHotkeys;
   tagManager: RatingHotkeys & {
     selectAll: string;
@@ -103,6 +107,7 @@ export const DEFAULT_HOTKEYS: Hotkeys = {
   },
   home: { deleteFiles: "Delete", ...FILE_HOTKEY_DEFAULTS, selectAll: "Ctrl+A" },
   mediaPrograms: { ...RATING_HOTKEY_DEFAULTS, selectAll: "Ctrl+A" },
+  music: { ...RATING_HOTKEY_DEFAULTS, selectAll: "Ctrl+A" },
   search: { deleteFiles: "Delete", ...FILE_HOTKEY_DEFAULTS, selectAll: "Ctrl+A" },
   tagManager: { ...RATING_HOTKEY_DEFAULTS, selectAll: "Ctrl+A" },
 };

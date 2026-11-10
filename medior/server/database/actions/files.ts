@@ -76,6 +76,9 @@ import {
   AudioVectorWindow,
   DecodedAudio,
   getConfig,
+  getDerivedMediaFolder,
+  getHasLinkedFolder,
+  getIsLinkedPath,
   getMaxAudioWindowCount,
   getNtfsFileIdentity,
   getThumbNtfsIdentity,
@@ -424,6 +427,8 @@ export const deleteFiles = makeAction(
 
         await actions.regenMediaProgramsByFileIds(fileIds);
 
+        await actions.regenMusicByFileIds(fileIds);
+
         if (files.length && args.withDeletedHashes !== false) {
           const deletedWrites: AnyBulkWriteOperation<models.DeletedFileSchema>[] = [];
 
@@ -516,7 +521,7 @@ export const deleteFilesExternal = makeAction(
       fileLog(`[DFE] Deleting ${args.paths.length} paths...`);
 
       const folderPaths: string[] = [];
-      const filePaths: string[] = [];
+      const scannedPaths: string[] = [];
 
       for (const p of args.paths) {
         if ((await fs.stat(p)).isDirectory()) {
@@ -524,11 +529,17 @@ export const deleteFilesExternal = makeAction(
 
           const files = await dirToFilePaths(p);
 
-          for (const file of files) filePaths.push(file);
-        } else filePaths.push(p);
+          for (const file of files) scannedPaths.push(file);
+        } else scannedPaths.push(p);
 
-        fileLog(`[DFE] Total files scanned: ${filePaths.length}`);
+        fileLog(`[DFE] Total files scanned: ${scannedPaths.length}`);
       }
+
+      // Linked files belong to other apps, so they're neither deleted nor recorded as deleted.
+      const filePaths = scannedPaths.filter((p) => !getIsLinkedPath(p));
+
+      if (filePaths.length < scannedPaths.length)
+        fileLog(`[DFE] Kept ${scannedPaths.length - filePaths.length} files in linked folders.`);
 
       if (!filePaths.length) throw new Error("No valid files found");
 
@@ -590,7 +601,9 @@ export const deleteFilesExternal = makeAction(
           .map((p) => p.join(path.sep)),
       ]);
 
-      for (const folder of folders) await removeEmptyFolders(folder);
+      // Linked folders, and folders holding them, keep their empty folders too.
+      for (const folder of folders)
+        if (!getHasLinkedFolder(folder)) await removeEmptyFolders(folder);
 
       fileLog(`[DFE] Deleted empty folders.`);
 
@@ -1918,6 +1931,8 @@ export const setFileRating = makeAction(
 
       await actions.regenMediaProgramsByFileIds(args.fileIds);
 
+      await actions.regenMusicByFileIds(args.fileIds);
+
       if (tagIds.length) await actions.queueTagMetadataRegen(tagIds);
     },
     { getFileIds: ({ fileIds }) => fileIds },
@@ -1949,7 +1964,10 @@ const repairFileThumbnailMetadata = registerMetadataWork(
     } else if (file.isCorrupted) {
       return { status: "skipped" as const };
     } else {
-      const expectedThumbPath = path.resolve(path.dirname(file.path), `${file.hash}-thumb.jpg`);
+      const expectedThumbPath = path.resolve(
+        getDerivedMediaFolder(file.path, file.hash),
+        `${file.hash}-thumb.jpg`,
+      );
       const hasExpectedThumbnail = onlyIfMissing && (await checkFileExists(expectedThumbPath));
       const info = await repairThumbnail(file, hasExpectedThumbnail);
 
@@ -2515,23 +2533,24 @@ class ThumbRepairer {
       for (const file of files) {
         this.checkCancelled();
 
-        const sourceDirectoryPath = path.dirname(file.path);
-        const sourceDirectoryFileNames = await loadDirectoryFileNames(sourceDirectoryPath);
+        // Thumbnails sit beside their media, except linked media's, which sit in storage.
+        const thumbDirectoryPath = getDerivedMediaFolder(file.path, file.hash);
+        const thumbDirectoryFileNames = await loadDirectoryFileNames(thumbDirectoryPath);
         const storedThumbnailPath = file.thumb?.path;
 
         const storedThumbnailExists = !storedThumbnailPath
           ? false
-          : path.dirname(storedThumbnailPath).toLowerCase() === sourceDirectoryPath.toLowerCase()
-            ? sourceDirectoryFileNames.has(path.basename(storedThumbnailPath).toLowerCase())
+          : path.dirname(storedThumbnailPath).toLowerCase() === thumbDirectoryPath.toLowerCase()
+            ? thumbDirectoryFileNames.has(path.basename(storedThumbnailPath).toLowerCase())
             : await checkFileExists(storedThumbnailPath);
 
         if (storedThumbnailExists) continue;
 
         invalidThumbnailCount++;
 
-        const expectedThumbPath = path.resolve(path.dirname(file.path), `${file.hash}-thumb.jpg`);
+        const expectedThumbPath = path.resolve(thumbDirectoryPath, `${file.hash}-thumb.jpg`);
 
-        const expectedThumbnailExists = sourceDirectoryFileNames.has(
+        const expectedThumbnailExists = thumbDirectoryFileNames.has(
           path.basename(expectedThumbPath).toLowerCase(),
         );
 

@@ -323,7 +323,7 @@ export interface FilePathsToImportsOptions {
 const getValidExts = () => {
   const config = getConfig();
 
-  return new Set([...config.file.imageExts, ...config.file.videoExts]);
+  return new Set([...config.file.audioExts, ...config.file.imageExts, ...config.file.videoExts]);
 };
 
 const makeImportPathFilter = () => {
@@ -813,6 +813,7 @@ export const useImportEditor = (store: Ingester | Reingester) => {
       const tagIds = await getIdsFromTags(imp.tagsToUpsert, imp.tagIds);
       const fileImport = { ...imp };
 
+      delete fileImport.musicPreview;
       delete fileImport.tagsToUpsert;
       imports.push({ ...fileImport, tagIds });
     }
@@ -850,6 +851,7 @@ export const useImportEditor = (store: Ingester | Reingester) => {
           savedConfig?.options.ignorePrevDeleted ?? store.options.ignorePrevDeleted,
         imports,
         mediaProgram,
+        music: store.options.musicOptions,
         rootFolderPath: folder.folderName
           .split(path.sep)
           .slice(0, store.rootFolderIndex + 1)
@@ -1891,6 +1893,17 @@ export const useImportEditor = (store: Ingester | Reingester) => {
 
           if (DEBUG) perfLog("Loaded sidecar");
         }
+
+        /* ---------------------------------- Music --------------------------------- */
+        // Read after sidecars, whose original names the music previews read too.
+        const musicRes = await store.loadMusicPreviews(editorImports);
+        if (!musicRes.success) throw new Error(musicRes.error);
+
+        throwIfIngestCancelled(isCancelled);
+        store.setInitProgressCompleted(0);
+        store.setInitProgressTotal(0);
+
+        if (DEBUG) perfLog("Loaded music tags");
 
         store.setInitProgressStatus("Preparing folder tags");
 

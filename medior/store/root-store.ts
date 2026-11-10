@@ -11,6 +11,7 @@ import { FileStore } from "./files";
 import { HomeStore } from "./home";
 import { ImportStore } from "./imports";
 import { MediaProgramStore } from "./media-programs";
+import { MusicStore } from "./music";
 import { TagStore } from "./tags";
 
 initMobx(mobx);
@@ -24,6 +25,7 @@ export class RootStore extends Model({
   home: prop<HomeStore>(() => new HomeStore({})),
   import: prop<ImportStore>(() => new ImportStore({})),
   mediaProgram: prop<MediaProgramStore>(() => new MediaProgramStore({})),
+  music: prop<MusicStore>(() => new MusicStore({})),
   tag: prop<TagStore>(() => new TagStore({})),
 }) {
   /**
@@ -77,6 +79,14 @@ export class RootStore extends Model({
     if (isChanged((c) => c.mediaPrograms.rankings.search.pageSize))
       this.mediaProgram.rankings.search.setPageSize(config.mediaPrograms.rankings.search.pageSize);
 
+    for (const tab of ["albums", "artists", "playlists", "tracks"] as const) {
+      if (isChanged((c) => c.music[tab].search.pageSize))
+        this.music.manager[tab].setPageSize(config.music[tab].search.pageSize);
+
+      if (isChanged((c) => c.music[tab].search.sort))
+        this.music.manager[tab].setSortValue(config.music[tab].search.sort);
+    }
+
     if (isChanged((c) => c.tags.manager.search.pageSize))
       this.tag.manager.search.setPageSize(config.tags.manager.search.pageSize);
 
@@ -104,6 +114,9 @@ export class RootStore extends Model({
       (this.file?.videoTransformer?.isOpen && !this.file?.videoTransformer?.isMinimized) ||
       this.mediaProgram?.editor?.isOpen ||
       this.mediaProgram?.manager?.isOpen ||
+      this.music?.editor?.isOpen ||
+      this.music?.manager?.isOpen ||
+      this.music?.playlistPickerFileIds?.length > 0 ||
       this.tag?.editor?.isOpen ||
       this.tag?.merger?.isOpen ||
       (this.tag?.manager?.isOpen && !this.tag?.manager?.isMinimized)

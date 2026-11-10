@@ -1,5 +1,4 @@
 import { shell } from "@electron/remote";
-import fs from "fs/promises";
 import path from "path";
 import { FileSchema } from "medior/_generated/server";
 import {
@@ -11,9 +10,23 @@ import {
   Modal,
 } from "medior/components";
 import { FileCollectionSearch, FileSearch, FileTransformSearch, useStores } from "medior/store";
-import { colors, copyToClipboard, toast, useCancellableLoad } from "medior/utils/client";
+import {
+  colors,
+  copyToClipboard,
+  openWithPlayer,
+  toast,
+  useCancellableLoad,
+  writePlaylist,
+} from "medior/utils/client";
 import { CONSTANTS, durationToSeconds, VideoExt } from "medior/utils/common";
-import { getConfig, getIsImage, getIsRemuxable, rpc } from "medior/utils/server";
+import {
+  getConfig,
+  getIsAudio,
+  getIsImage,
+  getIsRemuxable,
+  getIsVideo,
+  rpc,
+} from "medior/utils/server";
 
 export interface ContextMenuProps extends Omit<ContextMenuBaseProps, "id" | "menuItems"> {
   carouselFileIds?: string[];
@@ -28,6 +41,7 @@ export const ContextMenu = Comp(
 
     const load = useCancellableLoad();
 
+    const isPlayable = getIsAudio(file.ext) || getIsVideo(file.ext);
     const isReencodable = file.videoCodec?.length > 0 || getIsImage(file.ext);
     const isRemuxable = getIsRemuxable(file.ext);
     const spliceTimelines = file.timestamps?.filter((timeline) => timeline.pairs.length) ?? [];
@@ -44,6 +58,8 @@ export const ContextMenu = Comp(
         : store.getIsSelected(file.id)
           ? [...store.selectedIds]
           : [file.id];
+
+    const handleAddToPlaylist = () => stores.music.setPlaylistPickerFileIds(getActionFileIds());
 
     const handleCollections = () => {
       stores.collection.manager.setSelectedFileIds(getActionFileIds());
@@ -89,7 +105,8 @@ export const ContextMenu = Comp(
     const openNatively = () =>
       load.run(async (signal) => {
         try {
-          if (!CONSTANTS.VIDEO.EXTS.includes(file.ext as VideoExt)) shell.openPath(file.path);
+          if (getIsAudio(file.ext)) await openWithPlayer(file.path, getConfig().music.player);
+          else if (!CONSTANTS.VIDEO.EXTS.includes(file.ext as VideoExt)) shell.openPath(file.path);
           else {
             let orderedFileIds = carouselFileIds;
 
@@ -126,26 +143,19 @@ export const ContextMenu = Comp(
 
             files = files.slice(startIndex, startIndex + 100);
 
-            let playlistContent = "#EXTM3U\r\n";
+            const playlistPath = await writePlaylist(
+              files.map((f) => ({ path: f.path, title: f.originalName })),
+              signal,
+            );
 
-            for (const f of files) {
-              playlistContent += `#EXTINF:0,${f.originalName}\r\n${f.path}\r\n`;
-            }
-
-            const dirPath = getConfig().db.fileStorage.locations[0];
-            const playlistPath = path.resolve(dirPath, "playlist.m3u8");
-
-            await fs.mkdir(path.dirname(playlistPath), { recursive: true });
             signal.throwIfAborted();
-            await fs.writeFile(playlistPath, playlistContent, { encoding: "utf8", signal });
-            signal.throwIfAborted();
-
-            shell.openPath(playlistPath);
+            await openWithPlayer(playlistPath, getConfig().file.videoPlayer);
           }
         } catch (error) {
           if (!signal.aborted) {
             console.error(error);
-            toast.error("Failed to open playlist");
+            // The default program still opens the file when the player or playlist fails.
+            toast.error(`Failed to open natively: ${error.message}`);
             shell.openPath(file.path);
           }
         }
@@ -199,6 +209,13 @@ export const ContextMenu = Comp(
               label: "Collections",
               onClick: handleCollections,
             },
+            isPlayable
+              ? {
+                  icon: "PlaylistAdd",
+                  label: "Add to Playlist",
+                  onClick: handleAddToPlaylist,
+                }
+              : null,
             // {
             //   icon: "Face",
             //   label: "Face Recognition",

@@ -181,6 +181,8 @@ export const CarouselWindow = Comp(({ embedded = false }: CarouselWindowProps) =
 
             {!embedded && <Views.FileModals />}
 
+            {!embedded && <Views.MusicModals />}
+
             <Views.TagModals view="carousel" />
 
             {!embedded && <MinimizedJobs />}

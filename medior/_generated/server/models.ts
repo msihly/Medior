@@ -165,6 +165,8 @@ export interface FileSchema {
   isArchived?: boolean;
   isAudioCorrupted?: boolean;
   isCorrupted?: boolean;
+  music?: import("medior/utils/common/music").FileMusic;
+  musicOptions?: import("medior/utils/common/music").MusicImportOptions;
   originalAudioBitrate?: number;
   originalAudioCodec?: string;
   originalBitrate?: number;
@@ -232,6 +234,8 @@ const FileSchema = new Schema<FileSchema>({
   isArchived: Boolean,
   isAudioCorrupted: Boolean,
   isCorrupted: Boolean,
+  music: Schema.Types.Mixed,
+  musicOptions: Schema.Types.Mixed,
   originalAudioBitrate: Number,
   originalAudioCodec: String,
   originalBitrate: Number,
@@ -290,6 +294,14 @@ FileSchema.index({ hasTranscript: 1 }, { unique: false });
 FileSchema.index({ height: 1, _id: 1 }, { unique: true });
 FileSchema.index({ isArchived: 1 }, { unique: false });
 FileSchema.index({ isCorrupted: 1 }, { unique: false });
+FileSchema.index(
+  { "music.albumKey": 1 },
+  { partialFilterExpression: { "music.albumKey": { $type: "string" } }, unique: false },
+);
+FileSchema.index(
+  { "music.artists.key": 1 },
+  { partialFilterExpression: { "music.artists.key": { $type: "string" } }, unique: false },
+);
 FileSchema.index(
   { originalHash: 1 },
   { partialFilterExpression: { originalHash: { $type: "string" } }, unique: false },
@@ -480,6 +492,7 @@ export interface FileImportBatchSchema {
   lastUploadHash?: string;
   lastUploadOffset?: number;
   mediaProgram?: import("medior/utils/common/media-programs").MediaProgramImport;
+  music?: import("medior/utils/common/music").MusicImportOptions;
   processedCount: number;
   processedSize: number;
   progressRevision: number;
@@ -507,6 +520,7 @@ const FileImportBatchSchema = new Schema<FileImportBatchSchema>({
   lastUploadHash: String,
   lastUploadOffset: Number,
   mediaProgram: Schema.Types.Mixed,
+  music: Schema.Types.Mixed,
   processedCount: Number,
   processedSize: Number,
   progressRevision: Number,
@@ -827,6 +841,153 @@ MediaProgramSchema.index({ watchStatusOrder: 1, _id: 1 }, { unique: true });
 MediaProgramSchema.index({ year: 1, _id: 1 }, { unique: true });
 
 export const MediaProgramModel = model<MediaProgramSchema>("MediaProgram", MediaProgramSchema);
+
+/* --------------------------------------------------------------------------- */
+/*                               MusicAlbum
+/* --------------------------------------------------------------------------- */
+
+export interface MusicAlbumSchema {
+  artistId: string;
+  artistName: string;
+  coverFileId?: string;
+  dateCreated: string;
+  dateModified: string;
+  duration: number;
+  fileCount: number;
+  fileIds: string[];
+  id: string;
+  key: string;
+  name: string;
+  rating: number;
+  size: number;
+  year?: number;
+}
+
+const MusicAlbumSchema = new Schema<MusicAlbumSchema>({
+  id: String,
+  dateCreated: String,
+  artistId: Schema.Types.ObjectId,
+  artistName: String,
+  coverFileId: Schema.Types.ObjectId,
+  dateModified: String,
+  duration: Number,
+  fileCount: Number,
+  fileIds: [{ type: Schema.Types.ObjectId, ref: "File" }],
+  key: String,
+  name: String,
+  rating: Number,
+  size: Number,
+  year: Number,
+});
+
+MusicAlbumSchema.plugin(backgroundExecutionPlugin);
+
+MusicAlbumSchema.index({ dateCreated: 1, _id: 1 }, { unique: true });
+MusicAlbumSchema.index({ artistId: 1, _id: 1 }, { unique: true });
+MusicAlbumSchema.index({ artistName: 1, _id: 1 }, { unique: true });
+MusicAlbumSchema.index({ dateModified: 1, _id: 1 }, { unique: true });
+MusicAlbumSchema.index({ duration: 1, _id: 1 }, { unique: true });
+MusicAlbumSchema.index({ fileCount: 1, _id: 1 }, { unique: true });
+MusicAlbumSchema.index({ fileIds: 1 }, { unique: false });
+MusicAlbumSchema.index({ key: 1 }, { unique: true });
+MusicAlbumSchema.index({ name: 1, _id: 1 }, { unique: true });
+MusicAlbumSchema.index({ rating: 1, _id: 1 }, { unique: true });
+MusicAlbumSchema.index({ size: 1, _id: 1 }, { unique: true });
+MusicAlbumSchema.index({ year: 1, _id: 1 }, { unique: true });
+
+export const MusicAlbumModel = model<MusicAlbumSchema>("MusicAlbum", MusicAlbumSchema);
+
+/* --------------------------------------------------------------------------- */
+/*                               MusicArtist
+/* --------------------------------------------------------------------------- */
+
+export interface MusicArtistSchema {
+  albumCount: number;
+  coverFileId?: string;
+  dateCreated: string;
+  dateModified: string;
+  duration: number;
+  fileCount: number;
+  fileIds: string[];
+  id: string;
+  key: string;
+  name: string;
+  rating: number;
+  size: number;
+}
+
+const MusicArtistSchema = new Schema<MusicArtistSchema>({
+  id: String,
+  dateCreated: String,
+  albumCount: Number,
+  coverFileId: Schema.Types.ObjectId,
+  dateModified: String,
+  duration: Number,
+  fileCount: Number,
+  fileIds: [{ type: Schema.Types.ObjectId, ref: "File" }],
+  key: String,
+  name: String,
+  rating: Number,
+  size: Number,
+});
+
+MusicArtistSchema.plugin(backgroundExecutionPlugin);
+
+MusicArtistSchema.index({ dateCreated: 1, _id: 1 }, { unique: true });
+MusicArtistSchema.index({ albumCount: 1, _id: 1 }, { unique: true });
+MusicArtistSchema.index({ dateModified: 1, _id: 1 }, { unique: true });
+MusicArtistSchema.index({ duration: 1, _id: 1 }, { unique: true });
+MusicArtistSchema.index({ fileCount: 1, _id: 1 }, { unique: true });
+MusicArtistSchema.index({ fileIds: 1 }, { unique: false });
+MusicArtistSchema.index({ key: 1 }, { unique: true });
+MusicArtistSchema.index({ name: 1, _id: 1 }, { unique: true });
+MusicArtistSchema.index({ rating: 1, _id: 1 }, { unique: true });
+MusicArtistSchema.index({ size: 1, _id: 1 }, { unique: true });
+
+export const MusicArtistModel = model<MusicArtistSchema>("MusicArtist", MusicArtistSchema);
+
+/* --------------------------------------------------------------------------- */
+/*                               MusicPlaylist
+/* --------------------------------------------------------------------------- */
+
+export interface MusicPlaylistSchema {
+  coverFileId?: string;
+  dateCreated: string;
+  dateModified: string;
+  duration: number;
+  fileCount: number;
+  fileIds: string[];
+  id: string;
+  name: string;
+  rating: number;
+  size: number;
+}
+
+const MusicPlaylistSchema = new Schema<MusicPlaylistSchema>({
+  id: String,
+  dateCreated: String,
+  coverFileId: Schema.Types.ObjectId,
+  dateModified: String,
+  duration: Number,
+  fileCount: Number,
+  fileIds: [{ type: Schema.Types.ObjectId, ref: "File" }],
+  name: String,
+  rating: Number,
+  size: Number,
+});
+
+MusicPlaylistSchema.plugin(backgroundExecutionPlugin);
+
+MusicPlaylistSchema.index({ dateCreated: 1, _id: 1 }, { unique: true });
+MusicPlaylistSchema.index({ dateModified: 1, _id: 1 }, { unique: true });
+MusicPlaylistSchema.index({ duration: 1, _id: 1 }, { unique: true });
+MusicPlaylistSchema.index({ fileCount: 1, _id: 1 }, { unique: true });
+MusicPlaylistSchema.index({ fileIds: 1 }, { unique: false });
+MusicPlaylistSchema.index({ name: 1, _id: 1 }, { unique: true });
+MusicPlaylistSchema.index({ rating: 1, _id: 1 }, { unique: true });
+MusicPlaylistSchema.index({ size: 1, _id: 1 }, { unique: true });
+
+export const MusicPlaylistModel = model<MusicPlaylistSchema>("MusicPlaylist", MusicPlaylistSchema);
 
 /* --------------------------------------------------------------------------- */
 /*                               Notification

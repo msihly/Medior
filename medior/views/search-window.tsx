@@ -47,6 +47,8 @@ export const SearchWindow = Comp(() => {
 
         <Views.MediaProgramModals />
 
+        <Views.MusicModals />
+
         <Views.TagModals view="search" />
 
         <MinimizedJobs />

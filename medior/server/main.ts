@@ -45,7 +45,7 @@ const {
   resourcesFolder: "medior",
 });
 
-type WindowType = "carousel" | "home" | "search";
+type WindowType = "carousel" | "home" | "musicPlayer" | "search";
 
 const lastDisplayIds: Partial<Record<WindowType, number>> = {};
 
@@ -155,8 +155,8 @@ const createMainWindow = async () => {
 
     mainWindow.on("closed", () => app.quit());
     mainWindow.on("close", () =>
-      [...carouselWindows, ...searchWindows].forEach((window) => {
-        if (!window.isDestroyed()) window.close();
+      [...carouselWindows, ...searchWindows, musicPlayerWindow].forEach((window) => {
+        if (window && !window.isDestroyed()) window.close();
       }),
     );
 
@@ -348,3 +348,123 @@ const createCarouselWindow = async ({ fileId, height, selectedFileIds, startTime
 };
 
 ipcMain.on("createCarouselWindow", (_, args) => createCarouselWindow(args));
+
+/* -------------------------------------------------------------------------- */
+/*                             MUSIC PLAYER WINDOW                            */
+/* -------------------------------------------------------------------------- */
+/**
+ * As wide as MusicBee's compact player shows beside Medior on a display at Windows' 125% scale, and
+ * as tall as its square cover and controls, with the track's details on the cover.
+ */
+const MUSIC_PLAYER_SIZE = { height: 478, width: 656 };
+const MUSIC_PLAYER_MIN_SIZE = { height: 360, width: 480 };
+
+/** The compact player window, which only one of is open at a time. */
+let musicPlayerWindow: BrowserWindow = null;
+/** The latest queue sent while the window loads, which it plays once it's ready. */
+let pendingMusicPlayback: unknown = null;
+/** The window has said it's listening for queues. */
+let isMusicPlayerReady = false;
+
+const getIsMusicPlayerOpen = () => !!musicPlayerWindow && !musicPlayerWindow.isDestroyed();
+
+/** Has the open window play a queue, or keeps it for when the window is ready. */
+const sendMusicPlayback = (playback: unknown) => {
+  if (isMusicPlayerReady) musicPlayerWindow.webContents.send("init", playback);
+  else pendingMusicPlayback = playback;
+
+  musicPlayerWindow.show();
+};
+
+/**
+ * Opens the compact player window in the corner of the display last used for it, or brings it to
+ * the front, and has it play the given queue from where it left off.
+ */
+const createMusicPlayerWindow = async (playback: unknown) => {
+  if (isShuttingDown()) return;
+
+  if (getIsMusicPlayerOpen()) {
+    sendMusicPlayback(playback);
+    return;
+  }
+
+  isMusicPlayerReady = false;
+  pendingMusicPlayback = playback;
+
+  try {
+    fileLog("Creating music player window...");
+
+    const { workArea } = getLastDisplay("musicPlayer");
+
+    musicPlayerWindow = new BrowserWindow({
+      autoHideMenuBar: true,
+      backgroundColor: "#111",
+      frame: false,
+      height: MUSIC_PLAYER_SIZE.height,
+      minHeight: MUSIC_PLAYER_MIN_SIZE.height,
+      minWidth: MUSIC_PLAYER_MIN_SIZE.width,
+      show: false,
+      useContentSize: true,
+      webPreferences: { contextIsolation: false, nodeIntegration: true, webSecurity: false },
+      width: MUSIC_PLAYER_SIZE.width,
+      x: workArea.x + workArea.width - MUSIC_PLAYER_SIZE.width - 24,
+      y: workArea.y + workArea.height - MUSIC_PLAYER_SIZE.height - 24,
+    });
+
+    const window = musicPlayerWindow;
+
+    window.on("closed", () => {
+      if (musicPlayerWindow === window) {
+        musicPlayerWindow = null;
+        isMusicPlayerReady = false;
+        pendingMusicPlayback = null;
+      }
+    });
+
+    remoteMain.enable(window.webContents);
+    registerDevToolsShortcuts(window);
+    window.show();
+    trackWindowDisplay(window, "musicPlayer");
+
+    await window.loadURL(`${baseUrl}${isBundled ? "#" : "/"}music-player`);
+    fileLog("Music player window loaded.");
+  } catch (err) {
+    fileLog(err.stack, { type: "error" });
+  }
+};
+
+ipcMain.on("createMusicPlayerWindow", (_, playback) => createMusicPlayerWindow(playback));
+
+/** The window listens for queues from here on, starting with the latest sent while it loaded. */
+ipcMain.on("musicPlayerReady", (event) => {
+  if (!getIsMusicPlayerOpen() || event.sender !== musicPlayerWindow.webContents) return;
+
+  isMusicPlayerReady = true;
+
+  if (pendingMusicPlayback) event.sender.send("init", pendingMusicPlayback);
+  pendingMusicPlayback = null;
+});
+
+/** Plays a queue in the compact player window when it's open, resolving to whether it was. */
+ipcMain.handle("playInMusicPlayerWindow", (_, playback) => {
+  if (!getIsMusicPlayerOpen()) return false;
+
+  sendMusicPlayback(playback);
+
+  return true;
+});
+
+/**
+ * Moves the compact player's queue back into the main window, which plays on from there, and
+ * closes the compact player window.
+ */
+ipcMain.on("dockMusicPlayer", (event, playback) => {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+
+  mainWindow.webContents.send("dockMusicPlayer", playback);
+  mainWindow.show();
+  mainWindow.focus();
+
+  if (getIsMusicPlayerOpen() && event.sender === musicPlayerWindow.webContents)
+    musicPlayerWindow.close();
+});

@@ -60,6 +60,7 @@ import {
   getAvailableFileStorage,
   getConfig,
   getIsImage,
+  getIsLinkedPath,
   ReencodeCandidateType,
 } from "medior/utils/server/config";
 import { isGeneratedMediaUnreadable } from "medior/utils/server/files";
@@ -1225,6 +1226,8 @@ const mergeDuplicateTransform = async (
 
         await actions.regenMediaProgramsByFileIds(fileIds);
 
+        await actions.regenMusicByFileIds(fileIds);
+
         await completeDuplicateMerge(args.id);
       }
     } else {
@@ -1560,8 +1563,10 @@ const finishTransformCleanup = async (id: string) => {
           if (error.code !== "ENOENT") throw error;
         }
 
+        // A linked original belongs to other apps, so its replacement leaves it in place.
         if (
           originalExists &&
+          !getIsLinkedPath(transform.beforePath) &&
           !(await isMediaPathReferenced(transform.beforePath, { transformId: id }))
         ) {
           const file = await models.FileModel.findById(transform.fileId)
@@ -1846,7 +1851,11 @@ const runTransformRegenerationQueue = makeBackgroundOperationRunner(
       if (!result.success) throw new Error(result.error);
     }
 
-    await actions.regenMediaProgramsByFileIds(transforms.map(({ fileId }) => String(fileId)));
+    const transformedFileIds = transforms.map(({ fileId }) => String(fileId));
+
+    await actions.regenMediaProgramsByFileIds(transformedFileIds);
+
+    await actions.regenMusicByFileIds(transformedFileIds);
 
     for (const batch of chunkArray(transforms, 100))
       await models.FileTransformModel.updateMany(

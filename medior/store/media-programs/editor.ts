@@ -1,17 +1,22 @@
 import autoBind from "auto-bind";
 import { computed, reaction } from "mobx";
 import { Model, model, modelAction, ModelCreationData, modelFlow, prop } from "mobx-keystone";
+import { SortMenuProps } from "medior/components";
 import { FileSearch, TagOption } from "medior/store";
 import { asyncAction, derefMobx, openCarouselWindow } from "medior/utils/client";
 import {
   chunkArray,
+  countMissingEpisodes,
   getMediaProgramMetaSeasonNumbers,
   getMediaProgramSeasonOutlines,
   getMissingEpisodeKey,
   getMissingMediaProgramSeasons,
   getSeasonEpisodeNumbers,
+  getSeasonMissingEpisodes,
   isDeepEqual,
+  makeEpisodeLabel,
   makeTagSelector,
+  MediaProgramEpisodeLabels,
   MediaProgramMissingMark,
   MediaProgramSeason,
   MediaProgramSeasonInput,
@@ -19,9 +24,29 @@ import {
   numberSeasonEpisodes,
   numberSeasonEpisodesFromNames,
   parseSeasonNumber,
+  splitSeasonsByFileNames,
 } from "medior/utils/common";
-import { rpc } from "medior/utils/server";
+import { getConfig, rpc } from "medior/utils/server";
 import { MediaProgram } from ".";
+
+/** Episodes without files take part in selection under IDs no file has. */
+const MISSING_ID_PREFIX = "missing:";
+
+/** The files' names by their IDs, read in chunks. */
+const listFileNames = async (fileIds: string[]) => {
+  const fileNames = new Map<string, string>();
+
+  for (const chunk of chunkArray(fileIds, 1000)) {
+    const res = await rpc.listFileReingestMetadata({ fileIds: chunk });
+    if (!res.success) throw new Error(res.error);
+
+    for (const file of res.data) fileNames.set(file.id, file.originalName);
+  }
+
+  return fileNames;
+};
+
+const toMissingId = (number: number) => `${MISSING_ID_PREFIX}${number}`;
 
 /** Copies a season out of the program, so the update never reuses its tree nodes. */
 const toSeasonInput = (season: MediaProgramSeason): MediaProgramSeasonInput => ({
@@ -39,6 +64,14 @@ export class MediaProgramEditorStore extends Model({
   /** A season the metadata source lists without files, shown while no season of the program is. */
   activeMissingSeasonNumber: prop<number>(null).withSetter(),
   activeSeasonId: prop<string>(null).withSetter(),
+  /** How episodes are labeled, as EP 104 or with their season as S05E03. */
+  episodeLabels: prop<MediaProgramEpisodeLabels>(
+    () => getConfig().mediaPrograms.episodes.labels,
+  ).withSetter(),
+  /** The order episodes show in, which leaves their numbers alone. */
+  episodeSort: prop<SortMenuProps["value"]>(
+    () => getConfig().mediaPrograms.episodes.sort,
+  ).withSetter(),
   /** The Genres modal's edits, kept here so tag merges and deletions reach them. */
   genres: prop<TagOption[]>(() => []).withSetter(),
   isLoading: prop<boolean>(false).withSetter(),
@@ -51,6 +84,8 @@ export class MediaProgramEditorStore extends Model({
   /** Seasons chosen with Ctrl or Shift, which act together with the active season. */
   selectedSeasonIds: prop<string[]>(() => []).withSetter(),
 }) {
+  /** Each episode load, so a slower one for an earlier season or sort never replaces a later one. */
+  private episodesRevision = 0;
   private loadRevision = 0;
   /** The episode without a file clicked last, where a Shift click's range starts. */
   private missingAnchor: number = null;
@@ -115,12 +150,16 @@ export class MediaProgramEditorStore extends Model({
     this.missingAnchor = number;
   }
 
+  /** Opening starts from the default episode labels and order in Settings. */
   @modelAction
   setIsOpen(isOpen: boolean) {
     this.cancelLoad();
     this.isOpen = isOpen;
 
-    if (!isOpen) {
+    if (isOpen) {
+      this.episodeLabels = getConfig().mediaPrograms.episodes.labels;
+      this.episodeSort = getConfig().mediaPrograms.episodes.sort;
+    } else {
       this.activeMissingSeasonNumber = null;
       this.activeSeasonId = null;
       this.program = null;
@@ -129,6 +168,23 @@ export class MediaProgramEditorStore extends Model({
     }
 
     this.search.reset();
+  }
+
+  /** Selects or deselects episodes with or without files by their selection IDs. */
+  @modelAction
+  toggleEpisodesSelected(selected: { id: string; isSelected: boolean }[]) {
+    const isMissing = ({ id }: { id: string }) => id.startsWith(MISSING_ID_PREFIX);
+    const missingNumbers = new Set(this.selectedMissingNumbers);
+
+    for (const { id, isSelected } of selected.filter(isMissing)) {
+      const number = Number(id.slice(MISSING_ID_PREFIX.length));
+
+      if (isSelected) missingNumbers.add(number);
+      else missingNumbers.delete(number);
+    }
+
+    this.search.toggleSelected(selected.filter((item) => !isMissing(item)));
+    this.selectedMissingNumbers = [...missingNumbers];
   }
 
   @modelAction
@@ -176,37 +232,63 @@ export class MediaProgramEditorStore extends Model({
   });
 
   /**
-   * Shows the active season's episodes. A reload keeps the page and the selected episodes that are
-   * still in the season.
+   * Shows the active season's episodes in the chosen order, or in the given one, which then becomes
+   * the chosen order once they show in it. A reload keeps the page, unless given another, and the
+   * selected episodes that are still in the season.
    */
   @modelFlow
-  loadEpisodes = asyncAction(async ({ isReload = false }: { isReload?: boolean } = {}) => {
-    const revision = this.loadRevision;
-    const fileIds = this.activeSeason?.fileIds ?? [];
-    const fileIdSet = new Set(fileIds);
+  loadEpisodes = asyncAction(
+    async ({
+      isReload = false,
+      page,
+      sortValue,
+    }: { isReload?: boolean; page?: number; sortValue?: SortMenuProps["value"] } = {}) => {
+      const revision = this.loadRevision;
+      const episodesRevision = ++this.episodesRevision;
+      const fileIds = [...(this.activeSeason?.fileIds ?? [])];
+      const fileIdSet = new Set(fileIds);
+      const { isDesc, key } = sortValue ?? this.episodeSort;
 
-    this.search.setForcePages(true);
-    this.search.setIds([...fileIds]);
-    this.search.setSelectedIds(
-      isReload ? this.search.selectedIds.filter((id) => fileIdSet.has(id)) : [],
-    );
+      let ids = isDesc ? [...fileIds].reverse() : fileIds;
 
-    if (!isReload) this.setSelectedMissingNumbers([]);
+      // Sorted by a file's details, episodes keep their numbers but show in that order.
+      if (key !== "custom" && fileIds.length) {
+        const res = await rpc.listSortedFileIds({ ids: fileIds, sortValue: { isDesc, key } });
+        if (revision !== this.loadRevision || episodesRevision !== this.episodesRevision) return;
+        if (!res.success) throw new Error(res.error);
 
-    if (!fileIds.length) {
-      this.search.setResults([]);
-      this.search.setPage(1);
-      this.search.setPageCount(1);
-    } else {
-      const res = await this.search.loadFiltered({
-        noCache: true,
-        page: isReload ? this.search.page : 1,
-        withFullCount: true,
-      });
+        ids = res.data;
+      }
 
-      if (revision === this.loadRevision && !res.success) throw new Error(res.error);
-    }
-  });
+      if (sortValue) this.setEpisodeSort({ isDesc, key });
+
+      this.search.setForcePages(true);
+      this.search.setIds(ids);
+      this.search.setSelectedIds(
+        isReload ? this.search.selectedIds.filter((id) => fileIdSet.has(id)) : [],
+      );
+
+      if (!isReload) this.setSelectedMissingNumbers([]);
+
+      if (!fileIds.length) {
+        // Selections over the query would otherwise still list the previous season's files.
+        this.search.cancelSelection();
+        this.search.setCachedFilterProps(null);
+
+        this.search.setResults([]);
+        this.search.setPage(1);
+        this.search.setPageCount(1);
+      } else {
+        const res = await this.search.loadFiltered({
+          noCache: true,
+          page: page ?? (isReload ? this.search.page : 1),
+          withFullCount: true,
+        });
+
+        if (revision === this.loadRevision && !res.success) throw new Error(res.error);
+      }
+    },
+  );
 
   @modelFlow
   loadProgram = asyncAction(async (id: string) => {
@@ -260,22 +342,15 @@ export class MediaProgramEditorStore extends Model({
   /** Marks the chosen episodes without files watched or skipped, or clears their marks. */
   @modelFlow
   markMissingEpisodes = asyncAction(async (mark: MediaProgramMissingMark | null) => {
-    const marks = { ...derefMobx(this.program.missingMarks ?? {}) };
-
-    for (const number of this.selectedMissingNumbers) {
-      const key = getMissingEpisodeKey(this.activeSourceSeasonNumber, number);
-
-      if (mark) marks[key] = mark;
-      else delete marks[key];
-    }
-
-    const res = await rpc.updateMediaProgram({
-      id: this.program.id,
-      updates: { missingMarks: marks },
-    });
+    const res = await this.saveMissingMarks(
+      Object.fromEntries(
+        this.selectedMissingNumbers.map((number) => [
+          getMissingEpisodeKey(this.activeSourceSeasonNumber, number),
+          mark,
+        ]),
+      ),
+    );
     if (!res.success) throw new Error(res.error);
-
-    this.updateProgram(res.data);
   });
 
   /**
@@ -359,15 +434,7 @@ export class MediaProgramEditorStore extends Model({
    */
   @modelFlow
   numberEpisodesFromNames = asyncAction(async (offset: number) => {
-    const selectedIds = new Set(this.search.selectedIds);
-    const fileNames = new Map<string, string>();
-
-    for (const fileIds of chunkArray([...selectedIds], 1000)) {
-      const res = await rpc.listFileReingestMetadata({ fileIds });
-      if (!res.success) throw new Error(res.error);
-
-      for (const file of res.data) fileNames.set(file.id, file.originalName);
-    }
+    const fileNames = await listFileNames([...this.search.selectedIds]);
 
     const res = await this.saveSeasons(
       this.seasons.map((season) =>
@@ -467,6 +534,27 @@ export class MediaProgramEditorStore extends Model({
     if (!res.success) throw new Error(res.error);
   });
 
+  /** Saves the program's marks on episodes without files, with each change's mark or none. */
+  @modelFlow
+  saveMissingMarks = asyncAction(
+    async (changes: Record<string, MediaProgramMissingMark | null>) => {
+      const marks = { ...derefMobx(this.program.missingMarks ?? {}) };
+
+      for (const [key, mark] of Object.entries(changes)) {
+        if (mark) marks[key] = mark;
+        else delete marks[key];
+      }
+
+      const res = await rpc.updateMediaProgram({
+        id: this.program.id,
+        updates: { missingMarks: marks },
+      });
+      if (!res.success) throw new Error(res.error);
+
+      this.updateProgram(res.data);
+    },
+  );
+
   /**
    * Saves seasons edited from the loaded ones. When the saved seasons changed meanwhile, the
    * program reloads instead, so the next edit starts from the latest seasons.
@@ -497,6 +585,21 @@ export class MediaProgramEditorStore extends Model({
     }
   });
 
+  /**
+   * Selects every episode of the shown season, with or without a file. Resolves to how many, or
+   * null when a later selection replaced it.
+   */
+  @modelFlow
+  selectAllEpisodes = asyncAction(async () => {
+    const res = await this.search.selectAllInQuery();
+    if (!res.success) throw new Error(res.error);
+    if (res.data === null) return null;
+
+    this.setSelectedMissingNumbers(this.missingEpisodes.map((episode) => episode.number));
+
+    return res.data + this.missingEpisodes.length;
+  });
+
   @modelFlow
   setEpisodesWatched = asyncAction(
     async ({ fileIds, isWatched }: { fileIds: string[]; isWatched: boolean }) => {
@@ -512,18 +615,78 @@ export class MediaProgramEditorStore extends Model({
     },
   );
 
-  /** Marks every episode in the seasons watched or unwatched at once. */
+  /**
+   * Marks every episode in the seasons watched or unwatched at once, including those their
+   * metadata lists without files, which keep any skipped marks.
+   */
   @modelFlow
   setSeasonsWatched = asyncAction(
     async ({ ids, isWatched }: { ids: string[]; isWatched: boolean }) => {
-      const fileIds = this.seasons
-        .filter((season) => ids.includes(season.id))
-        .flatMap((season) => season.fileIds.map(String));
+      const metaNumbers = getMediaProgramMetaSeasonNumbers(this.seasons);
+      const seasons = this.seasons
+        .map((season, index) => ({ number: metaNumbers[index], season }))
+        .filter(({ season }) => ids.includes(season.id));
 
-      const res = await this.setEpisodesWatched({ fileIds: [...new Set(fileIds)], isWatched });
-      if (!res.success) throw new Error(res.error);
+      const fileIds = [...new Set(seasons.flatMap(({ season }) => season.fileIds.map(String)))];
+      // Skipped marks stay, and marks already as asked aren't sent.
+      const missingKeys = seasons
+        .flatMap(({ number, season }) =>
+          getSeasonMissingEpisodes(season).map((episode) =>
+            getMissingEpisodeKey(number, episode.number),
+          ),
+        )
+        .filter((key) => {
+          const mark = this.program.missingMarks?.[key];
+          return isWatched ? !mark : mark === "watched";
+        });
+
+      if (fileIds.length) {
+        const res = await this.setEpisodesWatched({ fileIds, isWatched });
+        if (!res.success) throw new Error(res.error);
+      }
+
+      if (missingKeys.length) {
+        const res = await this.saveMissingMarks(
+          Object.fromEntries(missingKeys.map((key) => [key, isWatched ? "watched" : null])),
+        );
+        if (!res.success) throw new Error(res.error);
+      }
     },
   );
+
+  /** Shows the episodes in another order from the first page, keeping their numbers and selection. */
+  @modelFlow
+  sortEpisodes = asyncAction(async (sortValue: SortMenuProps["value"]) => {
+    const res = await this.loadEpisodes({ isReload: true, page: 1, sortValue });
+    if (!res.success) throw new Error(res.error);
+  });
+
+  /**
+   * Moves the chosen seasons' episodes into the seasons their file names give, at the numbers they
+   * give. Resolves to how many episodes' names gave a season, and how many of those moved.
+   */
+  @modelFlow
+  splitSeasons = asyncAction(async () => {
+    const sourceIds = this.selectedSeasonIdSet;
+    const fileNames = await listFileNames(
+      this.seasons
+        .filter((season) => sourceIds.has(season.id))
+        .flatMap((season) => season.fileIds.map(String)),
+    );
+
+    const { movedCount, namedCount, seasons } = splitSeasonsByFileNames(
+      this.seasons.map(toSeasonInput),
+      sourceIds,
+      fileNames,
+    );
+
+    if (movedCount) {
+      const res = await this.saveSeasons(seasons);
+      if (!res.success) throw new Error(res.error);
+    }
+
+    return { movedCount, namedCount };
+  });
 
   /**
    * Follows season changes made here or elsewhere: a removed active season, or a missing one that
@@ -544,10 +707,7 @@ export class MediaProgramEditorStore extends Model({
 
       const loaded = await this.loadEpisodes();
       if (!loaded.success) throw new Error(loaded.error);
-    } else if (
-      this.activeSeason &&
-      !isDeepEqual([...this.activeSeason.fileIds], [...this.search.ids])
-    ) {
+    } else if (this.activeSeason && !this.isActiveSeasonShown) {
       const loaded = await this.loadEpisodes({ isReload: true });
       if (!loaded.success) throw new Error(loaded.error);
     }
@@ -589,9 +749,42 @@ export class MediaProgramEditorStore extends Model({
       : (this.activeMissingSeason?.number ?? null);
   }
 
+  /** Numbers of the active season that several files share, such as two files named as one. */
+  @computed
+  get conflictNumbers() {
+    const numbers = [...this.activeEpisodeNumbers.values()];
+    return new Set(numbers.filter((number, index) => number === numbers[index - 1]));
+  }
+
   @computed
   get episodeIds() {
     return this.program?.episodeIds ?? [];
+  }
+
+  /**
+   * Selection over the shown season's episodes with and without files, for the selection buttons
+   * and hotkeys.
+   */
+  @computed
+  get episodeSelection() {
+    return {
+      results: this.pageEpisodes.map((item) => ({
+        id: "file" in item ? item.file.id : toMissingId(item.number),
+      })),
+      selectAllInQuery: this.selectAllEpisodes,
+      selectedIds: [...this.search.selectedIds, ...this.selectedMissingNumbers.map(toMissingId)],
+      toggleSelected: this.toggleEpisodesSelected,
+    };
+  }
+
+  /** Whether the shown episodes are the active season's, in number order when sorted by it. */
+  @computed
+  get isActiveSeasonShown() {
+    const fileIds = [...(this.activeSeason?.fileIds ?? [])];
+    const shownIds = [...this.search.ids];
+
+    if (this.episodeSort.key !== "custom") return isDeepEqual(fileIds.sort(), shownIds.sort());
+    else return isDeepEqual(this.episodeSort.isDesc ? fileIds.reverse() : fileIds, shownIds);
   }
 
   /**
@@ -600,12 +793,7 @@ export class MediaProgramEditorStore extends Model({
    */
   @computed
   get missingEpisodes() {
-    const numbers = new Set(this.activeEpisodeNumbers.values());
-
-    if (this.activeSeason)
-      return (this.activeSeason.meta?.episodes ?? []).filter(
-        (episode) => !numbers.has(episode.number),
-      );
+    if (this.activeSeason) return getSeasonMissingEpisodes(this.activeSeason);
     else return this.activeMissingSeason?.episodes ?? [];
   }
 
@@ -628,27 +816,33 @@ export class MediaProgramEditorStore extends Model({
   }
 
   /**
-   * The page's episodes in number order with the missing ones among them: those after the previous
-   * page's last episode, up to this page's last or, on the last page, every one after it.
+   * The page's episodes. In number order, the missing ones are among them: those after the previous
+   * page's last episode, up to this page's last or, on the last page, every one after it. In another
+   * order, the missing ones follow the last page's episodes.
    */
   @computed
   get pageEpisodes() {
-    const fileIds = this.activeSeason?.fileIds ?? [];
+    const ids = this.search.ids;
     const results = this.search.results;
     const pageOffset = (this.search.page - 1) * this.search.pageSize;
+    const isLastPage = this.search.page >= this.search.pageCount;
 
-    const lowerNumber = pageOffset > 0 ? this.activeEpisodeNumbers.get(fileIds[pageOffset - 1]) : 0;
-    const upperNumber =
-      this.search.page >= this.search.pageCount
-        ? Infinity
-        : this.activeEpisodeNumbers.get(fileIds[pageOffset + results.length - 1]);
+    const files = results.map((file) => ({ file, number: this.activeEpisodeNumbers.get(file.id) }));
+    const missing = this.missingEpisodes.map((episode) => ({ episode, number: episode.number }));
 
-    return [
-      ...results.map((file) => ({ file, number: this.activeEpisodeNumbers.get(file.id) })),
-      ...this.missingEpisodes
-        .filter((episode) => episode.number > lowerNumber && episode.number <= upperNumber)
-        .map((episode) => ({ episode, number: episode.number })),
-    ].sort((a, b) => a.number - b.number);
+    if (this.episodeSort.key !== "custom") return isLastPage ? [...files, ...missing] : files;
+    else {
+      // Positions run against the numbers when sorted by them descending.
+      const sign = this.episodeSort.isDesc ? -1 : 1;
+      const getPosition = (fileId: string) => sign * this.activeEpisodeNumbers.get(fileId);
+      const lower = pageOffset > 0 ? getPosition(ids[pageOffset - 1]) : -Infinity;
+      const upper = isLastPage ? Infinity : getPosition(ids[pageOffset + results.length - 1]);
+
+      return [
+        ...files,
+        ...missing.filter(({ number }) => sign * number > lower && sign * number <= upper),
+      ].sort((a, b) => sign * (a.number - b.number));
+    }
   }
 
   @computed
@@ -667,6 +861,11 @@ export class MediaProgramEditorStore extends Model({
   }
 
   /* ----------------------------- DYNAMIC GETTERS ---------------------------- */
+  /** The shown season's episode's label, such as EP 104 or S05E03. */
+  getEpisodeLabel(episodeNumber: number) {
+    return makeEpisodeLabel(episodeNumber, this.activeSourceSeasonNumber, this.episodeLabels);
+  }
+
   /** The source's details for the active season's episode at the file's number. */
   getEpisodeMeta(fileId: string) {
     const number = this.activeEpisodeNumbers.get(fileId);
@@ -676,13 +875,38 @@ export class MediaProgramEditorStore extends Model({
       : null;
   }
 
+  /** Whether the source lists the active season's episodes, but none at the file's number. */
+  getIsUnmatched(fileId: string) {
+    return this.activeSeason?.meta?.episodes?.length > 0 && !this.getEpisodeMeta(fileId);
+  }
+
   /** The mark on the shown season's episode without a file, if it has one. */
   getMissingMark(episodeNumber: number) {
     const key = getMissingEpisodeKey(this.activeSourceSeasonNumber, episodeNumber);
     return this.program?.missingMarks?.[key] ?? null;
   }
 
-  getWatchedCount(season: MediaProgramSeason) {
-    return season.fileIds.filter((fileId) => this.program?.watchedIdSet.has(fileId)).length;
+  /**
+   * A season's watched episodes over all of them, including those its metadata lists without
+   * files, which count as watched when marked watched elsewhere and toward neither when skipped.
+   */
+  getEpisodeCounts(season: MediaProgramSeason) {
+    const index = this.seasons.findIndex(({ id }) => id === season.id);
+    const missing = countMissingEpisodes(
+      [
+        {
+          episodes: getSeasonMissingEpisodes(season),
+          number: getMediaProgramMetaSeasonNumbers(this.seasons)[index],
+        },
+      ],
+      this.program?.missingMarks,
+    );
+
+    return {
+      total: season.fileIds.length + missing.total,
+      watched:
+        season.fileIds.filter((fileId) => this.program?.watchedIdSet.has(fileId)).length +
+        missing.watched,
+    };
   }
 }

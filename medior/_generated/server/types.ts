@@ -112,6 +112,42 @@ export type ListMediaProgramInput = {
 };
 export type _UpdateMediaProgramInput = { id: string; updates: Partial<db.MediaProgramSchema> };
 
+/* ------------------------------------ MusicAlbum ----------------------------------- */
+export type CreateMusicAlbumInput = Omit<db.MusicAlbumSchema, "id">;
+export type DeleteMusicAlbumInput = { ids: string[] };
+export type ListMusicAlbumInput = {
+  filter?: _FilterQuery<db.MusicAlbumSchema>;
+  page?: number;
+  pageSize?: number;
+  sort?: Record<string, SortOrder>;
+  withOverwrite?: boolean;
+};
+export type UpdateMusicAlbumInput = { id: string; updates: Partial<db.MusicAlbumSchema> };
+
+/* ------------------------------------ MusicArtist ----------------------------------- */
+export type CreateMusicArtistInput = Omit<db.MusicArtistSchema, "id">;
+export type DeleteMusicArtistInput = { ids: string[] };
+export type ListMusicArtistInput = {
+  filter?: _FilterQuery<db.MusicArtistSchema>;
+  page?: number;
+  pageSize?: number;
+  sort?: Record<string, SortOrder>;
+  withOverwrite?: boolean;
+};
+export type UpdateMusicArtistInput = { id: string; updates: Partial<db.MusicArtistSchema> };
+
+/* ------------------------------------ MusicPlaylist ----------------------------------- */
+export type _CreateMusicPlaylistInput = Omit<db.MusicPlaylistSchema, "id">;
+export type DeleteMusicPlaylistInput = { ids: string[] };
+export type ListMusicPlaylistInput = {
+  filter?: _FilterQuery<db.MusicPlaylistSchema>;
+  page?: number;
+  pageSize?: number;
+  sort?: Record<string, SortOrder>;
+  withOverwrite?: boolean;
+};
+export type _UpdateMusicPlaylistInput = { id: string; updates: Partial<db.MusicPlaylistSchema> };
+
 /* ------------------------------------ Notification ----------------------------------- */
 export type CreateNotificationInput = Omit<db.NotificationSchema, "id">;
 export type DeleteNotificationInput = { ids: string[] };
@@ -230,6 +266,12 @@ export type RepairCollectionsOutput = ReturnType<typeof db.repairCollections>;
 
 export type UpdateCollectionInput = Parameters<typeof db.updateCollection>[0];
 export type UpdateCollectionOutput = ReturnType<typeof db.updateCollection>;
+
+export type StartFileCopyInput = Parameters<typeof db.startFileCopy>[0];
+export type StartFileCopyOutput = ReturnType<typeof db.startFileCopy>;
+
+export type StartFileMoveBackInput = Parameters<typeof db.startFileMoveBack>[0];
+export type StartFileMoveBackOutput = ReturnType<typeof db.startFileMoveBack>;
 
 export type CheckFileImportHashesInput = Parameters<typeof db.checkFileImportHashes>[0];
 export type CheckFileImportHashesOutput = ReturnType<typeof db.checkFileImportHashes>;
@@ -608,6 +650,24 @@ export type SetMediaProgramEpisodesWatchedOutput = ReturnType<
 
 export type UpdateMediaProgramInput = Parameters<typeof db.updateMediaProgram>[0];
 export type UpdateMediaProgramOutput = ReturnType<typeof db.updateMediaProgram>;
+
+export type AddFilesToMusicPlaylistInput = Parameters<typeof db.addFilesToMusicPlaylist>[0];
+export type AddFilesToMusicPlaylistOutput = ReturnType<typeof db.addFilesToMusicPlaylist>;
+
+export type CreateMusicPlaylistInput = Parameters<typeof db.createMusicPlaylist>[0];
+export type CreateMusicPlaylistOutput = ReturnType<typeof db.createMusicPlaylist>;
+
+export type DeleteMusicPlaylistsInput = Parameters<typeof db.deleteMusicPlaylists>[0];
+export type DeleteMusicPlaylistsOutput = ReturnType<typeof db.deleteMusicPlaylists>;
+
+export type ImportMusicPlaylistsInput = Parameters<typeof db.importMusicPlaylists>[0];
+export type ImportMusicPlaylistsOutput = ReturnType<typeof db.importMusicPlaylists>;
+
+export type ListAudioFileTagsInput = Parameters<typeof db.listAudioFileTags>[0];
+export type ListAudioFileTagsOutput = ReturnType<typeof db.listAudioFileTags>;
+
+export type UpdateMusicPlaylistInput = Parameters<typeof db.updateMusicPlaylist>[0];
+export type UpdateMusicPlaylistOutput = ReturnType<typeof db.updateMusicPlaylist>;
 
 export type FindSimilarAudioInput = Parameters<typeof db.findSimilarAudio>[0];
 export type FindSimilarAudioOutput = ReturnType<typeof db.findSimilarAudio>;

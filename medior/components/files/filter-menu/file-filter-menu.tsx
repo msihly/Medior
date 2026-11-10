@@ -15,7 +15,14 @@ import {
 } from "medior/components";
 import { FileSearch, useStores } from "medior/store";
 import { colors } from "medior/utils/client";
-import { AudioCodec, cycleTriState, ImageExt, VideoCodec, VideoExt } from "medior/utils/common";
+import {
+  AudioCodec,
+  AudioExt,
+  cycleTriState,
+  ImageExt,
+  VideoCodec,
+  VideoExt,
+} from "medior/utils/common";
 
 export interface FileFilterMenuProps {
   /** Hides filters for files the menu's results can never include. */
@@ -135,10 +142,19 @@ export const FileFilterMenu = Comp((props: FileFilterMenuProps) => {
         <View row spacing="0.5rem">
           <Card width="9rem" overflow="auto">
             <FileFilter.ExtColumn
-              label="Audio"
+              label="A-Codecs"
               configTypes={stores.home.settings.file.audioCodecs as AudioCodec[]}
               selected={store.selectedAudioCodecs}
               setSelected={store.setSelectedAudioCodecs}
+            />
+          </Card>
+
+          <Card width="9rem" overflow="auto">
+            <FileFilter.ExtColumn
+              label="Audio"
+              configTypes={stores.home.settings.file.audioExts as AudioExt[]}
+              selected={store.selectedAudioExts}
+              setSelected={store.setSelectedAudioExts}
             />
           </Card>
 

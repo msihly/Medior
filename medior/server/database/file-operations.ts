@@ -12,6 +12,7 @@ import { isServerStopping, serverShutdownSignal } from "trabecula/utils/process"
 import {
   deleteFile,
   extendFileName,
+  fileLog,
   isWithinFolder,
   removeEmptyFolders,
 } from "trabecula/utils/server";
@@ -25,6 +26,7 @@ import {
 } from "medior/server/database/media-paths";
 import { registerPersistenceModel } from "medior/server/database/persistence";
 import { Fmt } from "medior/utils/common";
+import { getHasLinkedFolder, getIsLinkedPath } from "medior/utils/server/config";
 import { hashMediaFile } from "medior/utils/server/media-output";
 import { workSignal } from "medior/utils/server/work-signal";
 
@@ -101,7 +103,7 @@ export interface FileOperation {
    * instead of removing the output. Saved before the move.
    */
   isSourceMoved?: boolean;
-  kind?: "import" | "thumbnail" | "transform";
+  kind?: "import" | "moveBack" | "thumbnail" | "transform";
   outputHash?: string;
   outputMetadata?: Partial<FileSchema>;
   outputPath?: string;
@@ -141,7 +143,7 @@ const schema = new Schema<FileOperation>({
   importInput: Schema.Types.Mixed,
   importResult: Schema.Types.Mixed,
   isSourceMoved: Boolean,
-  kind: { enum: ["import", "thumbnail", "transform"], type: String },
+  kind: { enum: ["import", "moveBack", "thumbnail", "transform"], type: String },
   outputHash: String,
   outputMetadata: Schema.Types.Mixed,
   outputPath: String,
@@ -564,6 +566,13 @@ const cleanFileOperation = async (
 
         if (referencedPaths.has(file.path)) continue;
 
+        // Linked files belong to other apps, so cleanup lets go of them without deleting them.
+        if (getIsLinkedPath(file.path)) {
+          fileLog(`Kept linked file instead of deleting it: ${file.path}`);
+          cleanedPaths.push(file.path);
+          continue;
+        }
+
         let isMissing = false;
         let isUnchanged = false;
 
@@ -631,13 +640,14 @@ const cleanFileOperation = async (
 
     checkCleanupCancelled(canContinue);
 
+    // Linked folders, and folders holding them, keep their empty folders for their apps.
     if (operation.sourceRootPath)
       await removeEmptySourceFolders(
-        operation.cleanup.map((file) => file.path),
+        operation.cleanup.map((file) => file.path).filter((filePath) => !getIsLinkedPath(filePath)),
         operation.sourceRootPath,
       );
 
-    if (operation.emptyFolderPath)
+    if (operation.emptyFolderPath && !getHasLinkedFolder(operation.emptyFolderPath))
       await removeEmptyFolders(operation.emptyFolderPath, { hardDelete: true });
 
     await FileOperationModel.deleteOne({ _id: id, state: "COMMITTED" });
