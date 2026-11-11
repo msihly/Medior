@@ -3,6 +3,7 @@ export * from "./file-exporter";
 export * from "./file-store";
 export * from "./file-transform";
 export * from "./file-transform-search";
+export * from "./file-translation";
 export * from "./lower-resolution";
 export * from "./search";
 export * from "./similarity";

@@ -37,6 +37,7 @@ import {
   isDeepEqual,
   LogicalOp,
   logicOpsToMongo,
+  makeRegexSearchClauses,
   normalizeTimestampPairs,
   parseTimestampPairs,
   setObj,
@@ -502,12 +503,13 @@ export const createFileFilterPipeline = async (args: CreateFileFilterPipelineInp
   {
     const filter: QueryFilter<models.FileSchema> = {};
 
-    if (
-      args.transcription != null &&
-      args.transcription !== "" &&
-      !isDeepEqual(args.transcription, null)
-    )
-      addRegexSearchFilter(filter, ["transcription.text", "$regex"], args.transcription);
+    if (!!args.transcription?.trim())
+      (filter.$and ??= []).push(
+        ...makeRegexSearchClauses(
+          ["transcription.text", "captionTranslations.text"],
+          args.transcription,
+        ),
+      );
 
     if (Object.keys(filter).length) {
       const operator = args.transcriptionMode === "optional" ? "$or" : "$and";

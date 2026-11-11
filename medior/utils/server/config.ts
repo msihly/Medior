@@ -3,6 +3,7 @@ import path from "path";
 import { randomUUID } from "crypto";
 import { availableParallelism } from "os";
 import { checkFileExists, fileLog, isWithinFolder } from "trabecula/utils/server";
+import type { TranslationConfig } from "trabecula/utils/translation";
 import type { FolderToCollMode, FolderToTagsMode, SortMenuProps } from "medior/components";
 import {
   AudioCodec,
@@ -318,6 +319,8 @@ export interface Config {
     transforms: {
       search: Search;
     };
+    /** Translates file names, transcripts, and subtitles into the language with this code. */
+    translation: TranslationConfig & { language: string };
     videoCodecs: Array<VideoCodec>;
     videoExts: Array<VideoExt>;
     /** Opens video playlists from Open Natively. */
@@ -571,6 +574,12 @@ export const DEFAULT_CONFIG: Config = {
         pageSize: 18,
         sort: { isDesc: false, key: "dateCreated" },
       },
+    },
+    translation: {
+      language: "en",
+      modelCachePath: path.resolve("ModelCache"),
+      modelDownloads: false,
+      quantization: "q4",
     },
     videoCodecs: [...CONSTANTS.VIDEO.CODECS_COMMON],
     videoExts: [...CONSTANTS.VIDEO.EXTS_COMMON],

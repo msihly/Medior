@@ -5,6 +5,7 @@ import {
   FaceRecognitionModal,
   FileExportModal,
   FileRefreshModal,
+  FileTranslationModal,
   InfoModal,
   JobProgress,
   LoadingOverlay,
@@ -64,6 +65,8 @@ export const FileModals = Comp(() => {
       {/* Jobs' progress shows over every view until it's minimized to the corner. */}
       <ModalGroupContext.Provider value={undefined}>
         {store.isRefreshOpen && <FileRefreshModal />}
+
+        {store.translation.isOpen && <FileTranslationModal />}
 
         {store.isConfirmDeleteOpen && <DeleteFilesModal />}
 

@@ -12,8 +12,8 @@ import {
 import { _FileStore } from "medior/store/_generated";
 import * as db from "medior/server/database";
 import { FaceModel, RootStore, tagToOption } from "medior/store";
-import { asyncAction, toast } from "medior/utils/client";
-import { chunkArray, Fmt } from "medior/utils/common";
+import { asyncAction, toast, toastJobResult } from "medior/utils/client";
+import { chunkArray, FileTranslationSource, Fmt } from "medior/utils/common";
 import { rpc } from "medior/utils/server";
 import {
   File,
@@ -21,6 +21,7 @@ import {
   FileSearch,
   FileSimilarityStore,
   FileTagsEditorStore,
+  FileTranslationStore,
   LowerResolutionStore,
   VideoTransformerStore,
   VideoTransformRequest,
@@ -50,6 +51,7 @@ export class FileStore extends ExtendedModel(_FileStore, {
   searchTabs: prop<FileSearch[]>(() => [new FileSearch({})]),
   similarity: prop<FileSimilarityStore>(() => new FileSimilarityStore({})),
   tagsEditor: prop<FileTagsEditorStore>(() => new FileTagsEditorStore({})),
+  translation: prop<FileTranslationStore>(() => new FileTranslationStore({})),
   /** The search the Collection Triager's carousel loads its files into while it's open. */
   triageSearch: prop<FileSearch>(null).withSetter(),
   videoTransformer: prop<VideoTransformerStore>(() => new VideoTransformerStore({})),
@@ -443,6 +445,37 @@ export class FileStore extends ExtendedModel(_FileStore, {
       toast.error("Error updating rating");
     }
   });
+
+  /**
+   * Starts translating files on the server, followed from the corner, or adds them to the
+   * translation already running. `force` replaces stored translations rather than reusing them.
+   * Returns the translation's job ID, or nothing when it couldn't start.
+   */
+  @modelFlow
+  translateFiles = asyncAction(
+    async (args: { force?: boolean; ids: string[]; sources?: FileTranslationSource[] }) => {
+      const stores = getRootStore<RootStore>(this);
+
+      if (!args.ids.length) return null;
+
+      try {
+        const res = await rpc.startFileTranslation({
+          fileIds: args.ids,
+          force: args.force,
+          sources: args.sources,
+        });
+        if (!res.success) throw new Error(res.error);
+
+        stores.home.followJob(res.data, toastJobResult);
+
+        return res.data;
+      } catch (error) {
+        toast.error(error);
+
+        return null;
+      }
+    },
+  );
 
   @modelFlow
   unarchiveFiles = asyncAction(async ({ fileIds }: { fileIds: string[] }) => {

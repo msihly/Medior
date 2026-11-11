@@ -3,7 +3,14 @@ import { hasTranscription, normalizeTimestampPairs } from "./media-metadata";
 
 type DuplicateMetadata = Pick<
   FileSchema,
-  "diffusionParams" | "originalName" | "rating" | "tagIds" | "timestamps" | "transcription"
+  | "captionTranslations"
+  | "diffusionParams"
+  | "nameTranslations"
+  | "originalName"
+  | "rating"
+  | "tagIds"
+  | "timestamps"
+  | "transcription"
 >;
 
 export const mergeDuplicateMetadata = (original: DuplicateMetadata, match: DuplicateMetadata) => {
@@ -14,11 +21,35 @@ export const mergeDuplicateMetadata = (original: DuplicateMetadata, match: Dupli
     if (!originalTimestamps.has(timestamp.id)) originalTimestamps.set(timestamp.id, timestamp);
   }
 
+  const isOriginalTranscriptKept =
+    !hasTranscription(match.transcription) && hasTranscription(original.transcription);
+
+  const originalName = match.originalName || original.originalName;
+  const matchNameTranslations = (match.nameTranslations ?? []).filter(
+    ({ name }) => name === originalName,
+  );
+  const matchNameLanguages = new Set(matchNameTranslations.map(({ language }) => language));
+
   return {
+    // Subtitle translations stay with the kept media; transcript ones follow the kept transcript.
+    captionTranslations: [
+      ...(match.captionTranslations ?? []).filter(
+        ({ source }) => !isOriginalTranscriptKept || source !== "transcript",
+      ),
+      ...(isOriginalTranscriptKept
+        ? (original.captionTranslations ?? []).filter(({ source }) => source === "transcript")
+        : []),
+    ],
     diffusionParams: match.diffusionParams || original.diffusionParams,
     hasTranscript:
       hasTranscription(match.transcription) || hasTranscription(original.transcription),
-    originalName: match.originalName || original.originalName,
+    nameTranslations: [
+      ...matchNameTranslations,
+      ...(original.nameTranslations ?? []).filter(
+        ({ language, name }) => name === originalName && !matchNameLanguages.has(language),
+      ),
+    ],
+    originalName,
     rating: Math.max(original.rating ?? 0, match.rating ?? 0),
     tagIds: [...new Set([...(match.tagIds ?? []), ...(original.tagIds ?? [])].map(String))].sort(),
     timestamps: [

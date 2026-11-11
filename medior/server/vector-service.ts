@@ -410,7 +410,8 @@ export class VectorSimilarityService {
     await fs.mkdir(config.file.similarity.modelCachePath, { recursive: true });
 
     fileLog("[VECTOR] Loading native module...");
-    this.lancedb = await import("@lancedb/lancedb");
+    // Packaged apps reach node_modules via NODE_PATH, which require follows and import() doesn't.
+    this.lancedb = require("@lancedb/lancedb");
     checkServerShutdown();
     fileLog("[VECTOR] Opening vector storage...");
     this.db = await this.lancedb.connect(config.db.vector.path);

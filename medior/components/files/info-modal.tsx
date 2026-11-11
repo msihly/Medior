@@ -18,7 +18,13 @@ import {
 } from "medior/components";
 import { File, useStores } from "medior/store";
 import { colors, useCancellableLoad } from "medior/utils/client";
-import { Fmt, round } from "medior/utils/common";
+import {
+  Fmt,
+  formatCaptionSegments,
+  getCaptionTranslation,
+  getNameTranslation,
+  round,
+} from "medior/utils/common";
 import { rpc } from "medior/utils/server";
 
 export const InfoModal = Comp(() => {
@@ -29,9 +35,17 @@ export const InfoModal = Comp(() => {
 
   const load = useCancellableLoad();
 
+  const language = stores.home.settings.file.translation.language;
+  const translatedName = getNameTranslation(file, language)?.text;
+  const transcriptTranslation = getCaptionTranslation(file, "transcript", language);
+  // Translations from the translation modal show here once they're stored.
+  const translationCount = store.translation.translatedFileIds.includes(store.activeFileId)
+    ? store.translation.translationCount
+    : 0;
+
   useEffect(() => {
     loadFile();
-  }, [store.activeFileId]);
+  }, [store.activeFileId, translationCount]);
 
   const handleClose = () => {
     load.cancel();
@@ -47,6 +61,9 @@ export const InfoModal = Comp(() => {
 
     if (store.isInfoModalOpen) await loadFile();
   };
+
+  const handleTranslate = () =>
+    store.translation.open({ fileIds: [file.id], sources: ["name", "transcript"] });
 
   const loadFile = () =>
     load.run(async (signal) => {
@@ -182,6 +199,10 @@ export const InfoModal = Comp(() => {
 
         <Detail label="Original File Name" value={file?.originalName} withTooltip />
 
+        {translatedName && (
+          <Detail label="Translated File Name" value={translatedName} withTooltip />
+        )}
+
         <Detail
           label="Original Folder"
           value={file?.originalPath ? path.dirname(file.originalPath) : null}
@@ -227,13 +248,21 @@ export const InfoModal = Comp(() => {
               <Card height="15rem" overflow="auto">
                 <Text flexShrink={0} whiteSpace="pre-wrap">
                   {file.transcription.segments?.length
-                    ? file.transcription.segments
-                        .map(
-                          ({ end, start, text }) =>
-                            `[${Fmt.duration(start)} – ${Fmt.duration(end)}] ${text.trim()}`,
-                        )
-                        .join("\n\n")
+                    ? formatCaptionSegments(file.transcription.segments)
                     : file.transcription.text}
+                </Text>
+              </Card>
+            }
+          />
+        )}
+
+        {transcriptTranslation && (
+          <Detail
+            label="Translated Transcript"
+            value={
+              <Card height="15rem" overflow="auto">
+                <Text flexShrink={0} whiteSpace="pre-wrap">
+                  {formatCaptionSegments(transcriptTranslation.segments)}
                 </Text>
               </Card>
             }
@@ -259,6 +288,14 @@ export const InfoModal = Comp(() => {
           text="Refresh"
           icon="Refresh"
           onClick={handleRefresh}
+          disabled={!file}
+          colorOnHover={colors.custom.blue}
+        />
+
+        <Button
+          text="Translate"
+          icon="Translate"
+          onClick={handleTranslate}
           disabled={!file}
           colorOnHover={colors.custom.blue}
         />

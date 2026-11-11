@@ -7,7 +7,13 @@ import type { ImageEditInput } from "medior/server/database/actions/image-edits"
 import { SliderMark } from "medior/components";
 import { RootStore, Splicer } from "medior/store";
 import { asyncAction, derefMobx, openCarouselWindow, toast } from "medior/utils/client";
-import { Fmt, SubtitleSegment, TEXT_SUBTITLE_CODECS } from "medior/utils/common";
+import {
+  FileTranslationSource,
+  Fmt,
+  getCaptionTranslation,
+  SubtitleSegment,
+  TEXT_SUBTITLE_CODECS,
+} from "medior/utils/common";
 import { rpc } from "medior/utils/server";
 import { probeChapters, VideoChapter } from "medior/utils/server/ffmpeg";
 import { probeSubtitleStreams, readSubtitleSegments } from "medior/utils/server/subtitles";
@@ -17,6 +23,7 @@ const CAPTIONS_VISIBLE_KEY = "medior.carousel.captionsVisible";
 const IS_PINNED_KEY = "medior.carousel.isPinned";
 const LAST_VOLUME_KEY = "medior.carousel.lastVolume";
 const SUBTITLE_LANGUAGE_KEY = "medior.carousel.subtitleLanguage";
+const TRANSLATION_VISIBLE_KEY = "medior.carousel.translationVisible";
 const VOLUME_KEY = "medior.carousel.volume";
 const WAVEFORM_VISIBLE_KEY = "medior.carousel.waveformVisible";
 
@@ -29,6 +36,8 @@ export interface SubtitleTrack {
   label: string;
   lang?: string;
   path: string;
+  /** Where the track's translations are stored on the file. */
+  source: FileTranslationSource;
   streamIndex?: number;
 }
 
@@ -46,6 +55,8 @@ export class CarouselStore extends Model({
   isPinned: prop<boolean>(false).withSetter(),
   isPlaying: prop<boolean>(true).withSetter(),
   isSavingFrame: prop<boolean>(false).withSetter(),
+  /** Captions show their stored translation into the target language, when there is one. */
+  isTranslationVisible: prop<boolean>(false),
   isWaitingForFrames: prop<boolean>(false).withSetter(),
   isWaveformVisible: prop<boolean>(true),
   lastVolume: prop<number>(0.3).withSetter(),
@@ -85,6 +96,7 @@ export class CarouselStore extends Model({
     const captionsVisible = localStorage.getItem(CAPTIONS_VISIBLE_KEY);
     const isPinned = localStorage.getItem(IS_PINNED_KEY);
     const lastVolume = localStorage.getItem(LAST_VOLUME_KEY);
+    const translationVisible = localStorage.getItem(TRANSLATION_VISIBLE_KEY);
     const volume = localStorage.getItem(VOLUME_KEY);
     const waveformVisible = localStorage.getItem(WAVEFORM_VISIBLE_KEY);
 
@@ -94,6 +106,8 @@ export class CarouselStore extends Model({
 
     if (lastVolume !== null && Number.isFinite(Number(lastVolume)))
       this.lastVolume = Number(lastVolume);
+
+    if (translationVisible !== null) this.isTranslationVisible = translationVisible === "true";
 
     if (volume !== null && Number.isFinite(Number(volume))) this.volume = Number(volume);
 
@@ -199,6 +213,12 @@ export class CarouselStore extends Model({
 
     localStorage.setItem(LAST_VOLUME_KEY, String(this.lastVolume));
     localStorage.setItem(VOLUME_KEY, String(this.volume));
+  }
+
+  @modelAction
+  toggleTranslation() {
+    this.isTranslationVisible = !this.isTranslationVisible;
+    localStorage.setItem(TRANSLATION_VISIBLE_KEY, String(this.isTranslationVisible));
   }
 
   @modelAction
@@ -388,6 +408,7 @@ export class CarouselStore extends Model({
           id: subtitle.path,
           label: `Subtitle ${index + 1} (${subtitle.ext.toUpperCase()})`,
           path: subtitle.path,
+          source: `subtitle:${subtitle.pathKey}` as const,
         })),
       ...streams
         .filter((stream) => TEXT_SUBTITLE_CODECS.includes(stream.codec))
@@ -396,6 +417,7 @@ export class CarouselStore extends Model({
           label: stream.label || stream.lang || `Track ${stream.index + 1}`,
           lang: stream.lang,
           path: activeFile.path,
+          source: `stream:${stream.index}` as const,
           streamIndex: stream.index,
         })),
     ];
@@ -466,6 +488,23 @@ export class CarouselStore extends Model({
     },
   );
 
+  /**
+   * Translates the shown captions on the server, showing the translation once it's stored.
+   * `force` translates them again, replacing the stored translation.
+   */
+  @modelFlow
+  translateCaptions = asyncAction(async ({ force = false }: { force?: boolean } = {}) => {
+    const stores = getRootStore<RootStore>(this);
+
+    const res = await stores.file.translateFiles({
+      force,
+      ids: [this.activeFileId],
+      sources: [this.captionSource],
+    });
+
+    if (res.data && !this.isTranslationVisible) this.toggleTranslation();
+  });
+
   @modelFlow
   transcodeVideo = asyncAction(
     async (args?: { force?: boolean; onFirstFrames?: () => void; seekTime?: number }) => {
@@ -502,13 +541,19 @@ export class CarouselStore extends Model({
   );
 
   /* --------------------------------- GETTERS -------------------------------- */
-  /** Every cue showing at the current time, from the selected subtitles or else the transcript. */
+  /**
+   * Every cue showing at the current time, from the selected subtitles or else the transcript, or
+   * from their stored translation when it's shown.
+   */
   @computed
   get activeCaption() {
     const activeFile = this.getActiveFile();
-    const segments = this.subtitleTrackId
-      ? this.subtitleSegments
-      : (activeFile?.transcription?.segments ?? []);
+    const segments =
+      this.isTranslationVisible && this.captionTranslation
+        ? this.captionTranslation.segments
+        : this.subtitleTrackId
+          ? this.subtitleSegments
+          : (activeFile?.transcription?.segments ?? []);
 
     return segments
       .filter(({ end, start }) => this.curTime >= start && this.curTime <= end)
@@ -519,6 +564,26 @@ export class CarouselStore extends Model({
   @computed
   get activeFileIndex() {
     return this.getFileIndex(this.activeFileId);
+  }
+
+  /** Where the shown captions come from: the selected subtitles, or else the transcript. */
+  @computed
+  get captionSource(): FileTranslationSource {
+    return (
+      this.subtitleTracks.find(({ id }) => id === this.subtitleTrackId)?.source ?? "transcript"
+    );
+  }
+
+  /** The shown captions' stored translation into the target language. */
+  @computed
+  get captionTranslation() {
+    const stores = getRootStore<RootStore>(this);
+
+    return getCaptionTranslation(
+      this.getActiveFile(),
+      this.captionSource,
+      stores.home.settings.file.translation.language,
+    );
   }
 
   /** The waveform shows above the video controls only when on and the video has audio peaks. */

@@ -108,6 +108,7 @@ export class RootStore extends Model({
       this.file?.similarity?.isOpen ||
       this.file?.tagsEditor?.isOpen ||
       (this.file?.isRefreshOpen && !this.file?.isRefreshMinimized) ||
+      (this.file?.translation?.isOpen && !this.file?.translation?.isMinimized) ||
       this.mediaProgram?.editor?.isOpen ||
       this.music?.editor?.isOpen ||
       this.music?.playlistPickerFileIds?.length > 0 ||

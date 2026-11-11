@@ -149,6 +149,12 @@ export interface FileSchema {
   audioBitrate?: number;
   audioCodec?: string;
   bitrate?: number;
+  captionTranslations?: Array<{
+    language: string;
+    segments: Array<{ end: number; start: number; text: string }>;
+    source: string;
+    text: string;
+  }>;
   collectionIds: string[];
   dateCreated: string;
   dateImported: string;
@@ -167,6 +173,12 @@ export interface FileSchema {
   isCorrupted?: boolean;
   music?: import("medior/utils/common/music").FileMusic;
   musicOptions?: import("medior/utils/common/music").MusicImportOptions;
+  nameTranslations?: Array<{
+    display?: "original" | "translation";
+    language: string;
+    name: string;
+    text: string;
+  }>;
   originalAudioBitrate?: number;
   originalAudioCodec?: string;
   originalBitrate?: number;
@@ -213,6 +225,14 @@ const FileSchema = new Schema<FileSchema>({
   audioBitrate: Number,
   audioCodec: String,
   bitrate: Number,
+  captionTranslations: [
+    {
+      language: String,
+      segments: [{ end: Number, start: Number, text: String }],
+      source: String,
+      text: String,
+    },
+  ],
   collectionIds: [{ type: Schema.Types.ObjectId, ref: "FileCollection" }],
   dateImported: String,
   dateModified: String,
@@ -236,6 +256,7 @@ const FileSchema = new Schema<FileSchema>({
   isCorrupted: Boolean,
   music: Schema.Types.Mixed,
   musicOptions: Schema.Types.Mixed,
+  nameTranslations: [{ display: String, language: String, name: String, text: String }],
   originalAudioBitrate: Number,
   originalAudioCodec: String,
   originalBitrate: Number,

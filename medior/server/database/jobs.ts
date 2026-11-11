@@ -11,6 +11,7 @@ export type JobType =
   | "moveFilesBack"
   | "refreshFiles"
   | "regenerateTagRegEx"
+  | "translateFiles"
   | "unarchiveFiles";
 
 export interface JobState {

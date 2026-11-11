@@ -27,6 +27,15 @@ export const cycleTriState = (value: boolean | null) =>
   value === true ? false : value === false ? null : true;
 
 /**
+ * `$and` clauses that match each search term, split as `addRegexSearchFilter` splits them, in any
+ * of the fields.
+ */
+export const makeRegexSearchClauses = (fields: string[], input: string) =>
+  splitRegexSearchTerms(input).map((term) => ({
+    $or: fields.map((field) => ({ [field]: { $regex: new RegExp(term, "i") } })),
+  }));
+
+/**
  * Moves the selected items up to `delta` places up or down, keeping their order among themselves
  * and stopping at the list's ends. The other items keep their order around them.
  */

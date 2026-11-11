@@ -1,6 +1,10 @@
 import { dialog } from "@electron/remote";
 import { ipcRenderer } from "electron";
 import { useEffect, useState } from "react";
+import {
+  TRANSLATION_LANGUAGES,
+  TRANSLATION_QUANTIZATION_OPTIONS,
+} from "trabecula/utils/translation";
 import { SORT_OPTIONS } from "medior/store/_generated";
 import {
   Button,
@@ -396,10 +400,10 @@ export const SettingsModal = Comp(() => {
                   />
                 </Settings.Field>
 
-                <Settings.Warning text="Model Downloads gets the visual similarity model from Hugging Face when it isn't in the model cache. Medior has no control over Hugging Face's servers." />
-
-                <Settings.Field label="Model Downloads">
+                <Settings.Field label="Model Downloads" wide>
                   <Settings.Checkbox configKey="file.similarity.modelDownloads" width="auto" />
+
+                  <Settings.Warning text="Model Downloads gets the visual similarity model from Hugging Face when it isn't in the model cache. Medior has no control over Hugging Face's servers." />
                 </Settings.Field>
 
                 <UniformList row spacing="1rem">
@@ -678,10 +682,50 @@ export const SettingsModal = Comp(() => {
                   />
                 </Settings.Field>
 
-                <Settings.Warning text="Model Downloads gets the transcription model from Hugging Face when it isn't in the model cache. Medior has no control over Hugging Face's servers." />
-
-                <Settings.Field label="Model Downloads">
+                <Settings.Field label="Model Downloads" wide>
                   <Settings.Checkbox configKey="file.transcription.modelDownloads" width="auto" />
+
+                  <Settings.Warning text="Model Downloads gets the transcription model from Hugging Face when it isn't in the model cache. Medior has no control over Hugging Face's servers." />
+                </Settings.Field>
+              </Settings.Group>
+
+              <Settings.Group
+                title="Translation"
+                description="Translates file names, transcripts, and subtitles on request, storing them with the file for searches."
+              >
+                <UniformList row spacing="1rem">
+                  <Settings.Field label="Target Language">
+                    <Settings.Dropdown
+                      configKey="file.translation.language"
+                      options={TRANSLATION_LANGUAGES}
+                      width="12rem"
+                    />
+                  </Settings.Field>
+
+                  <Settings.Field label="Quantization">
+                    <Settings.Dropdown
+                      configKey="file.translation.quantization"
+                      options={TRANSLATION_QUANTIZATION_OPTIONS}
+                      width="8rem"
+                    />
+                  </Settings.Field>
+                </UniformList>
+
+                <Settings.Field label="Model Cache Path" wide>
+                  <Settings.Input
+                    configKey="file.translation.modelCachePath"
+                    onClick={handlePathClick(
+                      store.setTranslationModelCachePath,
+                      store.file.translation.modelCachePath,
+                    )}
+                    flex={1}
+                  />
+                </Settings.Field>
+
+                <Settings.Field label="Model Downloads" wide>
+                  <Settings.Checkbox configKey="file.translation.modelDownloads" width="auto" />
+
+                  <Settings.Warning text="Model Downloads gets the translation model from Hugging Face when it isn't in the model cache. Medior has no control over Hugging Face's servers." />
                 </Settings.Field>
               </Settings.Group>
 
@@ -1095,10 +1139,10 @@ export const SettingsModal = Comp(() => {
                 title="Metadata Sources"
                 description="Matching searches TVDB, TMDB, TVMaze, then AniList, skipping sources whose key is not set."
               >
-                <Settings.Warning text="Lookups send program titles to TVDB, TMDB, TVMaze, and AniList, along with years and keys to the sources that take them, and download images from their servers. Medior has no control over those servers." />
-
-                <Settings.Field label="Lookups">
+                <Settings.Field label="Lookups" wide>
                   <Settings.Checkbox configKey="mediaPrograms.metaLookups" width="auto" />
+
+                  <Settings.Warning text="Lookups send program titles to TVDB, TMDB, TVMaze, and AniList, along with years and keys to the sources that take them, and download images from their servers. Medior has no control over those servers." />
                 </Settings.Field>
 
                 <Settings.Field label="TVDB API Key" wide>

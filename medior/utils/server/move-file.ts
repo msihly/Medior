@@ -31,8 +31,9 @@ const SHARE_NONE = 0;
 let kernel32: ReturnType<typeof loadKernel32> = null;
 
 /** Koffi keeps each call's last Win32 error for the next call through Koffi to read. */
-const loadKernel32 = async () => {
-  const { load } = await import("koffi");
+const loadKernel32 = () => {
+  // Packaged apps reach node_modules via NODE_PATH, which require follows and import() doesn't.
+  const { load }: typeof import("koffi") = require("koffi");
   const lib = load("kernel32.dll");
 
   return {
@@ -89,7 +90,7 @@ const toWin32Path = (filePath: string) => path.toNamespacedPath(path.resolve(fil
 export const moveFileNoReplace = async (sourcePath: string, destinationPath: string) => {
   kernel32 ??= loadKernel32();
 
-  const { getLastError, moveFileEx } = await kernel32;
+  const { getLastError, moveFileEx } = kernel32;
 
   if (!moveFileEx(toWin32Path(sourcePath), toWin32Path(destinationPath), MOVEFILE_NO_REPLACE))
     throw makeWin32Error(`Failed to move ${sourcePath} to ${destinationPath}`, getLastError());
@@ -112,7 +113,7 @@ export const moveOrdinaryFileNoReplace = async (sourcePath: string, destinationP
     getFileAttributes,
     getLastError,
     setFileAttributes,
-  } = await kernel32;
+  } = kernel32;
 
   const source = toWin32Path(sourcePath);
 

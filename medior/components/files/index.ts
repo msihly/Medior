@@ -4,6 +4,7 @@ export * from "./file-base";
 export * from "./file-card";
 export * from "./file-export-modal";
 export * from "./file-refresh-modal";
+export * from "./file-translation-modal";
 export * from "./filter-menu";
 export * from "./info-modal";
 export * from "./lower-resolution-modal";

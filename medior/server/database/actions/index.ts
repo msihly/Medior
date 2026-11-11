@@ -17,4 +17,5 @@ export * from "./music";
 export * from "./similarity";
 export * from "./sockets";
 export * from "./tags";
+export * from "./translations";
 export * from "medior/_generated/server/actions";

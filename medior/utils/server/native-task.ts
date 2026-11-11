@@ -34,7 +34,14 @@ export const IMAGE_TASK_CONCURRENCY = Math.max(
     Number(process.env.UV_THREADPOOL_SIZE) || CONSTANTS.VECTOR.DEFAULT_THREAD_POOL_SIZE,
   ),
 );
-const workerLimits = { audio: 1, image: 4, "search-index": 1, transcription: 1, visual: 1 };
+const workerLimits = {
+  audio: 1,
+  image: 4,
+  "search-index": 1,
+  transcription: 1,
+  translation: 1,
+  visual: 1,
+};
 const workerPools = new Map<string, Set<ChildProcess>>();
 const workers = new WeakMap<AbortSignal, Map<string, Set<ChildProcess>>>();
 const workerWaiters = new Map<string, Set<() => void>>();

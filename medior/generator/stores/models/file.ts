@@ -116,10 +116,16 @@ model.addProp("originalPath", "string", "null", {
   objValue: "args.originalPath",
 });
 
+/**
+ * Matches transcripts and the stored translations of transcripts and subtitles. Input of only
+ * spaces has no search terms, so it filters nothing.
+ */
 model.addProp("transcription", "string", "null", {
+  condition: "!!args.transcription?.trim()",
   filterGroup: "transcription",
-  objPath: ["transcription.text", "$regex"],
-  objValue: "args.transcription",
+  objPath: ["$and"],
+  objValue:
+    'makeRegexSearchClauses(["transcription.text", "captionTranslations.text"], args.transcription)',
 });
 
 model.addProp(

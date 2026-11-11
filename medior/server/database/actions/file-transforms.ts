@@ -1665,7 +1665,8 @@ const replaceTransformOutput = async (args: { id: string }, outputInfo?: MediaIn
     if (isGeneratedMediaUnreadable(fileInfo))
       throw new Error("Replacement media could not be read");
 
-    // Preserve concurrent transcript edits for remuxes; re-encodes and splices clear them below.
+    // Preserve concurrent transcript edits for remuxes; re-encodes and splices clear them, and their
+    // translations, below.
     delete fileInfo.hasTranscript;
     delete fileInfo.transcription;
 
@@ -1676,7 +1677,9 @@ const replaceTransformOutput = async (args: { id: string }, outputInfo?: MediaIn
     const fileUpdates = {
       ...fileInfo,
       ...info,
-      ...(transform.type !== "remux" ? { hasTranscript: false, transcription: null } : {}),
+      ...(transform.type !== "remux"
+        ? { captionTranslations: [], hasTranscript: false, transcription: null }
+        : {}),
       // A spliced replacement no longer matches the original's timelines.
       ...(transform.type === "splice" ? { timestamps: [] } : {}),
       hash: transform.afterHash,
@@ -1750,6 +1753,14 @@ const replaceTransformOutput = async (args: { id: string }, outputInfo?: MediaIn
             id: original._id.toString(),
             updates: {
               ...fileUpdates,
+              // Remuxes keep at most the one subtitle stream ffmpeg picks, so stream numbers change.
+              ...(transform.type === "remux"
+                ? {
+                    captionTranslations: (original.captionTranslations ?? []).filter(
+                      (translation) => !translation.source.startsWith("stream:"),
+                    ),
+                  }
+                : {}),
               // Imports recognize the replaced version as this file.
               previousHashes: [
                 ...new Set([...(original.previousHashes ?? []), transform.beforeHash]),

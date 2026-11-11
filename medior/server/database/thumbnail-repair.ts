@@ -244,6 +244,9 @@ export const repairThumbnail = async (
       },
     };
 
+    // A refresh that transcribes again replaces the transcript its translations were made from.
+    const isTranscriptReplaced = updates.transcription !== undefined;
+
     const updated = await models.FileModel.findOneAndUpdate(
       {
         _id: file.id,
@@ -252,14 +255,24 @@ export const repairThumbnail = async (
         path: current.path,
         "thumb.path": current.thumb?.path ?? null,
       },
-      { $set: updates },
+      {
+        $set: updates,
+        ...(isTranscriptReplaced
+          ? { $pull: { captionTranslations: { source: "transcript" } } }
+          : {}),
+      },
       { ...metadataWriteOptions(), returnDocument: "after" },
     ).lean();
 
     if (!updated)
       throw new Error("File changed during thumbnail repair; output retained for retry");
 
-    socket.emitVolatile("onFileUpdated", { id: file.id, updates });
+    socket.emitVolatile("onFileUpdated", {
+      id: file.id,
+      updates: isTranscriptReplaced
+        ? { ...updates, captionTranslations: updated.captionTranslations }
+        : updates,
+    });
 
     if (legacyPaths.length || Object.prototype.hasOwnProperty.call(file, "thumbPaths"))
       await models.FileModel.updateOne(

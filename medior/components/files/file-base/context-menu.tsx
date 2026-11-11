@@ -96,6 +96,8 @@ export const ContextMenu = Comp(
         view: "transformer",
       });
 
+    const handleTranslate = () => fileStore.translation.open({ fileIds: getActionFileIds() });
+
     const handleUnarchive = () => fileStore.unarchiveFiles({ fileIds: [file.id] });
 
     const openInfo = () => {
@@ -196,6 +198,11 @@ export const ContextMenu = Comp(
               icon: "Refresh",
               label: "Refresh",
               onClick: handleRefresh,
+            },
+            {
+              icon: "Translate",
+              label: "Translate",
+              onClick: handleTranslate,
             },
             {
               divider: "bottom",

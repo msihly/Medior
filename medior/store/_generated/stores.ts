@@ -6404,6 +6404,14 @@ export class _File extends Model({
   audioBitrate: prop<number>(null),
   audioCodec: prop<string>(null),
   bitrate: prop<number>(null),
+  captionTranslations: prop<
+    Array<{
+      language: string;
+      segments: Array<{ end: number; start: number; text: string }>;
+      source: string;
+      text: string;
+    }>
+  >(null),
   collectionIds: prop<string[]>(() => []),
   dateCreated: prop<string>(() => dayjs().toISOString()),
   dateImported: prop<string>(),
@@ -6421,6 +6429,10 @@ export class _File extends Model({
   isCorrupted: prop<boolean>(null),
   music: prop<import("medior/utils/common/music").FileMusic>(null),
   musicOptions: prop<import("medior/utils/common/music").MusicImportOptions>(null),
+  nameTranslations:
+    prop<
+      Array<{ display?: "original" | "translation"; language: string; name: string; text: string }>
+    >(null),
   originalAudioBitrate: prop<number>(null),
   originalAudioCodec: prop<string>(null),
   originalBitrate: prop<number>(null),

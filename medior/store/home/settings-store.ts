@@ -138,6 +138,12 @@ export class SettingsStore extends Model({
   }
 
   @modelAction
+  setTranslationModelCachePath(value: Config["file"]["translation"]["modelCachePath"]) {
+    this.file.translation.modelCachePath = value;
+    this.setHasUnsavedChanges(true);
+  }
+
+  @modelAction
   setVectorDbPath(value: Config["db"]["vector"]["path"]) {
     this.db.vector.path = value;
     this.setHasUnsavedChanges(true);

@@ -8,9 +8,9 @@ export interface WarningProps {
 /** A warning shown beside the settings it concerns, such as those that contact outside servers. */
 export const Warning = Comp(({ text }: WarningProps) => (
   <View row align="center" spacing="0.5rem">
-    <Icon name="Warning" color={colors.custom.orange} />
+    <Icon name="Warning" color={colors.custom.orange} size="1em" />
 
-    <Text color={colors.custom.orange} whiteSpace="normal">
+    <Text color={colors.custom.orange} fontSize="0.8em" whiteSpace="normal">
       {text}
     </Text>
   </View>

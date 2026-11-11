@@ -1,4 +1,5 @@
 import { useCallback, useContext, useMemo, useState } from "react";
+import { TRANSLATION_LANGUAGES } from "trabecula/utils/translation";
 import {
   Button,
   Comp,
@@ -34,6 +35,9 @@ export const VideoControls = Comp(() => {
   const hasTranscript = Boolean(activeFile?.transcription?.segments?.length);
   const hasCaptions = hasTranscript || store.subtitleTracks.length > 0;
   const isCaptionsActive = store.isCaptionsVisible && hasCaptions;
+  const translationLanguage = TRANSLATION_LANGUAGES.find(
+    ({ value }) => value === stores.home.settings.file.translation.language,
+  )?.label;
 
   const goToFrame = (frame: number) => {
     store.setIsPlaying(false);
@@ -127,6 +131,13 @@ export const VideoControls = Comp(() => {
     onClose();
 
     const res = await store.selectSubtitleTrack({ id, remember: true });
+    if (!res.success) toast.error(res.error);
+  };
+
+  const handleTranslateCaptions = async (onClose: () => void, force = false) => {
+    onClose();
+
+    const res = await store.translateCaptions({ force });
     if (!res.success) toast.error(res.error);
   };
 
@@ -263,7 +274,7 @@ export const VideoControls = Comp(() => {
           tooltip={isCaptionsActive ? "Hide Captions" : "Show Captions"}
         />
 
-        {store.subtitleTracks.length > 0 && (
+        {hasCaptions && (
           <MenuButton
             icon="Subtitles"
             color={colors.custom.lightGrey}
@@ -271,8 +282,8 @@ export const VideoControls = Comp(() => {
             anchorOrigin={{ horizontal: "right", vertical: "top" }}
             transformOrigin={{ horizontal: "right", vertical: "bottom" }}
           >
-            {(onClose) =>
-              [
+            {(onClose) => [
+              ...[
                 ...(hasTranscript ? [{ id: "", label: "Transcript" }] : []),
                 ...store.subtitleTracks,
               ].map((track) => (
@@ -286,8 +297,32 @@ export const VideoControls = Comp(() => {
                   }
                   onClick={() => handleSubtitleTrack(track.id, onClose)}
                 />
-              ))
-            }
+              )),
+
+              ...(store.captionTranslation
+                ? [
+                    <ListItem
+                      key="translation"
+                      text={`Show ${translationLanguage} Translation`}
+                      icon={store.isTranslationVisible ? "CheckBox" : "CheckBoxOutlineBlank"}
+                      onClick={store.toggleTranslation}
+                    />,
+                    <ListItem
+                      key="retranslate"
+                      text="Translate Again"
+                      icon="Refresh"
+                      onClick={() => handleTranslateCaptions(onClose, true)}
+                    />,
+                  ]
+                : [
+                    <ListItem
+                      key="translate"
+                      text={`Translate to ${translationLanguage}`}
+                      icon="Translate"
+                      onClick={() => handleTranslateCaptions(onClose)}
+                    />,
+                  ]),
+            ]}
           </MenuButton>
         )}
 

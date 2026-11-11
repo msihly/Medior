@@ -15,3 +15,4 @@ export * from "./search";
 export * from "./subtitles";
 export * from "./tag-categories";
 export * from "./tags";
+export * from "./translations";

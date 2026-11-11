@@ -19,7 +19,8 @@ const getSession = async (config: AudioConfig, modelPath: string) => {
     sessionKey = "";
   }
 
-  ort ??= await import("onnxruntime-node");
+  // Packaged apps reach node_modules via NODE_PATH, which require follows and import() doesn't.
+  ort ??= require("onnxruntime-node");
 
   const loadSession = (device: AudioConfig["device"]) =>
     ort.InferenceSession.create(

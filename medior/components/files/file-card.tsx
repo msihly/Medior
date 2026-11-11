@@ -6,7 +6,7 @@ import {
 } from "medior/components/files/hooks";
 import { File, FileSearch, FileTransformSearch, useStores } from "medior/store";
 import { colors, CSS, makeClasses, openCarouselWindow } from "medior/utils/client";
-import { Fmt, round } from "medior/utils/common";
+import { Fmt, getNameTranslation, round } from "medior/utils/common";
 import { FileBase } from ".";
 
 interface FileCardProps {
@@ -43,6 +43,13 @@ export const FileCard = Comp(
     const fileDragProps = useFileDrag(file, store.selectedIds);
 
     const hasTags = file?.tags?.length > 0;
+    const nameTranslation = getNameTranslation(
+      file,
+      stores.home.settings.file.translation.language,
+    );
+    // A translation saved to show replaces the name; the tooltip keeps showing the original.
+    const fileName =
+      nameTranslation?.display === "translation" ? nameTranslation.text : file?.originalName;
     const showFileName = stores.home.showFileName && !!file?.originalName;
     const hasFooter = hasTags || showFileName;
     const footerOffset = showFileName ? (hasTags ? "3.5rem" : "1.5rem") : undefined;
@@ -143,7 +150,7 @@ export const FileCard = Comp(
             {hasFooter && (
               <FileBase.Footer height={showFileName ? (hasTags ? "4rem" : "1.8rem") : undefined}>
                 <View column width="100%" overflow="hidden">
-                  {showFileName && <FileBase.FooterText text={file.originalName} noTooltip />}
+                  {showFileName && <FileBase.FooterText text={fileName} noTooltip />}
 
                   {hasTags && <FileBase.Tags compact={showFileName} tags={file.tags} />}
                 </View>

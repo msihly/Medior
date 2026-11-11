@@ -45,6 +45,11 @@ export const MinimizedJobs = Comp(() => {
       },
     },
     regenerateTagRegEx: tagManagerView,
+    translateFiles: {
+      isShown: file.translation.isOpen && !file.translation.isMinimized,
+      jobId: file.translation.jobId,
+      restore: () => file.translation.setIsMinimized(false),
+    },
     unarchiveFiles: fileActionView,
   };
 

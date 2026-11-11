@@ -11,6 +11,25 @@ model.addProp("audioCodec", "string");
 model.addIndex({ bitrate: 1, _id: 1 });
 model.addProp("bitrate", "number", { sort: { icon: "DataThresholding", label: "Bitrate" } });
 
+/**
+ * Translated cues of the transcript ("transcript"), a companion subtitle file ("subtitle:<path
+ * key>"), or a text subtitle stream ("stream:<index>"), one per source and language. `text` joins
+ * the cues for the Transcription filter.
+ */
+model.addProp(
+  "captionTranslations",
+  `Array<{
+    language: string;
+    segments: Array<{ end: number; start: number; text: string }>;
+    source: string;
+    text: string;
+  }>`,
+  {
+    schemaType:
+      "[{ language: String, segments: [{ end: Number, start: Number, text: String }], source: String, text: String }]",
+  },
+);
+
 model.addIndex({ collectionIds: 1 }, { unique: false });
 model.addProp("collectionIds", "FileCollection.id[]", { defaultValue: "[]", required: true });
 
@@ -88,6 +107,16 @@ model.addProp("music", 'import("medior/utils/common/music").FileMusic', {
 model.addProp("musicOptions", 'import("medior/utils/common/music").MusicImportOptions', {
   schemaType: "Schema.Types.Mixed",
 });
+
+/**
+ * Translations of `originalName` by language, kept with the name they translate. `display` is set
+ * once a translation is saved, choosing whether it or the name shows on file cards.
+ */
+model.addProp(
+  "nameTranslations",
+  `Array<{ display?: "original" | "translation"; language: string; name: string; text: string }>`,
+  { schemaType: "[{ display: String, language: String, name: String, text: String }]" },
+);
 
 model.addProp("originalAudioBitrate", "number");
 

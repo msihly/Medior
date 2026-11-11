@@ -94,7 +94,8 @@ const getTranscriber = async (onProgress?: ProgressReporter) => {
     transcriberKey = "";
   }
 
-  transformers ??= (await import("@huggingface/transformers")) as unknown as TransformersModule;
+  // Packaged apps reach node_modules via NODE_PATH, which require follows and import() doesn't.
+  transformers ??= require("@huggingface/transformers") as TransformersModule;
 
   // Models come only from the cache unless Settings allows downloading them from Hugging Face.
   transformers.env.allowRemoteModels = config.modelDownloads;

@@ -9,7 +9,8 @@ registerNativeWorker(
     isUpdate: boolean;
     tableName: string;
   }) => {
-    const lancedb = await import("@lancedb/lancedb");
+    // Packaged apps reach node_modules via NODE_PATH, which require follows and import() doesn't.
+    const lancedb: typeof import("@lancedb/lancedb") = require("@lancedb/lancedb");
     const db = await lancedb.connect(input.dbPath);
     const table = await db.openTable(input.tableName);
 

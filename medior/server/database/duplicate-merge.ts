@@ -12,22 +12,29 @@ type DuplicateFile = Parameters<typeof mergeDuplicateMetadata>[0] &
 
 /**
  * Moves a duplicate's tags, higher rating, diffusion parameters, name, timestamps, transcript,
- * collection entries, media program episodes, and playlist places onto the file that replaces it.
- * Archiving the duplicate is left to the caller.
+ * translations, collection entries, media program episodes, and playlist places onto the file that
+ * replaces it. Archiving the duplicate is left to the caller.
  */
 export const mergeDuplicateFile = async (original: DuplicateFile, match: DuplicateFile) => {
   const metadata = mergeDuplicateMetadata(original, match);
   const updates = {
+    captionTranslations: metadata.captionTranslations,
     diffusionParams: metadata.diffusionParams,
     hasTranscript: metadata.hasTranscript,
+    nameTranslations: metadata.nameTranslations,
     originalName: metadata.originalName,
     timestamps: metadata.timestamps,
     transcription: metadata.transcription,
   };
 
   // Metadata, tags, and ratings the match already has would only rewrite it, and tags and ratings
-  // would also queue metadata regeneration for nothing.
-  if (Object.entries(updates).some(([key, value]) => !isDeepEqual(match[key], value))) {
+  // would also queue metadata regeneration for nothing. Lists it lacks, such as translations on
+  // files from before them, count as empty.
+  if (
+    Object.entries(updates).some(
+      ([key, value]) => !isDeepEqual(Array.isArray(value) ? (match[key] ?? []) : match[key], value),
+    )
+  ) {
     const updated = await actions.updateFile({ args: { id: match._id.toString(), updates } });
     if (!updated.success) throw new Error(updated.error);
   }

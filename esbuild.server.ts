@@ -15,6 +15,7 @@ import path from "path";
       "medior/server/search-index-process.ts",
       "medior/server/socket-process.ts",
       "medior/server/transcription-process.ts",
+      "medior/server/translation-process.ts",
       "medior/server/vector-process.ts",
       "medior/server/visual-process.ts",
     ],

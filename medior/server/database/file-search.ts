@@ -160,7 +160,7 @@ const getRequiredFileSearchFilters = (
 
 const hasFileSearchRegex = (
   filter: QueryFilter<FileSchema>,
-  fields = ["diffusionParams", "originalPath", "transcription.text"],
+  fields = ["captionTranslations.text", "diffusionParams", "originalPath", "transcription.text"],
 ): boolean =>
   fields.some((field) => filter[field]?.$regex instanceof RegExp) ||
   ["$and", "$nor", "$or"].some((operator) =>
