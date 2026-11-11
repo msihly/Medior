@@ -17,16 +17,24 @@ import { metadataWork } from "medior/server/database/metadata-context";
 import { metadataMutation, withMetadataMutation } from "medior/server/database/metadata-mutations";
 import { metadataWriteOptions } from "medior/server/database/metadata-work";
 import {
+  getIsMediaProgramMetaKind,
+  getMediaProgramMetaKind,
   getMediaProgramMetaSeasonNumbers,
+  getMediaProgramMetaSourceOrder,
   getSeasonEpisodeNumbers,
-  MEDIA_PROGRAM_META_SOURCE_ORDER,
   MediaProgramMeta,
   MediaProgramMetaMatch,
   MediaProgramMetaSource,
   MediaProgramSeasonMeta,
   sleep,
 } from "medior/utils/common";
-import { getAvailableFileStorage, leanModelToJson, makeAction, socket } from "medior/utils/server";
+import {
+  getAvailableFileStorage,
+  getConfig,
+  leanModelToJson,
+  makeAction,
+  socket,
+} from "medior/utils/server";
 import {
   downloadMediaProgramImage,
   fetchMediaProgramSource,
@@ -69,7 +77,7 @@ const applyMediaProgramMeta = async (id: string, match: MediaProgramMetaMatch) =
 
   const seasons = readMediaProgramSeasons(program.seasons);
   const seasonNumbers = getMediaProgramMetaSeasonNumbers(seasons);
-  const source = await fetchMediaProgramSource(match.source, match.sourceId);
+  const source = await fetchMediaProgramSource(match);
 
   const storage = await getAvailableFileStorage(IMAGE_STORAGE_BYTES);
   if (!storage.success) throw new Error(storage.error);
@@ -220,17 +228,30 @@ const getImportingProgramIds = async () => {
 };
 
 /**
- * The top search result for the program's name, preferring one from its year, from the first source
- * that finds any.
+ * The top search result for the program's name from the first source that finds any. A program with
+ * a year is searched for in that year at every source before any is searched without it. At each
+ * year searched, a Movie or Show program takes a result of its kind from any source before the
+ * first source's result of another kind.
  */
 const findMediaProgramMatch = async (
-  program: Pick<models.MediaProgramSchema, "name" | "year">,
+  program: Pick<models.MediaProgramSchema, "name" | "type" | "year">,
 ): Promise<MediaProgramMetaMatch> => {
-  for (const source of MEDIA_PROGRAM_META_SOURCE_ORDER) {
-    const results = await searchMediaProgramSource(source, program.name);
-    const result = results.find(({ year }) => program.year && year === program.year) ?? results[0];
+  const kind = getMediaProgramMetaKind(program.type);
+  const sources = getMediaProgramMetaSourceOrder(getConfig().mediaPrograms.apiKeys);
 
-    if (result) return { source, sourceId: result.sourceId };
+  for (const year of program.year ? [program.year, null] : [null]) {
+    let otherKind: MediaProgramMetaMatch = null;
+
+    for (const source of sources) {
+      const results = await searchMediaProgramSource(source, program.name, year);
+      const result = results.find((candidate) => getIsMediaProgramMetaKind(candidate, kind));
+      if (result) return { isMovie: result.isMovie, source, sourceId: result.sourceId };
+
+      if (!otherKind && results.length)
+        otherKind = { isMovie: results[0].isMovie, source, sourceId: results[0].sourceId };
+    }
+
+    if (otherKind) return otherKind;
   }
 
   return null;
@@ -242,13 +263,17 @@ const findMediaProgramMatch = async (
  */
 const loadMediaProgramMeta = async (id: string, canSearch: boolean) => {
   const program = await models.MediaProgramModel.findById(id)
-    .select({ isMetaPending: 1, meta: 1, name: 1, year: 1 })
+    .select({ isMetaPending: 1, meta: 1, name: 1, type: 1, year: 1 })
     .lean();
 
   if (!program || (!program.meta && !canSearch && !program.isMetaPending)) return;
 
   const match: MediaProgramMetaMatch = program.meta
-    ? { source: program.meta.source, sourceId: program.meta.sourceId }
+    ? {
+        isMovie: program.meta.isMovie,
+        source: program.meta.source,
+        sourceId: program.meta.sourceId,
+      }
     : await findMediaProgramMatch(program);
 
   if (match) await applyMediaProgramMeta(id, match);
@@ -266,6 +291,8 @@ const loadMediaProgramMeta = async (id: string, canSearch: boolean) => {
 };
 
 const queueMediaProgramMeta = (ids: string[], canSearch: boolean) => {
+  if (!getConfig().mediaPrograms.metaLookups) return;
+
   for (const id of ids)
     metaQueue.set(id, { canSearch: canSearch || !!metaQueue.get(id)?.canSearch });
 
@@ -292,6 +319,12 @@ const removeDownload = async (folderPath: string) => {
 const runMetaQueue = async () => {
   try {
     while (metaQueue.size && !isServerStopping()) {
+      // Lookups turned off in Settings drop the queue, though imported programs keep waiting.
+      if (!getConfig().mediaPrograms.metaLookups) {
+        metaQueue.clear();
+        break;
+      }
+
       let importingIds: Set<string>;
 
       try {
@@ -377,8 +410,15 @@ export const matchMediaProgramsMeta = makeAction(async ({ ids }: { ids: string[]
 });
 
 export const searchMediaProgramMeta = makeAction(
-  async ({ query, source }: { query: string; source: MediaProgramMetaSource }) =>
-    query.trim() ? searchMediaProgramSource(source, query.trim()) : [],
+  async ({
+    query,
+    source,
+    year,
+  }: {
+    query: string;
+    source: MediaProgramMetaSource;
+    year: number | null;
+  }) => (query.trim() ? searchMediaProgramSource(source, query.trim(), year) : []),
 );
 
 /** Saves the chosen match's metadata to the program, or clears its metadata without one. */

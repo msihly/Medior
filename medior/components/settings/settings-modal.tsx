@@ -383,7 +383,7 @@ export const SettingsModal = Comp(() => {
               <Settings.Group title="Inference">
                 <Settings.Field
                   label="Model Cache Path"
-                  description="A new folder downloads the model again."
+                  description="A new folder needs the model downloaded again."
                   wide
                 >
                   <Settings.Input
@@ -394,6 +394,12 @@ export const SettingsModal = Comp(() => {
                     )}
                     flex={1}
                   />
+                </Settings.Field>
+
+                <Settings.Warning text="Model Downloads gets the visual similarity model from Hugging Face when it isn't in the model cache. Medior has no control over Hugging Face's servers." />
+
+                <Settings.Field label="Model Downloads">
+                  <Settings.Checkbox configKey="file.similarity.modelDownloads" width="auto" />
                 </Settings.Field>
 
                 <UniformList row spacing="1rem">
@@ -670,6 +676,12 @@ export const SettingsModal = Comp(() => {
                     )}
                     flex={1}
                   />
+                </Settings.Field>
+
+                <Settings.Warning text="Model Downloads gets the transcription model from Hugging Face when it isn't in the model cache. Medior has no control over Hugging Face's servers." />
+
+                <Settings.Field label="Model Downloads">
+                  <Settings.Checkbox configKey="file.transcription.modelDownloads" width="auto" />
                 </Settings.Field>
               </Settings.Group>
 
@@ -1077,6 +1089,36 @@ export const SettingsModal = Comp(() => {
                     />
                   </Settings.Field>
                 </UniformList>
+              </Settings.Group>
+
+              <Settings.Group
+                title="Metadata Sources"
+                description="Matching searches TVDB, TMDB, TVMaze, then AniList, skipping sources whose key is not set."
+              >
+                <Settings.Warning text="Lookups send program titles to TVDB, TMDB, TVMaze, and AniList, along with years and keys to the sources that take them, and download images from their servers. Medior has no control over those servers." />
+
+                <Settings.Field label="Lookups">
+                  <Settings.Checkbox configKey="mediaPrograms.metaLookups" width="auto" />
+                </Settings.Field>
+
+                <Settings.Field label="TVDB API Key" wide>
+                  <Settings.SecretInput configKey="mediaPrograms.apiKeys.tvdb" flex={1} />
+                </Settings.Field>
+
+                <Settings.Field
+                  label="TVDB PIN"
+                  description="Only for user-supported keys, which need a subscriber PIN."
+                >
+                  <Settings.SecretInput configKey="mediaPrograms.apiKeys.tvdbPin" width="10rem" />
+                </Settings.Field>
+
+                <Settings.Field
+                  label="TMDB Token"
+                  description="The API Read Access Token from TMDB's API settings, not the API Key."
+                  wide
+                >
+                  <Settings.SecretInput configKey="mediaPrograms.apiKeys.tmdb" flex={1} />
+                </Settings.Field>
               </Settings.Group>
 
               <Settings.Group title="Rankings">

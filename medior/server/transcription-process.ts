@@ -1,5 +1,6 @@
 import path from "path";
 import type { Config, TranscriptionQuantization } from "medior/utils/server/config";
+import { toModelLoadError } from "medior/utils/server/model-downloads";
 import { registerNativeWorker } from "medior/utils/server/native-worker";
 
 const AUDIO_SAMPLE_RATE = 16_000;
@@ -52,7 +53,7 @@ interface TranscriptionStreamer {
 }
 
 interface TransformersModule {
-  env: { cacheDir: string };
+  env: { allowRemoteModels: boolean; cacheDir: string };
   pipeline: (
     task: "automatic-speech-recognition",
     model: string,
@@ -95,31 +96,42 @@ const getTranscriber = async (onProgress?: ProgressReporter) => {
 
   transformers ??= (await import("@huggingface/transformers")) as unknown as TransformersModule;
 
+  // Models come only from the cache unless Settings allows downloading them from Hugging Face.
+  transformers.env.allowRemoteModels = config.modelDownloads;
   transformers.env.cacheDir = path.resolve(config.modelCachePath);
 
   let reportedProgress = -1;
 
   onProgress?.("Preparing transcription model.");
 
-  const loadTranscriber = (device: TranscriptionDevice) =>
-    transformers.pipeline("automatic-speech-recognition", config.model, {
-      device,
-      dtype: config.quantization,
-      progress_callback: ({ file, progress, status }) => {
-        if (status === "ready") {
-          onProgress?.(`Transcription model loaded on ${device === "dml" ? "GPU" : "CPU"}.`);
-        } else if (status === "progress" && progress !== undefined) {
-          const percent = Math.round(progress);
+  const loadTranscriber = async (device: TranscriptionDevice) => {
+    try {
+      return await transformers.pipeline("automatic-speech-recognition", config.model, {
+        device,
+        dtype: config.quantization,
+        progress_callback: ({ file, progress, status }) => {
+          if (status === "ready") {
+            onProgress?.(`Transcription model loaded on ${device === "dml" ? "GPU" : "CPU"}.`);
+          } else if (status === "progress" && progress !== undefined) {
+            const percent = Math.round(progress);
 
-          if (reportedProgress !== percent) {
-            reportedProgress = percent;
+            if (reportedProgress !== percent) {
+              reportedProgress = percent;
 
-            if (percent === 100) onProgress?.("Loading transcription model.");
-            else onProgress?.(`Downloading transcription model: ${file}.`, percent);
+              if (percent === 100) onProgress?.("Loading transcription model.");
+              else onProgress?.(`Downloading transcription model: ${file}.`, percent);
+            }
           }
-        }
-      },
-    });
+        },
+      });
+    } catch (error) {
+      throw toModelLoadError(error, {
+        isDownloadAllowed: config.modelDownloads,
+        modelLabel: "transcription",
+        settingsPath: "Settings → Files → Audio Metadata",
+      });
+    }
+  };
 
   try {
     transcriber = await loadTranscriber("dml");

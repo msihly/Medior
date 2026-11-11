@@ -12,13 +12,20 @@ export type MediaProgramEpisodeLabels = (typeof MEDIA_PROGRAM_EPISODE_LABELS)[nu
 
 export const MEDIA_PROGRAM_META_SOURCES = [
   { label: "AniList", value: "anilist" },
+  { label: "TMDB", value: "tmdb" },
+  { label: "TVDB", value: "tvdb" },
   { label: "TVMaze", value: "tvmaze" },
 ] as const;
 
 export type MediaProgramMetaSource = (typeof MEDIA_PROGRAM_META_SOURCES)[number]["value"];
 
 /** Sources are searched in this order, each falling back to the next when it finds nothing. */
-export const MEDIA_PROGRAM_META_SOURCE_ORDER: MediaProgramMetaSource[] = ["tvmaze", "anilist"];
+export const MEDIA_PROGRAM_META_SOURCE_ORDER: MediaProgramMetaSource[] = [
+  "tvdb",
+  "tmdb",
+  "tvmaze",
+  "anilist",
+];
 
 export const MEDIA_PROGRAM_RANKING_ASPECT_RATIOS = [
   { label: "Poster (2:3)", value: "2:3" },
@@ -83,7 +90,8 @@ export interface MediaProgramMeta {
   episodeCount: number | null;
   format: string | null;
   genres: string[];
-  /** The studio of an anime or the network of a show. */
+  isMovie: boolean;
+  /** The studio of an anime or a movie, or the network of a show. */
   network: string | null;
   posterPath: string | null;
   /** Out of 100. */
@@ -98,8 +106,22 @@ export interface MediaProgramMeta {
   url: string | null;
 }
 
+/** The keys of the metadata sources that need one, set in Settings. */
+export interface MediaProgramMetaApiKeys {
+  /** TMDB's API Read Access Token. */
+  tmdb: string;
+  tvdb: string;
+  /** The subscriber PIN a user-supported TVDB key needs, or blank for any other key. */
+  tvdbPin: string;
+}
+
+/** Whether a metadata match is a movie or a series. */
+export type MediaProgramMetaKind = "movie" | "series";
+
 /** A program's entry in a metadata source. */
 export interface MediaProgramMetaMatch {
+  /** TMDB and TVDB number movies apart from series. */
+  isMovie: boolean;
   source: MediaProgramMetaSource;
   sourceId: number;
 }
@@ -125,6 +147,7 @@ export type MediaProgramMissingMarks = Record<string, MediaProgramMissingMark>;
 export interface MediaProgramMetaResult {
   description: string | null;
   format: string | null;
+  isMovie: boolean;
   posterUrl: string | null;
   source: MediaProgramMetaSource;
   sourceId: number;
@@ -278,6 +301,21 @@ export const getMediaProgramFolderWatchStatus = (folderPath: string): MediaProgr
   return statuses.find(Boolean) ?? "unwatched";
 };
 
+/** Whether the metadata result is of the kind, which every result is without one. */
+export const getIsMediaProgramMetaKind = (
+  result: Pick<MediaProgramMetaResult, "isMovie">,
+  kind: MediaProgramMetaKind | null,
+) => !kind || result.isMovie === (kind === "movie");
+
+/** Programs typed Movie are matched to movies and those typed Show to series; others to either. */
+export const getMediaProgramMetaKind = (type: string | null): MediaProgramMetaKind | null => {
+  const name = type?.toLowerCase();
+
+  if (name === "movie") return "movie";
+  else if (name === "show") return "series";
+  else return null;
+};
+
 /**
  * The metadata source's season number for each season: its own number, or its place when no
  * season is numbered. Unnumbered seasons beside numbered ones match none.
@@ -287,6 +325,12 @@ export const getMediaProgramMetaSeasonNumbers = (seasons: Pick<MediaProgramSeaso
 
   return seasons.map((season, index) => season.number ?? (hasNumbers ? null : index + 1));
 };
+
+/** The sources in search order, leaving out those whose key is not set. */
+export const getMediaProgramMetaSourceOrder = (apiKeys: MediaProgramMetaApiKeys) =>
+  MEDIA_PROGRAM_META_SOURCE_ORDER.filter(
+    (source) => (source !== "tmdb" && source !== "tvdb") || !!apiKeys[source].trim(),
+  );
 
 /**
  * Every episode the metadata source lists without a file, by its source season: those at numbers

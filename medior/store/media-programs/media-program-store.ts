@@ -7,7 +7,7 @@ import {
   MediaProgramMetaSource,
   MediaProgramWatchStatus,
 } from "medior/utils/common";
-import { rpc } from "medior/utils/server";
+import { getConfig, rpc } from "medior/utils/server";
 import {
   MediaProgram,
   MediaProgramEditorStore,
@@ -77,22 +77,36 @@ export class MediaProgramStore extends Model({
     toast.success(`Deleted ${ids.length} media programs`);
   });
 
-  /** Rederives the programs from their episodes and reloads their details from public sources. */
+  /**
+   * Rederives the programs from their episodes and, when lookups are turned on in Settings, reloads
+   * their details from public sources.
+   */
   @modelFlow
   regenMediaProgramMeta = asyncAction(async (ids: string[]) => {
     const res = await rpc.regenMediaProgramAttrs({ ids });
     if (!res.success) throw new Error(res.error);
 
-    const matched = await rpc.matchMediaProgramsMeta({ ids });
-    if (!matched.success) throw new Error(matched.error);
+    if (!getConfig().mediaPrograms.metaLookups) toast.success("Media program metadata refreshed");
+    else {
+      const matched = await rpc.matchMediaProgramsMeta({ ids });
+      if (!matched.success) throw new Error(matched.error);
 
-    toast.success("Media program metadata refreshed; public details load in the background");
+      toast.success("Media program metadata refreshed; public details load in the background");
+    }
   });
 
   @modelFlow
   searchMediaProgramMeta = asyncAction(
-    async ({ query, source }: { query: string; source: MediaProgramMetaSource }) => {
-      const res = await rpc.searchMediaProgramMeta({ query, source });
+    async ({
+      query,
+      source,
+      year,
+    }: {
+      query: string;
+      source: MediaProgramMetaSource;
+      year: number | null;
+    }) => {
+      const res = await rpc.searchMediaProgramMeta({ query, source, year });
       if (!res.success) throw new Error(res.error);
 
       return res.data;

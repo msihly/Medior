@@ -10,9 +10,11 @@ import * as NumInput from "./num-input";
 import * as PlayerFields from "./player-fields";
 import * as RatingLevels from "./rating-levels";
 import * as ScratchInput from "./scratch-input";
+import * as SecretInput from "./secret-input";
 import * as Section from "./section";
 import * as SortMenu from "./sort-menu";
 import * as StorageInputs from "./storage-inputs";
+import * as Warning from "./warning";
 
 export const Settings = {
   ...Checkbox,
@@ -27,7 +29,9 @@ export const Settings = {
   ...PlayerFields,
   ...RatingLevels,
   ...ScratchInput,
+  ...SecretInput,
   ...Section,
   ...SortMenu,
   ...StorageInputs,
+  ...Warning,
 };

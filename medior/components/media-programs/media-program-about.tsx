@@ -43,7 +43,10 @@ export const MediaProgramAbout = Comp(() => {
   const endDate = formatMediaProgramDate(meta?.endDate);
   const fileCount = Fmt.commas(program?.fileCount ?? 0);
   const rows: { label: string; value: string }[] = [
-    { label: meta?.source === "anilist" ? "Studio" : "Network", value: meta?.network },
+    {
+      label: meta?.source === "anilist" || meta?.isMovie ? "Studio" : "Network",
+      value: meta?.network,
+    },
     { label: "Format", value: meta?.format },
     { label: "Status", value: meta?.status },
     { label: "Aired", value: startDate ? `${startDate} – ${endDate ?? "Present"}` : null },

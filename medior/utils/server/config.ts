@@ -13,6 +13,7 @@ import {
   Hotkeys,
   ImageExt,
   MediaProgramEpisodeLabels,
+  MediaProgramMetaApiKeys,
   MediaProgramRankingExport,
   mergePreset,
   migrateReencodeDimensions,
@@ -281,6 +282,8 @@ export interface Config {
         };
       };
       modelCachePath: string;
+      /** Downloads the visual model from Hugging Face, outside Medior's control, when not cached. */
+      modelDownloads: boolean;
       storageDType: "float16" | "float32";
       visual: {
         device: "cpu" | "cuda" | "dml" | "gpu" | "webgpu";
@@ -308,6 +311,8 @@ export interface Config {
       enabled: boolean;
       model: TranscriptionModel;
       modelCachePath: string;
+      /** Downloads the model from Hugging Face, outside Medior's control, when it isn't cached. */
+      modelDownloads: boolean;
       quantization: TranscriptionQuantization;
     };
     transforms: {
@@ -358,6 +363,7 @@ export interface Config {
     withSidecar: boolean;
   };
   mediaPrograms: {
+    apiKeys: MediaProgramMetaApiKeys;
     /** The episode labels and order the program editor opens with. */
     episodes: {
       labels: MediaProgramEpisodeLabels;
@@ -368,6 +374,11 @@ export interface Config {
       search: Search;
     };
     mediums: string[];
+    /**
+     * Looks up programs on the metadata sources, which are outside Medior's control, so it stays
+     * off until turned on in Settings.
+     */
+    metaLookups: boolean;
     rankings: {
       export: MediaProgramRankingExport;
       search: Search;
@@ -524,6 +535,7 @@ export const DEFAULT_CONFIG: Config = {
         },
       },
       modelCachePath: path.resolve("ModelCache"),
+      modelDownloads: false,
       storageDType: "float16",
       visual: {
         device: "dml",
@@ -551,6 +563,7 @@ export const DEFAULT_CONFIG: Config = {
       enabled: false,
       model: "onnx-community/whisper-tiny_timestamped",
       modelCachePath: path.resolve("ModelCache"),
+      modelDownloads: false,
       quantization: "int8",
     },
     transforms: {
@@ -606,6 +619,11 @@ export const DEFAULT_CONFIG: Config = {
     withSidecar: false,
   },
   mediaPrograms: {
+    apiKeys: {
+      tmdb: "",
+      tvdb: "",
+      tvdbPin: "",
+    },
     episodes: {
       labels: "season",
       sort: { isDesc: false, key: "custom" },
@@ -618,6 +636,7 @@ export const DEFAULT_CONFIG: Config = {
       },
     },
     mediums: ["Animated", "Live-Action"],
+    metaLookups: false,
     rankings: {
       export: {
         aspectRatio: "2:3",

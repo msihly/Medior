@@ -37,7 +37,7 @@ import {
   parseSeasonNumber,
   sumArray,
 } from "medior/utils/common";
-import { leanModelToJson, makeAction, objectIds, socket } from "medior/utils/server";
+import { getConfig, leanModelToJson, makeAction, objectIds, socket } from "medior/utils/server";
 
 type MediaProgramAttrs = ReturnType<typeof readMediaProgramAttrs>;
 
@@ -393,8 +393,9 @@ export const addImportedMediaProgramSeason = (args: {
           dateCreated: dateModified,
           fileCount: 0,
           genreIds: [],
-          // Saved, so a match an import queues survives a restart until it's tried.
-          isMetaPending: true,
+          // Saved, so a match an import queues survives a restart until it's tried. Programs imported
+          // while lookups are off wait for none, so turning them on never matches them unasked.
+          isMetaPending: getConfig().mediaPrograms.metaLookups,
           isRewatching: false,
           meta: null,
           rating: 0,

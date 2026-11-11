@@ -9,23 +9,61 @@ import {
   Input,
   LoadingOverlay,
   Modal,
+  NumInput,
   Text,
   View,
 } from "medior/components";
 import { MediaProgram, useStores } from "medior/store";
 import { colors, makeClasses, toast } from "medior/utils/client";
 import {
-  MEDIA_PROGRAM_META_SOURCE_ORDER,
+  getIsMediaProgramMetaKind,
+  getMediaProgramMetaKind,
+  getMediaProgramMetaSourceOrder,
   MEDIA_PROGRAM_META_SOURCES,
+  MediaProgramMetaKind,
   MediaProgramMetaMatch,
   MediaProgramMetaResult,
   MediaProgramMetaSource,
 } from "medior/utils/common";
+import { getConfig } from "medior/utils/server";
+
+const LOOKUPS_OFF_TEXT =
+  "Metadata lookups are off. They send program titles to servers outside Medior's control, so they only run once turned on under Metadata Sources in Media Programs settings.";
+
+const RESULT_SORTS = [
+  { label: "Best Match", value: "match" },
+  { label: "Newest", value: "newest" },
+  { label: "Oldest", value: "oldest" },
+] as const;
+
+const RESULT_TYPES: { label: string; value: MediaProgramMetaKind | null }[] = [
+  { label: "All", value: null },
+  { label: "Movies", value: "movie" },
+  { label: "Series", value: "series" },
+];
+
+type ResultSort = (typeof RESULT_SORTS)[number]["value"];
 
 export interface MediaProgramMetaModalProps {
   onClose: () => void;
   program: MediaProgram;
 }
+
+/** The results of the kind, in the chosen order, with those without a year last by year. */
+const getShownResults = (
+  results: MediaProgramMetaResult[],
+  kind: MediaProgramMetaKind | null,
+  sort: ResultSort,
+) => {
+  const shown = results.filter((result) => getIsMediaProgramMetaKind(result, kind));
+
+  return sort === "match"
+    ? shown
+    : shown.sort((a, b) => {
+        if (!a.year || !b.year) return Number(!a.year) - Number(!b.year);
+        else return sort === "newest" ? b.year - a.year : a.year - b.year;
+      });
+};
 
 /** Searches the public metadata sources and saves the chosen match to the program. */
 export const MediaProgramMetaModal = Comp(({ onClose, program }: MediaProgramMetaModalProps) => {
@@ -34,15 +72,23 @@ export const MediaProgramMetaModal = Comp(({ onClose, program }: MediaProgramMet
 
   const { css } = useClasses(null);
 
+  const { apiKeys, metaLookups } = getConfig().mediaPrograms;
+  const sourceOrder = getMediaProgramMetaSourceOrder(apiKeys);
+
   const [isSaving, setIsSaving] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
+  const [kind, setKind] = useState(getMediaProgramMetaKind(program.type));
   const [query, setQuery] = useState(program.name);
   const [results, setResults] = useState<MediaProgramMetaResult[]>([]);
+  const [sort, setSort] = useState<ResultSort>("match");
   const [source, setSource] = useState<MediaProgramMetaSource>(
-    program.meta?.source ?? MEDIA_PROGRAM_META_SOURCE_ORDER[0],
+    program.meta?.source ?? sourceOrder[0],
   );
+  const [year, setYear] = useState<number>(program.year ?? null);
 
   const searchRevision = useRef(0);
+
+  const shownResults = getShownResults(results, kind, sort);
 
   const handleClear = () => saveMeta(null);
 
@@ -53,7 +99,7 @@ export const MediaProgramMetaModal = Comp(({ onClose, program }: MediaProgramMet
   const handleSearch = () => search(source);
 
   const handleSelect = (result: MediaProgramMetaResult) =>
-    saveMeta({ source: result.source, sourceId: result.sourceId });
+    saveMeta({ isMovie: result.isMovie, source: result.source, sourceId: result.sourceId });
 
   const handleSource = (value: MediaProgramMetaSource) => {
     setSource(value);
@@ -75,12 +121,18 @@ export const MediaProgramMetaModal = Comp(({ onClose, program }: MediaProgramMet
   };
 
   /** Results of a search replaced by a newer one are dropped. */
-  const search = async (searchSource: MediaProgramMetaSource) => {
+  const search = async (searchSource: MediaProgramMetaSource, searchYear = year) => {
+    if (!metaLookups) return null;
+
     const revision = ++searchRevision.current;
 
     setIsSearching(true);
 
-    const res = await store.searchMediaProgramMeta({ query, source: searchSource });
+    const res = await store.searchMediaProgramMeta({
+      query,
+      source: searchSource,
+      year: searchYear,
+    });
     if (revision !== searchRevision.current) return null;
 
     setIsSearching(false);
@@ -91,15 +143,33 @@ export const MediaProgramMetaModal = Comp(({ onClose, program }: MediaProgramMet
     return res.success ? res.data : null;
   };
 
-  /** Without a saved match, a first search that finds nothing tries the program's next source. */
+  /**
+   * Searches like matching does: without a saved match, each source in turn until one finds a
+   * result of the program's kind, or else the first source that found one of another kind, shown
+   * with every kind. A program with a year is searched for in that year at every source before any
+   * is searched without it.
+   */
   const searchDefault = async () => {
-    const found = await search(source);
+    for (const searchYear of program.year ? [program.year, null] : [null]) {
+      let otherKind: { found: MediaProgramMetaResult[]; source: MediaProgramMetaSource } = null;
 
-    if (!program.meta && found?.length === 0) {
-      const next = MEDIA_PROGRAM_META_SOURCE_ORDER[1];
+      setYear(searchYear);
 
-      setSource(next);
-      search(next);
+      for (const next of program.meta ? [source] : sourceOrder) {
+        setSource(next);
+
+        const found = await search(next, searchYear);
+        if (!found || found.some((result) => getIsMediaProgramMetaKind(result, kind))) return;
+
+        if (!otherKind && found.length) otherKind = { found, source: next };
+      }
+
+      if (otherKind) {
+        setKind(null);
+        setResults(otherKind.found);
+        setSource(otherKind.source);
+        return;
+      }
     }
   };
 
@@ -127,16 +197,47 @@ export const MediaProgramMetaModal = Comp(({ onClose, program }: MediaProgramMet
             <Input header="Title" value={query} setValue={setQuery} onEnter={handleSearch} />
           </View>
 
-          <Button text="Search" icon="Search" onClick={handleSearch} disabled={!query.trim()} />
+          <NumInput
+            header="Year"
+            value={year}
+            setValue={setYear}
+            onEnter={handleSearch}
+            width="6rem"
+          />
+
+          <Button
+            text="Search"
+            icon="Search"
+            onClick={handleSearch}
+            disabled={!metaLookups || !query.trim()}
+          />
+        </View>
+
+        <View row spacing="0.5rem">
+          <Dropdown
+            header="Type"
+            options={RESULT_TYPES}
+            value={kind}
+            setValue={setKind}
+            width="10rem"
+          />
+
+          <Dropdown
+            header="Sort"
+            options={[...RESULT_SORTS]}
+            value={sort}
+            setValue={setSort}
+            width="10rem"
+          />
         </View>
 
         <View column flex={1} minHeight={0} position="relative" overflow="hidden auto">
           <LoadingOverlay isLoading={isSearching} />
 
-          {results.length ? (
-            results.map((result) => (
+          {shownResults.length ? (
+            shownResults.map((result) => (
               <View
-                key={result.sourceId}
+                key={`${result.isMovie ? "movie" : "series"}-${result.sourceId}`}
                 row
                 spacing="0.8rem"
                 padding={{ all: "0.5rem" }}
@@ -189,7 +290,11 @@ export const MediaProgramMetaModal = Comp(({ onClose, program }: MediaProgramMet
               </View>
             ))
           ) : (
-            <CenteredText text={isSearching ? "" : "No matches found"} />
+            <CenteredText
+              text={!metaLookups ? LOOKUPS_OFF_TEXT : isSearching ? "" : "No matches found"}
+              whiteSpace="normal"
+              textAlign="center"
+            />
           )}
         </View>
       </Modal.Content>

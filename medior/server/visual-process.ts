@@ -1,4 +1,5 @@
 import type { Config } from "medior/utils/server/config";
+import { toModelLoadError } from "medior/utils/server/model-downloads";
 import { registerNativeWorker } from "medior/utils/server/native-worker";
 
 let extractor: any;
@@ -16,6 +17,8 @@ registerNativeWorker(
     loading ??= (async () => {
       const transformers = await import("@huggingface/transformers");
 
+      // Models come only from the cache unless Settings allows downloading them from Hugging Face.
+      transformers.env.allowRemoteModels = input.config.modelDownloads;
       transformers.env.cacheDir = input.config.modelCachePath;
       RawImage = transformers.RawImage;
 
@@ -33,7 +36,11 @@ registerNativeWorker(
     })().catch((error) => {
       loading = null;
 
-      throw error;
+      throw toModelLoadError(error, {
+        isDownloadAllowed: input.config.modelDownloads,
+        modelLabel: "visual similarity",
+        settingsPath: "Settings → Vectors",
+      });
     });
 
     await loading;
