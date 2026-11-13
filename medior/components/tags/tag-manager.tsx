@@ -40,7 +40,7 @@ export const TagManager = Comp(() => {
   const hasNoSelection = store.selectedIds.length === 0;
 
   useEffect(() => {
-    store.loadFiltered({ page: 1 });
+    handlePageChange(1);
   }, []);
 
   useEffect(() => {
@@ -49,7 +49,6 @@ export const TagManager = Comp(() => {
 
   const handleConfirmDelete = async () => {
     const res = await manager.deleteTags([...store.selectedIds]);
-
     if (!res.success) toast.error(res.error);
 
     return res.success;
@@ -63,9 +62,12 @@ export const TagManager = Comp(() => {
 
   const handleFindRegExOverlaps = () => setIsRegExOverlapsOpen(true);
 
-  const handleFullPageLoad = () => store.loadFiltered({ toLastPage: true });
+  const handleFullPageLoad = async () => {
+    const res = await store.loadFiltered({ toLastPage: true });
+    if (!res.success) toast.error(res.error);
+  };
 
-  const handleKeyPress = (event: KeyboardEvent) => {
+  const handleKeyPress = async (event: KeyboardEvent) => {
     if (matchesHotkey(event, stores.home.settings.hotkeys.tagManager.selectAll)) {
       event.preventDefault();
       selectAllInView({ itemLabel: "tags", store, toast });
@@ -73,19 +75,22 @@ export const TagManager = Comp(() => {
       if (store.selectedIds.length !== 1) return;
 
       const rating = getHotkeyRating(event, stores.home.settings.hotkeys.tagManager);
-
       if (!rating) return;
 
       event.preventDefault();
-      stores.tag.updateTagRating({ id: store.selectedIds[0], rating });
+
+      const res = await stores.tag.updateTagRating({ id: store.selectedIds[0], rating });
+      if (!res.success) toast.error(res.error);
     }
   };
 
-  const handlePageChange = (page: number) => store.loadFiltered({ page });
+  const handlePageChange = async (page: number) => {
+    const res = await store.loadFiltered({ page });
+    if (!res.success) toast.error(res.error);
+  };
 
   const handleRegenerateRegEx = async () => {
     const res = await manager.regenerateRegEx([...store.selectedIds]);
-
     if (!res.success) toast.error(res.error);
   };
 

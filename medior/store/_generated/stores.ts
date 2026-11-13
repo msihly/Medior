@@ -439,7 +439,7 @@ export class _FileSearch extends Model({
 
       try {
         const res = await rpc.getShiftSelectedFile({
-          ...this.cachedFilterProps,
+          ...(this.cachedFilterProps ?? this.getFilterProps()),
           clickedId: id,
           selectedIds,
         });
@@ -1158,7 +1158,7 @@ export class _FileCollectionSearch extends Model({
 
       try {
         const res = await rpc.getShiftSelectedFileCollection({
-          ...this.cachedFilterProps,
+          ...(this.cachedFilterProps ?? this.getFilterProps()),
           clickedId: id,
           selectedIds,
         });
@@ -1741,7 +1741,7 @@ export class _FileImportBatchSearch extends Model({
 
       try {
         const res = await rpc.getShiftSelectedFileImportBatch({
-          ...this.cachedFilterProps,
+          ...(this.cachedFilterProps ?? this.getFilterProps()),
           clickedId: id,
           selectedIds,
         });
@@ -2341,7 +2341,7 @@ export class _FileTransformSearch extends Model({
 
       try {
         const res = await rpc.getShiftSelectedFileTransform({
-          ...this.cachedFilterProps,
+          ...(this.cachedFilterProps ?? this.getFilterProps()),
           clickedId: id,
           selectedIds,
         });
@@ -2946,7 +2946,7 @@ export class _MediaProgramSearch extends Model({
 
       try {
         const res = await rpc.getShiftSelectedMediaProgram({
-          ...this.cachedFilterProps,
+          ...(this.cachedFilterProps ?? this.getFilterProps()),
           clickedId: id,
           selectedIds,
         });
@@ -3569,7 +3569,7 @@ export class _MusicAlbumSearch extends Model({
 
       try {
         const res = await rpc.getShiftSelectedMusicAlbum({
-          ...this.cachedFilterProps,
+          ...(this.cachedFilterProps ?? this.getFilterProps()),
           clickedId: id,
           selectedIds,
         });
@@ -4157,7 +4157,7 @@ export class _MusicArtistSearch extends Model({
 
       try {
         const res = await rpc.getShiftSelectedMusicArtist({
-          ...this.cachedFilterProps,
+          ...(this.cachedFilterProps ?? this.getFilterProps()),
           clickedId: id,
           selectedIds,
         });
@@ -4720,7 +4720,7 @@ export class _MusicPlaylistSearch extends Model({
 
       try {
         const res = await rpc.getShiftSelectedMusicPlaylist({
-          ...this.cachedFilterProps,
+          ...(this.cachedFilterProps ?? this.getFilterProps()),
           clickedId: id,
           selectedIds,
         });
@@ -5248,7 +5248,7 @@ export class _SavedImportConfigSearch extends Model({
 
       try {
         const res = await rpc.getShiftSelectedSavedImportConfig({
-          ...this.cachedFilterProps,
+          ...(this.cachedFilterProps ?? this.getFilterProps()),
           clickedId: id,
           selectedIds,
         });
@@ -5851,7 +5851,7 @@ export class _TagSearch extends Model({
 
       try {
         const res = await rpc.getShiftSelectedTag({
-          ...this.cachedFilterProps,
+          ...(this.cachedFilterProps ?? this.getFilterProps()),
           clickedId: id,
           selectedIds,
         });
@@ -6863,6 +6863,8 @@ export class _MediaProgram extends Model({
   sourceFolderPath: prop<string>(null),
   tagIds: prop<string[]>(() => []),
   tagIdsWithAncestors: prop<string[]>(() => []),
+  titleTranslations:
+    prop<import("medior/utils/common/media-programs").MediaProgramTitleTranslation[]>(null),
   type: prop<string>(null),
   watchedFileIds: prop<string[]>(() => []),
   watchStatus: prop<"dropped" | "inactive" | "unwatched" | "watched" | "watching">(

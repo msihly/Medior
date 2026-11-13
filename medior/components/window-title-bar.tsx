@@ -53,7 +53,6 @@ export const WindowTitleBar = Comp(({ bgColor, isDark = false, title }: WindowTi
 
     try {
       const res = await store.settings.save();
-
       if (!res.success) throw new Error(res.error);
     } catch (error) {
       store.setShowFileName(!showFileName);

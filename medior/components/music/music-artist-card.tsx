@@ -29,7 +29,6 @@ export const MusicArtistCard = Comp(({ artist, search }: MusicArtistCardProps) =
       hasShift: event.shiftKey,
       id: artist.id,
     });
-
     if (!res?.success) toast.error(res.error);
   };
 

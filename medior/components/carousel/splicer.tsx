@@ -46,7 +46,6 @@ export const Splicer = Comp(() => {
 
   const handleConfirmDelete = async () => {
     const res = await store.deleteTimeline();
-
     if (!res.success) toast.error(res.error);
     else toast.warn("Deleted");
 
@@ -57,7 +56,6 @@ export const Splicer = Comp(() => {
 
   const handleRender = async () => {
     const res = await stores.file.videoTransformer.getTransformerStatus();
-
     if (!res.success) toast.error(res.error);
     else if (res.data?.isTransforming) setIsConfirmRenderOpen(true);
     else startRender();

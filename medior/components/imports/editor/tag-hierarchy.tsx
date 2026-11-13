@@ -58,7 +58,6 @@ export const TagHierarchy = Comp(
 
       try {
         const res = await stores.tag.upsertTags({ tagsToUpsert: [tag] });
-
         if (!res.success) throw new Error(res.error);
 
         const createdTag = res.data[0];

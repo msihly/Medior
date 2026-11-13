@@ -69,7 +69,6 @@ export const CollectionTriager = Comp(() => {
           pageSize: TRIAGE_QUEUE_PAGE_SIZE,
           select: { _id: 1 },
         });
-
         if (!res.success) throw new Error(res.error);
 
         for (const item of res.data) ids.push(item.id);
@@ -108,7 +107,6 @@ export const CollectionTriager = Comp(() => {
       stores.file.search.setResults([]);
 
       const loaded = await stores.collection.editor.loadCollection(id);
-
       if (!loaded.success) throw new Error(loaded.error);
 
       if (!loaded.data || disposed.current || revision !== loadRevision.current) return;
@@ -158,12 +156,10 @@ export const CollectionTriager = Comp(() => {
 
       if (withFiles) {
         const archiveRes = await stores.file.archiveFiles(stores.collection.editor.carouselFileIds);
-
         if (!archiveRes.success) throw new Error(archiveRes.error);
       }
 
       const deleteRes = await stores.collection.deleteCollections([collection.id]);
-
       if (!deleteRes.success) throw new Error(deleteRes.error);
 
       toast.success("Collection deleted");
@@ -182,7 +178,6 @@ export const CollectionTriager = Comp(() => {
       setIsSaving(true);
 
       const result = await stores.collection.updateCollRating({ id: collection.id, rating });
-
       if (!result.success) throw new Error(result.error);
 
       if (disposed.current) return;
@@ -214,7 +209,7 @@ export const CollectionTriager = Comp(() => {
         sub={<Button text="Cancel" icon="Close" onClick={close} />}
       />
 
-      <Modal.Header rightNode={<Text preset="faint-info">{`${queue.length} remaining`}</Text>}>
+      <Modal.Header rightNode={<Text preset="sub-text">{`${queue.length} remaining`}</Text>}>
         <Text preset="title">{"Collection Triager"}</Text>
       </Modal.Header>
 

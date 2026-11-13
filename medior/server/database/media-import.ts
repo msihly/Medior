@@ -1248,7 +1248,6 @@ const commitMediaImport = async (
       transcription: args.sidecar?.transcription ?? info.transcription,
       withTagRegen: !args.batchId,
     });
-
     if (!imported.success) throw new Error(imported.error);
 
     file = imported.data;
@@ -1266,7 +1265,6 @@ const commitMediaImport = async (
         fileIds: [file.id],
         withRegen: !args.batchId,
       });
-
       if (!tagged.success) throw new Error(tagged.error);
     } else if (status === "COMPLETE" && !args.batchId) {
       await actions.queueTagMetadataRegen(file.tagIds, file.tagIdsWithAncestors);
@@ -1397,7 +1395,6 @@ const recordImportError = async (input: MediaImportInput, error: unknown) => {
     filePath: input.originalPath,
     status: "ERROR",
   });
-
   if (!updated.success) throw new Error(updated.error);
 
   console.error("Error importing file:", error);

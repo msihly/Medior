@@ -88,7 +88,6 @@ export class TagStore extends Model({
         withRegen,
         withSub,
       });
-
       if (!res.success) throw new Error(res.error);
 
       return res.data;
@@ -98,14 +97,12 @@ export class TagStore extends Model({
   @modelFlow
   deleteTag = asyncAction(async ({ id }: { id: string }) => {
     const res = await rpc.deleteTag({ id });
-
     if (!res.success) throw new Error(res.error);
   });
 
   @modelFlow
   editTag = asyncAction(async ({ withSub = true, ...tag }: db.EditTagInput) => {
     const editRes = await rpc.editTag({ ...tag, withSub });
-
     if (!editRes.success) throw new Error(editRes.error);
   });
 
@@ -118,7 +115,6 @@ export class TagStore extends Model({
         { filter: { label: { $options: "i", $regex: `^${Fmt.regexEscape(label)}$` } } },
         { signal },
       );
-
       if (!res.success) throw new Error(res.error);
 
       return res.data?.[0];
@@ -130,7 +126,6 @@ export class TagStore extends Model({
   @modelFlow
   listByIds = asyncAction(async ({ ids }: { ids: string[] }) => {
     const res = await rpc.listTag({ filter: { id: ids } });
-
     if (!res.success) throw new Error(res.error);
 
     return res.data;
@@ -139,7 +134,6 @@ export class TagStore extends Model({
   @modelFlow
   listRegExMaps = asyncAction(async () => {
     const res = await rpc.listRegExMaps();
-
     if (!res.success) throw new Error(res.error);
 
     return res.data.map((t) => ({ regEx: new RegExp(t.regEx, "im"), tagId: t.id }));
@@ -159,7 +153,6 @@ export class TagStore extends Model({
         revision = this.categoryRevision;
 
         const res = await rpc.listTagCategories();
-
         if (!res.success) throw new Error(res.error);
 
         if (revision !== this.categoryRevision) continue;
@@ -179,14 +172,12 @@ export class TagStore extends Model({
   @modelFlow
   mergeTags = asyncAction(async (args: db.MergeTagsInput) => {
     const res = await rpc.mergeTags(args);
-
     if (!res.success) throw new Error(res.error);
   });
 
   @modelFlow
   refreshTag = asyncAction(async ({ id }: { id: string }) => {
     const res = await rpc.refreshTag({ tagId: id });
-
     if (!res.success) throw new Error(res.error);
 
     toast.success("Tag refreshed");
@@ -202,7 +193,6 @@ export class TagStore extends Model({
         rating,
         ratingIsManual: rating > 0,
       });
-
       if (!res.success) throw new Error(res.error);
     } finally {
       this.manager.setIsLoading(false);
@@ -236,7 +226,6 @@ export class TagStore extends Model({
             withRegEx: t.withRegEx,
           })),
         );
-
         if (!res.success) throw new Error(res.error);
 
         upsertedTags.push(...res.data);

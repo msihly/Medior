@@ -90,7 +90,6 @@ export const FileTagEditor = Comp(({ fileIds }: FileTagEditorProps) => {
       const addedTagIds = addedTags.map((t) => t.id);
       const removedTagIds = removedTags.map((t) => t.id);
       const res = await store.editFileTags({ addedTagIds, fileIds, removedTagIds });
-
       if (!res?.success) throw new Error(res.error);
 
       handleCloseForced();

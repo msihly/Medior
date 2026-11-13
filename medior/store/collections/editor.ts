@@ -141,7 +141,6 @@ export class CollectionEditor extends Model({
           ids: orderedIds,
           sortValue: this.search.sortValue,
         });
-
         if (!res.success) throw new Error(res.error);
 
         if (revision !== this.collectionLoadRevision) return;
@@ -165,7 +164,6 @@ export class CollectionEditor extends Model({
       this.fileSearch.setSelectedIds(this.fileSearch.selectedIds.filter((id) => !addedIds.has(id)));
 
       const res = await this.search.loadFiltered({ noCache: true, page: this.search.page });
-
       if (!res.success) throw new Error(res.error);
 
       if (revision !== this.collectionLoadRevision) return;
@@ -184,7 +182,6 @@ export class CollectionEditor extends Model({
 
     try {
       const res = await rpc.addFilesToCollection(args);
-
       if (!res.success) throw new Error(res.error);
 
       toast.success("Collection updated");
@@ -193,7 +190,6 @@ export class CollectionEditor extends Model({
     }
 
     const loaded = await this.loadCollection(args.collId);
-
     if (!loaded.success) throw new Error(loaded.error);
 
     if (!loaded.data) return false;
@@ -415,7 +411,6 @@ export class CollectionEditor extends Model({
         fileIdIndexes: fileIndexes,
         id: this.collection.id,
       });
-
       if (!res.success) throw new Error(res.error);
 
       // The collection itself updates through sockets; only the current page is filled again.
@@ -451,7 +446,6 @@ export class CollectionEditor extends Model({
         id: this.collection.id,
         title: this.title,
       });
-
       if (!res.success) throw new Error(res.error);
 
       // The collection updates through sockets, keeping the loaded files and page.

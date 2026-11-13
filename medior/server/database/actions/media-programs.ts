@@ -34,6 +34,7 @@ import {
   MediaProgramWatchStatus,
   normalizeSeasonEpisodes,
   parseMediaProgramName,
+  parseProgramSeasonNumber,
   parseSeasonNumber,
   sumArray,
 } from "medior/utils/common";
@@ -243,8 +244,11 @@ const writeMediaProgramAttrs = async (
       program.missingMarks,
     );
     const watchedCount = attrs.watchedFileIds.length;
+    // A program whose every episode lacks a file finishes the same way as one with files.
     const isComplete =
-      attrs.fileCount > 0 && watchedCount === attrs.fileCount && missing.watched === missing.total;
+      attrs.fileCount + missing.total > 0 &&
+      watchedCount === attrs.fileCount &&
+      missing.watched === missing.total;
 
     // New episodes reopen a finished program.
     if (
@@ -315,7 +319,7 @@ const writeWatchedFileIds = async (
 
   const markedIds = episodeIds.filter((fileId) => marked.has(fileId));
   const isComplete =
-    episodeIds.length > 0 &&
+    episodeIds.length + missing.total > 0 &&
     markedIds.length === episodeIds.length &&
     missing.watched === missing.total;
   const lastWatchedFileId = episodeIds.filter((fileId) => fileIdSet.has(fileId)).at(-1);
@@ -569,6 +573,7 @@ export const copyCollectionsToMediaProgram = makeAction(
       );
       // Seasons imported as collections were titled after their program.
       const titlePrefix = `${program.name} - `;
+      const programSeasons = readMediaProgramSeasons(program.seasons);
 
       const copiedSeasons = collectionIds
         .map((collectionId) => collectionsById.get(collectionId))
@@ -593,8 +598,17 @@ export const copyCollectionsToMediaProgram = makeAction(
           };
         });
 
+      // A copied Movies season beside the program's TV seasons holds its extras like OVAs.
+      const seasonNumbers = [...programSeasons, ...copiedSeasons].map(({ number }) => number);
+
       await writeMediaProgramAttrs(id, {
-        seasons: [...readMediaProgramSeasons(program.seasons), ...copiedSeasons],
+        seasons: [
+          ...programSeasons,
+          ...copiedSeasons.map((season) => ({
+            ...season,
+            number: parseProgramSeasonNumber(season.label, seasonNumbers),
+          })),
+        ],
       });
 
       return !!program.meta;

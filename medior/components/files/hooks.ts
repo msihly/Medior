@@ -16,7 +16,6 @@ export const makeTileClickHandler =
     if (disabled) return;
 
     const res = await select({ hasCtrl: event.ctrlKey, hasShift: event.shiftKey, id });
-
     if (!res?.success) toast.error(res.error);
   };
 
@@ -28,7 +27,6 @@ export const openSearchCarousel = async (
   },
 ) => {
   const res = await search.listIdsForCarousel();
-
   if (!res?.success) console.error(res.error);
   else openCarouselWindow({ file, selectedFileIds: res.data });
 };
@@ -47,7 +45,6 @@ export const useFileDrag = (file: File, selectedIds: string[]) => {
 
   const loadSelectedFiles = async () => {
     const res = await rpc.listFile({ args: { filter: { id: selectedIds } } });
-
     if (!res?.success) throw new Error(res.error);
 
     return res.data.items;

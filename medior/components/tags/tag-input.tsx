@@ -240,7 +240,6 @@ export const TagInput = Comp(
       if (value.some((tag) => tag.label.toLowerCase() === inputValue?.toLowerCase())) return;
 
       const res = await stores.tag.createTag({ label: inputValue });
-
       if (!res.success) return toast.error(res.error);
 
       onChange?.([...value, res.data]);

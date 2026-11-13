@@ -38,7 +38,8 @@ export const MediaProgramSeasons = Comp(() => {
 
   const activeSeason = store.activeSeason;
   const isBusy = store.isLoading || store.isSaving;
-  const selectedCount = store.selectedSeasonIdSet.size;
+  const isWatchedDisabled = isBusy || !store.shownSeasonCardId;
+  const selectedCount = store.selectedSeasonIdSet.size + store.selectedMissingSeasonNumberSet.size;
 
   const handleAdd = async (label: string) => {
     const res = await store.addSeason(label);
@@ -52,6 +53,12 @@ export const MediaProgramSeasons = Comp(() => {
 
   const handleMetaOpen = () => stores.mediaProgram.setMetaMatchProgramId(store.program.id);
 
+  const handleMissingClick = (number: number, event: React.MouseEvent) => {
+    if (event.ctrlKey || event.shiftKey)
+      store.chooseMissingSeason({ hasShift: event.shiftKey, number });
+    else handleMissingSelect(number);
+  };
+
   /** Shows a season the program has no files for, with each of its episodes missing. */
   const handleMissingSelect = async (number: number) => {
     store.setActiveSeasonId(null);
@@ -60,6 +67,12 @@ export const MediaProgramSeasons = Comp(() => {
 
     const res = await store.loadEpisodes();
     if (!res.success) toast.error(res.error);
+  };
+
+  /** A missing season's own menu acts on every chosen season when it's one of them. */
+  const handleMissingWatched = (number: number, isWatched: boolean) => {
+    if (store.selectedMissingSeasonNumberSet.has(number)) handleSelectedWatched(isWatched);
+    else markWatched({ isWatched, missingNumbers: [number] });
   };
 
   const handleMove = async (id: string, down: boolean) => {
@@ -101,6 +114,14 @@ export const MediaProgramSeasons = Comp(() => {
     if (!res.success) toast.error(res.error);
   };
 
+  /** Marks the shown season and every season chosen with it, with or without files. */
+  const handleSelectedWatched = (isWatched: boolean) =>
+    markWatched({
+      ids: [...store.selectedSeasonIdSet],
+      isWatched,
+      missingNumbers: [...store.selectedMissingSeasonNumberSet],
+    });
+
   const handleSplit = async () => {
     const res = await store.splitSeasons();
     if (!res.success) toast.error(res.error);
@@ -112,10 +133,13 @@ export const MediaProgramSeasons = Comp(() => {
   };
 
   /** A season's own menu acts on every chosen season when it's one of them. */
-  const handleWatched = async (id: string, isWatched: boolean) => {
-    const ids = store.selectedSeasonIdSet.has(id) ? [...store.selectedSeasonIdSet] : [id];
+  const handleWatched = (id: string, isWatched: boolean) => {
+    if (store.selectedSeasonIdSet.has(id)) handleSelectedWatched(isWatched);
+    else markWatched({ ids: [id], isWatched });
+  };
 
-    const res = await store.setSeasonsWatched({ ids, isWatched });
+  const markWatched = async (args: Parameters<typeof store.setSeasonsWatched>[0]) => {
+    const res = await store.setSeasonsWatched(args);
     if (!res.success) toast.error(res.error);
   };
 
@@ -201,18 +225,16 @@ export const MediaProgramSeasons = Comp(() => {
           <MultiActionButton
             name="CheckCircle"
             tooltip="Mark Selected Seasons Watched"
-            iconProps={{
-              color: isBusy || !activeSeason ? colors.custom.grey : colors.custom.green,
-            }}
-            onClick={() => handleWatched(activeSeason.id, true)}
-            disabled={isBusy || !activeSeason}
+            iconProps={{ color: isWatchedDisabled ? colors.custom.grey : colors.custom.green }}
+            onClick={() => handleSelectedWatched(true)}
+            disabled={isWatchedDisabled}
           />
 
           <MultiActionButton
             name="RadioButtonUnchecked"
             tooltip="Mark Selected Seasons Unwatched"
-            onClick={() => handleWatched(activeSeason.id, false)}
-            disabled={isBusy || !activeSeason}
+            onClick={() => handleSelectedWatched(false)}
+            disabled={isWatchedDisabled}
           />
 
           <MultiActionButton
@@ -253,7 +275,9 @@ export const MediaProgramSeasons = Comp(() => {
           {store.missingSeasons.map((season) => (
             <MediaProgramMissingSeason
               key={season.number}
-              onClick={handleMissingSelect}
+              onClick={handleMissingClick}
+              onMatchMeta={handleMetaOpen}
+              onWatched={handleMissingWatched}
               season={season}
             />
           ))}
@@ -301,7 +325,7 @@ export const MediaProgramSeasons = Comp(() => {
       {isSplitOpen && (
         <ConfirmModal
           headerText="Split by File Names"
-          subText={`Move each episode of the ${selectedCount > 1 ? `${Fmt.commas(selectedCount)} selected seasons` : "season"} into the season its file name gives, numbered as it gives, such as S02E05 into S02 as episode 5? Seasons are added as needed, episodes given one number share it, and seasons left empty are removed.`}
+          subText={`Move each episode of the ${store.selectedSeasonIdSet.size > 1 ? `${Fmt.commas(store.selectedSeasonIdSet.size)} selected seasons` : "season"} into the season its file name gives, numbered as it gives, such as S02E05 into S02 as episode 5? Seasons are added as needed, episodes given one number share it, and seasons left empty are removed.`}
           confirmText="Split"
           setVisible={setIsSplitOpen}
           onConfirm={handleSplit}

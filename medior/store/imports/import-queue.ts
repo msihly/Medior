@@ -31,6 +31,7 @@ import {
   parseFileSeasonNumber,
   parseMediaProgramName,
   parseMediaProgramYear,
+  parseProgramSeasonNumber,
   parseSeasonNumber,
   preferredTagLabel,
   resolveMediaProgramFolder,
@@ -229,7 +230,6 @@ class EditorImportsCache {
 
       const batch = missingIds.slice(idx, idx + TAG_LOOKUP_BATCH_SIZE);
       const res = await rpc.listImportTags({ ids: batch });
-
       if (!res.success) throw new Error(res.error);
 
       await this.checkpoint();
@@ -987,7 +987,6 @@ export const useImportEditor = (store: ImportEditorStore) => {
       if (DEBUG) perfLog("Cleared diffParams and tags");
     } else if (store.options.withDiffusionParams) {
       const res = await store.loadDiffusionParams();
-
       if (!res.success) throw new Error(res.error);
 
       if (DEBUG) perfLog("Loaded diffusion params");
@@ -1254,7 +1253,6 @@ export const useImportEditor = (store: ImportEditorStore) => {
 
     if (plans.size) {
       const res = await rpc.listMediaProgramsBySourceFolders({ folderPaths: [...plans.keys()] });
-
       if (!res.success) throw new Error(res.error);
 
       await cache.current.checkpoint();
@@ -1278,6 +1276,19 @@ export const useImportEditor = (store: ImportEditorStore) => {
           year: program.year,
         };
       }
+    }
+
+    // A Movies folder beside a program's TV seasons, scanned or saved, holds its extras like OVAs.
+    for (const folder of folders.values()) {
+      const program = folder.mediaProgram;
+      if (!program?.seasonLabel || program.seasonNumber !== null) continue;
+
+      const numbers = (seasons.get(program.folderPath) ?? []).map(({ number }) => number);
+
+      folder.mediaProgram = {
+        ...program,
+        seasonNumber: parseProgramSeasonNumber(program.seasonLabel, numbers),
+      };
     }
 
     for (const [folderPath, folder] of looseFolders) {
@@ -1532,14 +1543,12 @@ export const useImportEditor = (store: ImportEditorStore) => {
     if (store.options.withDiffusionTags) {
       const upsertTag = async (label: string, isChild = false): Promise<TagToUpsert> => {
         const existsRes = await stores.tag.getByLabel({ label });
-
         if (!existsRes.success) throw new Error(existsRes.error);
 
         let tag: TagSchema = existsRes.data;
 
         if (!tag) {
           const createRes = await stores.tag.createTag({ label });
-
           if (!createRes.success) throw new Error(createRes.error);
 
           tag = createRes.data;
@@ -1566,7 +1575,7 @@ export const useImportEditor = (store: ImportEditorStore) => {
     return { diffMetaTagsToEdit, originalTag, upscaledTag };
   };
 
-  const upsertTags = async (perfLog: (logStr: string) => void) => {
+  const upsertTags = async (perfLog: (logStr: string) => void, isCancelled: () => boolean) => {
     const changedLabels = new Set<string>();
 
     for (const tag of store.flatTagsToUpsert) {
@@ -1595,12 +1604,15 @@ export const useImportEditor = (store: ImportEditorStore) => {
 
       const res = await stores.tag.upsertTags({
         onProgress: (completed, total) => {
-          throwIfIngestCancelled(() => !store.isOpen);
+          throwIfIngestCancelled(isCancelled);
           store.setInitProgressCompleted(completed);
           store.setInitProgressTotal(total);
         },
         tagsToUpsert,
       });
+
+      // The store returns a cancellation as a failed result, which loses the error's name.
+      throwIfIngestCancelled(isCancelled);
 
       if (!res.success) {
         console.error(res.error);
@@ -1636,7 +1648,7 @@ export const useImportEditor = (store: ImportEditorStore) => {
       store.setIsSaving(true);
       setSaveProgress("Creating tags");
 
-      await upsertTags(perfLog);
+      await upsertTags(perfLog, isCancelled);
       throwIfIngestCancelled(isCancelled);
 
       setSaveProgress("Preparing batches");
@@ -1655,7 +1667,6 @@ export const useImportEditor = (store: ImportEditorStore) => {
           setSaveProgress("Queueing files", completed, total);
         },
       });
-
       if (!res.success) throw new Error(res.error);
 
       throwIfIngestCancelled(isCancelled);
@@ -1673,7 +1684,7 @@ export const useImportEditor = (store: ImportEditorStore) => {
         if (!runRes.success) toast.error(runRes.error);
       })();
     } catch (err) {
-      if (err?.name === "IngestCancelledError") return;
+      if (err?.name === "IngestCancelledError" || isCancelled()) return;
 
       toast.error("Failed to queue imports");
       console.error(err);
@@ -1699,7 +1710,7 @@ export const useImportEditor = (store: ImportEditorStore) => {
       store.setIsSaving(true);
       setSaveProgress("Creating tags");
 
-      await upsertTags(perfLog);
+      await upsertTags(perfLog, isCancelled);
       throwIfIngestCancelled(isCancelled);
 
       store.options.setDeleteOnImport(false);
@@ -1735,7 +1746,7 @@ export const useImportEditor = (store: ImportEditorStore) => {
       toast.success(`Reingested ${Fmt.commas(folders.length)} folders`);
       store.setIsOpen(false);
     } catch (err) {
-      if (err?.name === "IngestCancelledError") return;
+      if (err?.name === "IngestCancelledError" || isCancelled()) return;
 
       toast.error("Failed to re-import folders");
       console.error(err);
@@ -1868,7 +1879,6 @@ export const useImportEditor = (store: ImportEditorStore) => {
             folderPaths: sidecarFolderPaths,
             imports: editorImports,
           });
-
           if (!sidecarRes.success) throw new Error(sidecarRes.error);
 
           throwIfIngestCancelled(isCancelled);

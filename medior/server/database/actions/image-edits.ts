@@ -217,7 +217,6 @@ export const editImage = makeAction(
 
         for (const collId of source.collectionIds) {
           const result = await actions.addFilesToCollection({ collId, fileIds: [file.id] });
-
           if (!result.success) throw new Error(result.error);
         }
 
@@ -256,7 +255,6 @@ export const editImage = makeAction(
 
       if (file.collectionIds.length) {
         const result = await actions.regenCollAttrs({ collIds: file.collectionIds.map(String) });
-
         if (!result.success) throw new Error(result.error);
       }
 

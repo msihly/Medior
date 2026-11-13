@@ -7,12 +7,10 @@ const tagLoads = new WeakMap<File | FileCollection, symbol>();
 /** Load files with their referenced tags attached; throws when either request fails. */
 export const loadFilesWithTags = async (fileIds: string[]) => {
   const res = await rpc.listFile({ args: { filter: { id: fileIds } } });
-
   if (!res.success) throw new Error(res.error);
 
   const tagIds = [...new Set(res.data.items.flatMap((file) => file.tagIds))];
   const tagRes = await rpc.listTag({ filter: { id: tagIds } });
-
   if (!tagRes.success) throw new Error(tagRes.error);
 
   const selectTags = makeTagSelector(tagRes.data);

@@ -104,7 +104,6 @@ export const ImportFolderList = Comp(
         hasShift: event.shiftKey,
         id: batch.id,
       });
-
       if (!res?.success) toast.error(res.error);
     };
 

@@ -109,11 +109,9 @@ const REPROCESSED_IMPORT_STATUSES = [
 
 export const checkFileImportHashes = makeAction(async (args: { hash: string }) => {
   const deletedFileRes = await actions.getDeletedFile({ hash: args.hash });
-
   if (!deletedFileRes.success) throw new Error(deletedFileRes.error);
 
   const fileRes = await actions.getFileByHash({ hash: args.hash });
-
   if (!fileRes.success) throw new Error(fileRes.error);
 
   return {
@@ -202,7 +200,6 @@ export const completeImportBatch = makeAction(
               id: batch.collectionId ?? batch.id,
               title: batch.collectionTitle,
             });
-
         if (!res.success) throw new Error(`Failed to create collection: ${res.error}`);
 
         const collectionFileIds = new Set(
@@ -265,7 +262,6 @@ export const completeImportBatch = makeAction(
             withRegen: false,
             withSub: false,
           });
-
           if (!result.success)
             throw new Error(`Failed to update duplicate file tags: ${result.error}`);
         }
@@ -274,7 +270,6 @@ export const completeImportBatch = makeAction(
 
         if (duplicateFileIds.length) {
           const result = await actions.regenCollAttrs({ fileIds: duplicateFileIds });
-
           if (!result.success) throw new Error(result.error);
 
           await actions.regenMediaProgramsByFileIds(duplicateFileIds);
@@ -636,7 +631,6 @@ export const resumeImporter = makeAction(async () => {
   if (activeImportExecution) await stopImporter();
 
   const batch = await getNextImportBatch(null);
-
   if (!batch.success) throw new Error(batch.error);
 
   if (batch.data) return runImportBatch({ id: batch.data.id });
@@ -687,13 +681,11 @@ export const reingestFolder = makeAction(
 
       if (tagIds.length) {
         const queued = await actions.regenTags({ tagIds });
-
         if (!queued.success) throw new Error(queued.error);
       }
 
       const reingestedIds = args.fileTagIds.map(({ fileId }) => fileId);
       const collections = await actions.regenCollAttrs({ fileIds: reingestedIds });
-
       if (!collections.success) throw new Error(collections.error);
 
       await actions.regenMediaProgramsByFileIds(reingestedIds);
@@ -711,7 +703,6 @@ export const reingestFolder = makeAction(
           title: args.collectionTitle,
           withSub: false,
         });
-
         if (!collRes.success) throw new Error(collRes.error);
       }
 
@@ -1113,7 +1104,6 @@ export const runImportBatch = makeAction(async (args: { id: string }) => {
 
         while (id && !importerStatus.getIsPaused() && !isServerStopping()) {
           const batchRes = await getImportBatch({ id });
-
           if (!batchRes.success) throw new Error(batchRes.error);
 
           const batch = batchRes.data;
@@ -1123,7 +1113,6 @@ export const runImportBatch = makeAction(async (args: { id: string }) => {
 
           if (!batch.startedAt) {
             const started = await startImportBatch({ id });
-
             if (!started.success) throw new Error(started.error);
           }
 
@@ -1213,7 +1202,6 @@ export const runImportBatch = makeAction(async (args: { id: string }) => {
           if (importerStatus.getIsPaused() || isServerStopping()) return;
 
           const completed = await completeImportBatch({ id, withNextBatch: false });
-
           if (!completed.success) throw new Error(completed.error);
 
           id = (

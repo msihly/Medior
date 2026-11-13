@@ -188,7 +188,6 @@ export class FileSimilarityStore extends Model({
           page: append ? this.search.page : 1,
           withFullCount: true,
         });
-
         if (!loaded.success) throw new Error(loaded.error);
       } else {
         this.search.setResults([]);

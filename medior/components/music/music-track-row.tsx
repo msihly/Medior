@@ -29,7 +29,6 @@ export const MusicTrackRow = Comp(
         hasShift: event.shiftKey,
         id: file.id,
       });
-
       if (!res?.success) toast.error(res.error);
     };
 

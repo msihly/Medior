@@ -421,7 +421,7 @@ export const createSearchStore = (def: ModelSearchStore) => {
 
         try {
           const res = await rpc.getShiftSelected${def.name}({
-            ...this.cachedFilterProps,
+            ...(this.cachedFilterProps ?? this.getFilterProps()),
             clickedId: id,
             selectedIds,
           });

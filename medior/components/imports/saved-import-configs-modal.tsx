@@ -112,7 +112,6 @@ export const SavedImportConfigsModal = Comp(
           label: configLabel.trim() || getDefaultConfigLabel(editorStore),
           options: editorStore.options.toSavedConfig(),
         });
-
         if (!res.success) throw new Error(res.error);
 
         await refreshConfigs();
@@ -137,7 +136,6 @@ export const SavedImportConfigsModal = Comp(
 
       try {
         const res = await stores.import.deleteSavedConfig(id);
-
         if (!res.success) throw new Error(res.error);
 
         await refreshConfigs();
@@ -157,7 +155,6 @@ export const SavedImportConfigsModal = Comp(
 
       try {
         const res = await stores.import.renameSavedConfig({ id, label: editingLabel.trim() });
-
         if (!res.success) throw new Error(res.error);
 
         await refreshConfigs();

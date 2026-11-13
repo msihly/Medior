@@ -127,7 +127,6 @@ export class FileSearch extends ExtendedModel(_FileSearch, {
 
     if (visibleIds.length) {
       const res = await rpc.listFile({ args: { filter: { id: visibleIds } } });
-
       if (!res.success) throw new Error(res.error);
 
       if (results === this.results) {

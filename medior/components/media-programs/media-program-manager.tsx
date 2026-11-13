@@ -53,13 +53,11 @@ export const MediaProgramManager = Comp(() => {
 
     try {
       const res = await stores.mediaProgram.createMediaProgram("Untitled Program");
-
       if (!res.success) throw new Error(res.error);
 
       stores.mediaProgram.editor.setIsOpen(true);
 
       const loaded = await stores.mediaProgram.editor.loadProgram(res.data.id);
-
       if (!loaded.success) throw new Error(loaded.error);
     } catch (error) {
       toast.error(error);
@@ -213,7 +211,6 @@ const ProgramsView = Comp(() => {
 
   const handleRefreshMeta = async () => {
     const res = await stores.mediaProgram.regenMediaProgramMeta([...store.search.selectedIds]);
-
     if (!res.success) toast.error(res.error);
   };
 

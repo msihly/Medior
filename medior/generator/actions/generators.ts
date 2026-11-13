@@ -43,9 +43,10 @@ export const makeActionsDef = (
   modelDef: ModelDef,
   actions: { custom: string[]; model: string[] },
 ) => {
+  // Defaults fill in only what the caller left out.
   const defaultProps = modelDef.properties
     .filter((prop) => prop.defaultValue)
-    .map((prop) => `${prop.name}: ${prop.defaultValue}`);
+    .map((prop) => `${prop.name}: args.${prop.name} ?? ${prop.defaultValue}`);
 
   const schemaName = `${modelDef.name}Schema`;
 
@@ -137,7 +138,7 @@ export const makeActionsDef = (
       }${usesMetadataWork(fnName) ? ")" : ""});`;
     else
       return `${makeFnPrefix(fnName, typeName)}
-        await models.${modelDef.name}Model.deleteMany({ _id: { $in: args.ids } });
+        await models.${modelDef.name}Model.deleteMany({ _id: { $in: args.ids } }, metadataWriteOptions());
 
         await removeFileCollectionIds(args.ids);
 

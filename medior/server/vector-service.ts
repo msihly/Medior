@@ -504,8 +504,10 @@ export class VectorSimilarityService {
     });
   }
 
+  /** The files most similar to one file, among the given files when there are any. */
   async findSimilarVectorCandidates(args: {
     fileId: string;
+    fileIds?: string[];
     limit?: number;
     offset?: number;
     vectorType?: SimilarityVectorType;
@@ -530,6 +532,7 @@ export class VectorSimilarityService {
 
     const candidates = await this.findCandidatesForTable({
       fileId: args.fileId,
+      fileIds: args.fileIds,
       limit: limit + 1,
       offset,
       tableDef,
@@ -1314,7 +1317,8 @@ export class VectorSimilarityService {
     let cursor = checkpoint.cursor;
     let offset = checkpoint.offset;
 
-    while (true) {
+    // A listed backfill paused after its last window's checkpoint resumes with nothing left.
+    while (!args.fileIds?.length || offset < args.fileIds.length) {
       this.assertJobNotCancelled(job);
       this.updateJobProgress(job, { stage: "scanning" });
 
@@ -1355,8 +1359,6 @@ export class VectorSimilarityService {
         { _id: job.progress.jobId, queueKey: "visual" },
         { $set: { cursor, offset, progress: job.progress } },
       );
-
-      if (args.fileIds?.length && offset >= args.fileIds.length) break;
     }
   }
 
@@ -1866,6 +1868,7 @@ export class VectorSimilarityService {
 
   private async findCandidatesForTable(args: {
     fileId: string;
+    fileIds?: string[];
     limit: number;
     offset: number;
     tableDef: VectorTableManifestEntry;
@@ -1883,19 +1886,38 @@ export class VectorSimilarityService {
     const sourceRow = sourceRows[0];
     if (!sourceRow?.vector) throw new Error("No active visual vector was found for this file yet.");
 
+    const exclusion = `NOT (${makeFileIdPredicate(args.fileId)})`;
+
     // Find Similar stays exact; the search index only serves library-wide duplicate scans.
-    return (
-      await table
+    const searchRows = (predicate: string, offset: number, limit: number) =>
+      table
         .vectorSearch(Array.from(sourceRow.vector, Number))
         .column("vector")
         .distanceType(args.tableDef.distanceType)
         .bypassVectorIndex()
         .select(["_distance", "fileId"])
-        .where(`NOT (${makeFileIdPredicate(args.fileId)})`)
-        .offset(args.offset)
-        .limit(args.limit)
-        .toArray()
-    ).map((row) => {
+        .where(predicate)
+        .offset(offset)
+        .limit(limit)
+        .toArray();
+
+    // Given files are searched in batches, each for enough of its closest files to fill the page.
+    const rows = args.fileIds
+      ? (
+          await this.mapFileIdBatches(args.fileIds, (batch) =>
+            searchRows(
+              `${makeFileIdsPredicate(batch)} AND ${exclusion}`,
+              0,
+              args.offset + args.limit,
+            ),
+          )
+        )
+          .flat()
+          .sort((a, b) => Number(a._distance ?? 1) - Number(b._distance ?? 1))
+          .slice(args.offset, args.offset + args.limit)
+      : await searchRows(exclusion, args.offset, args.limit);
+
+    return rows.map((row) => {
       const distance = Number(row._distance ?? 1);
 
       return {
@@ -2591,9 +2613,16 @@ export class VectorSimilarityService {
       const legacyTable = await this.openTableIfExists(tableName);
       let legacyRowCount = 0;
 
+      // A table whose rows can't be counted might hold rows the active table lacks, so it stays.
       try {
         legacyRowCount = (await legacyTable?.countRows()) ?? 0;
-      } catch {}
+      } catch (err) {
+        fileLog(
+          `[VECTOR] Keeping legacy table ${tableName}; its rows can't be counted: ${err.message}`,
+          { type: "error" },
+        );
+        continue;
+      }
 
       if (legacyRowCount > rowCount) {
         fileLog(

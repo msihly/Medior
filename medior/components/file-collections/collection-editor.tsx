@@ -206,7 +206,6 @@ export const FileCollectionEditor = Comp(
             .map(({ fileId }, index) => ({ fileId, index })),
           title: "Untitled Collection",
         });
-
         if (!createRes.success) return toast.error(createRes.error);
 
         const removeRes = await store.removeFiles(selectedIds);

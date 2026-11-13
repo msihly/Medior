@@ -3160,12 +3160,12 @@ export const createBackgroundOperation = makeAction(
   }) => {
     const model = {
       ...args,
-      dateCreated: dayjs().toISOString(),
-      failures: [],
-      processedCount: 0,
-      targetIds: [],
-      totalCount: 0,
-      transformIds: [],
+      dateCreated: args.dateCreated ?? dayjs().toISOString(),
+      failures: args.failures ?? [],
+      processedCount: args.processedCount ?? 0,
+      targetIds: args.targetIds ?? [],
+      totalCount: args.totalCount ?? 0,
+      transformIds: args.transformIds ?? [],
     };
 
     const res = await new models.BackgroundOperationModel(model).save(metadataSaveOptions());
@@ -3360,7 +3360,11 @@ export const createFile = makeAction(
       args: Types.CreateFileInput;
       socketOpts?: SocketEventOptions;
     }) => {
-      const model = { ...args, dateCreated: dayjs().toISOString(), collectionIds: [] };
+      const model = {
+        ...args,
+        dateCreated: args.dateCreated ?? dayjs().toISOString(),
+        collectionIds: args.collectionIds ?? [],
+      };
 
       await assertMediaPathsAvailable([model.path, model.thumb?.path]);
 
@@ -3491,14 +3495,14 @@ export const createFileCollection = makeAction(
     }) => {
       const model = {
         ...args,
-        dateCreated: dayjs().toISOString(),
-        dateModified: null,
-        fileCount: 0,
-        rating: 0,
-        sourceFolderKeys: [],
-        sourceFolderPaths: [],
-        tagIds: [],
-        tagIdsWithAncestors: [],
+        dateCreated: args.dateCreated ?? dayjs().toISOString(),
+        dateModified: args.dateModified ?? null,
+        fileCount: args.fileCount ?? 0,
+        rating: args.rating ?? 0,
+        sourceFolderKeys: args.sourceFolderKeys ?? [],
+        sourceFolderPaths: args.sourceFolderPaths ?? [],
+        tagIds: args.tagIds ?? [],
+        tagIdsWithAncestors: args.tagIdsWithAncestors ?? [],
       };
 
       const res = await models.FileCollectionModel.findOneAndUpdate(
@@ -3533,7 +3537,10 @@ export const deleteFileCollection = makeAction(
       args: Types.DeleteFileCollectionInput;
       socketOpts?: SocketEventOptions;
     }) => {
-      await models.FileCollectionModel.deleteMany({ _id: { $in: args.ids } });
+      await models.FileCollectionModel.deleteMany(
+        { _id: { $in: args.ids } },
+        metadataWriteOptions(),
+      );
 
       await removeFileCollectionIds(args.ids);
 
@@ -3623,15 +3630,15 @@ export const createFileImportBatch = makeAction(
   }) => {
     const model = {
       ...args,
-      dateCreated: dayjs().toISOString(),
-      fileCount: 0,
-      isCompleted: false,
-      isReady: false,
-      processedCount: 0,
-      processedSize: 0,
-      progressRevision: 0,
-      tagIds: [],
-      tagIdsWithAncestors: [],
+      dateCreated: args.dateCreated ?? dayjs().toISOString(),
+      fileCount: args.fileCount ?? 0,
+      isCompleted: args.isCompleted ?? false,
+      isReady: args.isReady ?? false,
+      processedCount: args.processedCount ?? 0,
+      processedSize: args.processedSize ?? 0,
+      progressRevision: args.progressRevision ?? 0,
+      tagIds: args.tagIds ?? [],
+      tagIdsWithAncestors: args.tagIdsWithAncestors ?? [],
     };
 
     const res = await new models.FileImportBatchModel(model).save(metadataSaveOptions());
@@ -3730,14 +3737,14 @@ export const createFileTransform = makeAction(
   }) => {
     const model = {
       ...args,
-      dateCreated: dayjs().toISOString(),
-      cleanupPending: false,
-      configOverride: [],
-      finalizationPending: false,
-      isCompleted: false,
-      regenerationPending: false,
-      regenerationTagIds: [],
-      timestampPairs: [],
+      dateCreated: args.dateCreated ?? dayjs().toISOString(),
+      cleanupPending: args.cleanupPending ?? false,
+      configOverride: args.configOverride ?? [],
+      finalizationPending: args.finalizationPending ?? false,
+      isCompleted: args.isCompleted ?? false,
+      regenerationPending: args.regenerationPending ?? false,
+      regenerationTagIds: args.regenerationTagIds ?? [],
+      timestampPairs: args.timestampPairs ?? [],
     };
 
     const res = await new models.FileTransformModel(model).save(metadataSaveOptions());
@@ -3836,21 +3843,21 @@ export const _createMediaProgram = makeAction(
   }) => {
     const model = {
       ...args,
-      dateCreated: dayjs().toISOString(),
-      dateModified: null,
-      fileCount: 0,
-      genreIds: [],
-      isRewatching: false,
-      meta: null,
-      rating: 0,
-      rewatchCount: 0,
-      rewatchedFileIds: [],
-      seasons: [],
-      size: 0,
-      tagIds: [],
-      tagIdsWithAncestors: [],
-      watchStatus: "unwatched" as const,
-      watchedFileIds: [],
+      dateCreated: args.dateCreated ?? dayjs().toISOString(),
+      dateModified: args.dateModified ?? null,
+      fileCount: args.fileCount ?? 0,
+      genreIds: args.genreIds ?? [],
+      isRewatching: args.isRewatching ?? false,
+      meta: args.meta ?? null,
+      rating: args.rating ?? 0,
+      rewatchCount: args.rewatchCount ?? 0,
+      rewatchedFileIds: args.rewatchedFileIds ?? [],
+      seasons: args.seasons ?? [],
+      size: args.size ?? 0,
+      tagIds: args.tagIds ?? [],
+      tagIdsWithAncestors: args.tagIdsWithAncestors ?? [],
+      watchStatus: args.watchStatus ?? ("unwatched" as const),
+      watchedFileIds: args.watchedFileIds ?? [],
     };
 
     const res = await new models.MediaProgramModel(model).save(metadataSaveOptions());
@@ -3947,13 +3954,13 @@ export const createMusicAlbum = makeAction(
   }) => {
     const model = {
       ...args,
-      dateCreated: dayjs().toISOString(),
-      dateModified: null,
-      duration: 0,
-      fileCount: 0,
-      fileIds: [],
-      rating: 0,
-      size: 0,
+      dateCreated: args.dateCreated ?? dayjs().toISOString(),
+      dateModified: args.dateModified ?? null,
+      duration: args.duration ?? 0,
+      fileCount: args.fileCount ?? 0,
+      fileIds: args.fileIds ?? [],
+      rating: args.rating ?? 0,
+      size: args.size ?? 0,
     };
 
     const res = await new models.MusicAlbumModel(model).save(metadataSaveOptions());
@@ -4050,14 +4057,14 @@ export const createMusicArtist = makeAction(
   }) => {
     const model = {
       ...args,
-      dateCreated: dayjs().toISOString(),
-      albumCount: 0,
-      dateModified: null,
-      duration: 0,
-      fileCount: 0,
-      fileIds: [],
-      rating: 0,
-      size: 0,
+      dateCreated: args.dateCreated ?? dayjs().toISOString(),
+      albumCount: args.albumCount ?? 0,
+      dateModified: args.dateModified ?? null,
+      duration: args.duration ?? 0,
+      fileCount: args.fileCount ?? 0,
+      fileIds: args.fileIds ?? [],
+      rating: args.rating ?? 0,
+      size: args.size ?? 0,
     };
 
     const res = await new models.MusicArtistModel(model).save(metadataSaveOptions());
@@ -4154,13 +4161,13 @@ export const _createMusicPlaylist = makeAction(
   }) => {
     const model = {
       ...args,
-      dateCreated: dayjs().toISOString(),
-      dateModified: null,
-      duration: 0,
-      fileCount: 0,
-      fileIds: [],
-      rating: 0,
-      size: 0,
+      dateCreated: args.dateCreated ?? dayjs().toISOString(),
+      dateModified: args.dateModified ?? null,
+      duration: args.duration ?? 0,
+      fileCount: args.fileCount ?? 0,
+      fileIds: args.fileIds ?? [],
+      rating: args.rating ?? 0,
+      size: args.size ?? 0,
     };
 
     const res = await new models.MusicPlaylistModel(model).save(metadataSaveOptions());
@@ -4255,7 +4262,11 @@ export const createNotification = makeAction(
     args: Types.CreateNotificationInput;
     socketOpts?: SocketEventOptions;
   }) => {
-    const model = { ...args, dateCreated: dayjs().toISOString(), isRead: false };
+    const model = {
+      ...args,
+      dateCreated: args.dateCreated ?? dayjs().toISOString(),
+      isRead: args.isRead ?? false,
+    };
 
     const res = await new models.NotificationModel(model).save(metadataSaveOptions());
     const created = { ...model, id: res._id.toString() };
@@ -4349,7 +4360,7 @@ export const createSavedImportConfig = makeAction(
     args: Types.CreateSavedImportConfigInput;
     socketOpts?: SocketEventOptions;
   }) => {
-    const model = { ...args, dateCreated: dayjs().toISOString() };
+    const model = { ...args, dateCreated: args.dateCreated ?? dayjs().toISOString() };
 
     const res = await new models.SavedImportConfigModel(model).save(metadataSaveOptions());
     const created = { ...model, id: res._id.toString() };
@@ -4446,7 +4457,11 @@ export const createSavedSearch = makeAction(
     args: Types.CreateSavedSearchInput;
     socketOpts?: SocketEventOptions;
   }) => {
-    const model = { ...args, dateCreated: dayjs().toISOString(), customOrderIds: [] };
+    const model = {
+      ...args,
+      dateCreated: args.dateCreated ?? dayjs().toISOString(),
+      customOrderIds: args.customOrderIds ?? [],
+    };
 
     const res = await new models.SavedSearchModel(model).save(metadataSaveOptions());
     const created = { ...model, id: res._id.toString() };
@@ -4542,15 +4557,15 @@ export const _createTag = makeAction(
   }) => {
     const model = {
       ...args,
-      dateCreated: dayjs().toISOString(),
-      aliases: [],
-      ancestorIds: [],
-      category: null,
-      childIds: [],
-      descendantIds: [],
-      parentIds: [],
-      rating: 0,
-      thumb: null,
+      dateCreated: args.dateCreated ?? dayjs().toISOString(),
+      aliases: args.aliases ?? [],
+      ancestorIds: args.ancestorIds ?? [],
+      category: args.category ?? null,
+      childIds: args.childIds ?? [],
+      descendantIds: args.descendantIds ?? [],
+      parentIds: args.parentIds ?? [],
+      rating: args.rating ?? 0,
+      thumb: args.thumb ?? null,
     };
 
     const res = await new models.TagModel(model).save(metadataSaveOptions());

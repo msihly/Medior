@@ -1,5 +1,4 @@
 import * as models from "medior/_generated/server/models";
-import { QueryFilter } from "mongoose";
 import { fileLog } from "trabecula/utils/server";
 import { startRepairChild } from "medior/server/database/repair-progress";
 import { getFileFilterMatch } from "medior/server/lower-resolution";
@@ -8,19 +7,13 @@ import { embedAudioSegment, getConfig, makeAction, objectIds, socket } from "med
 import { vectorRpc } from "medior/utils/server/rpc";
 import { workSignal } from "medior/utils/server/work-signal";
 
-/** Leaves out candidates that are archived, deleted, or not chosen by the filter menu's filter. */
+/** Leaves out candidates archived or deleted since their vectors were searched. */
 const filterAvailableCandidates = async <Candidate extends { fileId: string }>(
   candidates: Candidate[],
-  filterMatch: QueryFilter<models.FileSchema> | null,
 ) => {
   const files = await models.FileModel.find({
-    $and: [
-      filterMatch ?? {},
-      {
-        _id: { $in: objectIds(candidates.map((candidate) => candidate.fileId)) },
-        isArchived: { $ne: true },
-      },
-    ],
+    _id: { $in: objectIds(candidates.map((candidate) => candidate.fileId)) },
+    isArchived: { $ne: true },
   })
     .select({ _id: 1 })
     .lean();
@@ -28,6 +21,21 @@ const filterAvailableCandidates = async <Candidate extends { fileId: string }>(
   const availableIds = new Set(files.map((file) => String(file._id)));
 
   return candidates.filter((candidate) => availableIds.has(candidate.fileId));
+};
+
+/**
+ * The unarchived files the filter menu's saved filter chooses, which a similarity search is limited
+ * to rather than filtering its results. Without a filter, every file is searched.
+ */
+const getFilterFileIds = async (filter: string | null) => {
+  const filterMatch = await getFileFilterMatch(filter);
+  if (!filterMatch) return undefined;
+
+  const files = await models.FileModel.find({ $and: [filterMatch, { isArchived: { $ne: true } }] })
+    .select({ _id: 1 })
+    .lean();
+
+  return files.map((file) => String(file._id));
 };
 
 /**
@@ -123,14 +131,7 @@ export const findSimilarAudio = makeAction(
 
       if (filter) reportProgress("Finding the files the filter chooses.");
 
-      const filterMatch = await getFileFilterMatch(filter);
-      const fileIds = filterMatch
-        ? (
-            await models.FileModel.find({ $and: [filterMatch, { isArchived: { $ne: true } }] })
-              .select({ _id: 1 })
-              .lean()
-          ).map((match) => String(match._id))
-        : undefined;
+      const fileIds = await getFilterFileIds(filter);
       if (fileIds && !fileIds.length) return { candidates: [], hasMore: false, nextOffset: offset };
 
       recordTiming("file and filter lookup");
@@ -159,7 +160,7 @@ export const findSimilarAudio = makeAction(
       recordTiming("vector search");
       reportProgress("Checking matches.");
 
-      const available = await filterAvailableCandidates(candidates, null);
+      const available = await filterAvailableCandidates(candidates);
 
       recordTiming("match check");
 
@@ -176,7 +177,10 @@ export const findSimilarAudio = makeAction(
   },
 );
 
-/** The files most similar to one file, restricted to those the filter menu's saved filter chooses. */
+/**
+ * The files most similar to one file. Only the files the filter menu's saved filter chooses are
+ * searched, so a page fills whenever enough of them match.
+ */
 export const findSimilarFiles = makeAction(
   async ({
     filter = null,
@@ -188,13 +192,16 @@ export const findSimilarFiles = makeAction(
     offset?: number;
     vectorType?: SimilarityVectorType;
   }) => {
-    const { candidates, hasMore, nextOffset } = await vectorRpc.findSimilarVectorCandidates(args);
+    const fileIds = await getFilterFileIds(filter);
+    if (fileIds && !fileIds.length)
+      return { candidates: [], hasMore: false, nextOffset: args.offset ?? 0 };
 
-    return {
-      candidates: await filterAvailableCandidates(candidates, await getFileFilterMatch(filter)),
-      hasMore,
-      nextOffset,
-    };
+    const { candidates, hasMore, nextOffset } = await vectorRpc.findSimilarVectorCandidates({
+      ...args,
+      fileIds,
+    });
+
+    return { candidates: await filterAvailableCandidates(candidates), hasMore, nextOffset };
   },
 );
 

@@ -8,19 +8,30 @@ import {
   startJob,
   waitForJob,
 } from "medior/server/database/jobs";
-import { registerMetadataWork } from "medior/server/database/metadata-work";
+import { withMetadataMutation } from "medior/server/database/metadata-mutations";
+import { metadataWriteOptions, registerMetadataWork } from "medior/server/database/metadata-work";
 import {
   chunkArray,
+  dayjs,
   FileTranslationSource,
   Fmt,
   getCaptionTranslation,
   getNameTranslation,
+  getTitleTranslation,
   hasTranscription,
+  MediaProgramTitleTranslation,
   SubtitleSegment,
   TEXT_SUBTITLE_CODECS,
   TranslationDisplay,
 } from "medior/utils/common";
-import { Config, getConfig, getIsVideo, leanModelToJson, makeAction } from "medior/utils/server";
+import {
+  Config,
+  getConfig,
+  getIsVideo,
+  leanModelToJson,
+  makeAction,
+  socket,
+} from "medior/utils/server";
 import { runNativeTask } from "medior/utils/server/native-task";
 import { probeSubtitleStreams, readSubtitleSegments } from "medior/utils/server/subtitles";
 
@@ -33,6 +44,13 @@ interface CaptionSource {
   source: FileTranslationSource;
 }
 
+interface EpisodeTitleTranslationRequest {
+  /** Translates again the titles that already have a translation into the target language. */
+  force?: boolean;
+  id: string;
+  titles: string[];
+}
+
 interface FileTranslationRequest {
   fileId: string;
   /** Translates again what already has a translation into the target language, replacing it. */
@@ -40,6 +58,9 @@ interface FileTranslationRequest {
   /** What to translate, or everything the file has when omitted. */
   sources?: FileTranslationSource[];
 }
+
+/** The requests waiting in each running episode title translation, which later requests join. */
+const titleTranslationQueues = new Map<string, EpisodeTitleTranslationRequest[]>();
 
 /** The requests waiting in each running translation, which later requests join. */
 const translationQueues = new Map<string, FileTranslationRequest[]>();
@@ -50,12 +71,16 @@ const translationQueues = new Map<string, FileTranslationRequest[]>();
 const isRequested = (sources: FileTranslationSource[], source: FileTranslationSource) =>
   !sources || sources.includes(source);
 
-/** Translates each distinct text once, in batches that report the job's progress. */
+/**
+ * Translates each distinct text once, in batches that report the job's progress and are handed to
+ * `onBatch` as they finish.
+ */
 const translateTexts = async (
   job: Job,
   config: Config["file"]["translation"],
   texts: string[],
   label: string,
+  onBatch?: (batch: string[], results: string[]) => Promise<void>,
 ) => {
   const uniqueTexts = [...new Set(texts.map((text) => text.trim()).filter(Boolean))];
   const translations = new Map<string, string>();
@@ -75,6 +100,8 @@ const translateTexts = async (
     );
 
     batch.forEach((text, index) => translations.set(text, results[index]));
+
+    await onBatch?.(batch, results);
   }
 
   return texts.map((text) => translations.get(text.trim()) ?? text);
@@ -223,9 +250,106 @@ const translateFile = async (job: Job, { fileId, force, sources }: FileTranslati
   }
 };
 
+/** Replaces the program's title translations with what `update` makes of them, in every window. */
+const updateTitleTranslations = (
+  id: string,
+  update: (translations: MediaProgramTitleTranslation[]) => MediaProgramTitleTranslation[],
+) =>
+  withMetadataMutation(async () => {
+    const program = await models.MediaProgramModel.findById(id)
+      .select({ titleTranslations: 1 })
+      .lean();
+    if (!program) throw new Error("The media program was not found.");
+
+    const updates = {
+      dateModified: dayjs().toISOString(),
+      titleTranslations: update(program.titleTranslations ?? []),
+    };
+
+    await models.MediaProgramModel.updateOne(
+      { _id: id },
+      { $set: updates },
+      metadataWriteOptions(),
+    );
+
+    socket.emitVolatile("onMediaProgramUpdated", { id, updates });
+  });
+
+/**
+ * Translates the program's episode titles that have no translation into the target language yet,
+ * or all of them again with `force`, saving each batch as it finishes so a stopped translation
+ * keeps them. Resolves to how many titles were translated.
+ */
+const translateEpisodeTitles = async (
+  job: Job,
+  { force, id, titles }: EpisodeTitleTranslationRequest,
+) => {
+  const config = getConfig().file.translation;
+  const { language } = config;
+
+  const program = await models.MediaProgramModel.findById(id)
+    .select({ name: 1, titleTranslations: 1 })
+    .lean();
+  if (!program) throw new Error("The media program was not found.");
+
+  const pendingTitles = force
+    ? titles
+    : titles.filter((title) => !getTitleTranslation(program, title, language));
+
+  job.report({ item: program.name, message: "Starting translation.", stepProgress: null });
+
+  await translateTexts(job, config, pendingTitles, "titles", async (batch, results) => {
+    const texts = new Map(batch.map((text, index) => [text, results[index]]));
+    const batchTitles = pendingTitles.filter((title) => texts.has(title.trim()));
+    const batchTitleSet = new Set(batchTitles);
+
+    await updateTitleTranslations(id, (translations) => [
+      ...translations.filter(
+        (translation) => translation.language !== language || !batchTitleSet.has(translation.title),
+      ),
+      ...batchTitles.map((title) => ({
+        // Translating again keeps the saved choice of what shows on episode cards.
+        display: getTitleTranslation({ titleTranslations: translations }, title, language)?.display,
+        language,
+        text: texts.get(title.trim()),
+        title,
+      })),
+    ]);
+  });
+
+  return pendingTitles.length;
+};
+
 /* -------------------------------------------------------------------------- */
 /*                                API ENDPOINTS                               */
 /* -------------------------------------------------------------------------- */
+/**
+ * Chooses whether the program's saved translations of the episode titles into the target language
+ * or the titles show on episode cards. Titles without a translation are left as they are.
+ */
+export const saveEpisodeTitleTranslations = makeAction(
+  async ({
+    display,
+    id,
+    titles,
+  }: {
+    display: TranslationDisplay;
+    id: string;
+    titles: string[];
+  }) => {
+    const { language } = getConfig().file.translation;
+    const titleSet = new Set(titles);
+
+    await updateTitleTranslations(id, (translations) =>
+      translations.map((translation) =>
+        translation.language === language && titleSet.has(translation.title)
+          ? { ...translation, display }
+          : translation,
+      ),
+    );
+  },
+);
+
 /**
  * Chooses whether the files' saved name translations into the target language or their names show
  * on file cards. Files without a translation of their current name are left as they are.
@@ -254,12 +378,78 @@ export const saveNameTranslations = makeAction(
             },
           },
         });
-
         if (!res.success) throw new Error(res.error);
       }
     },
     { getFileIds: ({ fileIds }) => fileIds },
   ),
+);
+
+/**
+ * Translates programs' episode titles from their metadata into the target language on the server,
+ * one program at a time, storing them with each program. Titles sent while a translation runs join
+ * it, so the translation model stays loaded. With `force`, titles that already have a translation
+ * are translated again.
+ */
+export const startEpisodeTitleTranslation = makeAction(
+  async ({ force, id, titles }: { force?: boolean; id: string; titles: string[] }) => {
+    const request = { force, id, titles: [...new Set(titles)] };
+    let runningId = findJob("translateEpisodeTitles");
+
+    // A stopping translation takes no more requests, so a new one starts once it has ended.
+    if (runningId && isJobStopping(runningId)) {
+      await waitForJob(runningId);
+      runningId = findJob("translateEpisodeTitles");
+    }
+
+    const runningQueue = titleTranslationQueues.get(runningId);
+
+    if (runningQueue) {
+      addToJob(runningId, [], 1);
+      runningQueue.push(request);
+
+      return runningId;
+    } else
+      return startJob({
+        label: "Episode Title Translation",
+        run: async (job) => {
+          const queue = [request];
+          let translatedCount = 0;
+
+          titleTranslationQueues.set(job.id, queue);
+
+          try {
+            // The queue holds only waiting requests, which later translations add to.
+            while (queue.length) {
+              const queued = queue.shift();
+
+              job.signal.throwIfAborted();
+
+              try {
+                translatedCount += await translateEpisodeTitles(job, queued);
+              } catch (error) {
+                job.signal.throwIfAborted();
+                job.addFailure(error.message);
+              }
+
+              job.complete([], 1);
+            }
+          } finally {
+            titleTranslationQueues.delete(job.id);
+          }
+
+          job.report({
+            message:
+              translatedCount === 1
+                ? "Translated 1 title."
+                : `Translated ${Fmt.commas(translatedCount)} titles.`,
+            stepProgress: null,
+          });
+        },
+        total: 1,
+        type: "translateEpisodeTitles",
+      });
+  },
 );
 
 /**

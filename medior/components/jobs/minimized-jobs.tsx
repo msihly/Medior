@@ -11,6 +11,7 @@ export const MinimizedJobs = Comp(() => {
   const stores = useStores();
   const file = stores.file;
   const repair = stores.home.settings.repair;
+  const titleTranslation = stores.mediaProgram.titleTranslation;
 
   const { css } = useClasses(null);
 
@@ -45,6 +46,11 @@ export const MinimizedJobs = Comp(() => {
       },
     },
     regenerateTagRegEx: tagManagerView,
+    translateEpisodeTitles: {
+      isShown: titleTranslation.isOpen && !titleTranslation.isMinimized,
+      jobId: titleTranslation.jobId,
+      restore: () => titleTranslation.setIsMinimized(false),
+    },
     translateFiles: {
       isShown: file.translation.isOpen && !file.translation.isMinimized,
       jobId: file.translation.jobId,

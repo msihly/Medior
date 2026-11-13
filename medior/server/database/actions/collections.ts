@@ -340,7 +340,6 @@ export const addFilesToCollection = makeAction(
         id: args.collId,
         fileIdIndexes: newFileIdIndexes,
       });
-
       if (!updateRes.success) throw new Error(updateRes.error);
 
       return updateRes.data;
@@ -496,13 +495,11 @@ export const upsertImportedCollection = makeAction(
           sourceFolderKeys,
           sourceFolderPaths,
         });
-
         if (!updateRes.success) throw new Error(updateRes.error);
 
         return { fileIdIndexes, id: collection.id };
       } else {
         const createRes = await createCollection({ ...args, withSub: true });
-
         if (!createRes.success) throw new Error(createRes.error);
 
         return createRes.data;
@@ -606,7 +603,6 @@ export const mergeCollections = makeAction(
         sourceFolderPaths: [...sourceFolderPathByKey.values()],
         title: args.title.trim(),
       });
-
       if (!updateRes.success) throw new Error(updateRes.error);
 
       await models.FileImportBatchModel.updateMany(
@@ -615,7 +611,6 @@ export const mergeCollections = makeAction(
       );
 
       const deleteRes = await deleteCollections({ ids: sourceIds });
-
       if (!deleteRes.success) throw new Error(deleteRes.error);
 
       return {
@@ -670,6 +665,7 @@ export const findRelatedCollectionGroups = makeAction(
         args.ids?.length ? { _id: { $in: objectIds(args.ids) } } : {},
       )
         .sort({ [sortKey]: sortDirection, _id: sortDirection })
+        .select({ fileIdIndexes: 1, sourceFolderPaths: 1, title: 1 })
         .lean()
     ).map((collection) => leanModelToJson<models.FileCollectionSchema>(collection));
 
@@ -918,7 +914,6 @@ export const listCollectionsByFileIds = makeAction(async (args: { fileIds: strin
 
   const tagIds = [...new Set(collections.flatMap((c) => c.tagIds.map((id) => id.toString())))];
   const res = await actions.listTag({ filter: { id: tagIds } });
-
   if (!res.success) throw new Error(res.error);
 
   const tagsMap = new Map(res.data.map((t) => [t.id, t]));
@@ -1034,7 +1029,9 @@ export const repairCollections = makeAction(
         async (candidate) => {
           checkCancelled();
 
-          const collection = await models.FileCollectionModel.findById(candidate._id).lean();
+          const collection = await models.FileCollectionModel.findById(candidate._id)
+            .select({ fileIdIndexes: 1 })
+            .lean();
 
           if (!collection) return { deleted: 0, repaired: 0 };
 
@@ -1067,7 +1064,6 @@ export const repairCollections = makeAction(
               )
             ) {
               const result = await updateCollection({ fileIdIndexes, id: String(collection._id) });
-
               if (!result.success) throw new Error(result.error);
 
               collection.fileIdIndexes = fileIdIndexes;
@@ -1084,7 +1080,6 @@ export const repairCollections = makeAction(
           if (!fileIds.size) {
             if (deleteEmptyCollections) {
               const result = await deleteCollections({ ids: [String(collection._id)] });
-
               if (!result.success) throw new Error(result.error);
 
               deleted = result.data.deletedCount;
@@ -1113,7 +1108,6 @@ export const repairCollections = makeAction(
               } else if (!deleteSubsetCollections) continue;
 
               const result = await deleteCollections({ ids: [String(collection._id)] });
-
               if (!result.success) throw new Error(result.error);
 
               deleted = result.data.deletedCount;
@@ -1132,30 +1126,57 @@ export const repairCollections = makeAction(
       if (syncFileMembership) {
         report("Synchronizing each file's collection membership from current collections.");
 
-        await repairMetadata(
-          models.FileModel.find().select({ _id: 1 }).sort({ _id: 1 }).lean().cursor(),
-          async (candidate) => {
+        const fileIds = (
+          await models.FileModel.find().select({ _id: 1 }).sort({ _id: 1 }).lean()
+        ).map((file) => file._id);
+
+        // Each chunk's memberships come from one query, with only the chunk's files kept.
+        await repairMetadata(chunkArray(fileIds, 1000), async (chunk) => {
+          checkCancelled();
+
+          const files = await models.FileModel.find({ _id: { $in: chunk } })
+            .select({ collectionIds: 1 })
+            .lean();
+          const memberships = await models.FileCollectionModel.aggregate<{
+            _id: mongoose.Types.ObjectId;
+            fileIds: mongoose.Types.ObjectId[];
+          }>([
+            { $match: { "fileIdIndexes.fileId": { $in: chunk } } },
+            {
+              $project: {
+                fileIds: {
+                  $filter: {
+                    as: "fileId",
+                    cond: { $in: ["$$fileId", chunk] },
+                    input: "$fileIdIndexes.fileId",
+                  },
+                },
+              },
+            },
+          ]);
+
+          const collectionIdsByFile = new Map<string, Set<string>>();
+
+          for (const membership of memberships) {
+            for (const fileId of membership.fileIds) {
+              const key = String(fileId);
+
+              if (!collectionIdsByFile.has(key)) collectionIdsByFile.set(key, new Set());
+
+              collectionIdsByFile.get(key).add(String(membership._id));
+            }
+          }
+
+          for (const file of files) {
             checkCancelled();
 
-            const file = await models.FileModel.findById(candidate._id)
-              .select({ collectionIds: 1 })
-              .lean();
-
-            if (!file) return;
-
-            const collectionIds = (
-              await models.FileCollectionModel.find({ "fileIdIndexes.fileId": file._id.toString() })
-                .select({ _id: 1 })
-                .lean()
-            )
-              .map(({ _id }) => String(_id))
-              .sort();
+            const collectionIds = [...(collectionIdsByFile.get(String(file._id)) ?? [])].sort();
 
             if (
               file.collectionIds &&
               [...file.collectionIds].map(String).sort().join(",") === collectionIds.join(",")
             )
-              return;
+              continue;
 
             await models.FileModel.updateOne(
               { _id: file._id },
@@ -1166,10 +1187,8 @@ export const repairCollections = makeAction(
               fileIds: [String(file._id)],
               updates: { collectionIds },
             });
-
-            checkCancelled();
-          },
-        );
+          }
+        });
       }
 
       report(
@@ -1224,7 +1243,6 @@ export const updateCollection = makeAction(
 
       if (updates.fileIdIndexes || (updates.ratingIsManual === false && coll.ratingIsManual)) {
         const queued = await regenCollAttrs({ collIds: [updates.id] });
-
         if (!queued.success) throw new Error(queued.error);
       }
 

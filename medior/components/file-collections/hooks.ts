@@ -62,7 +62,6 @@ export const useCollectionMerge = ({
       if (!res.success) throw new Error(res.error);
 
       const previewRes = await store.loadMergePreview(res.data.collection);
-
       if (!previewRes.success) throw new Error(previewRes.error);
     } catch (error) {
       if (requestId === loadId.current) {
@@ -87,7 +86,6 @@ export const useCollectionMerge = ({
         ids: mergeIds.current,
         title: store.title,
       });
-
       if (!res.success) throw new Error(res.error);
 
       toast.success("Collections merged");
@@ -125,7 +123,6 @@ export const useCollectionMerge = ({
         ids,
         title: previewRes.data.collection.title,
       });
-
       if (!res.success) throw new Error(res.error);
 
       toast.success("Collections merged");

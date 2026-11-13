@@ -238,7 +238,6 @@ export class CarouselStore extends Model({
 
     try {
       const result = await rpc.editImage(args);
-
       if (!result.success) throw new Error(result.error);
 
       if (args.saveCopy) {
@@ -300,7 +299,6 @@ export class CarouselStore extends Model({
         size,
         tagIds: activeFile.tagIds,
       });
-
       if (!res.success) throw new Error(res.error);
 
       openCarouselWindow({ file: res.data.file, selectedFileIds: [res.data.file.id] });
@@ -352,7 +350,6 @@ export class CarouselStore extends Model({
     search.setIds(ids);
 
     const result = await search.loadFiltered({ noCache: true });
-
     if (!result.success) throw new Error(result.error);
   });
 
@@ -450,7 +447,6 @@ export class CarouselStore extends Model({
 
     try {
       const res = await rpc.markFileWatched({ fileId: activeFile.id });
-
       if (!res.success) throw new Error(res.error);
     } catch (error) {
       console.error("Failed to mark file watched:", error);

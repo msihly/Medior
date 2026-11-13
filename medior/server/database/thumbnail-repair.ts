@@ -30,6 +30,17 @@ import {
 
 const activeRepairs = new Set<string>();
 
+/**
+ * A file's thumbnail operation blocks another until its cleanup ends, which waits while a tag
+ * thumbnail still shows the old one, so a repair asked for meanwhile fails rather than reporting
+ * the unchanged file as repaired.
+ */
+const finishPreviousRepair = async (operationId: string) => {
+  const result = await finishFileOperation(operationId);
+  if (result !== "DONE")
+    throw new Error("The previous thumbnail repair is still cleaning up. Try again later.");
+};
+
 export const repairThumbnail = async (
   file: models.FileSchema,
   skipThumbs = false,
@@ -60,10 +71,9 @@ export const repairThumbnail = async (
     }
 
     if (operation?.state === "COMMITTED") {
-      await finishFileOperation(operation._id);
+      await finishPreviousRepair(operation._id);
 
       const current = await models.FileModel.findById(file.id).lean();
-
       if (!current) throw new Error("Repaired file no longer exists");
 
       return leanModelToJson<models.FileSchema>(current);
@@ -91,7 +101,7 @@ export const repairThumbnail = async (
         { cleanup, state: "COMMITTED" },
       );
 
-      await finishFileOperation(operation._id);
+      await finishPreviousRepair(operation._id);
       operation = null;
     }
 
@@ -284,7 +294,6 @@ export const repairThumbnail = async (
     await actions.queueTagMetadataRegen(current.tagIds.map(String));
 
     const collections = await actions.regenCollAttrs({ fileIds: [file.id] });
-
     if (!collections.success) throw new Error(collections.error);
 
     // A refresh rereads music tags, which can move the file to another album or artist.

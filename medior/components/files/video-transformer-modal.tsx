@@ -57,7 +57,6 @@ export const VideoTransformerModal = Comp(() => {
       stores.home.settings.applyConfig(config);
 
       const res = await store.createTransforms();
-
       if (!res.success) throw new Error(res.error);
     });
 

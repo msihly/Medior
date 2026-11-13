@@ -248,7 +248,6 @@ export const removeMissingStorageRecords = makeAction(
 
             // Missing media was lost, not rejected, so its content is not marked deleted.
             const result = await deleteFiles({ fileIds: missingIds, withDeletedHashes: false });
-
             if (!result.success) throw new Error(result.error);
           }
 
@@ -577,7 +576,6 @@ export const scanFileStorage = makeAction(async ({ repairId }: { repairId: strin
 
         if (pendingRelinks.length) {
           const res = await relinkFiles({ filesToRelink: pendingRelinks });
-
           if (!res.success) throw new Error(res.error);
 
           pendingRelinks.length = 0;

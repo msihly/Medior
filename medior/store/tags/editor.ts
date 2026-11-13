@@ -248,7 +248,6 @@ export class TagEditorStore extends Model({
 
       try {
         const res = await rpc.getTagWithRelations({ id });
-
         if (!res.success) throw new Error(res.error);
 
         if (revision !== this.tagLoadRevision) return;
@@ -315,7 +314,6 @@ export class TagEditorStore extends Model({
         },
         { signal },
       );
-
       if (!res.success) throw new Error(res.error);
 
       this.setRegExOverlaps(res.data);

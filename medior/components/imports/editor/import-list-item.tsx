@@ -68,7 +68,6 @@ export const ImportListItem = Comp(
 
       try {
         const res = await rpc.listFile({ args: { filter: { id: fileImport.fileId } } });
-
         if (!res.success) throw new Error(res.error);
 
         if (!res.data.items.length) return toast.warn("File no longer exists in the library");

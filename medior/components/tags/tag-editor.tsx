@@ -67,7 +67,7 @@ export const TagEditor = Comp(({ isSubEditor = false }: TagEditorProps) => {
     const res = await stores.tag.deleteTag({ id: store.tag.id });
 
     if (!res.success) {
-      toast.error("Failed to delete tag");
+      toast.error(res.error);
       setIsSaving(false);
     } else {
       toast.success("Tag deleted");
@@ -87,13 +87,22 @@ export const TagEditor = Comp(({ isSubEditor = false }: TagEditorProps) => {
 
   const handleMerge = () => stores.tag.merger.setIsOpen(true);
 
-  const handleRating = (rating: number) => stores.tag.updateTagRating({ id: store.tag.id, rating });
+  const handleRating = async (rating: number) => {
+    const res = await stores.tag.updateTagRating({ id: store.tag.id, rating });
+    if (!res.success) toast.error(res.error);
+  };
 
   const handleRefresh = async () => {
     setIsSaving(true);
-    await stores.tag.refreshTag({ id: store.tag.id });
+
+    const res = await stores.tag.refreshTag({ id: store.tag.id });
     setIsSaving(false);
-    await store.loadTag({ id: store.tag.id });
+
+    if (!res.success) toast.error(res.error);
+    else {
+      const loadRes = await store.loadTag({ id: store.tag.id });
+      if (!loadRes.success) toast.error(loadRes.error);
+    }
   };
 
   const handleSearch = () => openHomeView({ tagIds: [store.tag.id], view: "files" });
@@ -176,7 +185,7 @@ export const TagEditor = Comp(({ isSubEditor = false }: TagEditorProps) => {
             <View row align="center" spacing="0.5rem">
               <RatingButton rating={store.tag.rating} setRating={handleRating} />
 
-              <Text tooltip={store.tag.count} tooltipProps={{ flexShrink: 1 }} preset="faint-info">
+              <Text tooltip={store.tag.count} tooltipProps={{ flexShrink: 1 }} preset="sub-text">
                 {`${Fmt.commas(store.tag.count ?? 0)} files / ${Fmt.bytes(store.tag.size ?? 0)}`}
               </Text>
 

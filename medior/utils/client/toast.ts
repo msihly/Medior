@@ -23,7 +23,6 @@ const saveNotificationHistory = () => {
   notificationSavePromise = (async () => {
     while (pendingNotifications.length) {
       const res = await rpc.recordNotification(pendingNotifications[0]);
-
       if (!res.success) throw new Error(res.error);
 
       pendingNotifications.shift();

@@ -77,7 +77,7 @@ export const MediaProgramMetaModal = Comp(({ onClose, program }: MediaProgramMet
 
   const [isSaving, setIsSaving] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
-  const [kind, setKind] = useState(getMediaProgramMetaKind(program.type));
+  const [kind, setKind] = useState(getMediaProgramMetaKind(program));
   const [query, setQuery] = useState(program.name);
   const [results, setResults] = useState<MediaProgramMetaResult[]>([]);
   const [sort, setSort] = useState<ResultSort>("match");
@@ -112,7 +112,6 @@ export const MediaProgramMetaModal = Comp(({ onClose, program }: MediaProgramMet
 
     try {
       const res = await store.setMediaProgramMeta({ id: program.id, match });
-
       if (!res.success) toast.error(res.error);
       else onClose();
     } finally {
@@ -175,6 +174,11 @@ export const MediaProgramMetaModal = Comp(({ onClose, program }: MediaProgramMet
 
   useEffect(() => {
     searchDefault();
+
+    // Closing ends the first search, so it contacts no further sources.
+    return () => {
+      searchRevision.current += 1;
+    };
   }, []);
 
   return (

@@ -31,7 +31,6 @@ export const MusicPlaylistCard = Comp(({ playlist, search }: MusicPlaylistCardPr
       hasShift: event.shiftKey,
       id: playlist.id,
     });
-
     if (!res?.success) toast.error(res.error);
   };
 

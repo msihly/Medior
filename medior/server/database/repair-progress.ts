@@ -167,7 +167,13 @@ export const cancelRepair = async (repairId: string) => {
   );
 };
 
-export const pauseRepairs = () => Promise.all([...repairAbortControllers.keys()].map(cancelRepair));
+/** Every repair settles before the pause resolves, even when cancelling one of them fails. */
+export const pauseRepairs = async () => {
+  const results = await Promise.allSettled([...repairAbortControllers.keys()].map(cancelRepair));
+  const failure = results.find((result) => result.status === "rejected");
+
+  if (failure?.status === "rejected") throw failure.reason;
+};
 
 export const finishRepair = async (repairId: string, error?: string) => {
   let cancelled = cancelledRepairIds.has(repairId);

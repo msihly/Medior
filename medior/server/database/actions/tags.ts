@@ -301,7 +301,6 @@ const processTagRegenQueue = async () => {
             if (!(await models.TagModel.exists({ _id: tagId }))) continue;
 
             const refreshed = await refreshTag({ tagId, withSub: false });
-
             if (!refreshed.success) throw new Error(refreshed.error);
           }
 
@@ -311,7 +310,6 @@ const processTagRegenQueue = async () => {
           });
         } else {
           const tagRes = await regenTagAncestors({ tagIds, withSub: false });
-
           if (!tagRes.success) throw new Error(tagRes.error);
 
           // Only cached relationships changed. Source edits already notify searches at commit.
@@ -453,7 +451,6 @@ export const createTag = makeAction(
         const tagIds = [id, ...childIds, ...parentIds];
 
         const queued = await regenTags({ tagIds, withDescendantMetadata: false, withSub });
-
         if (!queued.success) throw new Error(queued.error);
       }
 
@@ -477,7 +474,7 @@ export const deleteTag = makeAction(
       const tagIds = [id];
 
       const tag = await readMetadataSnapshot(`deleteTag:${id}`, () =>
-        models.TagModel.findById(id).lean(),
+        models.TagModel.findById(id).select({ childIds: 1, parentIds: 1 }).lean(),
       );
 
       if (!tag) throw new Error("Tag not found");
@@ -510,7 +507,6 @@ export const deleteTag = makeAction(
         withDescendantMetadata: false,
         withSub: true,
       });
-
       if (!queued.success) throw new Error(queued.error);
 
       socket.emitVolatile("onTagDeleted", { ids: [id] });
@@ -609,7 +605,6 @@ export const editTag = makeAction(
           withDescendantMetadata: false,
           withSub,
         });
-
         if (!queued.success) throw new Error(queued.error);
       }
 
@@ -649,7 +644,9 @@ export const editMultiTagRelations = makeAction(
       ];
 
       const tags = (
-        await models.TagModel.find({ _id: { $in: objectIds(args.tagIds) } }).lean()
+        await models.TagModel.find({ _id: { $in: objectIds(args.tagIds) } })
+          .select({ childIds: 1, parentIds: 1 })
+          .lean()
       ).map(leanModelToJson<models.TagSchema>);
 
       if (tags.length !== new Set(args.tagIds).size)
@@ -718,7 +715,6 @@ export const editMultiTagRelations = makeAction(
         withDescendantMetadata: false,
         withSub: true,
       });
-
       if (!queued.success) throw new Error(queued.error);
 
       await emitTagUpdates(args.tagIds, changedChildIds, changedParentIds);
@@ -888,7 +884,6 @@ export const listTagCategories = makeAction(async () => {
 
 export const listTag = makeAction(async (args: Types._ListTagInput) => {
   const result = await actions._listTag({ args });
-
   if (!result.success) throw new Error(result.error);
 
   return deriveTagCategories(result.data.items);
@@ -1106,7 +1101,6 @@ export const mergeTags = makeAction(
             withDescendantMetadata: false,
             withSub: false,
           });
-
           if (!queued.success) throw new Error(queued.error);
         }
 
@@ -1340,7 +1334,6 @@ export const refreshTag = makeAction(
           ],
           withSub,
         });
-
         if (!queued.success) throw new Error(queued.error);
 
         if (withSub) await emitTagUpdates(tagId, changedChildIds, changedParentIds);
@@ -1462,8 +1455,9 @@ const mergeRepairTags = async (
   decodeLabels = false,
   cleanNames = false,
 ) => {
-  const current = await models.TagModel.findById(retainedId).lean();
-  const duplicate = await models.TagModel.findById(duplicateId).lean();
+  const projection = { aliases: 1, childIds: 1, label: 1, parentIds: 1, regEx: 1 };
+  const current = await models.TagModel.findById(retainedId).select(projection).lean();
+  const duplicate = await models.TagModel.findById(duplicateId).select(projection).lean();
 
   if (!current || !duplicate) throw new Error("Duplicate tags changed during repair; retry repair");
 
@@ -1494,7 +1488,6 @@ const mergeRepairTags = async (
     withRegen: true,
     withSub: true,
   });
-
   if (!result.success) throw new Error(result.error);
 };
 
@@ -1775,7 +1768,6 @@ export const repairTags = makeAction(
                 withRegen: true,
                 withSub: true,
               });
-
               if (!result.success) throw new Error(result.error);
             }
 
@@ -2000,7 +1992,6 @@ export const upsertTag = makeAction(
 
     for (const label of parentLabels ?? []) {
       const parent = await upsertTag({ label });
-
       if (!parent.success) throw new Error(parent.error);
 
       parentIds.push(parent.data.id);
@@ -2026,7 +2017,6 @@ export const upsertTag = makeAction(
           parentIds: [...existingParentIds, ...missingParentIds],
           withSub: false,
         });
-
         if (!res.success) throw new Error(res.error);
       }
 
@@ -2040,7 +2030,6 @@ export const upsertTag = makeAction(
         regEx: regEx ?? (withRegEx ? tagsToRegEx([{ aliases, label }]) : null),
         withSub: false,
       });
-
       if (!res.success) throw new Error(res.error);
 
       return { id: res.data.id, label: res.data.label, parentIds };
@@ -2104,7 +2093,6 @@ export const upsertImportTags = makeAction(
             withRegen: false,
             withSub: false,
           });
-
           if (!edited.success) throw new Error(edited.error);
 
           existingTag.label = preferred;
@@ -2121,7 +2109,6 @@ export const upsertImportTags = makeAction(
           withRegen: false,
           withSub: true,
         });
-
         if (!created.success) throw new Error(created.error);
 
         byLabel.set(key, created.data);
@@ -2150,7 +2137,6 @@ export const upsertImportTags = makeAction(
           withRegen: false,
           withSub: false,
         });
-
         if (!edited.success) throw new Error(edited.error);
 
         modified = true;
@@ -2172,7 +2158,6 @@ export const upsertImportTags = makeAction(
         withDescendantMetadata: false,
         withSub: true,
       });
-
       if (!queued.success) throw new Error(queued.error);
     }
 

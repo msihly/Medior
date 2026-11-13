@@ -37,7 +37,6 @@ export const ActiveTransform = Comp(({ onCompare }: { onCompare: () => void }) =
 
   const handleAutoReplace = async (isAuto: boolean) => {
     const res = await store.setAutoReplace(isAuto);
-
     if (!res.success) toast.error(res.error);
   };
 
@@ -68,7 +67,6 @@ export const ActiveTransform = Comp(({ onCompare }: { onCompare: () => void }) =
       const res = await (store.isQueueTransforming || store.isPaused
         ? store.togglePaused()
         : store.runActiveTransform());
-
       if (!res.success) toast.error(res.error);
     }
   };

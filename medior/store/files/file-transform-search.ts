@@ -40,7 +40,6 @@ export class FileTransformSearch extends ExtendedModel(_FileTransformSearch, {
       if (!transform) throw new Error("File transform not found");
 
       const res = await this.handleSelect({ hasCtrl, hasShift, id: transform.id });
-
       if (!res?.success) throw new Error(res.error);
     },
   );

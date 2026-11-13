@@ -32,12 +32,11 @@ export const HomeWindow = Comp(() => {
 
   useEffect(() => {
     (async () => {
-      try {
-        await stores.file.shownSearch.loadFiltered({ noCache: true, page: 1 });
-        await stores.import.manager.getImporterStatus();
-      } catch (err) {
-        console.error(err);
-      }
+      const searchRes = await stores.file.shownSearch.loadFiltered({ noCache: true, page: 1 });
+      if (!searchRes.success) toast.error(searchRes.error);
+
+      const statusRes = await stores.import.manager.getImporterStatus();
+      if (!statusRes.success) toast.error(statusRes.error);
     })();
   }, []);
 

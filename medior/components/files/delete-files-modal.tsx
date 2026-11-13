@@ -25,7 +25,6 @@ export const DeleteFilesModal = Comp(() => {
 
   const handleDeleteFilesConfirm = async () => {
     const res = await store.deleteFiles();
-
     if (!res.success) toast.error(res.error);
   };
 

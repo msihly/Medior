@@ -21,7 +21,7 @@ import {
   getMediaProgramMetaKind,
   getMediaProgramMetaSeasonNumbers,
   getMediaProgramMetaSourceOrder,
-  getSeasonEpisodeNumbers,
+  makeIsMissingSeasonNumber,
   MediaProgramMeta,
   MediaProgramMetaMatch,
   MediaProgramMetaSource,
@@ -77,6 +77,7 @@ const applyMediaProgramMeta = async (id: string, match: MediaProgramMetaMatch) =
 
   const seasons = readMediaProgramSeasons(program.seasons);
   const seasonNumbers = getMediaProgramMetaSeasonNumbers(seasons);
+  const isMissingSeason = makeIsMissingSeasonNumber(seasons);
   const source = await fetchMediaProgramSource(match);
 
   const storage = await getAvailableFileStorage(IMAGE_STORAGE_BYTES);
@@ -98,15 +99,22 @@ const applyMediaProgramMeta = async (id: string, match: MediaProgramMetaMatch) =
     if (!sourceSeason) continue;
 
     const name = `season-${index + 1}`;
-    const episodeNumbers = new Set(getSeasonEpisodeNumbers(season));
 
     seasonSources.set(season.id, { episodes: sourceSeason.episodes, name, season: sourceSeason });
     imageUrls.set(name, sourceSeason.posterUrl);
 
-    // Episodes match the source's by number, so only those with files get stills.
-    for (const episode of sourceSeason.episodes) {
-      if (episodeNumbers.has(episode.number))
-        imageUrls.set(`${name}-episode-${episode.number}`, episode.stillUrl);
+    // Episodes without files show their stills as well.
+    for (const episode of sourceSeason.episodes)
+      imageUrls.set(`${name}-episode-${episode.number}`, episode.stillUrl);
+  }
+
+  // The seasons the program has none of, and their episodes, show theirs too.
+  for (const [number, season] of source.seasons) {
+    if (isMissingSeason(number)) {
+      imageUrls.set(`missing-season-${number}`, season.posterUrl);
+
+      for (const episode of season.episodes)
+        imageUrls.set(`missing-season-${number}-episode-${episode.number}`, episode.stillUrl);
     }
   }
 
@@ -133,10 +141,11 @@ const applyMediaProgramMeta = async (id: string, match: MediaProgramMetaMatch) =
         episodes: season.episodes.map((episode) => ({
           airDate: episode.airDate,
           number: episode.number,
-          stillPath: null,
+          stillPath: imagePaths.get(`missing-season-${number}-episode-${episode.number}`) ?? null,
           title: episode.title,
         })),
         number,
+        posterPath: imagePaths.get(`missing-season-${number}`) ?? null,
         startDate: season.startDate,
         title: season.title,
       })),
@@ -230,13 +239,13 @@ const getImportingProgramIds = async () => {
 /**
  * The top search result for the program's name from the first source that finds any. A program with
  * a year is searched for in that year at every source before any is searched without it. At each
- * year searched, a Movie or Show program takes a result of its kind from any source before the
- * first source's result of another kind.
+ * year searched, a program known to be a movie or a series, by its seasons or type, takes a result
+ * of its kind from any source before the first source's result of another kind.
  */
 const findMediaProgramMatch = async (
-  program: Pick<models.MediaProgramSchema, "name" | "type" | "year">,
+  program: Pick<models.MediaProgramSchema, "name" | "seasons" | "type" | "year">,
 ): Promise<MediaProgramMetaMatch> => {
-  const kind = getMediaProgramMetaKind(program.type);
+  const kind = getMediaProgramMetaKind(program);
   const sources = getMediaProgramMetaSourceOrder(getConfig().mediaPrograms.apiKeys);
 
   for (const year of program.year ? [program.year, null] : [null]) {
@@ -263,7 +272,7 @@ const findMediaProgramMatch = async (
  */
 const loadMediaProgramMeta = async (id: string, canSearch: boolean) => {
   const program = await models.MediaProgramModel.findById(id)
-    .select({ isMetaPending: 1, meta: 1, name: 1, type: 1, year: 1 })
+    .select({ isMetaPending: 1, meta: 1, name: 1, seasons: 1, type: 1, year: 1 })
     .lean();
 
   if (!program || (!program.meta && !canSearch && !program.isMetaPending)) return;
@@ -274,7 +283,10 @@ const loadMediaProgramMeta = async (id: string, canSearch: boolean) => {
         source: program.meta.source,
         sourceId: program.meta.sourceId,
       }
-    : await findMediaProgramMatch(program);
+    : await findMediaProgramMatch({
+        ...program,
+        seasons: readMediaProgramSeasons(program.seasons),
+      });
 
   if (match) await applyMediaProgramMeta(id, match);
   else {
@@ -424,6 +436,9 @@ export const searchMediaProgramMeta = makeAction(
 /** Saves the chosen match's metadata to the program, or clears its metadata without one. */
 export const setMediaProgramMeta = makeAction(
   async ({ id, match }: { id: string; match: MediaProgramMetaMatch | null }) => {
+    // A queued match by name would replace the choice made here, so it no longer runs.
+    metaQueue.delete(id);
+
     if (match) await applyMediaProgramMeta(id, match);
     else {
       // A load still downloading is discarded rather than restoring what was cleared.

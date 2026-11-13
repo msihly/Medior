@@ -50,12 +50,10 @@ export const DeleteCollectionModal = Comp(() => {
 
       if (withFiles) {
         const archiveRes = await stores.file.archiveFiles(fileIds);
-
         if (!archiveRes.success) throw new Error(archiveRes.error);
       }
 
       const res = await store.deleteCollections(store.idsForConfirmDelete);
-
       if (!res.success) throw new Error(res.error);
 
       toast.success("Collection deleted");

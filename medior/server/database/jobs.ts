@@ -11,6 +11,7 @@ export type JobType =
   | "moveFilesBack"
   | "refreshFiles"
   | "regenerateTagRegEx"
+  | "translateEpisodeTitles"
   | "translateFiles"
   | "unarchiveFiles";
 

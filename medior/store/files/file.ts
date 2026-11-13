@@ -75,7 +75,6 @@ export class File extends ExtendedModel(_File, {
   @modelFlow
   reload = asyncAction(async () => {
     const res = await rpc.listFile({ args: { filter: { id: this.id } } });
-
     if (!res.success) throw new Error(res.error);
 
     this.update(res.data.items[0]);

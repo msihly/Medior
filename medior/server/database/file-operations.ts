@@ -499,12 +499,16 @@ const activeCleanups = new Map<string, Promise<FileCleanupResult>>();
 const cleanupControllers = new Set<AbortController>();
 let cleanupRevision = 0;
 
-export const pauseFileCleanups = () => {
+/** Every cleanup settles before the pause resolves, even when one of them fails. */
+export const pauseFileCleanups = async () => {
   cleanupRevision++;
 
   for (const controller of cleanupControllers) controller.abort(new FileCleanupPausedError());
 
-  return Promise.all(activeCleanups.values());
+  const results = await Promise.allSettled(activeCleanups.values());
+  const failure = results.find((result) => result.status === "rejected");
+
+  if (failure?.status === "rejected") throw failure.reason;
 };
 
 export const finishFileOperation = (id: string, canContinue: () => boolean = () => true) => {
@@ -597,7 +601,6 @@ const cleanFileOperation = async (
           checkCleanupCancelled(canContinue);
 
           const removed = await deleteFile(file.path, file.retainedPath);
-
           if (!removed.success) throw new Error(removed.error);
         }
 

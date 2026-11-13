@@ -185,7 +185,6 @@ export class SettingsStore extends Model({
   save = asyncAction(async () => {
     const config = this.getConfig();
     const result = await ipcRenderer.invoke("saveConfig", config);
-
     if (!result.success) throw new Error(result.error);
 
     const previous = getConfig();

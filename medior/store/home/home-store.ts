@@ -228,7 +228,6 @@ export class HomeStore extends Model({
     this.activityLoadRevision++;
 
     const res = await rpc.cancelBackgroundOperation({ id });
-
     if (!res.success) throw new Error(res.error);
 
     this.updateBackgroundOperation(res.data);
@@ -244,7 +243,6 @@ export class HomeStore extends Model({
       const notificationRevision = this.notificationRevision;
       const revision = ++this.activityLoadRevision;
       const res = await rpc.listBackgroundActivity();
-
       if (!res.success) throw new Error(res.error);
 
       if (revision !== this.activityLoadRevision) return;
@@ -345,7 +343,6 @@ export class HomeStore extends Model({
     if (!ids.length) return;
 
     const res = await rpc.markNotificationsRead({ ids });
-
     if (!res.success) throw new Error(res.error);
 
     this.markNotificationsRead(ids);
@@ -354,7 +351,6 @@ export class HomeStore extends Model({
   @modelFlow
   retryBackgroundOperation = asyncAction(async (id: string) => {
     const res = await rpc.retryBackgroundOperation({ id });
-
     if (!res.success) throw new Error(res.error);
 
     await this.loadBackgroundActivity();

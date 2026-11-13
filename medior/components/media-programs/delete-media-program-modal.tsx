@@ -20,7 +20,6 @@ export const DeleteMediaProgramModal = Comp(() => {
 
     try {
       const res = await store.deleteMediaPrograms([...store.idsForConfirmDelete]);
-
       if (!res.success) throw new Error(res.error);
 
       store.setIsConfirmDeleteOpen(false);

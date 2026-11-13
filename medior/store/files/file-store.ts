@@ -258,7 +258,6 @@ export class FileStore extends ExtendedModel(_FileStore, {
   @modelFlow
   archiveFiles = asyncAction(async (ids: string[]) => {
     const res = await rpc.setFileIsArchived({ fileIds: ids, isArchived: true });
-
     if (!res.success) throw new Error(`Error archiving files: ${res.error}`);
 
     this.updateArchivedFileIds(ids, true);
@@ -352,7 +351,6 @@ export class FileStore extends ExtendedModel(_FileStore, {
           removedTagIds,
           withSub,
         });
-
         if (!res.success) throw new Error(res.error);
       }
 
@@ -363,7 +361,6 @@ export class FileStore extends ExtendedModel(_FileStore, {
   @modelFlow
   loadArchivedFileIds = asyncAction(async () => {
     const res = await rpc.listAllArchivedFileIds();
-
     if (!res.success) throw new Error(res.error);
 
     this.setArchivedFileIds(res.data);

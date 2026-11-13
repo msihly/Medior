@@ -31,7 +31,6 @@ export const FileSearchColumn = Comp(() => {
 
   const handleAddSelected = async () => {
     const res = await stores.collection.editor.addFiles([...store.selectedIds]);
-
     if (!res.success) toast.error(res.error);
   };
 

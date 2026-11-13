@@ -58,7 +58,6 @@ export const ImageCrop = Comp(({ expectedHash, fileId, onClose }: ImageCropProps
     const load = async () => {
       try {
         const result = await rpc.loadImageEditPreview({ expectedHash, fileId });
-
         if (!result.success) throw new Error(result.error);
 
         if (!cancelled) {

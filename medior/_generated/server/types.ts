@@ -814,8 +814,18 @@ export type UpsertTagOutput = ReturnType<typeof db.upsertTag>;
 export type UpsertImportTagsInput = Parameters<typeof db.upsertImportTags>[0];
 export type UpsertImportTagsOutput = ReturnType<typeof db.upsertImportTags>;
 
+export type SaveEpisodeTitleTranslationsInput = Parameters<
+  typeof db.saveEpisodeTitleTranslations
+>[0];
+export type SaveEpisodeTitleTranslationsOutput = ReturnType<typeof db.saveEpisodeTitleTranslations>;
+
 export type SaveNameTranslationsInput = Parameters<typeof db.saveNameTranslations>[0];
 export type SaveNameTranslationsOutput = ReturnType<typeof db.saveNameTranslations>;
+
+export type StartEpisodeTitleTranslationInput = Parameters<
+  typeof db.startEpisodeTitleTranslation
+>[0];
+export type StartEpisodeTitleTranslationOutput = ReturnType<typeof db.startEpisodeTitleTranslation>;
 
 export type StartFileTranslationInput = Parameters<typeof db.startFileTranslation>[0];
 export type StartFileTranslationOutput = ReturnType<typeof db.startFileTranslation>;

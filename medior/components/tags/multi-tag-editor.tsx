@@ -104,16 +104,25 @@ export const MultiTagEditor = Comp(({ initialTags, onClose }: MultiTagEditorProp
   const appendTag = (tags: TagOption[], tag: TagOption) =>
     tags.find((t) => t.id === tag.id) ? tags : tags.concat(tag);
 
-  const handleAddChild = (tag: TagOption) => handleChildAdditions(appendTag(childTagsToAdd, tag));
+  const handleAddChild = (tag: TagOption, onClose: () => void) => {
+    onClose();
+    handleChildAdditions(appendTag(childTagsToAdd, tag));
+  };
 
-  const handleAddParent = (tag: TagOption) =>
+  const handleAddParent = (tag: TagOption, onClose: () => void) => {
+    onClose();
     handleParentAdditions(appendTag(parentTagsToAdd, tag));
+  };
 
-  const handleRemoveChild = (tag: TagOption) =>
+  const handleRemoveChild = (tag: TagOption, onClose: () => void) => {
+    onClose();
     handleChildRemovals(appendTag(childTagsToRemove, tag));
+  };
 
-  const handleRemoveParent = (tag: TagOption) =>
+  const handleRemoveParent = (tag: TagOption, onClose: () => void) => {
+    onClose();
     handleParentRemovals(appendTag(parentTagsToRemove, tag));
+  };
 
   const handleChildAdditions = (tags: TagOption[]) => {
     const ids = new Set(tags.map(({ id }) => id));
@@ -184,37 +193,40 @@ export const MultiTagEditor = Comp(({ initialTags, onClose }: MultiTagEditorProp
               hasInput
               rightNode={(tag) => (
                 <MenuButton size="small">
-                  <ListItem
-                    text="Add Parent"
-                    icon="Add"
-                    color={colors.custom.blue}
-                    iconProps={{ color: colors.custom.blue }}
-                    onClick={() => handleAddParent(tag)}
-                  />
-
-                  <ListItem
-                    text="Add Child"
-                    icon="Add"
-                    color={colors.custom.blue}
-                    iconProps={{ color: colors.custom.blue }}
-                    onClick={() => handleAddChild(tag)}
-                  />
-
-                  <ListItem
-                    text="Remove Parent"
-                    icon="Remove"
-                    color={colors.custom.red}
-                    iconProps={{ color: colors.custom.red }}
-                    onClick={() => handleRemoveParent(tag)}
-                  />
-
-                  <ListItem
-                    text="Remove Child"
-                    icon="Remove"
-                    color={colors.custom.red}
-                    iconProps={{ color: colors.custom.red }}
-                    onClick={() => handleRemoveChild(tag)}
-                  />
+                  {(onClose) => [
+                    <ListItem
+                      key="addParent"
+                      text="Add Parent"
+                      icon="Add"
+                      color={colors.custom.blue}
+                      iconProps={{ color: colors.custom.blue }}
+                      onClick={() => handleAddParent(tag, onClose)}
+                    />,
+                    <ListItem
+                      key="addChild"
+                      text="Add Child"
+                      icon="Add"
+                      color={colors.custom.blue}
+                      iconProps={{ color: colors.custom.blue }}
+                      onClick={() => handleAddChild(tag, onClose)}
+                    />,
+                    <ListItem
+                      key="removeParent"
+                      text="Remove Parent"
+                      icon="Remove"
+                      color={colors.custom.red}
+                      iconProps={{ color: colors.custom.red }}
+                      onClick={() => handleRemoveParent(tag, onClose)}
+                    />,
+                    <ListItem
+                      key="removeChild"
+                      text="Remove Child"
+                      icon="Remove"
+                      color={colors.custom.red}
+                      iconProps={{ color: colors.custom.red }}
+                      onClick={() => handleRemoveChild(tag, onClose)}
+                    />,
+                  ]}
                 </MenuButton>
               )}
             />

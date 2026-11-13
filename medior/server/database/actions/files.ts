@@ -384,7 +384,6 @@ export const deleteFiles = makeAction(
         }
 
         const transforms = await actions.deleteFileTransformsByFileIds({ fileIds });
-
         if (!transforms.success) throw new Error(transforms.error);
 
         const collections = await models.FileCollectionModel.find({
@@ -404,7 +403,6 @@ export const deleteFiles = makeAction(
           const updated = fileIdIndexes.length
             ? await actions.updateCollection({ fileIdIndexes, id })
             : await actions.deleteCollections({ ids: [id] });
-
           if (!updated.success) throw new Error(updated.error);
         }
 
@@ -726,7 +724,6 @@ export const editFileTags = makeAction(
         await actions.queueTagMetadataRegen(changedTagIds);
 
         const collectionRes = await actions.regenCollAttrs({ fileIds });
-
         if (!collectionRes.success) throw new Error(collectionRes.error);
 
         await actions.regenMediaProgramsByFileIds(fileIds);
@@ -1142,7 +1139,6 @@ export const relinkFiles = makeAction(
       await actions.queueTagMetadataRegen(oldFiles.flatMap((file) => file.tagIds.map(String)));
 
       const collRes = await actions.regenCollAttrs({ fileIds });
-
       if (!collRes.success) throw new Error(`Failed to update collections: ${collRes.error}`);
 
       await models.FileImportModel.bulkWrite(
@@ -1893,7 +1889,6 @@ export const setFileIsArchived = makeAction(
 
       if (args.isArchived) {
         const res = await actions.deleteFileTransformsByFileIds({ fileIds: args.fileIds });
-
         if (!res.success) throw new Error(res.error);
       }
     },
@@ -1926,7 +1921,6 @@ export const setFileRating = makeAction(
       socket.emitVolatile("onFilesUpdated", { fileIds: args.fileIds, updates });
 
       const collections = await actions.regenCollAttrs({ fileIds: args.fileIds });
-
       if (!collections.success) throw new Error(collections.error);
 
       await actions.regenMediaProgramsByFileIds(args.fileIds);
@@ -2580,21 +2574,27 @@ class ThumbRepairer {
       );
     };
 
-    const cursor = models.FileModel.find(fileFilter)
-      .sort({ path: 1 })
-      .allowDiskUse(true)
-      .select({ _id: 1, dateModified: 1, hash: 1, isCorrupted: 1, path: 1, thumb: 1 })
-      .lean()
-      .cursor({ batchSize: validationBatchSize });
+    // The path index groups neighboring files to reuse their directory listing.
+    // Unindexed path keys are scanned separately so no records are skipped.
+    for (const hasPath of [true, false]) {
+      const cursor = models.FileModel.find({
+        ...fileFilter,
+        pathKey: hasPath ? { $type: "string" } : { $not: { $type: "string" } },
+      })
+        .sort(hasPath ? { pathKey: 1 } : {})
+        .select({ _id: 1, dateModified: 1, hash: 1, isCorrupted: 1, path: 1, thumb: 1 })
+        .lean()
+        .cursor({ batchSize: validationBatchSize });
 
-    for await (const file of cursor) {
-      this.checkCancelled();
-      files.push(leanModelToJson<models.FileSchema>(file));
+      for await (const file of cursor) {
+        this.checkCancelled();
+        files.push(leanModelToJson<models.FileSchema>(file));
 
-      if (files.length >= validationBatchSize) await processBatch();
+        if (files.length >= validationBatchSize) await processBatch();
+      }
+
+      await processBatch();
     }
-
-    await processBatch();
 
     this.hasInvalidThumbnails = invalidThumbnailCount > 0;
     this.progressLog(
@@ -2665,7 +2665,6 @@ class ThumbRepairer {
       if (!tags.length) break;
 
       const result = await actions.regenTagMeta({ tagIds: tags.map(({ _id }) => String(_id)) });
-
       if (!result.success) throw new Error(result.error);
 
       this.tagCount += tags.length;
@@ -2701,13 +2700,11 @@ class ThumbRepairer {
           },
         },
       });
-
       if (!updated.success) throw new Error(updated.error);
 
       await actions.queueTagMetadataRegen(current.tagIds.map(String));
 
       const collections = await actions.regenCollAttrs({ fileIds: [String(current._id)] });
-
       if (!collections.success) throw new Error(collections.error);
     });
 
@@ -2728,7 +2725,6 @@ class ThumbRepairer {
       if (!tags.length) break;
 
       const result = await actions.regenTagMeta({ tagIds: tags.map(({ _id }) => String(_id)) });
-
       if (!result.success) throw new Error(result.error);
 
       lastId = tags[tags.length - 1]._id;

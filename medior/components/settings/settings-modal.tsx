@@ -185,7 +185,6 @@ export const SettingsModal = Comp(() => {
       stores.file.stopFileRefresh();
 
       const result = await store.save();
-
       if (!result.success) throw new Error(result.error);
 
       store.setIsLoading(false);
@@ -193,7 +192,7 @@ export const SettingsModal = Comp(() => {
       toast.success("Settings saved!");
     } catch (err) {
       store.setIsLoading(false);
-      toast.error("Failed to save settings.");
+      toast.error(`Failed to save settings: ${err.message}`);
     }
   };
 

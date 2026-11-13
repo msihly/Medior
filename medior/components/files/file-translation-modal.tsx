@@ -36,6 +36,7 @@ export const FileTranslationModal = Comp(() => {
   const load = useCancellableLoad();
 
   const language = stores.home.settings.file.translation.language;
+  const isBusy = store.isTranslating || store.isSaving || load.isLoading;
   const translatedNames = files
     .map((file) => getNameTranslation(file, language)?.text)
     .filter(Boolean);
@@ -76,7 +77,6 @@ export const FileTranslationModal = Comp(() => {
 
   const handleSave = async () => {
     const res = await store.save();
-
     if (!res.success) toast.error(res.error);
     else toast.success(files.length === 1 ? "Translation saved" : "Translations saved");
   };
@@ -110,7 +110,7 @@ export const FileTranslationModal = Comp(() => {
       onClose={handleClose}
     >
       <LoadingOverlay
-        isLoading={store.isTranslating || store.isSaving || load.isLoading}
+        isLoading={isBusy}
         sub={
           store.job ? (
             <JobProgress job={store.job} onMinimize={handleMinimize} />
@@ -126,16 +126,25 @@ export const FileTranslationModal = Comp(() => {
         <Text preset="title">{"Translation"}</Text>
       </Modal.Header>
 
-      <Modal.Content spacing="1rem">
+      {/* The progress shown over the modal needs room before the files' names fill it. */}
+      <Modal.Content spacing="1rem" minHeight={isBusy ? "16rem" : undefined}>
         <View column spacing="0.5rem">
           {files.map((file) => (
             <UniformList key={file.id} row spacing="1rem">
-              <Detail label="Original Name" value={file.originalName} whiteSpace="normal" />
+              <Detail
+                label="Original Name"
+                value={file.originalName}
+                whiteSpace="normal"
+                valueProps={{ overflowWrap: "anywhere" }}
+                minWidth={0}
+              />
 
               <Detail
                 label="Translated Name"
                 value={getNameTranslation(file, language)?.text}
                 whiteSpace="normal"
+                valueProps={{ overflowWrap: "anywhere" }}
+                minWidth={0}
               />
             </UniformList>
           ))}
@@ -145,6 +154,7 @@ export const FileTranslationModal = Comp(() => {
           <UniformList row spacing="1rem">
             <Detail
               label="Original Transcript"
+              minWidth={0}
               value={
                 <Card height="15rem" overflow="auto">
                   <Text flexShrink={0} whiteSpace="pre-wrap">
@@ -158,6 +168,7 @@ export const FileTranslationModal = Comp(() => {
 
             <Detail
               label="Translated Transcript"
+              minWidth={0}
               value={
                 transcriptTranslation && (
                   <Card height="15rem" overflow="auto">

@@ -94,6 +94,14 @@ model.addProp("tagIds", "Tag.id[]", { defaultValue: "[]", required: true });
 model.addIndex({ tagIdsWithAncestors: 1, _id: 1 });
 model.addProp("tagIdsWithAncestors", "Tag.id[]", { defaultValue: "[]", required: true });
 
+model.addProp(
+  "titleTranslations",
+  'import("medior/utils/common/media-programs").MediaProgramTitleTranslation[]',
+  {
+    schemaType: "[{ _id: false, display: String, language: String, text: String, title: String }]",
+  },
+);
+
 model.addIndex({ type: 1, _id: 1 });
 model.addProp("type", "string", { sort: { icon: "Category", label: "Type" } });
 

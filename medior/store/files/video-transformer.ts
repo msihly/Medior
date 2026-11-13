@@ -243,7 +243,6 @@ export class VideoTransformerStore extends Model({
         timestampPairs: this.timestampPairs.map(([start, end]) => ({ end, start })),
         type: this.fnType,
       });
-
       if (!res.success) throw new Error(res.error);
 
       transformIds = res.data.ids;
@@ -279,7 +278,6 @@ export class VideoTransformerStore extends Model({
     );
 
     const res = await rpc.deleteFileTransforms({ ids });
-
     if (!res.success) throw new Error(res.error);
 
     this.removeQueueFiles([], ids);
@@ -376,7 +374,6 @@ export class VideoTransformerStore extends Model({
 
       try {
         const search = await this.search.loadFiltered(args);
-
         if (!search.success) throw new Error(search.error);
       } finally {
         if (isBackground) this.setIsQueueRefreshing(false);
@@ -490,7 +487,6 @@ export class VideoTransformerStore extends Model({
   removeFilesFromQueue = asyncAction(async (fileIds: string[]) => {
     const fileIdSet = new Set(fileIds);
     const res = await rpc.deleteFileTransformsByFileIds({ fileIds });
-
     if (!res.success) throw new Error(res.error);
 
     this.removeQueueFiles(fileIds);
@@ -512,12 +508,10 @@ export class VideoTransformerStore extends Model({
 
     try {
       const res = await rpc.replaceFileTransformOutput({ id });
-
       if (!res.success) throw new Error(res.error);
 
       if (res.data.status === "DUPLICATE") {
         const mergeRes = await rpc.mergeFileTransformDuplicate({ id });
-
         if (!mergeRes.success) throw new Error(mergeRes.error);
 
         toast.success("Duplicate merged; original archived");
@@ -566,7 +560,6 @@ export class VideoTransformerStore extends Model({
 
     try {
       const res = await rpc.runFileTransform({ id, isAuto: withAuto ? this.isAuto : undefined });
-
       if (!res.success) throw new Error(res.error);
 
       await this.getTransformerStatus();
@@ -595,7 +588,6 @@ export class VideoTransformerStore extends Model({
 
     try {
       const res = await rpc.runFileTransformer({ isAuto: this.isAuto, type: this.queueType });
-
       if (!res.success) throw new Error(res.error);
 
       await this.getTransformerStatus();
@@ -622,7 +614,6 @@ export class VideoTransformerStore extends Model({
 
     try {
       const res = await rpc.saveFileTransformCopy({ id });
-
       if (!res.success) throw new Error(res.error);
 
       toast.success("Media rendered");
@@ -641,7 +632,6 @@ export class VideoTransformerStore extends Model({
     this.setIsAuto(isAuto);
 
     const res = await rpc.setFileTransformerAuto({ isAuto });
-
     if (!res.success) throw new Error(res.error);
   });
 
@@ -651,14 +641,12 @@ export class VideoTransformerStore extends Model({
 
     if (this.isPaused) {
       const res = await this.runActiveTransform();
-
       if (!res.success) throw new Error(res.error);
     } else {
       this.setIsUpdating(true);
 
       try {
         const res = await rpc.pauseFileTransformer();
-
         if (!res.success) throw new Error(res.error);
 
         await this.getTransformerStatus();

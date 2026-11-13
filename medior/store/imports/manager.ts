@@ -142,7 +142,6 @@ export class ImportManager extends Model({
           onProgress: (count) => onProgress?.(completed + count, total),
           options,
         });
-
         if (!result.success)
           throw new Error(`Queued ${completed} of ${total} files before failure: ${result.error}`);
 
@@ -161,7 +160,6 @@ export class ImportManager extends Model({
     await this.pauseImporter();
 
     const deleteRes = await rpc.deleteImportBatches({ ids });
-
     if (!deleteRes.success) throw new Error(deleteRes.error);
 
     this.search._deleteResults(ids);
@@ -174,7 +172,6 @@ export class ImportManager extends Model({
   @modelFlow
   getImporterStatus = asyncAction(async () => {
     const res = await rpc.getImporterStatus();
-
     if (!res.success) throw new Error(res.error);
 
     const wasReady = this.isReady;
@@ -198,7 +195,6 @@ export class ImportManager extends Model({
 
     try {
       const batchRes = await rpc.getNextImportBatch();
-
       if (!batchRes.success) throw new Error(batchRes.error);
 
       if (revision !== this.activeBatchLoadRevision) return null;
@@ -222,7 +218,6 @@ export class ImportManager extends Model({
       const tagRes = tagIds.length
         ? await rpc.listTag({ filter: { id: tagIds } })
         : { data: [], error: null, success: true };
-
       if (!tagRes.success) throw new Error(tagRes.error);
 
       if (batch && revision === this.activeBatchLoadRevision && this.activeBatch?.id === batch.id)
@@ -299,7 +294,6 @@ export class ImportManager extends Model({
 
     if (!this.activeBatch) {
       const loaded = await this.loadActiveBatch();
-
       if (!loaded.success) throw new Error(loaded.error);
     }
 
@@ -357,7 +351,6 @@ export class ImportManager extends Model({
           const result = await retryUploadRequest(() =>
             rpc.appendImportBatchEntries({ id, imports: entries, offset: count }),
           );
-
           if (!result.success) throw new Error(result.error);
 
           count = result.data.count;
@@ -372,7 +365,6 @@ export class ImportManager extends Model({
         const started = await retryUploadRequest(() =>
           rpc.beginImportBatchUpload({ ...options, id }),
         );
-
         if (!started.success) throw new Error(started.error);
 
         for await (const entry of imports) {
@@ -407,11 +399,9 @@ export class ImportManager extends Model({
           const finished = await retryUploadRequest(() =>
             rpc.finishImportBatchUpload({ count, id }),
           );
-
           if (!finished.success) throw new Error(finished.error);
         } else {
           const discarded = await rpc.discardImportBatchUpload({ id });
-
           if (!discarded.success) throw new Error(discarded.error);
         }
 
@@ -431,7 +421,6 @@ export class ImportManager extends Model({
           return { count, id };
         } else {
           const discarded = await rpc.discardImportBatchUpload({ id });
-
           if (!discarded.success)
             throw new Error(
               `${error.message}. The incomplete upload remains in Import Manager: ${discarded.error}`,

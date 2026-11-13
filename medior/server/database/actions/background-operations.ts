@@ -264,7 +264,6 @@ export const makeBackgroundOperationRunner = (
                 }
 
                 const notification = await recordNotification({ message, type: "error" });
-
                 if (!notification.success)
                   console.error("Failed to report background operation error:", notification.error);
               })

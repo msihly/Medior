@@ -27,6 +27,7 @@ export const vectorRouter = {
     vectorSimilarityService.findSimilarAudio(input),
   findSimilarVectorCandidates: (input: {
     fileId: string;
+    fileIds?: string[];
     limit?: number;
     offset?: number;
     vectorType?: SimilarityVectorType;

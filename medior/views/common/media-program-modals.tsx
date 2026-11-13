@@ -3,6 +3,8 @@ import {
   DeleteMediaProgramModal,
   MediaProgramEditor,
   MediaProgramMetaModal,
+  MediaProgramTitleTranslationModal,
+  ModalGroupContext,
 } from "medior/components";
 import { useStores } from "medior/store";
 
@@ -21,6 +23,13 @@ export const MediaProgramModals = Comp(() => {
       )}
 
       {store.isConfirmDeleteOpen && <DeleteMediaProgramModal />}
+
+      {/* A translation's progress shows over every view until it's minimized to the corner. */}
+      {store.titleTranslation.isOpen && (
+        <ModalGroupContext.Provider value={undefined}>
+          <MediaProgramTitleTranslationModal />
+        </ModalGroupContext.Provider>
+      )}
     </>
   );
 });

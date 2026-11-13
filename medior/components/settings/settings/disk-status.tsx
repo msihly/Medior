@@ -65,7 +65,6 @@ export const DiskStatus = Comp(({ diskPath, threshold }: DiskStatusProps) => {
       if (diskPath) {
         try {
           const res = await rpc.getDiskStats({ diskPath });
-
           if (!res.success) throw new Error(res.error);
 
           if (isCurrent) setDiskStats(res.data);

@@ -11,6 +11,10 @@ const getMediaProgramImageFolders = (
   const imagePaths = [
     program.meta?.bannerPath,
     program.meta?.posterPath,
+    ...(program.meta?.seasons ?? []).flatMap((season) => [
+      season.posterPath,
+      ...(season.episodes ?? []).map((episode) => episode.stillPath),
+    ]),
     ...(program.seasons ?? []).flatMap((season) => [
       season.meta?.posterPath,
       ...(season.meta?.episodes ?? []).map((episode) => episode.stillPath),

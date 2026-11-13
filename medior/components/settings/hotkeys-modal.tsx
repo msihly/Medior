@@ -144,7 +144,6 @@ export const HotkeysModal = Comp(({ onClose }: HotkeysModalProps) => {
       setIsLoading(true);
 
       const res = await store.save();
-
       if (!res.success) throw new Error(res.error);
 
       store.setHasUnsavedChanges(false);

@@ -80,7 +80,6 @@ class ImportTagIndex {
 
   private async loadDirectory() {
     const res = await rpc.listImportTags({});
-
     if (!res.success) throw new Error(res.error);
 
     const directory: TagDirectory = { ancestorLabels: new Map(), labels: new Map() };
@@ -94,7 +93,6 @@ class ImportTagIndex {
     onProgress?: (status: string, completed: number, total: number) => void,
   ) {
     const res = await this.stores.tag.listRegExMaps();
-
     if (!res.success) throw new Error(res.error);
 
     const matcher = new TagRegExMatcher();

@@ -43,7 +43,6 @@ export const DuplicateReview = Comp(({ transform }: { transform: FileTransform }
 
     try {
       const res = await rpc.inspectFileTransformDuplicate({ id: transform.id });
-
       if (!res.success) return toast.error(res.error);
 
       if (!res.data) return toast.info("No other file currently has the recorded output hash.");
@@ -69,7 +68,6 @@ export const DuplicateReview = Comp(({ transform }: { transform: FileTransform }
 
     try {
       const res = await rpc.mergeFileTransformDuplicate({ id: transform.id });
-
       if (!res.success) throw new Error(res.error);
 
       closeReview();

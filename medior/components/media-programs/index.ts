@@ -20,4 +20,5 @@ export * from "./media-program-rating";
 export * from "./media-program-season-modal";
 export * from "./media-program-seasons";
 export * from "./media-program-section";
+export * from "./media-program-title-translation-modal";
 export * from "./watch-status-chip";

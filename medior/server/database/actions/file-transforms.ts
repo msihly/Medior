@@ -285,7 +285,6 @@ const updateFileTransform = async (id: string, updates: Partial<models.FileTrans
               removedTagIds,
               withRegen: false,
             });
-
             if (!res.success) throw new Error(res.error);
           }
         }
@@ -368,7 +367,6 @@ export const getActiveFileTransform = makeAction(
     if (!file) throw new Error("File not found");
 
     const tags = await actions.listTag({ filter: { id: file.tagIds.map(String) } });
-
     if (!tags.success) throw new Error(tags.error);
 
     return { file: { ...file, tags: tags.data }, transform };
@@ -988,7 +986,6 @@ export const deleteFileTransformsByFileIds = makeAction(async (args: { fileIds: 
   if (!transforms.length) return { acknowledged: true, deletedCount: 0 };
 
   const res = await deleteFileTransforms({ ids: transforms.map(({ _id }) => _id.toString()) });
-
   if (!res.success) throw new Error(res.error);
 
   return res.data;
@@ -1181,7 +1178,6 @@ const verifyDuplicateTransform = async (args: { id: string }) => {
     await assertNoOtherUnfinishedTransforms(verified);
 
     const inspection = await inspectFileTransformDuplicate(args);
-
     if (!inspection.success) throw new Error(inspection.error);
 
     if (!inspection.data) throw new Error("No matching file was found");
@@ -1221,7 +1217,6 @@ const mergeDuplicateTransform = async (
 
         const fileIds = files.map((file) => file._id.toString());
         const collections = await actions.regenCollAttrs({ fileIds });
-
         if (!collections.success) throw new Error(collections.error);
 
         await actions.regenMediaProgramsByFileIds(fileIds);
@@ -1290,7 +1285,6 @@ const mergeDuplicateTransform = async (
         fileIds: [original._id.toString()],
         isArchived: true,
       });
-
       if (!archived.success) throw new Error(archived.error);
 
       await updateFileTransform(args.id, {
@@ -1533,7 +1527,6 @@ const finishTransformCleanup = async (id: string) => {
           checkBackgroundExecution();
 
           const removed = await deleteFile(transform.afterPath);
-
           if (!removed.success) throw new Error(removed.error);
         } catch (error) {
           if (error.code !== "ENOENT") throw error;
@@ -1585,7 +1578,6 @@ const finishTransformCleanup = async (id: string) => {
           checkBackgroundExecution();
 
           const diskRes = await deleteFile(transform.beforePath, file.path);
-
           if (!diskRes.success) throw new Error(diskRes.error);
         }
       }
@@ -1768,7 +1760,6 @@ const replaceTransformOutput = async (args: { id: string }, outputInfo?: MediaIn
             },
           },
         });
-
         if (!updated.success) throw new Error(updated.error);
 
         await updateFileTransform(args.id, updates);
@@ -1858,7 +1849,6 @@ const runTransformRegenerationQueue = makeBackgroundOperationRunner(
 
     if (collectionIds.size) {
       const result = await actions.regenCollAttrs({ collIds: [...collectionIds] });
-
       if (!result.success) throw new Error(result.error);
     }
 
@@ -2008,7 +1998,6 @@ const executeFileTransform = async (args: { id: string }, signal: AbortSignal) =
       fileTransformerStatus.setActiveFileId(null, args.id);
 
       const deleted = await deleteFileTransforms({ ids: [args.id] });
-
       if (!deleted.success) throw new Error(deleted.error);
 
       return true;
@@ -2092,7 +2081,6 @@ const executeFileTransform = async (args: { id: string }, signal: AbortSignal) =
       setStage("checking available file storage");
 
       const storageRes = await getAvailableFileStorage(transform.beforeSize);
-
       if (!storageRes.success) throw new Error(storageRes.error);
 
       setStage("preparing the encoder");
@@ -2239,7 +2227,6 @@ const executeFileTransform = async (args: { id: string }, signal: AbortSignal) =
         message: `Splice of ${transform.beforePath} failed: ${err.message}`,
         type: "error",
       });
-
       if (!notification.success)
         console.error("Failed to report the splice failure:", notification.error);
     }
@@ -2531,13 +2518,11 @@ const saveTransformCopy = async (args: { id: string }) => {
         path: transform.afterPath,
         tagIds,
       });
-
       if (!imported.success) throw new Error(imported.error);
 
       saved = imported.data;
     } else {
       const tagged = await actions.editFileTags({ addedTagIds: tagIds, fileIds: [saved.id] });
-
       if (!tagged.success) throw new Error(tagged.error);
     }
 

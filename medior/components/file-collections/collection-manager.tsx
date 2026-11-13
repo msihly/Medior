@@ -36,7 +36,9 @@ export const FileCollectionManager = Comp(() => {
   const stores = useStores();
   const store = stores.collection.manager;
 
-  const load = useCancellableLoad();
+  // Each list has its own load, so paging one never cancels the other's.
+  const collectionsLoad = useCancellableLoad();
+  const filesLoad = useCancellableLoad();
 
   const [activeTab, setActiveTab] = useState("0");
 
@@ -50,6 +52,7 @@ export const FileCollectionManager = Comp(() => {
   const isManagerOpen = !hasAnyFilesSelected || activeTab === "1";
   const page = store.search.page;
   const pageCount = store.search.pageCount;
+  const isListLoading = collectionsLoad.isLoading || filesLoad.isLoading;
 
   useEffect(() => {
     setActiveTab("0");
@@ -57,7 +60,10 @@ export const FileCollectionManager = Comp(() => {
     store.setSelectedFilesPage(1);
     loadSelectedFiles(true);
 
-    return load.cancel;
+    return () => {
+      collectionsLoad.cancel();
+      filesLoad.cancel();
+    };
   }, [hasAnyFilesSelected, selectedFileIds]);
 
   useEffect(() => {
@@ -85,7 +91,6 @@ export const FileCollectionManager = Comp(() => {
     }
 
     const res = await stores.mediaProgram.editor.copyCollections([...store.search.selectedIds]);
-
     if (!res.success) toast.error(res.error);
     else {
       store.setSeasonsProgramId(null);
@@ -100,7 +105,6 @@ export const FileCollectionManager = Comp(() => {
       collId,
       fileIds: [...fileIds],
     });
-
     if (!res.success) return toast.error(res.error);
 
     if (
@@ -116,7 +120,8 @@ export const FileCollectionManager = Comp(() => {
   };
 
   const handleCancelLoad = () => {
-    load.cancel();
+    collectionsLoad.cancel();
+    filesLoad.cancel();
     merge.cancelLoad();
     store.search.cancelLoad();
   };
@@ -157,7 +162,6 @@ export const FileCollectionManager = Comp(() => {
         fileIdIndexes: selectedFileIds.map((fileId, index) => ({ fileId, index })),
         title: "Untitled Collection",
       });
-
       if (!res.success) toast.error(res.error);
       else {
         store.setIsLoading(false);
@@ -169,17 +173,16 @@ export const FileCollectionManager = Comp(() => {
     }
   };
 
-  const loadSelectedFiles = (reloadSearch = false) =>
-    load.run(async (signal) => {
-      if (hasAnyFilesSelected) {
-        const res = await store.loadCurrentCollections(signal);
+  const loadCurrentCollections = () =>
+    collectionsLoad.run(async (signal) => {
+      const res = await store.loadCurrentCollections(signal);
+      signal.throwIfAborted();
+      if (!res.success) throw new Error(res.error);
+    });
 
-        signal.throwIfAborted();
-
-        if (!res.success) throw new Error(res.error);
-      } else store.setCurrentCollections([]);
-
-      // The selected files and the collection list don't depend on each other, so they load together.
+  // The selected files and the collection list don't depend on each other, so they load together.
+  const loadFiles = (reloadSearch = false) =>
+    filesLoad.run(async (signal) => {
       const [files, search] = await Promise.all([
         store.loadFiles(signal),
         reloadSearch ? store.search.loadFiltered({ page: 1 }) : null,
@@ -191,6 +194,16 @@ export const FileCollectionManager = Comp(() => {
       if (search && !search.success) throw new Error(search.error);
     });
 
+  const loadSelectedFiles = (reloadSearch = false) => {
+    if (hasAnyFilesSelected) loadCurrentCollections();
+    else {
+      collectionsLoad.cancel();
+      store.setCurrentCollections([]);
+    }
+
+    loadFiles(reloadSearch);
+  };
+
   const handlePageChange = async (page: number) => {
     const res = await store.search.loadFiltered({ page });
     if (!res.success) toast.error(res.error);
@@ -198,22 +211,12 @@ export const FileCollectionManager = Comp(() => {
 
   const handleSelectedFilesPage = (page: number) => {
     store.setSelectedFilesPage(page);
-
-    load.run(async (signal) => {
-      const result = await store.loadFiles(signal);
-
-      if (!result.success) throw new Error(result.error);
-    });
+    loadFiles();
   };
 
   const handleCurrentCollectionsPage = (page: number) => {
     store.setCurrentCollectionsPage(page);
-
-    load.run(async (signal) => {
-      const result = await store.loadCurrentCollections(signal);
-
-      if (!result.success) throw new Error(result.error);
-    });
+    loadCurrentCollections();
   };
 
   const handleTabChange = (tab: string) => {
@@ -228,7 +231,7 @@ export const FileCollectionManager = Comp(() => {
       <LoadingOverlay isLoading={store.isLoading || merge.isQuickMergeSaving} />
 
       <LoadingOverlay
-        isLoading={load.isLoading || (merge.isLoading && !merge.isMergeEditorOpen)}
+        isLoading={isListLoading || (merge.isLoading && !merge.isMergeEditorOpen)}
         sub={<Button text="Cancel" icon="Close" onClick={handleCancelLoad} />}
       />
 
@@ -368,7 +371,7 @@ export const FileCollectionManager = Comp(() => {
             <View flex={1} position="relative" overflow="hidden">
               <SearchLoadingOverlay
                 store={store.search}
-                isLoading={!load.isLoading && (store.search.isLoading || store.search.isSelecting)}
+                isLoading={!isListLoading && (store.search.isLoading || store.search.isSelecting)}
               />
 
               <View ref={collsRef} column height="100%" spacing="0.5rem" overflow="auto">

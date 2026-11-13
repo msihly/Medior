@@ -132,7 +132,6 @@ export const RepairModal = Comp(() => {
     store.log("Starting similarity index job...", colors.custom.lightBlue);
 
     const startRes = await rpc.startSimilarityBackfill({ repairId: store.repairId });
-
     if (!startRes.success) throw new Error(startRes.error);
 
     store.similarity.setJobId(startRes.data.jobId);
@@ -163,7 +162,6 @@ export const RepairModal = Comp(() => {
       if (store.isCancellationRequested) throw new Error("Repair cancelled by user.");
 
       const res = await rpc.getSimilarityBackfillProgress({ jobId: store.similarity.jobId });
-
       if (!res.success) throw new Error(res.error);
 
       const progress = res.data;
@@ -298,7 +296,6 @@ export const RepairModal = Comp(() => {
 
   const buildSimilaritySearchIndex = async () => {
     const startRes = await rpc.startSimilaritySearchIndexBuild({ repairId: store.repairId });
-
     if (!startRes.success) throw new Error(startRes.error);
 
     store.log(
@@ -312,7 +309,6 @@ export const RepairModal = Comp(() => {
       if (store.isCancellationRequested) throw new Error("Repair cancelled by user.");
 
       const res = await rpc.getSimilaritySearchIndexStatus();
-
       if (!res.success) throw new Error(res.error);
 
       if (res.data.status === "error") throw new Error(res.data.error);
@@ -365,7 +361,6 @@ export const RepairModal = Comp(() => {
       store.setIsRunning(true);
 
       const startRes = await rpc.startRepair({ repairId });
-
       if (!startRes.success) throw new Error(startRes.error);
 
       await action(repairId);
@@ -379,7 +374,6 @@ export const RepairModal = Comp(() => {
     } finally {
       try {
         const result = await rpc.finishRepair({ error: failure, repairId });
-
         if (!result.success) throw new Error(result.error);
       } catch (error) {
         store.log(`[ERROR] Could not save repair status: ${error.message}`, colors.custom.red);
@@ -396,7 +390,6 @@ export const RepairModal = Comp(() => {
         paths: storageResult.filesLeftInStorageOnly,
         repairId,
       });
-
       if (!result.success) throw new Error(result.error);
 
       const removed = new Set(result.data.removedPaths);
@@ -448,7 +441,6 @@ export const RepairModal = Comp(() => {
           rootFolderPath: stores.import.editor.rootFolder,
         },
       });
-
       if (!result.success) throw new Error(result.error);
 
       if (result.data.count) {
@@ -471,7 +463,6 @@ export const RepairModal = Comp(() => {
         fileIds: storageResult.fileIdsLeftInDbOnly,
         repairId,
       });
-
       if (!result.success) throw new Error(result.error);
 
       setStorageResult((previous) => ({ ...previous, fileIdsLeftInDbOnly: [] }));
@@ -489,7 +480,6 @@ export const RepairModal = Comp(() => {
         store.log("[INFO] Reconciling storage before the selected repairs.");
 
         const res = await rpc.scanFileStorage({ repairId });
-
         if (!res.success) throw new Error(res.error);
 
         setStorageResult(res.data);
@@ -506,7 +496,6 @@ export const RepairModal = Comp(() => {
           repairTranscriptions: store.audio.transcriptions,
           repairWaveforms: store.audio.waveforms,
         });
-
         if (!res.success) throw new Error(res.error);
       }
 
@@ -521,7 +510,6 @@ export const RepairModal = Comp(() => {
           repairId,
           syncFileMembership: store.collections.fileMembership,
         });
-
         if (!res.success) throw new Error(res.error);
       }
 
@@ -537,7 +525,6 @@ export const RepairModal = Comp(() => {
           repairHierarchy: store.tags.hierarchy,
           repairId,
         });
-
         if (!res.success) throw new Error(res.error);
       }
 
@@ -549,7 +536,6 @@ export const RepairModal = Comp(() => {
           repairMissingThumbnails: store.thumbnails.missing,
           repairPaths: store.thumbnails.paths,
         });
-
         if (!res.success) throw new Error(res.error);
       }
 
@@ -557,7 +543,6 @@ export const RepairModal = Comp(() => {
         store.log("[INFO] Starting thumbnail NTFS metadata repair.");
 
         const res = await rpc.repairThumbnailNtfsMetadata({ repairId });
-
         if (!res.success) throw new Error(res.error);
       }
 
@@ -566,7 +551,6 @@ export const RepairModal = Comp(() => {
 
         if (store.files.extensions) {
           const extRes = await rpc.repairFilesWithBrokenExt({ repairId });
-
           if (!extRes.success) throw new Error(extRes.error);
         }
 
@@ -574,7 +558,6 @@ export const RepairModal = Comp(() => {
           store.log("[INFO] Starting video codec inspection.");
 
           const res = await rpc.repairVideoCodecs({ repairId });
-
           if (!res.success) throw new Error(res.error);
         }
 
@@ -582,7 +565,6 @@ export const RepairModal = Comp(() => {
           store.log("[INFO] Starting missing original video information repair.");
 
           const missingInfoRes = await rpc.repairFilesWithMissingInfo({ repairId });
-
           if (!missingInfoRes.success) throw new Error(missingInfoRes.error);
         }
 
@@ -590,7 +572,6 @@ export const RepairModal = Comp(() => {
           store.log("[INFO] Starting previous checksum repair.");
 
           const res = await rpc.repairPreviousHashes({ repairId });
-
           if (!res.success) throw new Error(res.error);
         }
       }
@@ -603,7 +584,6 @@ export const RepairModal = Comp(() => {
           repairId,
           syncDefinitions: store.indexes.sync,
         });
-
         if (!res.success) throw new Error(res.error);
       }
 

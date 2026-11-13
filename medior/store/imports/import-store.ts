@@ -28,7 +28,6 @@ export class ImportStore extends Model({
   @modelFlow
   deleteSavedConfig = asyncAction(async (id: string) => {
     const res = await rpc.deleteSavedImportConfig({ args: { ids: [id] } });
-
     if (!res.success) throw new Error(res.error);
 
     await this.loadSavedConfigs();
@@ -41,7 +40,6 @@ export class ImportStore extends Model({
     const res = await rpc.listSavedImportConfig({
       args: { page: 1, pageSize: 1000, sort: { dateModified: "desc" } },
     });
-
     if (!res.success) throw new Error(res.error);
 
     this.setSavedConfigs(res.data.items.map((item) => new SavedImportConfig(item)));
@@ -54,7 +52,6 @@ export class ImportStore extends Model({
     const res = await rpc.updateSavedImportConfig({
       args: { id, updates: { dateModified: dayjs().toISOString(), label } },
     });
-
     if (!res.success) throw new Error(res.error);
 
     await this.loadSavedConfigs();
@@ -94,7 +91,6 @@ export class ImportStore extends Model({
           : await rpc.createSavedImportConfig({
               args: { dateCreated: dateModified, dateModified, folderPath, label, options },
             });
-
       if (!res.success) throw new Error(res.error);
 
       await this.loadSavedConfigs();

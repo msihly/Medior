@@ -21,7 +21,6 @@ export const OperationControls = Comp(({ operation }: { operation: BackgroundOpe
         ids: operation.failures.map((failure) => failure.targetId),
         retainMedia: true,
       });
-
       if (!result.success) throw new Error(result.error);
 
       setIsConfirmRemoveOpen(false);
@@ -41,7 +40,6 @@ export const OperationControls = Comp(({ operation }: { operation: BackgroundOpe
 
   const handleDismiss = async () => {
     const result = await rpc.dismissBackgroundOperation({ id: operation.id });
-
     if (!result.success) return toast.error(result.error);
 
     store.updateBackgroundOperation(result.data);
@@ -55,7 +53,6 @@ export const OperationControls = Comp(({ operation }: { operation: BackgroundOpe
 
     try {
       const result = await store.retryBackgroundOperation(operation.id);
-
       if (!result.success) toast.error(result.error);
     } finally {
       setIsRetrying(false);

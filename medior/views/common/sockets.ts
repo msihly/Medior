@@ -575,7 +575,6 @@ export const useSockets = ({ enabled = true, view }: UseSocketsProps) => {
       removeResults(stores.tag.manager.search, [args.oldTagId]);
 
       const res = await stores.tag.listByIds({ ids: [args.newTagId] });
-
       if (!res.success) console.error(res.error);
       else if (res.data.length) {
         replaceMergedFilterTagOptions(res.data[0], args.oldTagId);

@@ -31,7 +31,6 @@ export const TagCard = Comp(({ tag }: TagCardProps) => {
       hasShift: event.shiftKey,
       id: tag.id,
     });
-
     if (!res?.success) toast.error(res.error);
   };
 

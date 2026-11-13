@@ -781,6 +781,7 @@ export interface MediaProgramSchema {
   sourceFolderPath?: string;
   tagIds: string[];
   tagIdsWithAncestors: string[];
+  titleTranslations?: import("medior/utils/common/media-programs").MediaProgramTitleTranslation[];
   type?: string;
   watchedFileIds: string[];
   watchStatus: "dropped" | "inactive" | "unwatched" | "watched" | "watching";
@@ -826,6 +827,9 @@ const MediaProgramSchema = new Schema<MediaProgramSchema>({
   sourceFolderPath: String,
   tagIds: [{ type: Schema.Types.ObjectId, ref: "Tag" }],
   tagIdsWithAncestors: [{ type: Schema.Types.ObjectId, ref: "Tag" }],
+  titleTranslations: [
+    { _id: false, display: String, language: String, text: String, title: String },
+  ],
   type: String,
   watchStatus: { type: String, enum: ["dropped", "inactive", "unwatched", "watched", "watching"] },
   watchStatusOrder: Number,

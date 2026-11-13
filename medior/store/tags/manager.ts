@@ -61,7 +61,6 @@ export class TagManagerStore extends Model({
   @modelFlow
   editMultiTagRelations = asyncAction(async (args: EditMultiTagRelationsInput) => {
     const res = await rpc.editMultiTagRelations(args);
-
     if (!res.success) throw new Error(res.error);
 
     return res.data;
@@ -95,7 +94,6 @@ export class TagManagerStore extends Model({
 
       if (visibleIds.length) {
         const res = await rpc.listTag({ filter: { id: visibleIds } });
-
         if (!res.success) toast.error(res.error);
         else for (const tag of res.data) this.search.getResult(tag.id)?.update(tag);
       }
@@ -107,7 +105,6 @@ export class TagManagerStore extends Model({
   @modelFlow
   refreshSelectedTags = asyncAction(async () => {
     const result = await rpc.refreshTag({ tagIds: this.search.selectedIds });
-
     if (!result.success) throw new Error(result.error);
 
     toast.success("Tag refresh queued in Activity");

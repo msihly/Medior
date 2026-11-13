@@ -1,4 +1,4 @@
-import type { FileSchema } from "medior/_generated/server/models";
+import type { FileSchema, MediaProgramSchema } from "medior/_generated/server/models";
 import { Fmt } from "trabecula/utils/common";
 import type { SubtitleSegment } from "./subtitles";
 
@@ -34,4 +34,14 @@ export const getNameTranslation = (
 ) =>
   file?.nameTranslations?.find(
     (translation) => translation.language === language && translation.name === file.originalName,
+  );
+
+/** The program's translation of an episode title from its metadata, if it has one. */
+export const getTitleTranslation = (
+  program: Pick<MediaProgramSchema, "titleTranslations">,
+  title: string,
+  language: string,
+) =>
+  program?.titleTranslations?.find(
+    (translation) => translation.language === language && translation.title === title,
   );

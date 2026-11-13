@@ -145,7 +145,6 @@ export const TagMerger = Comp(() => {
         withRegen: true,
         withSub: true,
       });
-
       if (!res.success) throw new Error(res.error);
 
       setIsSaving(false);

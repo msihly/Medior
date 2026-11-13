@@ -13,6 +13,7 @@ import {
   MediaProgramEditorStore,
   MediaProgramManagerStore,
   MediaProgramRankingStore,
+  MediaProgramTitleTranslationStore,
 } from ".";
 
 export type MediaProgramUpdates = Partial<
@@ -39,6 +40,9 @@ export class MediaProgramStore extends Model({
   /** The program whose metadata is being matched, from its card or the editor. */
   metaMatchProgramId: prop<string>(null).withSetter(),
   rankings: prop<MediaProgramRankingStore>(() => new MediaProgramRankingStore({})),
+  titleTranslation: prop<MediaProgramTitleTranslationStore>(
+    () => new MediaProgramTitleTranslationStore({}),
+  ),
 }) {
   onInit() {
     autoBind(this);
@@ -57,7 +61,6 @@ export class MediaProgramStore extends Model({
   @modelFlow
   createMediaProgram = asyncAction(async (name: string) => {
     const res = await rpc.createMediaProgram({ name });
-
     if (!res.success) throw new Error(res.error);
 
     return res.data;
@@ -146,7 +149,6 @@ export class MediaProgramStore extends Model({
           ...(updates.rating !== undefined ? { ratingIsManual: updates.rating > 0 } : {}),
         },
       });
-
       if (!res.success) throw new Error(res.error);
 
       this.updateVisiblePrograms(id, res.data);

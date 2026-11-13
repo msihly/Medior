@@ -137,7 +137,6 @@ export class Splicer extends Model({
           updates: { timestamps },
         },
       });
-
       if (!res.success) throw new Error(res.error);
 
       file.update({ timestamps });
@@ -182,7 +181,6 @@ export class Splicer extends Model({
           updates: { timestamps },
         },
       });
-
       if (!res.success) throw new Error(res.error);
 
       file.update({ timestamps });

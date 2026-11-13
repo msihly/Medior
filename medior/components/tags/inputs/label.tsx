@@ -37,7 +37,6 @@ export const Label = Comp(
 
     const handleSelectExisting = async (option: TagOption) => {
       const res = await (onLoadTag ?? store.editor.loadTag)({ id: option.id });
-
       if (!res.success) toast.error(res.error);
     };
 

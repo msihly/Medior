@@ -1,6 +1,7 @@
 import path from "path";
 import type { CssColor } from "trabecula/utils/client";
 import { dayjs, Fmt } from "trabecula/utils/common";
+import type { TranslationDisplay } from "./translations";
 
 /** How episodes are labeled: by their number alone, or with their season's. */
 export const MEDIA_PROGRAM_EPISODE_LABELS = [
@@ -126,10 +127,14 @@ export interface MediaProgramMetaMatch {
   sourceId: number;
 }
 
-/** A season the metadata source lists, with specials as season 0; its episodes have no stills. */
+/**
+ * A season the metadata source lists, with specials as season 0. Only seasons the program has no
+ * files for keep their poster and episode stills here; the others keep theirs with the season.
+ */
 export interface MediaProgramMetaSeason {
   episodes: MediaProgramEpisodeMeta[];
   number: number;
+  posterPath?: string | null;
   startDate: string | null;
   title: string | null;
 }
@@ -233,6 +238,18 @@ export interface MediaProgramSeasonMeta {
 export type MediaProgramSeasonOutline = Pick<MediaProgramSeason, "fileIds" | "id" | "label">;
 
 /**
+ * An episode title from the metadata source translated, kept with the title it translates, so a
+ * title the source changes shows untranslated until it's translated again.
+ */
+export interface MediaProgramTitleTranslation {
+  /** Set once the translation is saved, choosing whether it or the title shows on episode cards. */
+  display?: TranslationDisplay;
+  language: string;
+  text: string;
+  title: string;
+}
+
+/**
  * How many episodes without files count toward a total, and how many of those were watched
  * elsewhere. Skipped episodes count toward neither.
  */
@@ -286,17 +303,14 @@ export const getMediaProgramEpisodeIds = (seasons: Pick<MediaProgramSeason, "fil
   ...new Set(seasons.flatMap((season) => season.fileIds.map(String))),
 ];
 
+/** The watch status a folder is named after, such as Inactive, if any. */
+const getFolderWatchStatus = (folderName: string) =>
+  MEDIA_PROGRAM_WATCH_STATUSES.find(({ label }) => label.toLowerCase() === folderName.toLowerCase())
+    ?.value;
+
 /** The status of the nearest folder above the program named after one, such as Inactive. */
 export const getMediaProgramFolderWatchStatus = (folderPath: string): MediaProgramWatchStatus => {
-  const statuses = path
-    .dirname(folderPath)
-    .split(path.sep)
-    .reverse()
-    .map(
-      (part) =>
-        MEDIA_PROGRAM_WATCH_STATUSES.find(({ label }) => label.toLowerCase() === part.toLowerCase())
-          ?.value,
-    );
+  const statuses = path.dirname(folderPath).split(path.sep).reverse().map(getFolderWatchStatus);
 
   return statuses.find(Boolean) ?? "unwatched";
 };
@@ -307,11 +321,21 @@ export const getIsMediaProgramMetaKind = (
   kind: MediaProgramMetaKind | null,
 ) => !kind || result.isMovie === (kind === "movie");
 
-/** Programs typed Movie are matched to movies and those typed Show to series; others to either. */
-export const getMediaProgramMetaKind = (type: string | null): MediaProgramMetaKind | null => {
-  const name = type?.toLowerCase();
+/**
+ * Programs with several TV seasons, or TV seasons and movies, are matched to series whatever their
+ * type. Otherwise, programs typed Movie are matched to movies and those typed Show to series, and
+ * others to either.
+ */
+export const getMediaProgramMetaKind = (program: {
+  seasons: Pick<MediaProgramSeason, "label" | "number">[];
+  type?: string | null;
+}): MediaProgramMetaKind | null => {
+  const tvSeasonCount = program.seasons.filter(({ number }) => number > 0).length;
+  const hasMovies = program.seasons.some(({ label }) => getIsMoviesSeason(label));
+  const name = program.type?.toLowerCase();
 
-  if (name === "movie") return "movie";
+  if (tvSeasonCount > 1 || (tvSeasonCount && hasMovies)) return "series";
+  else if (name === "movie") return "movie";
   else if (name === "show") return "series";
   else return null;
 };
@@ -375,13 +399,16 @@ export const getMissingMediaProgramSeasons = (
   meta: MediaProgramMeta | null,
   seasons: Pick<MediaProgramSeason, "number">[],
 ) => {
-  const numbers = new Set(getMediaProgramMetaSeasonNumbers(seasons));
+  const isMissing = makeIsMissingSeasonNumber(seasons);
 
   // Metadata saved before it listed the source's seasons, or their episodes, has none.
   return (meta?.seasons ?? [])
-    .filter((season) => season.number > 0 && !numbers.has(season.number))
+    .filter((season) => isMissing(season.number))
     .map((season) => ({ ...season, episodes: season.episodes ?? [] }));
 };
+
+/** An episode as file names give it, such as S01E02 or Season 1 - Episode 2. */
+const DISCUSSION_EPISODE_REGEX = /(S\d{2}E\d{2})|(Season \d+ .* Episode \d+)/i;
 
 const EPISODE_REGEXES = [
   /S\d{1,3}[\s._-]*E(\d{1,4})/i,
@@ -391,6 +418,8 @@ const EPISODE_REGEXES = [
 ];
 
 const FILE_SEASON_REGEX = /S(\d{1,3})[\s._-]*E\d{1,4}/i;
+
+const MOVIES_REGEX = /^movies?$/i;
 
 const SEASON_REGEX = /^(?:s|season|series|cour|part)[\s._-]*0*(\d+)$/i;
 
@@ -433,6 +462,18 @@ export const parseSeasonNumber = (folderName: string) => {
 
   return match ? Number(match[1]) : null;
 };
+
+/** A Movies season, which holds a program's movies. */
+export const getIsMoviesSeason = (label: string) => MOVIES_REGEX.test(label.trim());
+
+/**
+ * A season's number from its label among the program's other seasons: its own number, or 0 for a
+ * Movies season beside TV seasons, whose movies are the program's extras like its OVAs. Elsewhere,
+ * a Movies folder is an ordinary one, such as a library of movies.
+ */
+export const parseProgramSeasonNumber = (label: string, seasonNumbers: (number | null)[]) =>
+  parseSeasonNumber(label) ??
+  (getIsMoviesSeason(label) && seasonNumbers.some((number) => number > 0) ? 0 : null);
 
 export const parseMediaProgramName = (folderName: string) => {
   const year = folderName.match(YEAR_REGEX)?.[1];
@@ -481,10 +522,12 @@ export const getIsMediaProgramRoot = (filePaths: Iterable<string>, rootFolderPat
  * The program folder is the import root when it is a program, the folder above it when the root is
  * itself a season folder, such as one of several season folders imported together, two folders up
  * when the root is the extras of a numbered season folder, or else the first folder below the root.
- * Every folder below the program folder becomes its own season, numbered only when it sits
- * directly in the program folder, and files directly in the program folder are given a season
- * after the scan, from their names or after its last numbered one. Loose files in a library root
- * belong to no program.
+ * In a library, folders named after a watch status only group programs, along with the folders
+ * above them, so the program is the first folder below the last of them, such as Name in
+ * Category/Watched/Name. Every folder below the program folder becomes its own season, numbered
+ * only when it sits directly in the program folder, and files directly in the program folder are
+ * given a season after the scan, from their names or after its last numbered one. Loose files in a
+ * library root or a watch status folder belong to no program.
  */
 export const resolveMediaProgramFolder = (
   folderPath: string,
@@ -492,8 +535,12 @@ export const resolveMediaProgramFolder = (
   isProgramRoot: boolean,
 ) => {
   const parts = folderPath.split(path.sep);
+  const statusIndex = parts.findLastIndex(
+    (part, index) => index > rootFolderIndex && getFolderWatchStatus(part),
+  );
+  const libraryIndex = Math.max(rootFolderIndex, statusIndex);
 
-  if (!isProgramRoot && parts.length <= rootFolderIndex + 1) return null;
+  if (!isProgramRoot && parts.length <= libraryIndex + 1) return null;
 
   const isSeasonRoot =
     isProgramRoot && rootFolderIndex > 0 && parseSeasonNumber(parts[rootFolderIndex]) !== null;
@@ -505,7 +552,7 @@ export const resolveMediaProgramFolder = (
       ? rootFolderIndex - 1
       : isProgramRoot
         ? rootFolderIndex
-        : rootFolderIndex + 1;
+        : libraryIndex + 1;
   const seasonParts = parts.slice(programIndex + 1);
 
   return {
@@ -845,6 +892,33 @@ export const getSeasonSortKey = (seasonNumber: number | null) => {
   else return seasonNumber;
 };
 
+/**
+ * A Google search for an episode's Reddit discussion, by its program's name and S##E## from its
+ * season and episode numbers. An episode whose season has no number goes by its file name's
+ * episode, or else by the program alone.
+ */
+export const makeEpisodeDiscussionUrl = ({
+  episodeNumber,
+  fileName,
+  programName,
+  seasonNumber,
+}: {
+  episodeNumber: number;
+  fileName: string;
+  programName: string;
+  seasonNumber: number | null;
+}) => {
+  const episode =
+    seasonNumber === null
+      ? fileName.match(DISCUSSION_EPISODE_REGEX)?.[0]
+      : makeEpisodeLabel(episodeNumber, seasonNumber, "season");
+  const params = new URLSearchParams({
+    q: ["reddit", programName, episode].filter(Boolean).join(" "),
+  });
+
+  return `https://www.google.com/search?${params}`;
+};
+
 /** An episode's label, as EP ##, or S##E## with its season's number when it has one. */
 export const makeEpisodeLabel = (
   episodeNumber: number,
@@ -854,6 +928,12 @@ export const makeEpisodeLabel = (
   labels === "season" && seasonNumber !== null
     ? `${makeSeasonLabel(seasonNumber)}E${Fmt.leadZeros(episodeNumber, 2)}`
     : `EP ${episodeNumber}`;
+
+/** A check for whether a source season number is a numbered season the program has none of. */
+export const makeIsMissingSeasonNumber = (seasons: Pick<MediaProgramSeason, "number">[]) => {
+  const numbers = new Set(getMediaProgramMetaSeasonNumbers(seasons));
+  return (number: number) => number > 0 && !numbers.has(number);
+};
 
 /** Labels a season like the season folders it sits beside, such as S03. */
 export const makeSeasonLabel = (seasonNumber: number) => `S${Fmt.leadZeros(seasonNumber, 2)}`;

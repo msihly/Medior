@@ -34,7 +34,6 @@ export const MusicAlbumCard = Comp(({ album, search }: MusicAlbumCardProps) => {
       hasShift: event.shiftKey,
       id: album.id,
     });
-
     if (!res?.success) toast.error(res.error);
   };
 

@@ -454,7 +454,6 @@ export class LowerResolutionStore extends Model({
   @modelFlow
   loadSearchIndexStatus = asyncAction(async () => {
     const result = await rpc.getSimilaritySearchIndexStatus();
-
     if (!result.success) throw new Error(result.error);
 
     this.setHasSearchIndex(result.data.hasIndex);
@@ -541,7 +540,6 @@ export class LowerResolutionStore extends Model({
 
     try {
       const result = await rpc.getLowerResolutionScan({});
-
       if (!result.success) throw new Error(result.error);
 
       if (result.data) {
@@ -603,7 +601,6 @@ export class LowerResolutionStore extends Model({
     try {
       if (this.isScanning && this.scanId) {
         const result = await rpc.pauseLowerResolutionScan({ scanId: this.scanId });
-
         if (!result.success) throw new Error(result.error);
       }
     } catch (error) {

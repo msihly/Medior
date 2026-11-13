@@ -46,7 +46,6 @@ export const MediaProgramCard = Comp(({ program, rank, search }: MediaProgramCar
       hasShift: event.shiftKey,
       id: program.id,
     });
-
     if (!res?.success) toast.error(res.error);
   };
 
@@ -61,7 +60,6 @@ export const MediaProgramCard = Comp(({ program, rank, search }: MediaProgramCar
     store.editor.setIsOpen(true);
 
     const res = await store.editor.loadProgram(program.id);
-
     if (!res.success) toast.error(res.error);
   };
 
@@ -72,7 +70,6 @@ export const MediaProgramCard = Comp(({ program, rank, search }: MediaProgramCar
 
   const handleRefreshMeta = async () => {
     const res = await store.regenMediaProgramMeta([program.id]);
-
     if (!res.success) toast.error(res.error);
   };
 

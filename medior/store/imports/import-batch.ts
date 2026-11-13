@@ -114,7 +114,6 @@ export class FileImportBatch extends ExtendedModel(_FileImportBatch, {
         page,
         statuses: this.statuses,
       });
-
       if (!result.success) throw new Error(result.error);
 
       if (revision === this.loadRevision) {

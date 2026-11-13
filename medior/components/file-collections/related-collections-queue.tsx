@@ -64,7 +64,8 @@ export const RelatedCollectionsQueue = Comp(({ onClose }: RelatedCollectionsQueu
   const [includeFileOverlap, setIncludeFileOverlap] = useState(true);
   const [includeOriginalFolder, setIncludeOriginalFolder] = useState(false);
   const [includeTitle, setIncludeTitle] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isCollectionsLoading, setIsCollectionsLoading] = useState(false);
+  const [isQueueLoading, setIsQueueLoading] = useState(true);
   const [loadedCollections, setLoadedCollections] = useState<FileCollectionModel[]>([]);
   const [lookupError, setLookupError] = useState("");
   const [managerFiles] = useState<SnapshotOutOf<File>[]>(() =>
@@ -78,6 +79,8 @@ export const RelatedCollectionsQueue = Comp(({ onClose }: RelatedCollectionsQueu
   const matchesRef = useRef<HTMLDivElement>(null);
   const queueLoadId = useRef(0);
 
+  // The queue and its shown collections load separately, so either keeps the overlay up.
+  const isLoading = isCollectionsLoading || isQueueLoading;
   const group = groups[groupIndex];
   const defaultBaseEntry = group
     ? [...group.collections].sort((left, right) => left.searchIndex - right.searchIndex)[0]
@@ -125,7 +128,10 @@ export const RelatedCollectionsQueue = Comp(({ onClose }: RelatedCollectionsQueu
     setLoadedCollections([]);
 
     if (visibleIds.length) loadCollections(visibleIds);
-    else collectionLoadId.current += 1;
+    else {
+      collectionLoadId.current += 1;
+      setIsCollectionsLoading(false);
+    }
   }, [visibleIds.join(":")]);
 
   useEffect(() => {
@@ -141,12 +147,11 @@ export const RelatedCollectionsQueue = Comp(({ onClose }: RelatedCollectionsQueu
     const loadId = ++collectionLoadId.current;
 
     try {
-      setIsLoading(true);
+      setIsCollectionsLoading(true);
 
       const collectionRes = await rpc.listFileCollection({
         args: { filter: { id: ids } },
       });
-
       if (!collectionRes.success) throw new Error(collectionRes.error);
 
       if (loadId !== collectionLoadId.current) return;
@@ -159,7 +164,6 @@ export const RelatedCollectionsQueue = Comp(({ onClose }: RelatedCollectionsQueu
       const tagsRes = await rpc.listTag({
         filter: { id: [...new Set(nextCollections.flatMap(({ tagIds }) => tagIds))] },
       });
-
       if (!tagsRes.success) throw new Error(tagsRes.error);
 
       if (loadId !== collectionLoadId.current) return;
@@ -173,7 +177,6 @@ export const RelatedCollectionsQueue = Comp(({ onClose }: RelatedCollectionsQueu
           filter: { id: [...new Set(nextCollections.flatMap(({ previewIds }) => previewIds))] },
         },
       });
-
       if (!filesRes.success) throw new Error(filesRes.error);
 
       if (loadId !== collectionLoadId.current) return;
@@ -188,7 +191,7 @@ export const RelatedCollectionsQueue = Comp(({ onClose }: RelatedCollectionsQueu
     } catch (error) {
       if (loadId === collectionLoadId.current) toast.error(error);
     } finally {
-      if (loadId === collectionLoadId.current) setIsLoading(false);
+      if (loadId === collectionLoadId.current) setIsCollectionsLoading(false);
     }
   };
 
@@ -196,7 +199,7 @@ export const RelatedCollectionsQueue = Comp(({ onClose }: RelatedCollectionsQueu
     const loadId = ++queueLoadId.current;
 
     try {
-      setIsLoading(true);
+      setIsQueueLoading(true);
       setLookupError("");
 
       const res = await rpc.findRelatedCollectionGroups({
@@ -207,7 +210,6 @@ export const RelatedCollectionsQueue = Comp(({ onClose }: RelatedCollectionsQueu
         minCommonPercentage,
         sortValue: store.search.sortValue,
       });
-
       if (!res.success) throw new Error(res.error);
 
       if (loadId !== queueLoadId.current) return;
@@ -232,7 +234,7 @@ export const RelatedCollectionsQueue = Comp(({ onClose }: RelatedCollectionsQueu
       setLookupError(error.message);
       toast.error(error);
     } finally {
-      if (loadId === queueLoadId.current) setIsLoading(false);
+      if (loadId === queueLoadId.current) setIsQueueLoading(false);
     }
   };
 
@@ -241,7 +243,8 @@ export const RelatedCollectionsQueue = Comp(({ onClose }: RelatedCollectionsQueu
     merge.cancelLoad();
     queueLoadId.current += 1;
     store.search.cancelLoad();
-    setIsLoading(false);
+    setIsCollectionsLoading(false);
+    setIsQueueLoading(false);
   };
 
   const handleNext = () => {

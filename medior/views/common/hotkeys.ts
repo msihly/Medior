@@ -56,7 +56,10 @@ export const useHotkeys = ({ embedded = false, rootRef, videoRef, view }: UseHot
 
     if (!fileIds.length && !isSelectAll) return;
 
+    // Only the view's own hotkeys are kept from the page, so keys such as Tab still work.
     const hotkeys = stores.home.settings.hotkeys[view];
+    if (!Object.values(hotkeys).some((hotkey) => matchesHotkey(event, hotkey))) return;
+
     const isOneFileSelected = fileIds.length === 1;
     const rating = getHotkeyRating(event, hotkeys);
 

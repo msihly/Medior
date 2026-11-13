@@ -31,12 +31,14 @@ import {
 
 export interface ContextMenuProps extends Omit<ContextMenuBaseProps, "id" | "menuItems"> {
   carouselFileIds?: string[];
+  /** Items for where the file is shown, such as an episode's, listed after the opening items. */
+  extraMenuItems?: ContextMenuBaseProps["menuItems"];
   file: FileSchema;
   store: FileCollectionSearch | FileSearch | FileTransformSearch;
 }
 
 export const ContextMenu = Comp(
-  ({ carouselFileIds, children, file, store, ...props }: ContextMenuProps) => {
+  ({ carouselFileIds, children, extraMenuItems = [], file, store, ...props }: ContextMenuProps) => {
     const stores = useStores();
     const fileStore = stores.file;
 
@@ -184,6 +186,7 @@ export const ContextMenu = Comp(
               label: "Open in Explorer",
               onClick: openInExplorer,
             },
+            ...extraMenuItems,
             {
               icon: "Info",
               label: "Info",
@@ -263,7 +266,7 @@ export const ContextMenu = Comp(
                   })),
                 }
               : null,
-            fileStore.shownSearch.isArchived
+            file.isArchived
               ? {
                   color: colors.custom.green,
                   icon: "Unarchive",

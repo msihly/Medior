@@ -68,7 +68,6 @@ export const mergeDuplicateFile = async (original: DuplicateFile, match: Duplica
       ),
       id: collection._id.toString(),
     });
-
     if (!updatedCollection.success) throw new Error(updatedCollection.error);
   }
 

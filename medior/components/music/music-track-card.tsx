@@ -28,7 +28,6 @@ export const MusicTrackCard = Comp(({ file, search }: MusicTrackCardProps) => {
       hasShift: event.shiftKey,
       id: file.id,
     });
-
     if (!res?.success) toast.error(res.error);
   };
 

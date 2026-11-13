@@ -5,6 +5,15 @@ import { File, useStores } from "medior/store";
 import { colors, makeClasses, toast } from "medior/utils/client";
 import { formatMediaProgramDate } from "medior/utils/common";
 
+/** Searches for an episode's Reddit discussion, like the Episode Discussion script. */
+export const EPISODE_DISCUSSION_MENU_ITEM = { icon: "Forum", label: "Episode Discussion" } as const;
+
+/** Translates the title the metadata source gives the episode, or those of the selected episodes. */
+export const EPISODE_TITLE_TRANSLATION_MENU_ITEM = {
+  icon: "Translate",
+  label: "Translate Title",
+} as const;
+
 export interface MediaProgramEpisodeProps {
   episodeNumber: number;
   file: File;
@@ -41,7 +50,7 @@ export const MediaProgramEpisode = Comp(({ episodeNumber, file }: MediaProgramEp
   // Hovering only cycles from a still to frames, since cycling between two images flickers.
   const isAnimated = file.thumb?.frameHeight > 0 && file.thumb?.frameWidth > 0;
   const meta = store.getEpisodeMeta(file.id);
-  const title = meta?.title ?? file.originalName;
+  const title = store.getEpisodeTitle(meta?.title) ?? file.originalName;
   const subtitle = [formatMediaProgramDate(meta?.airDate), meta?.title ? file.originalName : null]
     .filter(Boolean)
     .join(" · ");
@@ -55,13 +64,17 @@ export const MediaProgramEpisode = Comp(({ episodeNumber, file }: MediaProgramEp
         : null;
 
   const handleClick = async (event: React.MouseEvent) => {
-    const res = await store.search.handleSelect({
+    const res = await store.selectFileEpisode({
       hasCtrl: event.ctrlKey,
       hasShift: event.shiftKey,
       id: file.id,
     });
+    if (!res.success) toast.error(res.error);
+  };
 
-    if (!res?.success) toast.error(res.error);
+  const handleDiscussion = async () => {
+    const res = await store.openEpisodeDiscussion({ episodeNumber, fileName: file.originalName });
+    if (!res.success) toast.error(res.error);
   };
 
   const handlePlay = async () => {
@@ -69,8 +82,24 @@ export const MediaProgramEpisode = Comp(({ episodeNumber, file }: MediaProgramEp
     if (!res.success) toast.error(res.error);
   };
 
+  const handleTitleTranslation = () =>
+    stores.mediaProgram.titleTranslation.open({
+      programId: store.program.id,
+      titles: store.getTitlesToTranslate({ fileId: file.id }),
+    });
+
   return (
-    <FileBase.ContextMenu file={file} store={store.search} carouselFileIds={store.episodeIds}>
+    <FileBase.ContextMenu
+      file={file}
+      store={store.search}
+      carouselFileIds={store.episodeIds}
+      extraMenuItems={[
+        meta?.title
+          ? { ...EPISODE_TITLE_TRANSLATION_MENU_ITEM, onClick: handleTitleTranslation }
+          : null,
+        { ...EPISODE_DISCUSSION_MENU_ITEM, divider: "bottom", onClick: handleDiscussion },
+      ]}
+    >
       <FileBase.Tooltip file={file}>
         <FileBase.Container
           height="auto"
