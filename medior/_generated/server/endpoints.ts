@@ -229,6 +229,7 @@ export const serverRouter = {
   repairFileThumbnail: db.repairFileThumbnail,
   repairFilesWithBrokenExt: db.repairFilesWithBrokenExt,
   repairFilesWithMissingInfo: db.repairFilesWithMissingInfo,
+  repairMediaProgramFileMembership: db.repairMediaProgramFileMembership,
   repairMissingAudioAnalysis: db.repairMissingAudioAnalysis,
   repairPreviousHashes: db.repairPreviousHashes,
   repairTags: db.repairTags,

@@ -39,6 +39,7 @@ export class RepairStore extends Model({
   isMinimized: prop<boolean>(false).withSetter(),
   isOpen: prop<boolean>(false),
   isRunning: prop<boolean>(false).withSetter(),
+  mediaPrograms: prop<boolean>(false).withSetter(),
   outputLog: prop<RepairLog[]>(() => []).withSetter(),
   repairId: prop<string | null>(null).withSetter(),
   similarity: prop<RepairSimilarityStore>(() => new RepairSimilarityStore({})),
@@ -101,6 +102,7 @@ export class RepairStore extends Model({
         this.collections.isSelected ||
         this.files.isSelected ||
         this.indexes.isSelected ||
+        this.mediaPrograms ||
         this.similarity.enabled ||
         this.storage ||
         this.tags.isSelected ||

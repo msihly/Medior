@@ -42,6 +42,8 @@ export const FileCard = Comp(
 
     const fileDragProps = useFileDrag(file, store.selectedIds);
 
+    const hasCollections = file?.collectionIds?.length > 0;
+    const hasMediaPrograms = file?.mediaProgramIds?.length > 0;
     const hasTags = file?.tags?.length > 0;
     const nameTranslation = getNameTranslation(
       file,
@@ -124,16 +126,28 @@ export const FileCard = Comp(
 
               <FileBase.ExtAndIcons position="top-right" file={file} />
 
-              {file.collectionIds?.length > 0 && (
+              {(hasCollections || hasMediaPrograms) && (
                 <FileBase.Chip
                   position="bottom-left"
                   hasFooter={hasFooter}
                   footerOffset={footerOffset}
                   label={
-                    <View row spacing="0.3em">
-                      <Icon name="Collections" size="1em" />
+                    <View row spacing="0.5em">
+                      {hasCollections && (
+                        <View row spacing="0.3em">
+                          <Icon name="Collections" size="1em" />
 
-                      <Text>{file.collectionIds.length}</Text>
+                          <Text>{file.collectionIds.length}</Text>
+                        </View>
+                      )}
+
+                      {hasMediaPrograms && (
+                        <View row spacing="0.3em">
+                          <Icon name="LiveTv" size="1em" />
+
+                          <Text>{file.mediaProgramIds.length}</Text>
+                        </View>
+                      )}
                     </View>
                   }
                 />

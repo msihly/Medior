@@ -9,9 +9,15 @@ import {
   removeMediaProgramImages,
 } from "medior/server/database/media-program-seasons";
 import { withMetadataMutation } from "medior/server/database/metadata-mutations";
-import { metadataSaveOptions, metadataWriteOptions } from "medior/server/database/metadata-work";
+import {
+  metadataSaveOptions,
+  metadataWriteOptions,
+  repairMetadata,
+} from "medior/server/database/metadata-work";
+import { makeRepairReporter } from "medior/server/database/repair-progress";
 import {
   addSeasonEpisodes,
+  chunkArray,
   countMissingEpisodes,
   dayjs,
   getAverageRating,
@@ -375,6 +381,11 @@ const mergePrograms = async (ids: string[]) => {
 
     socket.emitVolatile("onMediaProgramDeleted", { ids: sourceIds });
 
+    // The merged programs' files now show only the kept program.
+    await syncFileMediaProgramIds(
+      getMediaProgramEpisodeIds(sources.flatMap((source) => source.seasons)),
+    );
+
     return {
       deleted: sources,
       id,
@@ -457,6 +468,62 @@ const readMediaProgramAttrs = (
   tagIds: program.tagIds.map(String),
   watchedFileIds: program.watchedFileIds.map(String),
 });
+
+/**
+ * Saves on each file the programs whose seasons hold it, as collections are saved on their files,
+ * and sends the files whose programs changed to open file cards. Resolves to how many changed.
+ */
+const syncFileMediaProgramIds = async (fileIds: string[]) => {
+  let syncedCount = 0;
+
+  for (const chunk of chunkArray([...new Set(fileIds)], 1000)) {
+    const files = await models.FileModel.find({ _id: { $in: objectIds(chunk) } })
+      .select({ mediaProgramIds: 1 })
+      .lean();
+    const programs = await models.MediaProgramModel.find({ "seasons.fileIds": { $in: chunk } })
+      .select({ "seasons.fileIds": 1 })
+      .lean();
+
+    const programIdsByFile = new Map<string, string[]>();
+
+    for (const program of programs) {
+      for (const fileId of getMediaProgramEpisodeIds(program.seasons))
+        programIdsByFile.set(fileId, [
+          ...(programIdsByFile.get(fileId) ?? []),
+          String(program._id),
+        ]);
+    }
+
+    const groups = new Map<string, { fileIds: string[]; mediaProgramIds: string[] }>();
+
+    for (const file of files) {
+      const mediaProgramIds = (programIdsByFile.get(String(file._id)) ?? []).sort();
+      const key = mediaProgramIds.join(",");
+      if ((file.mediaProgramIds ?? []).map(String).sort().join(",") === key) continue;
+
+      if (!groups.has(key)) groups.set(key, { fileIds: [], mediaProgramIds });
+
+      groups.get(key).fileIds.push(String(file._id));
+    }
+
+    for (const group of groups.values()) {
+      await models.FileModel.updateMany(
+        { _id: { $in: objectIds(group.fileIds) } },
+        { $set: { mediaProgramIds: objectIds(group.mediaProgramIds) } },
+        metadataWriteOptions(),
+      );
+
+      socket.emitVolatile("onFilesUpdated", {
+        fileIds: group.fileIds,
+        updates: { mediaProgramIds: group.mediaProgramIds },
+      });
+
+      syncedCount += group.fileIds.length;
+    }
+  }
+
+  return syncedCount;
+};
 
 /**
  * Derives the seasons' ratings and the program's episode count, size, rating, tags, and poster from
@@ -591,6 +658,16 @@ const writeMediaProgramAttrs = async (
     );
 
     socket.emitVolatile("onMediaProgramUpdated", { id, updates });
+
+    // Files that joined or left the seasons show their programs anew.
+    if (updates.seasons) {
+      const savedIds = new Set(getMediaProgramEpisodeIds(current.seasons));
+
+      await syncFileMediaProgramIds([
+        ...episodeIds.filter((fileId) => !savedIds.has(fileId)),
+        ...[...savedIds].filter((fileId) => !episodeIdSet.has(fileId)),
+      ]);
+    }
   }
 };
 
@@ -831,6 +908,31 @@ export const addImportedMediaProgramSeason = async (args: {
     fileLog(`Failed to merge imported media program: ${error.message}`, { type: "error" });
 
     return imported;
+  }
+};
+
+/** Saves the programs holding them on files saved before files kept their programs. */
+// @generator-ignore-export
+export const fillFileMediaProgramIds = async () => {
+  try {
+    // Once every file keeps its programs, there is nothing left to fill.
+    if (!(await models.FileModel.exists({ mediaProgramIds: { $exists: false } }))) return;
+
+    const programs = await models.MediaProgramModel.find().select({ "seasons.fileIds": 1 }).lean();
+    const fileIds = getMediaProgramEpisodeIds(programs.flatMap((program) => program.seasons));
+
+    // Each chunk holds the metadata lock only while it syncs, so imports and edits go on meanwhile.
+    await repairMetadata(chunkArray(fileIds, 1000), syncFileMediaProgramIds);
+
+    // The rest belong to no program. This only fills files still without a list, and season changes
+    // meanwhile save theirs before or after it, so it needs no lock.
+    await models.FileModel.updateMany(
+      { mediaProgramIds: { $exists: false } },
+      { $set: { mediaProgramIds: [] } },
+      metadataWriteOptions(),
+    );
+  } catch (error) {
+    fileLog(`Failed to save the media programs of files: ${error.message}`, { type: "error" });
   }
 };
 
@@ -1076,6 +1178,10 @@ export const deleteMediaPrograms = makeAction(async ({ ids }: { ids: string[] })
 
     socket.emitVolatile("onMediaProgramDeleted", { ids });
 
+    await syncFileMediaProgramIds(
+      getMediaProgramEpisodeIds(deleted.flatMap((program) => program.seasons)),
+    );
+
     return deleted;
   });
 
@@ -1276,6 +1382,46 @@ export const regenMediaProgramAttrs = makeAction(async ({ ids }: { ids: string[]
   withMetadataMutation(async () => {
     for (const id of ids) await writeMediaProgramAttrs(id);
   }),
+);
+
+/** Rebuilds each file's programs from their seasons, removing those that no longer hold it. */
+export const repairMediaProgramFileMembership = makeAction(
+  async ({ repairId }: { repairId: string }) => {
+    const { checkCancelled, report, run } = makeRepairReporter(
+      repairId,
+      "repairMediaProgramFileMembership",
+    );
+
+    return run(async () => {
+      let repairedCount = 0;
+
+      report("Synchronizing each file's media program membership from current seasons.");
+
+      const fileIds = (
+        await models.FileModel.find().select({ _id: 1 }).sort({ _id: 1 }).lean()
+      ).map((file) => String(file._id));
+
+      // Each chunk's programs come from one query, holding the metadata lock only for the chunk.
+      await repairMetadata(
+        chunkArray(fileIds, 1000),
+        async (chunk) => {
+          checkCancelled();
+
+          return syncFileMediaProgramIds(chunk);
+        },
+        async ({ result }) => {
+          repairedCount += result;
+        },
+      );
+
+      report(
+        `Media program membership repair completed successfully: repaired ${repairedCount} files.`,
+        "success",
+      );
+
+      return { repairedCount };
+    });
+  },
 );
 
 export const setMediaProgramEpisodesWatched = makeAction(

@@ -201,6 +201,7 @@ export const editImage = makeAction(
               dateCreated: source.dateCreated,
               dateImported: dayjs().toISOString(),
               faceModels: [],
+              mediaProgramIds: [],
               // The copy is new content, so it carries none of the original's checksums; deleting
               // it must not mark the original deleted, and importing the original must not match it.
               originalHash: prepared.info.hash,

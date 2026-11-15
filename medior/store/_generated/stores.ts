@@ -6378,6 +6378,7 @@ export class _File extends Model({
   isArchived: prop<boolean>(null),
   isAudioCorrupted: prop<boolean>(null),
   isCorrupted: prop<boolean>(null),
+  mediaProgramIds: prop<string[]>(() => []),
   music: prop<import("medior/utils/common/music").FileMusic>(null),
   musicOptions: prop<import("medior/utils/common/music").MusicImportOptions>(null),
   nameTranslations:

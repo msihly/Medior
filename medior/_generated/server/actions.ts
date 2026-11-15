@@ -3376,6 +3376,7 @@ export const createFile = makeAction(
         ...args,
         dateCreated: args.dateCreated ?? dayjs().toISOString(),
         collectionIds: args.collectionIds ?? [],
+        mediaProgramIds: args.mediaProgramIds ?? [],
       };
 
       await assertMediaPathsAvailable([model.path, model.thumb?.path]);

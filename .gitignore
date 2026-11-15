@@ -16,7 +16,7 @@ _components/
 /.pnp
 /coverage
 build/
-config.json
+config.*json
 dist/
 env.*
 extraResources/

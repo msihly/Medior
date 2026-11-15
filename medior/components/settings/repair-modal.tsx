@@ -513,6 +513,13 @@ export const RepairModal = Comp(() => {
         if (!res.success) throw new Error(res.error);
       }
 
+      if (store.mediaPrograms) {
+        store.log("[INFO] Starting media program membership repair.");
+
+        const res = await rpc.repairMediaProgramFileMembership({ repairId });
+        if (!res.success) throw new Error(res.error);
+      }
+
       if (store.tags.isSelected) {
         store.log("[INFO] Starting tag repair.");
 
@@ -803,6 +810,14 @@ export const RepairModal = Comp(() => {
                 disabled={store.isRunning || !store.indexes.enabled}
               />
             </View>
+
+            <RepairCheckbox
+              label="Media Program Membership"
+              description="Rebuilds each file's media program IDs from current seasons and removes stale memberships."
+              checked={store.mediaPrograms}
+              setChecked={store.setMediaPrograms}
+              disabled={store.isRunning}
+            />
 
             <RepairCheckbox
               label="Similarity Search Index"

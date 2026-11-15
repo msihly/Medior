@@ -87,7 +87,12 @@ interface ThumbCellProps {
   isDragging: boolean;
 }
 
-const ThumbCell = ({ columnIndex, fileIds, isDragging, style }: CellComponentProps<ThumbCellProps>) => (
+const ThumbCell = ({
+  columnIndex,
+  fileIds,
+  isDragging,
+  style,
+}: CellComponentProps<ThumbCellProps>) => (
   <CarouselThumb id={fileIds[columnIndex]} isDragging={isDragging} style={style} />
 );
 

@@ -249,12 +249,7 @@ export const MultiTagEditor = Comp(({ initialTags, onClose }: MultiTagEditorProp
           </View>
         </UniformList>
 
-        <Text
-          fontSize="0.9em"
-          italic
-          textAlign="center"
-          color={colors.custom.lightGrey}
-        >
+        <Text fontSize="0.9em" italic textAlign="center" color={colors.custom.lightGrey}>
           {"Changes that create a hierarchy cycle cannot be saved."}
         </Text>
       </Modal.Content>

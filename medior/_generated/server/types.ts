@@ -650,6 +650,13 @@ export type MergeMediaProgramsOutput = ReturnType<typeof db.mergeMediaPrograms>;
 export type RegenMediaProgramAttrsInput = Parameters<typeof db.regenMediaProgramAttrs>[0];
 export type RegenMediaProgramAttrsOutput = ReturnType<typeof db.regenMediaProgramAttrs>;
 
+export type RepairMediaProgramFileMembershipInput = Parameters<
+  typeof db.repairMediaProgramFileMembership
+>[0];
+export type RepairMediaProgramFileMembershipOutput = ReturnType<
+  typeof db.repairMediaProgramFileMembership
+>;
+
 export type SetMediaProgramEpisodesWatchedInput = Parameters<
   typeof db.setMediaProgramEpisodesWatched
 >[0];

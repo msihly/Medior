@@ -98,6 +98,10 @@ model.addProp("isAudioCorrupted", "boolean");
 model.addIndex({ isCorrupted: 1 }, { unique: false });
 model.addProp("isCorrupted", "boolean");
 
+/** The media programs whose seasons hold the file, kept in step with their seasons. */
+model.addIndex({ mediaProgramIds: 1 }, { unique: false });
+model.addProp("mediaProgramIds", "MediaProgram.id[]", { defaultValue: "[]", required: true });
+
 /** Audio files' music tags, which group them into music artists and albums. */
 model.addIndex(
   { "music.albumKey": 1 },

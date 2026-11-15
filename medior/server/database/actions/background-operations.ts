@@ -346,13 +346,17 @@ export const startBackgroundQueues = async (retryPersistence = false) => {
     // Loaded here, as their imports need this module's runners, which a static import would precede.
     const { resumeMediaProgramMetaMatches } =
       await import("medior/server/database/actions/media-program-meta");
-    const { fillMediaProgramWatchStatusOrders, mergeDuplicateMediaPrograms } =
-      await import("medior/server/database/actions/media-programs");
+    const {
+      fillFileMediaProgramIds,
+      fillMediaProgramWatchStatusOrders,
+      mergeDuplicateMediaPrograms,
+    } = await import("medior/server/database/actions/media-programs");
 
     resumeMediaProgramMetaMatches();
     fillMediaProgramWatchStatusOrders();
     // Programs imported apart before imports matched them by name join their originals.
     mergeDuplicateMediaPrograms();
+    fillFileMediaProgramIds();
 
     clearInterval(retentionTimer);
     retentionTimer = setInterval(() => runPersistenceRetention(), 60 * 1000);

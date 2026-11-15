@@ -172,6 +172,7 @@ export interface FileSchema {
   isArchived?: boolean;
   isAudioCorrupted?: boolean;
   isCorrupted?: boolean;
+  mediaProgramIds: string[];
   music?: import("medior/utils/common/music").FileMusic;
   musicOptions?: import("medior/utils/common/music").MusicImportOptions;
   nameTranslations?: Array<{
@@ -256,6 +257,7 @@ const FileSchema = new Schema<FileSchema>({
   isArchived: Boolean,
   isAudioCorrupted: Boolean,
   isCorrupted: Boolean,
+  mediaProgramIds: [{ type: Schema.Types.ObjectId, ref: "MediaProgram" }],
   music: Schema.Types.Mixed,
   musicOptions: Schema.Types.Mixed,
   nameTranslations: [{ display: String, language: String, name: String, text: String }],
@@ -317,6 +319,7 @@ FileSchema.index({ hasTranscript: 1 }, { unique: false });
 FileSchema.index({ height: 1, _id: 1 }, { unique: true });
 FileSchema.index({ isArchived: 1 }, { unique: false });
 FileSchema.index({ isCorrupted: 1 }, { unique: false });
+FileSchema.index({ mediaProgramIds: 1 }, { unique: false });
 FileSchema.index(
   { "music.albumKey": 1 },
   { partialFilterExpression: { "music.albumKey": { $type: "string" } }, unique: false },
