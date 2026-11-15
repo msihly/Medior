@@ -11,6 +11,7 @@ import {
   assertMediaPathIndexesReady,
   assertMediaPathsAvailable,
   describeFileCleanup,
+  describeMutableFileCleanup,
   FileOperation,
   FileOperationModel,
   finishFileOperation,
@@ -56,6 +57,7 @@ import {
   syncMediaFile,
 } from "medior/utils/server/media-output";
 import { moveFileNoReplace, moveOrdinaryFileNoReplace } from "medior/utils/server/move-file";
+import { copyPotPlayerBookmarks, getPotPlayerBookmarkPath } from "medior/utils/server/pot-player";
 import { canEmbedSubtitle, getPartialMuxPath, muxSubtitles } from "medior/utils/server/subtitles";
 import { waitForWork, withResources, workSignal } from "medior/utils/server/work-signal";
 
@@ -230,6 +232,12 @@ export const getImportOperationId = (args: Pick<MediaImportInput, "batchId" | "o
 const getImportScratchPaths = (operation: FileOperation) => [
   ...(operation.contentPath
     ? [operation.contentPath, getPartialMuxPath(operation.contentPath)]
+    : []),
+  // Media kept in place keeps the bookmarks beside it.
+  ...(operation.outputPath &&
+  getIsVideo(path.extname(operation.outputPath).slice(1)) &&
+  mediaPathKey(operation.outputPath) !== mediaPathKey(operation.sourcePath)
+    ? [getPotPlayerBookmarkPath(operation.outputPath)]
     : []),
   ...(operation.outputPath && operation.importInput
     ? getSubtitleFilePaths(
@@ -1048,6 +1056,21 @@ export const importMedia = async (args: MediaImportInput, operationId?: string) 
 
     const storedSubtitles = keptCopies.filter(Boolean);
 
+    // PotPlayer bookmarks follow their video to its stored copy, or to a duplicate without its own,
+    // unless Settings leaves them out of imports.
+    const bookmarkSourcePath = getPotPlayerBookmarkPath(args.originalPath);
+    const bookmarkMediaPath = duplicate?.path ?? operation.outputPath;
+    const bookmarkCopyPath =
+      getConfig().imports.withPotPlayerBookmarks &&
+      getIsVideo(args.ext) &&
+      !ignored &&
+      !isInPlace &&
+      bookmarkMediaPath &&
+      !getIsLinkedPath(bookmarkMediaPath) &&
+      (await copyPotPlayerBookmarks(args.originalPath, bookmarkMediaPath))
+        ? getPotPlayerBookmarkPath(bookmarkMediaPath)
+        : null;
+
     reportProgress("Preparing source cleanup.");
 
     const cleanup = [];
@@ -1082,6 +1105,13 @@ export const importMedia = async (args: MediaImportInput, operationId?: string) 
 
         if (file) cleanup.push(file);
       }
+
+      // Bookmarks change as they're watched, so cleanup only checks that their copy still exists.
+      const bookmarkCleanup = bookmarkCopyPath
+        ? await describeMutableFileCleanup(bookmarkSourcePath, bookmarkCopyPath)
+        : null;
+
+      if (bookmarkCleanup) cleanup.push(bookmarkCleanup);
     } else if (isStored && !isLinked && (duplicate || isScratch)) {
       // Without source deletion, only redundant stored copies and leftover scratch are removed.
       cleanup.push(makeFileCleanup(sourceHash, args.originalPath));
@@ -1312,7 +1342,12 @@ const commitMediaImport = async (
   await updateBatchImport(args, { file, hash, status });
   recordTiming("import progress");
 
-  const retainedPaths = [file?.path, file?.thumb?.path, ...getSubtitleFilePaths(file?.subtitles)]
+  const retainedPaths = [
+    file?.path,
+    file?.path && getPotPlayerBookmarkPath(file.path),
+    file?.thumb?.path,
+    ...getSubtitleFilePaths(file?.subtitles),
+  ]
     .filter(Boolean)
     .map(mediaPathKey);
 

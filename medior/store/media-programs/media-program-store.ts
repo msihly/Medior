@@ -39,6 +39,8 @@ export class MediaProgramStore extends Model({
   manager: prop<MediaProgramManagerStore>(() => new MediaProgramManagerStore({})),
   /** The program whose metadata is being matched, from its card or the editor. */
   metaMatchProgramId: prop<string>(null).withSetter(),
+  /** The program's season being matched apart from it, from the season's card. */
+  metaMatchSeasonId: prop<string>(null),
   rankings: prop<MediaProgramRankingStore>(() => new MediaProgramRankingStore({})),
   titleTranslation: prop<MediaProgramTitleTranslationStore>(
     () => new MediaProgramTitleTranslationStore({}),
@@ -49,6 +51,19 @@ export class MediaProgramStore extends Model({
   }
 
   /* ---------------------------- STANDARD ACTIONS ---------------------------- */
+  @modelAction
+  closeMetaMatch() {
+    this.metaMatchProgramId = null;
+    this.metaMatchSeasonId = null;
+  }
+
+  /** Opens Match Metadata for one of the program's seasons, apart from the program. */
+  @modelAction
+  openSeasonMetaMatch({ programId, seasonId }: { programId: string; seasonId: string }) {
+    this.metaMatchProgramId = programId;
+    this.metaMatchSeasonId = seasonId;
+  }
+
   @modelAction
   updateVisiblePrograms(id: string, updates: Partial<ModelCreationData<MediaProgram>>) {
     this.manager.search.getResult(id)?.update(updates);
@@ -78,6 +93,15 @@ export class MediaProgramStore extends Model({
     if (ids.includes(this.editor.program?.id)) this.editor.setIsOpen(false);
 
     toast.success(`Deleted ${ids.length} media programs`);
+  });
+
+  /** Merges the programs into the most complete one, which stays selected. */
+  @modelFlow
+  mergeMediaPrograms = asyncAction(async (ids: string[]) => {
+    const res = await rpc.mergeMediaPrograms({ ids });
+    if (!res.success) throw new Error(res.error);
+
+    this.manager.search.setSelectedIds([res.data]);
   });
 
   /**
@@ -116,11 +140,22 @@ export class MediaProgramStore extends Model({
     },
   );
 
-  /** Saves the chosen match's metadata to the program, or clears its metadata without one. */
+  /**
+   * Saves the chosen match's metadata to the program, or clears its metadata without one. Given a
+   * season, the match is the season's own.
+   */
   @modelFlow
   setMediaProgramMeta = asyncAction(
-    async ({ id, match }: { id: string; match: MediaProgramMetaMatch | null }) => {
-      const res = await rpc.setMediaProgramMeta({ id, match });
+    async ({
+      id,
+      match,
+      seasonId,
+    }: {
+      id: string;
+      match: MediaProgramMetaMatch | null;
+      seasonId?: string;
+    }) => {
+      const res = await rpc.setMediaProgramMeta({ id, match, seasonId });
       if (!res.success) throw new Error(res.error);
 
       this.updateVisiblePrograms(id, res.data);
@@ -164,5 +199,11 @@ export class MediaProgramStore extends Model({
     if (!id) return null;
     else if (this.editor.program?.id === id) return this.editor.program;
     else return this.manager.search.getResult(id) ?? this.rankings.search.getResult(id) ?? null;
+  }
+
+  /** The season being matched apart from its program, or null when the program is. */
+  @computed
+  get metaMatchSeason() {
+    return this.metaMatchProgram?.seasons.find(({ id }) => id === this.metaMatchSeasonId) ?? null;
   }
 }

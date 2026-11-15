@@ -53,6 +53,9 @@ export const MediaProgramSeasons = Comp(() => {
 
   const handleMetaOpen = () => stores.mediaProgram.setMetaMatchProgramId(store.program.id);
 
+  const handleSeasonMetaOpen = (seasonId: string) =>
+    stores.mediaProgram.openSeasonMetaMatch({ programId: store.program.id, seasonId });
+
   const handleMissingClick = (number: number, event: React.MouseEvent) => {
     if (event.ctrlKey || event.shiftKey)
       store.chooseMissingSeason({ hasShift: event.shiftKey, number });
@@ -261,7 +264,7 @@ export const MediaProgramSeasons = Comp(() => {
             <SeasonCard
               key={season.id}
               onClick={handleSeasonClick}
-              onMatchMeta={handleMetaOpen}
+              onMatchMeta={handleSeasonMetaOpen}
               onMove={handleMove}
               onRate={handleRating}
               onRemove={openRemove}
@@ -337,7 +340,7 @@ export const MediaProgramSeasons = Comp(() => {
 
 interface SeasonCardProps {
   onClick: (id: string, event: React.MouseEvent) => void;
-  onMatchMeta: () => void;
+  onMatchMeta: (id: string) => void;
   onMove: (id: string, down: boolean) => void;
   onRate: (id: string, rating: number) => void;
   onRemove: (id: string) => void;
@@ -348,8 +351,8 @@ interface SeasonCardProps {
 }
 
 /**
- * A season laid out like a file card, with the season actions in its context menu, and the
- * program's metadata match.
+ * A season laid out like a file card, with the season actions in its context menu, including
+ * matching its metadata apart from the program's, such as for a movie grouped with others.
  */
 const SeasonCard = Comp(
   ({
@@ -397,7 +400,7 @@ const SeasonCard = Comp(
         ? [{ icon: "ArrowForward", label: "Move Later", onClick: () => onMove(season.id, true) }]
         : []) satisfies ContextMenuProps["menuItems"]),
       { icon: "CallSplit", label: "Split by File Names", onClick: () => onSplit(season.id) },
-      { icon: "TravelExplore", label: "Match Metadata", onClick: onMatchMeta },
+      { icon: "TravelExplore", label: "Match Metadata", onClick: () => onMatchMeta(season.id) },
       {
         color: colors.custom.red,
         divider: "top",

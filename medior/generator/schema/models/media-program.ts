@@ -24,6 +24,12 @@ model.addProp("fileCount", "number", {
 model.addIndex({ genreIds: 1, _id: 1 });
 model.addProp("genreIds", "Tag.id[]", { defaultValue: "[]", required: true });
 
+/**
+ * Chosen as new in the Import Editor, so imports never join it by name and automatic merging leaves
+ * it out. Merge in the Media Program Manager still includes it.
+ */
+model.addProp("isKeptApart", "boolean");
+
 model.addProp("isMetaPending", "boolean");
 
 model.addProp("isRewatching", "boolean", { defaultValue: "false", required: true });
@@ -50,6 +56,13 @@ model.addProp(
 model.addIndex({ name: 1, _id: 1 });
 model.addProp("name", "string", { required: true, sort: { icon: "Title", label: "Name" } });
 
+/**
+ * Folders besides its own that the program's seasons were imported from, including those of the
+ * programs merged into it, so later imports from them find it.
+ */
+model.addIndex({ otherSourceFolderKeys: 1 }, { unique: false });
+model.addProp("otherSourceFolderKeys", "string[]");
+
 model.addProp("posterFileId", "File.id");
 
 model.addIndex({ rating: 1, _id: 1 });
@@ -70,7 +83,7 @@ model.addProp("seasons", 'import("medior/utils/common/media-programs").MediaProg
   defaultValue: "[]",
   required: true,
   schemaType:
-    "[{ _id: false, episodeNumbers: Schema.Types.Mixed, fileIds: [Schema.Types.ObjectId], id: String, label: String, meta: Schema.Types.Mixed, number: Number, rating: Number, ratingIsManual: Boolean }]",
+    "[{ _id: false, episodeNumbers: Schema.Types.Mixed, fileIds: [Schema.Types.ObjectId], id: String, label: String, meta: Schema.Types.Mixed, metaMatch: Schema.Types.Mixed, number: Number, rating: Number, ratingIsManual: Boolean }]",
 });
 
 model.addIndex({ size: 1, _id: 1 });

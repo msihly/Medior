@@ -1,11 +1,12 @@
 import remote from "@electron/remote";
 import fs from "fs/promises";
 import autoBind from "auto-bind";
+import type { FileSchema } from "medior/_generated/server";
 import { computed } from "mobx";
 import { getRootStore, Model, model, modelAction, modelFlow, prop } from "mobx-keystone";
 import type { ImageEditInput } from "medior/server/database/actions/image-edits";
 import { SliderMark } from "medior/components";
-import { RootStore, Splicer } from "medior/store";
+import { File, RootStore, Splicer } from "medior/store";
 import { asyncAction, derefMobx, openCarouselWindow, toast } from "medior/utils/client";
 import {
   FileTranslationSource,
@@ -13,6 +14,7 @@ import {
   getCaptionTranslation,
   SubtitleSegment,
   TEXT_SUBTITLE_CODECS,
+  uuid,
 } from "medior/utils/common";
 import { rpc } from "medior/utils/server";
 import { probeChapters, VideoChapter } from "medior/utils/server/ffmpeg";
@@ -77,6 +79,8 @@ export class CarouselStore extends Model({
   visibleFileIds: prop<string[]>(() => []).withSetter(),
   volume: prop<number>(0.3).withSetter(),
 }) {
+  /** The latest bookmark edit, which the next one waits for. */
+  private bookmarkEdit: Promise<void> = Promise.resolve();
   private chapterAbortController: AbortController = null;
   private frameAbortController: AbortController = null;
   private subtitleAbortController: AbortController = null;
@@ -228,6 +232,49 @@ export class CarouselStore extends Model({
   }
 
   /* ------------------------------ ASYNC ACTIONS ----------------------------- */
+  /**
+   * Bookmarks the active video where it is, in Medior alone; PotPlayer keeps its own. Resolves to
+   * the bookmark's time.
+   */
+  @modelFlow
+  addBookmark = asyncAction(async () => {
+    const activeFile = this.getActiveFile();
+    if (!activeFile?.isVideo) throw new Error("Only videos can be bookmarked");
+
+    const time = this.curTime;
+
+    await this.editBookmarks(activeFile, (bookmarks) =>
+      [...bookmarks, { id: uuid(), time }].sort((a, b) => a.time - b.time),
+    );
+
+    return time;
+  });
+
+  /**
+   * Saves the file's bookmarks as edited, after any earlier edit finishes, so each edit starts from
+   * the bookmarks the last one saved and quick edits never drop each other.
+   */
+  async editBookmarks(
+    file: File,
+    edit: (bookmarks: FileSchema["bookmarks"]) => FileSchema["bookmarks"],
+  ) {
+    const save = async () => {
+      const bookmarks = edit(derefMobx(file.bookmarks ?? []));
+
+      const res = await rpc.updateFile({ args: { id: file.id, updates: { bookmarks } } });
+      if (!res.success) throw new Error(res.error);
+
+      file.update({ bookmarks });
+    };
+
+    const edited = this.bookmarkEdit.then(save);
+
+    // A failed edit is reported to its own caller, and the next one still runs.
+    this.bookmarkEdit = edited.catch(() => {});
+
+    await edited;
+  }
+
   @modelFlow
   editImage = asyncAction(async (args: ImageEditInput) => {
     const stores = getRootStore<RootStore>(this);
@@ -455,6 +502,16 @@ export class CarouselStore extends Model({
       setTimeout(() => this.watchedFileIds.delete(activeFile.id), WATCHED_RETRY_MS);
     }
   }
+
+  @modelFlow
+  removeBookmark = asyncAction(async (id: string) => {
+    const activeFile = this.getActiveFile();
+    if (!activeFile) throw new Error("Active file not found");
+
+    await this.editBookmarks(activeFile, (bookmarks) =>
+      bookmarks.filter((bookmark) => bookmark.id !== id),
+    );
+  });
 
   /** An empty id shows the transcript instead; `remember` keeps the language for later videos. */
   @modelFlow

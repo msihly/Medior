@@ -16,6 +16,8 @@ const getMediaProgramImageFolders = (
       ...(season.episodes ?? []).map((episode) => episode.stillPath),
     ]),
     ...(program.seasons ?? []).flatMap((season) => [
+      season.meta?.details?.bannerPath,
+      season.meta?.details?.posterPath,
       season.meta?.posterPath,
       ...(season.meta?.episodes ?? []).map((episode) => episode.stillPath),
     ]),
@@ -35,6 +37,7 @@ export const readMediaProgramSeasons = (
     id: String(season.id),
     label: season.label ?? "",
     meta: season.meta ?? null,
+    metaMatch: season.metaMatch ?? null,
     number: season.number ?? null,
     rating: season.rating ?? 0,
     ratingIsManual: !!season.ratingIsManual,
@@ -54,12 +57,17 @@ export const removeMediaProgramImageFolder = async (folderPath: string) => {
 
 /**
  * Deletes the images downloaded for the programs' metadata, then each program's image folder once
- * it holds no other download.
+ * it holds no other download. Downloads the kept programs still show stay, such as those of seasons
+ * matched apart from their program when the program's match is cleared.
  */
 export const removeMediaProgramImages = async (
   programs: Pick<models.MediaProgramSchema, "meta" | "seasons">[],
+  keptPrograms: Pick<models.MediaProgramSchema, "meta" | "seasons">[] = [],
 ) => {
-  const folderPaths = programs.flatMap(getMediaProgramImageFolders);
+  const keptFolderPaths = new Set(keptPrograms.flatMap(getMediaProgramImageFolders));
+  const folderPaths = programs
+    .flatMap(getMediaProgramImageFolders)
+    .filter((folderPath) => !keptFolderPaths.has(folderPath));
 
   for (const folderPath of folderPaths) {
     try {

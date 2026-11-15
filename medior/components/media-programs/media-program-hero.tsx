@@ -24,7 +24,9 @@ const DESCRIPTION_LINES = 3;
 
 /**
  * The program's poster and details over its blurred backdrop, like a streaming site's title page.
- * Its name, watch status, rating, year, and classification are edited where they're shown.
+ * Its name, watch status, rating, year, and classification are edited where they're shown. A shown
+ * season with its own match, such as a movie grouped with others, shows that match's poster,
+ * backdrop, title, and description.
  */
 export const MediaProgramHero = Comp(() => {
   const stores = useStores();
@@ -39,7 +41,7 @@ export const MediaProgramHero = Comp(() => {
   const { css } = useClasses({ isDescriptionExpanded });
 
   const program = store.program;
-  const meta = program?.meta;
+  const meta = store.shownMeta;
   // Programs without metadata show the first episode of the active season's page.
   const episodeFile = store.search.results[0];
   const posterPath = meta?.posterPath ?? store.activeSeason?.meta?.posterPath;

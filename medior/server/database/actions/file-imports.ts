@@ -100,6 +100,8 @@ class ImporterStatus {
 }
 
 const importerStatus = new ImporterStatus();
+/** Batches being deleted or reprocessed, which the importer leaves alone until they're done. */
+const heldBatchIds = new Set<string>();
 const COLLECTION_IMPORT_STATUSES = ["COMPLETE", "DUPLICATE"] satisfies Types.ImportStatus[];
 const REPROCESSED_IMPORT_STATUSES = [
   "COMPLETE",
@@ -574,32 +576,33 @@ export const deleteImportBatches = makeAction(
     "deleteImportBatches",
     async (args: { ids: string[] }) => {
       await assertImportEntriesReady();
-      await stopImporter();
 
-      const abandonedIds: string[] = [];
+      return withHeldImportBatches(args.ids, async (isImporterStopped) => {
+        const abandonedIds: string[] = [];
 
-      // Imports abandoned before one fails still have their cleanup queued.
-      try {
-        for await (const operation of FileOperationModel.find({
-          batchId: { $in: args.ids },
-          importResult: { $exists: false },
-          state: "PREPARED",
-        })
-          .lean()
-          .cursor({ batchSize: 100 })) {
-          await abandonPreparedImport(operation);
-          abandonedIds.push(operation._id);
+        // Imports abandoned before one fails still have their cleanup queued.
+        try {
+          for await (const operation of FileOperationModel.find({
+            batchId: { $in: args.ids },
+            importResult: { $exists: false },
+            state: "PREPARED",
+          })
+            .lean()
+            .cursor({ batchSize: 100 })) {
+            await abandonPreparedImport(operation);
+            abandonedIds.push(operation._id);
+          }
+        } finally {
+          // Cleanup started here would stop when this request ends, so it is queued to finish later.
+          if (abandonedIds.length) await queueImportCleanup(abandonedIds);
         }
-      } finally {
-        // Cleanup started here would stop when this request ends, so it is queued to finish later.
-        if (abandonedIds.length) await queueImportCleanup(abandonedIds);
-      }
 
-      const result = await models.FileImportBatchModel.deleteMany({ _id: { $in: args.ids } });
+        const result = await models.FileImportBatchModel.deleteMany({ _id: { $in: args.ids } });
 
-      await models.FileImportModel.deleteMany({ batchId: { $in: args.ids } });
+        await models.FileImportModel.deleteMany({ batchId: { $in: args.ids } });
 
-      return result;
+        return { deletedCount: result.deletedCount, isImporterStopped };
+      });
     },
     { persistInBackground: true },
   ),
@@ -738,316 +741,342 @@ export const reprocessStoredImports = makeAction(
     "reprocessStoredImports",
     async (args: { id: string }) => {
       await assertImportEntriesReady();
-      await stopImporter();
 
-      const batch = await models.FileImportBatchModel.findOne({ _id: args.id, isReady: true })
-        .select({ collectionId: 1, tagIds: 1 })
-        .lean();
-      if (!batch) throw new Error("Import batch is unavailable");
-
-      let deletedCount = 0;
-      let lastIndex = -1;
-      let requeuedCount = 0;
-
-      while (true) {
-        const entries = await models.FileImportModel.find({
-          batchId: args.id,
-          index: { $gt: lastIndex },
-          status: { $in: REPROCESSED_IMPORT_STATUSES },
-        })
-          .select({
-            fileId: 1,
-            hash: 1,
-            index: 1,
-            path: 1,
-            "sidecar.rating": 1,
-            status: 1,
-            tagIds: 1,
-          })
-          .sort({ index: 1 })
-          .limit(1000)
+      const result = await withHeldImportBatches([args.id], async (isImporterStopped) => {
+        const batch = await models.FileImportBatchModel.findOne({ _id: args.id, isReady: true })
+          .select({ collectionId: 1, tagIds: 1 })
           .lean();
+        if (!batch) throw new Error("Import batch is unavailable");
 
-        if (!entries.length) break;
+        let deletedCount = 0;
+        let lastIndex = -1;
+        let requeuedCount = 0;
 
-        lastIndex = entries.at(-1).index;
-
-        const storedEntries = entries.filter(
-          (entry) => getIsStoragePath(entry.path) && !getIsActiveScratchPath(entry.path),
-        );
-        const existingIndexes = new Set<number>();
-
-        await runConcurrent(storedEntries, CONSTANTS.FILE.IO_CONCURRENCY, async (entry) => {
-          if (await checkFileExists(entry.path)) existingIndexes.add(entry.index);
-        });
-
-        const files = new Map(
-          (
-            await models.FileModel.find({
-              _id: { $in: storedEntries.flatMap((entry) => entry.fileId ?? []) },
+        while (true) {
+          const entries = await models.FileImportModel.find({
+            batchId: args.id,
+            index: { $gt: lastIndex },
+            status: { $in: REPROCESSED_IMPORT_STATUSES },
+          })
+            .select({
+              fileId: 1,
+              hash: 1,
+              index: 1,
+              path: 1,
+              "sidecar.rating": 1,
+              status: 1,
+              tagIds: 1,
             })
-              .select({
-                collectionIds: 1,
-                hash: 1,
-                originalHash: 1,
-                originalPath: 1,
-                path: 1,
-                previousHashes: 1,
-                rating: 1,
-                sourceHash: 1,
-                tagIds: 1,
-              })
-              .lean()
-          ).map((file) => [String(file._id), file]),
-        );
+            .sort({ index: 1 })
+            .limit(1000)
+            .lean();
 
-        // Files tagged, rated, or collected beyond what this batch gave them are kept even when
-        // they are redundant copies.
-        const getIsCurated = (entry: (typeof entries)[number]) => {
-          const file = files.get(String(entry.fileId));
-          if (!file) return false;
+          if (!entries.length) break;
 
-          const importedTagIds = new Set([...batch.tagIds, ...(entry.tagIds ?? [])].map(String));
+          lastIndex = entries.at(-1).index;
 
-          return (
-            (file.tagIds ?? []).some((tagId) => !importedTagIds.has(String(tagId))) ||
-            (file.collectionIds ?? []).some(
-              (collectionId) => String(collectionId) !== String(batch.collectionId),
-            ) ||
-            (file.rating > 0 && file.rating !== entry.sidecar?.rating)
+          const storedEntries = entries.filter(
+            (entry) => getIsStoragePath(entry.path) && !getIsActiveScratchPath(entry.path),
           );
-        };
+          const existingIndexes = new Set<number>();
 
-        const curatedIndexes = new Set(
-          storedEntries.filter(getIsCurated).map((entry) => entry.index),
-        );
+          await runConcurrent(storedEntries, CONSTANTS.FILE.IO_CONCURRENCY, async (entry) => {
+            if (await checkFileExists(entry.path)) existingIndexes.add(entry.index);
+          });
 
-        // Files this batch created from an entry record its source as their original path.
-        const createdFiles = storedEntries.flatMap((entry) => {
-          const file = files.get(String(entry.fileId));
+          const files = new Map(
+            (
+              await models.FileModel.find({
+                _id: { $in: storedEntries.flatMap((entry) => entry.fileId ?? []) },
+              })
+                .select({
+                  collectionIds: 1,
+                  hash: 1,
+                  originalHash: 1,
+                  originalPath: 1,
+                  path: 1,
+                  previousHashes: 1,
+                  rating: 1,
+                  sourceHash: 1,
+                  tagIds: 1,
+                })
+                .lean()
+            ).map((file) => [String(file._id), file]),
+          );
 
-          return file && mediaPathKey(file.originalPath) === mediaPathKey(entry.path) ? [file] : [];
-        });
-        const createdFileSet = new Set(createdFiles);
-        const createdHashes = createdFiles.map((file) => file.hash);
-        const createdHashSet = new Set(createdHashes);
+          // Files tagged, rated, or collected beyond what this batch gave them are kept even when
+          // they are redundant copies.
+          const getIsCurated = (entry: (typeof entries)[number]) => {
+            const file = files.get(String(entry.fileId));
+            if (!file) return false;
 
-        // Files compressed, spliced, or edited since keep the checksums of versions this batch re-created.
-        const supersedingIds = new Map<string, string>();
+            const importedTagIds = new Set([...batch.tagIds, ...(entry.tagIds ?? [])].map(String));
 
-        for (const file of await models.FileModel.find({
-          _id: { $nin: createdFiles.map((created) => created._id) },
-          $or: [
-            { originalHash: { $in: createdHashes, $type: "string" } },
-            { previousHashes: { $in: createdHashes, $type: "string" } },
-            { sourceHash: { $in: createdHashes, $type: "string" } },
-          ],
-        })
-          .select({ originalHash: 1, path: 1, previousHashes: 1, sourceHash: 1 })
-          .lean()) {
-          if (await checkFileExists(file.path)) {
-            for (const hash of [file.originalHash, file.sourceHash, ...(file.previousHashes ?? [])])
-              if (createdHashSet.has(hash)) supersedingIds.set(hash, String(file._id));
-          }
-        }
+            return (
+              (file.tagIds ?? []).some((tagId) => !importedTagIds.has(String(tagId))) ||
+              (file.collectionIds ?? []).some(
+                (collectionId) => String(collectionId) !== String(batch.collectionId),
+              ) ||
+              (file.rating > 0 && file.rating !== entry.sidecar?.rating)
+            );
+          };
 
-        // Untouched originals this batch re-created are removed; curated ones stay.
-        const getSupersedingId = (entry: (typeof entries)[number]) => {
-          const file = files.get(String(entry.fileId));
+          const curatedIndexes = new Set(
+            storedEntries.filter(getIsCurated).map((entry) => entry.index),
+          );
 
-          return createdFileSet.has(file) && !curatedIndexes.has(entry.index)
-            ? supersedingIds.get(file.hash)
-            : undefined;
-        };
+          // Files this batch created from an entry record its source as their original path.
+          const createdFiles = storedEntries.flatMap((entry) => {
+            const file = files.get(String(entry.fileId));
 
-        const junkFileIds: string[] = [];
-        const requeuedIndexes: number[] = [];
-        const supersededEntries: { fileId: string; index: number }[] = [];
+            return file && mediaPathKey(file.originalPath) === mediaPathKey(entry.path)
+              ? [file]
+              : [];
+          });
+          const createdFileSet = new Set(createdFiles);
+          const createdHashes = createdFiles.map((file) => file.hash);
+          const createdHashSet = new Set(createdHashes);
 
-        // Originals registered in place, or whose source is already gone, leave the entry a duplicate.
-        for (const entry of storedEntries) {
-          const file = files.get(String(entry.fileId));
-          const supersedingId = getSupersedingId(entry);
+          // Files compressed, spliced, or edited since keep the checksums of versions this batch
+          // re-created.
+          const supersedingIds = new Map<string, string>();
 
-          if (
-            supersedingId &&
-            (!existingIndexes.has(entry.index) ||
-              mediaPathKey(file.path) === mediaPathKey(entry.path))
-          ) {
-            junkFileIds.push(String(file._id));
-            supersededEntries.push({ fileId: supersedingId, index: entry.index });
-          }
-        }
-
-        const supersededIndexes = new Set(supersededEntries.map((superseded) => superseded.index));
-        const candidates = storedEntries.filter(
-          (entry) => existingIndexes.has(entry.index) && !supersededIndexes.has(entry.index),
-        );
-
-        const operationIds = new Map(
-          candidates.map((entry) => [
-            entry.index,
-            getImportOperationId({ batchId: args.id, originalPath: entry.path }),
-          ]),
-        );
-
-        const operations = new Map(
-          (await FileOperationModel.find({ _id: { $in: [...operationIds.values()] } }).lean()).map(
-            (operation) => [operation._id, operation],
-          ),
-        );
-
-        const deletedHashes = new Set(
-          (
-            await models.DeletedFileModel.find({
-              hash: { $in: candidates.flatMap((entry) => entry.hash ?? []) },
-            })
-              .select({ hash: 1 })
-              .lean()
-          ).map((file) => file.hash),
-        );
-
-        const { cleanupKeys, transformKeys } = await listOwnedMediaPathKeys(
-          candidates.map((entry) => entry.path),
-        );
-
-        for (const entry of candidates) {
-          const file = files.get(String(entry.fileId));
-          const isTransformOwned = transformKeys.has(mediaPathKey(entry.path));
-          const operation = operations.get(operationIds.get(entry.index));
-          const supersedingId = getSupersedingId(entry);
-
-          // Sources a cleanup is deleting are left to it, as is any copy it retains.
-          if (cleanupKeys.has(mediaPathKey(entry.path))) continue;
-
-          // Files registered in place are done; ones whose content no longer relates keep their source.
-          if (
-            file &&
-            (mediaPathKey(file.path) === mediaPathKey(entry.path) ||
-              !entry.hash ||
-              ![
-                file.hash,
+          for (const file of await models.FileModel.find({
+            _id: { $nin: createdFiles.map((created) => created._id) },
+            $or: [
+              { originalHash: { $in: createdHashes, $type: "string" } },
+              { previousHashes: { $in: createdHashes, $type: "string" } },
+              { sourceHash: { $in: createdHashes, $type: "string" } },
+            ],
+          })
+            .select({ originalHash: 1, path: 1, previousHashes: 1, sourceHash: 1 })
+            .lean()) {
+            if (await checkFileExists(file.path)) {
+              for (const hash of [
                 file.originalHash,
                 file.sourceHash,
                 ...(file.previousHashes ?? []),
-              ].includes(entry.hash))
-          )
-            continue;
-
-          // Imports committing or cleaning up finish on their own; ones whose file exists finish requeued.
-          if (operation) {
-            if (operation.state !== "PREPARED" || operation.importResult) continue;
-
-            if (
-              !operation.outputPath ||
-              !(await isMediaPathReferenced(operation.outputPath, {
-                fileOperationId: operation._id,
-              }))
-            ) {
-              await abandonPreparedImport(operation);
-
-              if ((await finishFileOperation(operation._id)) !== "DONE") continue;
+              ])
+                if (createdHashSet.has(hash)) supersedingIds.set(hash, String(file._id));
             }
           }
 
-          const isJunk =
-            !!supersedingId ||
-            (entry.status === "COMPLETE" &&
-              !!file &&
-              !curatedIndexes.has(entry.index) &&
-              (isTransformOwned ||
-                getIsStorageScratchPath(entry.path) ||
-                deletedHashes.has(entry.hash) ||
-                (await isMediaPathReferenced(entry.path, {
-                  fileOperationId: operationIds.get(entry.index),
-                }))));
+          // Untouched originals this batch re-created are removed; curated ones stay.
+          const getSupersedingId = (entry: (typeof entries)[number]) => {
+            const file = files.get(String(entry.fileId));
 
-          if (isJunk) junkFileIds.push(String(entry.fileId));
+            return createdFileSet.has(file) && !curatedIndexes.has(entry.index)
+              ? supersedingIds.get(file.hash)
+              : undefined;
+          };
 
-          // Transform cleanups decide their files, so requeuing only records why a junk copy went.
-          if (!isTransformOwned || isJunk) requeuedIndexes.push(entry.index);
-        }
+          const junkFileIds: string[] = [];
+          const requeuedIndexes: number[] = [];
+          const supersededEntries: { fileId: string; index: number }[] = [];
 
-        // Entries point at their superseding files before the originals go, so none is left dangling.
-        if (supersededEntries.length)
-          await models.FileImportModel.bulkWrite(
-            supersededEntries.map(({ fileId, index }) => ({
-              updateOne: {
-                filter: { batchId: args.id, index },
-                update: { $set: { errorMsg: null, fileId, status: "DUPLICATE" } },
-              },
-            })),
+          // Originals registered in place, or whose source is already gone, leave the entry a
+          // duplicate.
+          for (const entry of storedEntries) {
+            const file = files.get(String(entry.fileId));
+            const supersedingId = getSupersedingId(entry);
+
+            if (
+              supersedingId &&
+              (!existingIndexes.has(entry.index) ||
+                mediaPathKey(file.path) === mediaPathKey(entry.path))
+            ) {
+              junkFileIds.push(String(file._id));
+              supersededEntries.push({ fileId: supersedingId, index: entry.index });
+            }
+          }
+
+          const supersededIndexes = new Set(
+            supersededEntries.map((superseded) => superseded.index),
+          );
+          const candidates = storedEntries.filter(
+            (entry) => existingIndexes.has(entry.index) && !supersededIndexes.has(entry.index),
           );
 
-        const uniqueJunkIds = [...new Set(junkFileIds)];
-
-        // Junk records are not marked deleted, so imports of their content elsewhere are unaffected.
-        for (const fileIds of chunkArray(uniqueJunkIds, 200)) {
-          const deleted = await actions.deleteFiles({ fileIds, withDeletedHashes: false });
-          if (!deleted.success) throw new Error(deleted.error);
-
-          deletedCount += fileIds.length;
-        }
-
-        // Other entries that recorded a removed file, such as duplicates of it, are left to retry.
-        if (uniqueJunkIds.length)
-          await models.FileImportModel.updateMany(
-            {
-              fileId: { $in: uniqueJunkIds },
-              $nor: [{ batchId: args.id, index: { $in: requeuedIndexes } }],
-            },
-            {
-              $set: {
-                errorMsg: "Its file was removed as a redundant stored copy; reprocess to retry.",
-                fileId: null,
-                status: "ERROR",
-              },
-            },
+          const operationIds = new Map(
+            candidates.map((entry) => [
+              entry.index,
+              getImportOperationId({ batchId: args.id, originalPath: entry.path }),
+            ]),
           );
 
-        if (requeuedIndexes.length)
-          requeuedCount += await runImportTransaction(async () => {
-            const filter = {
-              batchId: objectId(args.id),
-              index: { $in: requeuedIndexes },
-              status: { $ne: "PENDING" },
-            };
+          const operations = new Map(
+            (
+              await FileOperationModel.find({ _id: { $in: [...operationIds.values()] } }).lean()
+            ).map((operation) => [operation._id, operation]),
+          );
 
-            const [requeued] = await models.FileImportModel.aggregate<{
-              count: number;
-              size: number;
-            }>([
-              { $match: filter },
-              { $group: { _id: null, count: { $sum: 1 }, size: { $sum: "$size" } } },
-            ]);
+          const deletedHashes = new Set(
+            (
+              await models.DeletedFileModel.find({
+                hash: { $in: candidates.flatMap((entry) => entry.hash ?? []) },
+              })
+                .select({ hash: 1 })
+                .lean()
+            ).map((file) => file.hash),
+          );
 
-            if (!requeued) return 0;
+          const { cleanupKeys, transformKeys } = await listOwnedMediaPathKeys(
+            candidates.map((entry) => entry.path),
+          );
 
-            // Model queries cast string IDs; the aggregation match above needs the ObjectId.
-            await models.FileImportModel.updateMany(
-              { ...filter, batchId: args.id },
-              { $set: { errorMsg: null, fileId: null, status: "PENDING" } },
-            );
+          for (const entry of candidates) {
+            const file = files.get(String(entry.fileId));
+            const isTransformOwned = transformKeys.has(mediaPathKey(entry.path));
+            const operation = operations.get(operationIds.get(entry.index));
+            const supersedingId = getSupersedingId(entry);
 
-            await models.FileImportBatchModel.updateOne(
-              { _id: args.id },
-              {
-                $inc: {
-                  processedCount: -requeued.count,
-                  processedSize: -requeued.size,
-                  progressRevision: 1,
+            // Sources a cleanup is deleting are left to it, as is any copy it retains.
+            if (cleanupKeys.has(mediaPathKey(entry.path))) continue;
+
+            // Files registered in place are done; ones whose content no longer relates keep their
+            // source.
+            if (
+              file &&
+              (mediaPathKey(file.path) === mediaPathKey(entry.path) ||
+                !entry.hash ||
+                ![
+                  file.hash,
+                  file.originalHash,
+                  file.sourceHash,
+                  ...(file.previousHashes ?? []),
+                ].includes(entry.hash))
+            )
+              continue;
+
+            // Imports committing or cleaning up finish on their own; ones whose file exists finish
+            // requeued.
+            if (operation) {
+              if (operation.state !== "PREPARED" || operation.importResult) continue;
+
+              if (
+                !operation.outputPath ||
+                !(await isMediaPathReferenced(operation.outputPath, {
+                  fileOperationId: operation._id,
+                }))
+              ) {
+                await abandonPreparedImport(operation);
+
+                if ((await finishFileOperation(operation._id)) !== "DONE") continue;
+              }
+            }
+
+            const isJunk =
+              !!supersedingId ||
+              (entry.status === "COMPLETE" &&
+                !!file &&
+                !curatedIndexes.has(entry.index) &&
+                (isTransformOwned ||
+                  getIsStorageScratchPath(entry.path) ||
+                  deletedHashes.has(entry.hash) ||
+                  (await isMediaPathReferenced(entry.path, {
+                    fileOperationId: operationIds.get(entry.index),
+                  }))));
+
+            if (isJunk) junkFileIds.push(String(entry.fileId));
+
+            // Transform cleanups decide their files, so requeuing only records why a junk copy went.
+            if (!isTransformOwned || isJunk) requeuedIndexes.push(entry.index);
+          }
+
+          // Entries point at their superseding files before the originals go, so none is left
+          // dangling.
+          if (supersededEntries.length)
+            await models.FileImportModel.bulkWrite(
+              supersededEntries.map(({ fileId, index }) => ({
+                updateOne: {
+                  filter: { batchId: args.id, index },
+                  update: { $set: { errorMsg: null, fileId, status: "DUPLICATE" } },
                 },
-                $set: { completedAt: null, isCompleted: false },
+              })),
+            );
+
+          const uniqueJunkIds = [...new Set(junkFileIds)];
+
+          // Junk records are not marked deleted, so imports of their content elsewhere are
+          // unaffected.
+          for (const fileIds of chunkArray(uniqueJunkIds, 200)) {
+            const deleted = await actions.deleteFiles({ fileIds, withDeletedHashes: false });
+            if (!deleted.success) throw new Error(deleted.error);
+
+            deletedCount += fileIds.length;
+          }
+
+          // Other entries that recorded a removed file, such as duplicates of it, are left to retry.
+          if (uniqueJunkIds.length)
+            await models.FileImportModel.updateMany(
+              {
+                fileId: { $in: uniqueJunkIds },
+                $nor: [{ batchId: args.id, index: { $in: requeuedIndexes } }],
+              },
+              {
+                $set: {
+                  errorMsg: "Its file was removed as a redundant stored copy; reprocess to retry.",
+                  fileId: null,
+                  status: "ERROR",
+                },
               },
             );
 
-            return requeued.count;
-          });
+          if (requeuedIndexes.length)
+            requeuedCount += await runImportTransaction(async () => {
+              const filter = {
+                batchId: objectId(args.id),
+                index: { $in: requeuedIndexes },
+                status: { $ne: "PENDING" },
+              };
+
+              const [requeued] = await models.FileImportModel.aggregate<{
+                count: number;
+                size: number;
+              }>([
+                { $match: filter },
+                { $group: { _id: null, count: { $sum: 1 }, size: { $sum: "$size" } } },
+              ]);
+
+              if (!requeued) return 0;
+
+              // Model queries cast string IDs; the aggregation match above needs the ObjectId.
+              await models.FileImportModel.updateMany(
+                { ...filter, batchId: args.id },
+                { $set: { errorMsg: null, fileId: null, status: "PENDING" } },
+              );
+
+              await models.FileImportBatchModel.updateOne(
+                { _id: args.id },
+                {
+                  $inc: {
+                    processedCount: -requeued.count,
+                    processedSize: -requeued.size,
+                    progressRevision: 1,
+                  },
+                  $set: { completedAt: null, isCompleted: false },
+                },
+              );
+
+              return requeued.count;
+            });
+        }
+
+        socket.emitVolatile("onReloadImportBatches");
+
+        return { deletedCount, isImporterStopped, requeuedCount };
+      });
+
+      const isImporterIdle = !importerStatus.getIsImporting() && !importerStatus.getIsPaused();
+
+      // The queue isn't paused, so requeued files import even when it ran out of batches meanwhile.
+      if (result.requeuedCount && isImporterIdle) {
+        const started = await runImportBatch({ id: args.id });
+        if (!started.success)
+          fileLog(`Failed to import the reprocessed batch: ${started.error}`, { type: "error" });
       }
 
-      socket.emitVolatile("onReloadImportBatches");
-
-      return { deletedCount, requeuedCount };
+      return result;
     },
     { persistInBackground: true },
   ),
@@ -1055,6 +1084,22 @@ export const reprocessStoredImports = makeAction(
 
 let activeImportExecution: Promise<void> = null;
 let importAbortController: AbortController;
+
+/**
+ * The batch the importer goes on to: the one it started last, or else the oldest, leaving out
+ * batches held while they change.
+ */
+const findNextImportBatchId = async () =>
+  (
+    await models.FileImportBatchModel.findOne({
+      _id: { $nin: [...heldBatchIds] },
+      isCompleted: false,
+      isReady: true,
+    })
+      .sort({ startedAt: -1, dateCreated: 1 })
+      .select({ _id: 1 })
+      .lean()
+  )?._id.toString();
 
 // @generator-ignore-export
 export const stopImporter = async () => {
@@ -1071,6 +1116,32 @@ export const stopImporter = async () => {
   })();
 
   await activeImportExecution;
+};
+
+/**
+ * Runs a change to the batches while the importer leaves them alone, so it never races the change
+ * while imports from other batches go on. The importer stops when it's on one of them, and the
+ * change hears whether it was running, so it can be resumed once done.
+ */
+const withHeldImportBatches = async <T>(
+  ids: string[],
+  change: (isImporterStopped: boolean) => Promise<T>,
+) => {
+  // Held in the same tick the active batch is read, so the importer either is on one of them and
+  // stops, or skips them once it reads the batch it chose.
+  for (const id of ids) heldBatchIds.add(id);
+
+  try {
+    const activeId = importerStatus.getIsImporting() ? importerStatus.activeBatchId : null;
+    const isActiveHeld = !!activeId && ids.includes(activeId);
+    const wasRunning = isActiveHeld && !importerStatus.getIsPaused();
+
+    if (isActiveHeld) await stopImporter();
+
+    return await change(wasRunning);
+  } finally {
+    for (const id of ids) heldBatchIds.delete(id);
+  }
 };
 
 // @generator-ignore-export
@@ -1103,20 +1174,25 @@ export const runImportBatch = makeAction(async (args: { id: string }) => {
         let id = args.id;
 
         while (id && !importerStatus.getIsPaused() && !isServerStopping()) {
+          // Recorded as soon as it's chosen, so changing the batch from here on stops the importer.
+          importerStatus.activeBatchId = id;
+
           const batchRes = await getImportBatch({ id });
           if (!batchRes.success) throw new Error(batchRes.error);
 
           const batch = batchRes.data;
 
-          if (!batch || batch.isCompleted || !batch.isReady)
-            throw new Error("Import batch is unavailable or completed");
+          // A batch deleted, finished, or held since it was chosen gives way to the next.
+          if (!batch || batch.isCompleted || !batch.isReady || heldBatchIds.has(id)) {
+            id = await findNextImportBatchId();
+            continue;
+          }
 
           if (!batch.startedAt) {
             const started = await startImportBatch({ id });
             if (!started.success) throw new Error(started.error);
           }
 
-          importerStatus.activeBatchId = id;
           socket.emit("onImportBatchLoaded", { id });
           actions.runMetadataRecoveryQueue();
 
@@ -1204,15 +1280,7 @@ export const runImportBatch = makeAction(async (args: { id: string }) => {
           const completed = await completeImportBatch({ id, withNextBatch: false });
           if (!completed.success) throw new Error(completed.error);
 
-          id = (
-            await models.FileImportBatchModel.findOne({
-              isCompleted: false,
-              isReady: true,
-            })
-              .sort({ startedAt: -1, dateCreated: 1 })
-              .select({ _id: 1 })
-              .lean()
-          )?._id.toString();
+          id = await findNextImportBatchId();
         }
       } catch (error) {
         importerStatus.setIsPaused(true);

@@ -3,7 +3,7 @@ import { ObjectId } from "bson";
 import { computed, reaction, when } from "mobx";
 import { Model, model, modelAction, modelFlow, prop } from "mobx-keystone";
 import type { ImportStatus } from "medior/server/database";
-import { asyncAction } from "medior/utils/client";
+import { asyncAction, toast } from "medior/utils/client";
 import {
   IMPORT_UPLOAD_BYTES,
   IMPORT_UPLOAD_COUNT,
@@ -155,12 +155,19 @@ export class ImportManager extends Model({
     },
   );
 
+  /**
+   * Deletes the batches while the importer goes on with the others. Deleting the batch it's
+   * importing stops that import, and the queue then goes on to the next batch.
+   */
   @modelFlow
   deleteBatches = asyncAction(async (ids: string[]) => {
-    await this.pauseImporter();
-
     const deleteRes = await rpc.deleteImportBatches({ ids });
     if (!deleteRes.success) throw new Error(deleteRes.error);
+
+    if (deleteRes.data.isImporterStopped) {
+      const resumed = await rpc.resumeImporter();
+      if (!resumed.success) throw new Error(resumed.error);
+    }
 
     this.search._deleteResults(ids);
     this.search.toggleSelected(ids.map((id) => ({ id, isSelected: false })));
@@ -259,14 +266,14 @@ export class ImportManager extends Model({
 
   /**
    * Batches are reprocessed one at a time; a failure stops the rest. Batches whose upload never
-   * finished have no stored files, so they are skipped.
+   * finished have no stored files, so they are skipped. The importer goes on with other batches,
+   * and reprocessing the batch it's importing stops that import, which then resumes.
    */
   @modelFlow
   reprocessStoredImports = asyncAction(async (ids: string[]) => {
-    await this.pauseImporter();
-
     const readyIds = ids.filter((id) => this.search.getResult(id)?.isReady !== false);
     let deletedCount = 0;
+    let isImporterStopped = false;
     let requeuedCount = 0;
 
     try {
@@ -278,9 +285,16 @@ export class ImportManager extends Model({
           );
 
         deletedCount += res.data.deletedCount;
+        isImporterStopped ||= res.data.isImporterStopped;
         requeuedCount += res.data.requeuedCount;
       }
     } finally {
+      // A failed resume is shown apart, so it never hides why reprocessing failed.
+      if (isImporterStopped) {
+        const resumed = await rpc.resumeImporter();
+        if (!resumed.success) toast.error(`Failed to resume importing: ${resumed.error}`);
+      }
+
       await this.loadActiveBatch();
       await this.getImporterStatus();
     }

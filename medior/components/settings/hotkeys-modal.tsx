@@ -33,6 +33,7 @@ const getRatingFields = (screen: keyof Hotkeys): HotkeyField[] =>
 const HOTKEY_TABS: HotkeyTab[] = [
   {
     fields: [
+      { configKey: "hotkeys.carousel.addBookmark", label: "Add Bookmark" },
       { configKey: "hotkeys.carousel.deleteFiles", label: "Delete Files" },
       { configKey: "hotkeys.carousel.detectFaces", label: "Detect Faces" },
       { configKey: "hotkeys.carousel.editTags", label: "Edit Tags" },

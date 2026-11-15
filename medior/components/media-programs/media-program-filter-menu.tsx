@@ -22,6 +22,9 @@ import { MEDIA_PROGRAM_WATCH_STATUSES } from "medior/utils/common";
 /** Every checklist matches the widest, Watch Status. */
 const CHECKLIST_WIDTH = "10.5rem";
 
+/** Programs without the detail, which the search reads as the empty value. */
+const NONE_OPTION = { label: "None", value: "" };
+
 const WATCH_STATUS_OPTIONS = [...MEDIA_PROGRAM_WATCH_STATUSES];
 
 export interface MediaProgramFilterMenuProps extends Partial<
@@ -37,7 +40,11 @@ export interface MediaProgramFilterMenuProps extends Partial<
 const getOtherValues = (options: { value: string }[], values: string[]) =>
   options.map((option) => option.value).filter((value) => !values.includes(value));
 
-const toOptions = (values: string[]) => values.map((value) => ({ label: value, value }));
+/** A detail's values from Settings, then None for programs without one. */
+const toOptions = (values: string[]) => [
+  ...values.map((value) => ({ label: value, value })),
+  NONE_OPTION,
+];
 
 export const MediaProgramFilterMenu = Comp(
   ({

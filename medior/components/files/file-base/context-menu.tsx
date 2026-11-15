@@ -14,20 +14,13 @@ import {
   colors,
   copyToClipboard,
   openHomeView,
+  openVideoPlaylist,
   openWithPlayer,
   toast,
   useCancellableLoad,
-  writePlaylist,
 } from "medior/utils/client";
 import { CONSTANTS, durationToSeconds, VideoExt } from "medior/utils/common";
-import {
-  getConfig,
-  getIsAudio,
-  getIsImage,
-  getIsRemuxable,
-  getIsVideo,
-  rpc,
-} from "medior/utils/server";
+import { getConfig, getIsAudio, getIsImage, getIsRemuxable, getIsVideo } from "medior/utils/server";
 
 export interface ContextMenuProps extends Omit<ContextMenuBaseProps, "id" | "menuItems"> {
   carouselFileIds?: string[];
@@ -131,32 +124,7 @@ export const ContextMenu = Comp(
 
             if (!orderedFileIds?.length) throw new Error("No files found");
 
-            const fileIds = new Map(orderedFileIds.map((id, i) => [id, i]));
-            const filesRes = await rpc.listFile(
-              { args: { filter: { id: [...fileIds.keys()] }, page: 1, pageSize: fileIds.size } },
-              { signal },
-            );
-
-            signal.throwIfAborted();
-
-            if (!filesRes.success) throw new Error(filesRes.error);
-
-            let files = [...filesRes.data.items].sort(
-              (a, b) => fileIds.get(a.id) - fileIds.get(b.id),
-            );
-
-            const activeIndex = files.findIndex((f) => f.id === file.id);
-            const startIndex = Math.max(activeIndex, 0);
-
-            files = files.slice(startIndex, startIndex + 100);
-
-            const playlistPath = await writePlaylist(
-              files.map((f) => ({ path: f.path, title: f.originalName })),
-              signal,
-            );
-
-            signal.throwIfAborted();
-            await openWithPlayer(playlistPath, getConfig().file.videoPlayer);
+            await openVideoPlaylist({ fileId: file.id, fileIds: orderedFileIds, signal });
           }
         } catch (error) {
           if (!signal.aborted) {

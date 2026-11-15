@@ -167,6 +167,12 @@ export interface ExternalPlayer {
   path: string;
 }
 
+/** The program Medior opens videos with, which can also start the first one at a point. */
+export interface VideoPlayer extends ExternalPlayer {
+  /** Arguments added to start at {seconds}, such as when continuing at a PotPlayer bookmark. */
+  seekArgs: string;
+}
+
 export interface Config {
   collection: {
     editor: {
@@ -323,8 +329,8 @@ export interface Config {
     translation: TranslationConfig & { language: string };
     videoCodecs: Array<VideoCodec>;
     videoExts: Array<VideoExt>;
-    /** Opens video playlists from Open Natively. */
-    videoPlayer: ExternalPlayer;
+    /** Opens video playlists from Open Natively and Continue. */
+    videoPlayer: VideoPlayer;
     waveform: {
       enabled: boolean;
     };
@@ -348,6 +354,8 @@ export interface Config {
     mediaProgramLanguage: string;
     mediaProgramMedium: string;
     mediaProgramType: string;
+    /** Folders whose subtitles belong to the videos beside them, or in a folder named after one. */
+    subtitleFolders: string[];
     subtitleMode: SubtitleMode;
     useSavedConfigs: boolean;
     withDelimiters: boolean;
@@ -363,10 +371,19 @@ export interface Config {
     withMusicFeaturedArtists: boolean;
     withMusicFileNames: boolean;
     withNewTagsToRegEx: boolean;
+    /**
+     * Copies each video's PotPlayer bookmarks beside its stored copy, removing them from the source
+     * with it when sources are deleted on import.
+     */
+    withPotPlayerBookmarks: boolean;
     withSidecar: boolean;
+    /** Matches subtitles whose names add language or flag tags, such as `.en.forced`, to a video's. */
+    withSubtitleTags: boolean;
   };
   mediaPrograms: {
     apiKeys: MediaProgramMetaApiKeys;
+    /** Reads PotPlayer bookmarks for the Continue Watching on program and episode cards. */
+    continueWatching: boolean;
     /** The episode labels and order the program editor opens with. */
     episodes: {
       labels: MediaProgramEpisodeLabels;
@@ -583,7 +600,7 @@ export const DEFAULT_CONFIG: Config = {
     },
     videoCodecs: [...CONSTANTS.VIDEO.CODECS_COMMON],
     videoExts: [...CONSTANTS.VIDEO.EXTS_COMMON],
-    videoPlayer: { args: "{path}", path: "" },
+    videoPlayer: { args: "{path}", path: "", seekArgs: "/seek={seconds}" },
     waveform: {
       enabled: true,
     },
@@ -610,6 +627,7 @@ export const DEFAULT_CONFIG: Config = {
     mediaProgramLanguage: null,
     mediaProgramMedium: null,
     mediaProgramType: null,
+    subtitleFolders: ["Sub", "Subs", "Subtitle", "Subtitles"],
     subtitleMode: "keep",
     useSavedConfigs: true,
     withDelimiters: true,
@@ -625,7 +643,9 @@ export const DEFAULT_CONFIG: Config = {
     withMusicFeaturedArtists: false,
     withMusicFileNames: true,
     withNewTagsToRegEx: true,
+    withPotPlayerBookmarks: true,
     withSidecar: false,
+    withSubtitleTags: true,
   },
   mediaPrograms: {
     apiKeys: {
@@ -633,6 +653,7 @@ export const DEFAULT_CONFIG: Config = {
       tvdb: "",
       tvdbPin: "",
     },
+    continueWatching: true,
     episodes: {
       labels: "season",
       sort: { isDesc: false, key: "custom" },

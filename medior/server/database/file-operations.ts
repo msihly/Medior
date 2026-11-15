@@ -25,13 +25,15 @@ import {
   mediaPathPlugin,
 } from "medior/server/database/media-paths";
 import { registerPersistenceModel } from "medior/server/database/persistence";
-import { Fmt } from "medior/utils/common";
+import { CONSTANTS, Fmt } from "medior/utils/common";
 import { getHasLinkedFolder, getIsLinkedPath } from "medior/utils/server/config";
 import { hashMediaFile } from "medior/utils/server/media-output";
 import { workSignal } from "medior/utils/server/work-signal";
 
 export interface FileCleanup {
   hash: string;
+  /** A file that changes in place, such as PotPlayer's bookmarks, removed whatever it holds. */
+  isMutable?: boolean;
   path: string;
   pathKey: string;
   retainedHash?: string;
@@ -75,8 +77,10 @@ const hashCleanupFile = async (path: string, canContinue: () => boolean = () => 
 /**
  * Confirms a file is the one recorded before it's removed. A file whose recorded size still
  * matches is taken as unchanged; others, including any whose size differs, are checksummed in full.
+ * Files that change in place only need to still exist.
  */
 const isCleanupFileUnchanged = async (file: FileCleanup, canContinue: () => boolean) =>
+  (file.isMutable && !!(await fs.stat(file.path))) ||
   (typeof file.size === "number" && (await fs.stat(file.path)).size === file.size) ||
   (!!file.hash && (await hashCleanupFile(file.path, canContinue)) === file.hash);
 
@@ -129,6 +133,7 @@ const schema = new Schema<FileOperation>({
   cleanup: [
     {
       hash: String,
+      isMutable: Boolean,
       path: String,
       pathKey: String,
       retainedHash: String,
@@ -341,6 +346,39 @@ export const describeFileCleanupBySize = async (path: string) => {
   }
 };
 
+/**
+ * Describes a file that changes in place, such as PotPlayer's bookmarks, which cleanup removes
+ * whatever it holds once any copy retaining it exists. Missing files need no cleanup.
+ */
+export const describeMutableFileCleanup = async (path: string, retainedPath?: string) => {
+  if (!path) return null;
+
+  try {
+    await fs.stat(path);
+  } catch (error) {
+    if (error.code === "ENOENT") return null;
+
+    throw error;
+  }
+
+  return {
+    ...makeFileCleanup(null, path),
+    isMutable: true,
+    ...(retainedPath ? { retainedPath } : {}),
+  } satisfies FileCleanup;
+};
+
+/** A PotPlayer bookmark file belongs to the video named like it, with any video extension. */
+export const getBookmarkMediaPathKeys = (path: string) => {
+  const { dir, ext, name } = nodePath.parse(path);
+
+  return ext.toLowerCase() === ".pbf"
+    ? CONSTANTS.VIDEO.EXTS.map((videoExt) =>
+        mediaPathKey(nodePath.join(dir, `${name}.${videoExt}`)),
+      )
+    : [];
+};
+
 /** VobSub .sub images belong to the .idx a file records. */
 const getSubtitlePathKeys = (path: string) => {
   const key = mediaPathKey(path);
@@ -352,14 +390,18 @@ const getSubtitlePathKeys = (path: string) => {
 
 /**
  * The given paths still referenced by the library, a transform, another prepared operation, or a
- * tag thumbnail, checked together rather than one path at a time. Committed cleanups reserve their
- * paths, so nothing new can claim them while the cleanup runs.
+ * tag thumbnail, checked together rather than one path at a time. PotPlayer bookmark files count
+ * while their video does. Committed cleanups reserve their paths, so nothing new can claim them
+ * while the cleanup runs.
  */
 const listReferencedCleanupPaths = async (paths: string[], fileOperationId: string) => {
   await assertMediaPathIndexesReady();
 
+  const bookmarkKeysByPath = new Map(paths.map((path) => [path, getBookmarkMediaPathKeys(path)]));
   const subtitleKeysByPath = new Map(paths.map((path) => [path, getSubtitlePathKeys(path)]));
-  const keys = [...new Set(paths.map(mediaPathKey))];
+  const keys = [
+    ...new Set([...paths.map(mediaPathKey), ...[...bookmarkKeysByPath.values()].flat()]),
+  ];
   const subtitleKeys = [...new Set([...subtitleKeysByPath.values()].flat())];
   const inKeys = { $in: keys, $type: "string" };
 
@@ -415,6 +457,7 @@ const listReferencedCleanupPaths = async (paths: string[], fileOperationId: stri
     paths.filter(
       (path) =>
         references.has(mediaPathKey(path)) ||
+        bookmarkKeysByPath.get(path).some((key) => references.has(key)) ||
         subtitleKeysByPath.get(path).some((key) => subtitleReferences.has(key)),
     ),
   );

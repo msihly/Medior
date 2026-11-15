@@ -1598,13 +1598,25 @@ export const createMediaProgramFilterPipeline = async (
   const $match: QueryFilter<models.MediaProgramSchema> = {};
 
   if (args.excludedLanguages != null && !isDeepEqual(args.excludedLanguages, []))
-    setObj($match, ["language", "$nin"], args.excludedLanguages);
+    setObj(
+      $match,
+      ["language", "$nin"],
+      args.excludedLanguages.flatMap((value) => (value ? [value] : [null, ""])),
+    );
 
   if (args.excludedMediums != null && !isDeepEqual(args.excludedMediums, []))
-    setObj($match, ["medium", "$nin"], args.excludedMediums);
+    setObj(
+      $match,
+      ["medium", "$nin"],
+      args.excludedMediums.flatMap((value) => (value ? [value] : [null, ""])),
+    );
 
   if (args.excludedTypes != null && !isDeepEqual(args.excludedTypes, []))
-    setObj($match, ["type", "$nin"], args.excludedTypes);
+    setObj(
+      $match,
+      ["type", "$nin"],
+      args.excludedTypes.flatMap((value) => (value ? [value] : [null, ""])),
+    );
 
   if (args.excludedWatchStatuses != null && !isDeepEqual(args.excludedWatchStatuses, []))
     setObj($match, ["watchStatus", "$nin"], args.excludedWatchStatuses);

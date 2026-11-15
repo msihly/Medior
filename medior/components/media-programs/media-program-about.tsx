@@ -22,7 +22,10 @@ import { tagToOption, useStores } from "medior/store";
 import { colors, makeClasses, toast } from "medior/utils/client";
 import { Fmt, formatMediaProgramDate, MEDIA_PROGRAM_META_SOURCES } from "medior/utils/common";
 
-/** The program's details from its metadata source and its viewing history, with its actions. */
+/**
+ * The program's details from its metadata source, or those of the shown season's own match, and
+ * its viewing history, with its actions.
+ */
 export const MediaProgramAbout = Comp(() => {
   const stores = useStores();
   const store = stores.mediaProgram.editor;
@@ -31,7 +34,7 @@ export const MediaProgramAbout = Comp(() => {
 
   const program = store.program;
   const canRewatch = program?.isRewatching || program?.watchStatus === "watched";
-  const meta = program?.meta;
+  const meta = store.shownMeta;
   const genres = program ? sortTags(program.genres, stores.tag.getCategory) : [];
   // The source's genres follow the program's own, leaving out those it already has.
   const genreLabels = new Set(genres.map(({ label }) => label.toLowerCase()));

@@ -26,6 +26,7 @@ export type FileHotkeys = RatingHotkeys & {
 
 export interface Hotkeys {
   carousel: RatingHotkeys & {
+    addBookmark: string;
     deleteFiles: string;
     detectFaces: string;
     editTags: string;
@@ -83,6 +84,7 @@ const FILE_HOTKEY_DEFAULTS = {
 
 export const DEFAULT_HOTKEYS: Hotkeys = {
   carousel: {
+    addBookmark: "B",
     deleteFiles: "Delete",
     detectFaces: "F",
     editTags: "T",

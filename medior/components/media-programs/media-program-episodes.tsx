@@ -9,6 +9,7 @@ import {
   FileActionButtons,
   ListItem,
   MEDIA_PROGRAM_BUTTON_PROPS,
+  MediaProgramAddEpisodesModal,
   MediaProgramEpisode,
   MediaProgramEpisodeNumbering,
   MediaProgramEpisodeNumberModal,
@@ -35,6 +36,7 @@ export const MediaProgramEpisodes = Comp(() => {
 
   const { css } = useClasses(null);
 
+  const [isAddOpen, setIsAddOpen] = useState(false);
   const [isNumberOpen, setIsNumberOpen] = useState(false);
   const [isRemoveOpen, setIsRemoveOpen] = useState(false);
 
@@ -192,6 +194,13 @@ export const MediaProgramEpisodes = Comp(() => {
             disabled={isDisabled}
           />
 
+          <MultiActionButton
+            name="ManageSearch"
+            tooltip="Add Episodes From Library"
+            onClick={() => setIsAddOpen(true)}
+            disabled={isBusy || !activeSeason}
+          />
+
           <MenuButton
             icon="DriveFileMove"
             tooltip="Move Selected to Season"
@@ -276,6 +285,8 @@ export const MediaProgramEpisodes = Comp(() => {
           />
         )}
       </View>
+
+      {isAddOpen && <MediaProgramAddEpisodesModal setVisible={setIsAddOpen} />}
 
       {isNumberOpen && (
         <MediaProgramEpisodeNumberModal

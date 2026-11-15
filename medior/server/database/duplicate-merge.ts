@@ -11,13 +11,14 @@ type DuplicateFile = Parameters<typeof mergeDuplicateMetadata>[0] &
   Pick<models.FileSchema, "hasTranscript"> & { _id: MongoTypes.ObjectId };
 
 /**
- * Moves a duplicate's tags, higher rating, diffusion parameters, name, timestamps, transcript,
- * translations, collection entries, media program episodes, and playlist places onto the file that
- * replaces it. Archiving the duplicate is left to the caller.
+ * Moves a duplicate's tags, higher rating, diffusion parameters, name, bookmarks, timestamps,
+ * transcript, translations, collection entries, media program episodes, and playlist places onto
+ * the file that replaces it. Archiving the duplicate is left to the caller.
  */
 export const mergeDuplicateFile = async (original: DuplicateFile, match: DuplicateFile) => {
   const metadata = mergeDuplicateMetadata(original, match);
   const updates = {
+    bookmarks: metadata.bookmarks,
     captionTranslations: metadata.captionTranslations,
     diffusionParams: metadata.diffusionParams,
     hasTranscript: metadata.hasTranscript,

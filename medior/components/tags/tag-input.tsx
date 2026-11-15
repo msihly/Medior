@@ -320,7 +320,10 @@ export const TagInput = Comp(
               text={inputValue}
               icon="Add"
               onClick={handleCreateTag}
-              color={colors.custom.purple}
+              outlined
+              outlineFill={colors.foreground}
+              textColor={colors.custom.lightGrey}
+              borderRadiuses={{ top: 0 }}
               width="100%"
             />
           ) : (

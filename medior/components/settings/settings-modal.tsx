@@ -737,9 +737,16 @@ export const SettingsModal = Comp(() => {
               <Settings.Group title="Video Player">
                 <Settings.PlayerFields
                   configKey="file.videoPlayer"
-                  description="Opens the playlists Open Natively makes for videos. Blank uses Windows' default program."
+                  description="Opens the playlists Open Natively and Continue make for videos. Blank uses Windows' default program."
                   selectProgram={selectProgram}
                 />
+
+                <Settings.Field
+                  label="Seek Arguments"
+                  description="Added when continuing at a PotPlayer bookmark, with {seconds} as its time. Windows' default program can't seek."
+                >
+                  <Settings.Input configKey="file.videoPlayer.seekArgs" width="16rem" />
+                </Settings.Field>
               </Settings.Group>
 
               <Settings.Group title="Formats">
@@ -1038,13 +1045,39 @@ export const SettingsModal = Comp(() => {
                   </Settings.Field>
                 </Settings.Group>
 
-                <Settings.Group title="Subtitles">
+                <Settings.Group
+                  title="Subtitles"
+                  description="Subtitles match the video named like them. Ones in a subtitle folder also match the videos beside it, the video a folder inside it is named after, or, when named only by language, the one video beside it."
+                >
                   <Settings.Field label="Mode">
                     <Settings.Dropdown
                       configKey="imports.subtitleMode"
                       options={[...SUBTITLE_MODES]}
                       width="12rem"
                     />
+                  </Settings.Field>
+
+                  <Settings.Field
+                    label="Language Tags"
+                    description="Also matches names that add language or flag tags to the video's, such as .en or .forced."
+                  >
+                    <Settings.Checkbox configKey="imports.withSubtitleTags" width="auto" />
+                  </Settings.Field>
+
+                  <UniformList row spacing="0.5rem" height="10rem">
+                    <Settings.ListInput
+                      label="Subtitle Folders"
+                      configKey="imports.subtitleFolders"
+                    />
+                  </UniformList>
+                </Settings.Group>
+
+                <Settings.Group title="PotPlayer Bookmarks">
+                  <Settings.Field
+                    label="Import"
+                    description="Copies the .pbf file PotPlayer saves beside a video to its stored copy, removing it from the source with the video when Delete on Import is on."
+                  >
+                    <Settings.Checkbox configKey="imports.withPotPlayerBookmarks" width="auto" />
                   </Settings.Field>
                 </Settings.Group>
 
@@ -1132,6 +1165,15 @@ export const SettingsModal = Comp(() => {
                     />
                   </Settings.Field>
                 </UniformList>
+              </Settings.Group>
+
+              <Settings.Group
+                title="Continue Watching"
+                description="Program and episode cards continue from the latest PotPlayer bookmark of an unwatched episode, read from the .pbf files PotPlayer saves beside videos. Continue starts there with the video player's seek arguments, set under Files."
+              >
+                <Settings.Field label="PotPlayer Bookmarks">
+                  <Settings.Checkbox configKey="mediaPrograms.continueWatching" width="auto" />
+                </Settings.Field>
               </Settings.Group>
 
               <Settings.Group

@@ -31,6 +31,7 @@ import {
   assertMediaPathIndexesReady,
   assertMediaPathsAvailable,
   describeFileCleanupBySize,
+  describeMutableFileCleanup,
   FileCleanup,
   FileOperationModel,
   finishFileOperation,
@@ -93,6 +94,7 @@ import {
   sortByStoredNtfsIdentity,
   vectorRpc,
 } from "medior/utils/server";
+import { getPotPlayerBookmarkPath } from "medior/utils/server/pot-player";
 import { getMediaInfo, getVideoInfo } from "medior/utils/server/videos";
 import { workSignal } from "medior/utils/server/work-signal";
 
@@ -115,6 +117,13 @@ const gzipAsync = promisify(gzip);
 /* -------------------------------------------------------------------------- */
 /*                              HELPER FUNCTIONS                              */
 /* -------------------------------------------------------------------------- */
+/**
+ * A deleted file's PotPlayer bookmarks. A linked file's stay for its folder's apps, beside library
+ * files that may share its name, while stored files' names are their own.
+ */
+const getDeletedBookmarkPath = (file: Pick<models.FileSchema, "path">) =>
+  getIsLinkedPath(file.path) ? null : getPotPlayerBookmarkPath(file.path);
+
 /** Writes a repair's updates only while the file keeps the content and path the repair read. */
 const updateFileIfUnchanged = async (
   file: Pick<models.FileSchema, "hash" | "path"> & { _id: mongoose.Types.ObjectId },
@@ -332,6 +341,7 @@ export const deleteFiles = makeAction(
             const paths = new Set(
               files.flatMap((file) => [
                 file.path,
+                getDeletedBookmarkPath(file),
                 file.thumb?.path,
                 ...getSubtitleFilePaths(file.subtitles),
               ]),
@@ -339,11 +349,15 @@ export const deleteFiles = makeAction(
             const cleanup = previousCleanup?.filter((entry) => paths.has(entry.path)) ?? [];
 
             // Cleanup confirms files by size rather than reading them: media by the size it
-            // records, and thumbnails and subtitles by the size on disk now. Their metadata is read
-            // in disk order, which the thumbnail beside each file's media records.
+            // records, and thumbnails and subtitles by the size on disk now. PotPlayer bookmarks
+            // change as they're watched, so they only need to exist. Their metadata is read in
+            // disk order, which the thumbnail beside each file's media records.
             if (!previousCleanup) {
               for (const file of sortByStoredNtfsIdentity(files, getThumbNtfsIdentity)) {
                 cleanup.push(makeFileCleanup(file.hash, file.path, file.size));
+
+                const bookmark = await describeMutableFileCleanup(getDeletedBookmarkPath(file));
+                if (bookmark) cleanup.push(bookmark);
 
                 for (const companionPath of [
                   file.thumb?.path,

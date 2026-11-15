@@ -10,23 +10,14 @@ import {
   View,
 } from "medior/components";
 import { useStores } from "medior/store";
-import { colors, toast } from "medior/utils/client";
 
 /** A program's title page, where each of its details is edited where it's shown. */
 export const MediaProgramEditor = Comp(() => {
   const stores = useStores();
   const store = stores.mediaProgram.editor;
 
-  const program = store.program;
-  const isBusy = store.isLoading || store.isSaving;
-
   const handleClose = () => {
     if (!store.isSaving) store.setIsOpen(false);
-  };
-
-  const handlePlay = async () => {
-    const res = await store.play();
-    if (!res.success) toast.error(res.error);
   };
 
   return (
@@ -52,14 +43,6 @@ export const MediaProgramEditor = Comp(() => {
 
       <Modal.Footer>
         <Button text="Close" icon="Close" onClick={handleClose} />
-
-        <Button
-          text={program?.watchedIdSet.size > 0 ? "Continue" : "Play"}
-          icon="PlayArrow"
-          onClick={handlePlay}
-          disabled={isBusy || !store.episodeIds.length}
-          color={colors.custom.blue}
-        />
       </Modal.Footer>
     </Modal.Container>
   );

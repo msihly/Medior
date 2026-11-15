@@ -625,8 +625,14 @@ export type CreateMediaProgramOutput = ReturnType<typeof db.createMediaProgram>;
 export type DeleteMediaProgramsInput = Parameters<typeof db.deleteMediaPrograms>[0];
 export type DeleteMediaProgramsOutput = ReturnType<typeof db.deleteMediaPrograms>;
 
+export type ListFileContinuePointsInput = Parameters<typeof db.listFileContinuePoints>[0];
+export type ListFileContinuePointsOutput = ReturnType<typeof db.listFileContinuePoints>;
+
 export type ListFilteredMediaProgramIdsInput = Parameters<typeof db.listFilteredMediaProgramIds>[0];
 export type ListFilteredMediaProgramIdsOutput = ReturnType<typeof db.listFilteredMediaProgramIds>;
+
+export type ListMediaProgramOptionsInput = Parameters<typeof db.listMediaProgramOptions>[0];
+export type ListMediaProgramOptionsOutput = ReturnType<typeof db.listMediaProgramOptions>;
 
 export type ListMediaProgramsBySourceFoldersInput = Parameters<
   typeof db.listMediaProgramsBySourceFolders
@@ -637,6 +643,9 @@ export type ListMediaProgramsBySourceFoldersOutput = ReturnType<
 
 export type MarkFileWatchedInput = Parameters<typeof db.markFileWatched>[0];
 export type MarkFileWatchedOutput = ReturnType<typeof db.markFileWatched>;
+
+export type MergeMediaProgramsInput = Parameters<typeof db.mergeMediaPrograms>[0];
+export type MergeMediaProgramsOutput = ReturnType<typeof db.mergeMediaPrograms>;
 
 export type RegenMediaProgramAttrsInput = Parameters<typeof db.regenMediaProgramAttrs>[0];
 export type RegenMediaProgramAttrsOutput = ReturnType<typeof db.regenMediaProgramAttrs>;

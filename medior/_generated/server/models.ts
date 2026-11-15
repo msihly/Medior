@@ -149,6 +149,7 @@ export interface FileSchema {
   audioBitrate?: number;
   audioCodec?: string;
   bitrate?: number;
+  bookmarks?: Array<{ id: string; time: number }>;
   captionTranslations?: Array<{
     language: string;
     segments: Array<{ end: number; start: number; text: string }>;
@@ -225,6 +226,7 @@ const FileSchema = new Schema<FileSchema>({
   audioBitrate: Number,
   audioCodec: String,
   bitrate: Number,
+  bookmarks: [{ _id: false, id: String, time: Number }],
   captionTranslations: [
     {
       language: String,
@@ -762,6 +764,7 @@ export interface MediaProgramSchema {
   fileCount: number;
   genreIds: string[];
   id: string;
+  isKeptApart?: boolean;
   isMetaPending?: boolean;
   isRewatching: boolean;
   language?: string;
@@ -770,6 +773,7 @@ export interface MediaProgramSchema {
   meta?: import("medior/utils/common/media-programs").MediaProgramMeta;
   missingMarks?: import("medior/utils/common/media-programs").MediaProgramMissingMarks;
   name: string;
+  otherSourceFolderKeys?: string[];
   posterFileId?: string;
   rating: number;
   ratingIsManual?: boolean;
@@ -796,6 +800,7 @@ const MediaProgramSchema = new Schema<MediaProgramSchema>({
   dateModified: String,
   fileCount: Number,
   genreIds: [{ type: Schema.Types.ObjectId, ref: "Tag" }],
+  isKeptApart: Boolean,
   isMetaPending: Boolean,
   isRewatching: Boolean,
   language: String,
@@ -804,6 +809,7 @@ const MediaProgramSchema = new Schema<MediaProgramSchema>({
   meta: Schema.Types.Mixed,
   missingMarks: Schema.Types.Mixed,
   name: String,
+  otherSourceFolderKeys: [String],
   posterFileId: Schema.Types.ObjectId,
   rating: Number,
   ratingIsManual: Boolean,
@@ -817,6 +823,7 @@ const MediaProgramSchema = new Schema<MediaProgramSchema>({
       id: String,
       label: String,
       meta: Schema.Types.Mixed,
+      metaMatch: Schema.Types.Mixed,
       number: Number,
       rating: Number,
       ratingIsManual: Boolean,
@@ -851,6 +858,7 @@ MediaProgramSchema.index({ genreIds: 1, _id: 1 }, { unique: true });
 MediaProgramSchema.index({ language: 1, _id: 1 }, { unique: true });
 MediaProgramSchema.index({ medium: 1, _id: 1 }, { unique: true });
 MediaProgramSchema.index({ name: 1, _id: 1 }, { unique: true });
+MediaProgramSchema.index({ otherSourceFolderKeys: 1 }, { unique: false });
 MediaProgramSchema.index({ rating: 1, _id: 1 }, { unique: true });
 MediaProgramSchema.index({ "seasons.fileIds": 1 }, { unique: false });
 MediaProgramSchema.index({ size: 1, _id: 1 }, { unique: true });

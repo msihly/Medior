@@ -665,22 +665,17 @@ export class _FileSearch extends Model({
     return res.data.items;
   });
 
+  /** Saves the filters under the label: over the saved search with it, or as a new one. */
   @modelFlow
   saveSavedSearch = asyncAction(async (label: string) => {
     const trimmedLabel = label.trim();
-
     if (!trimmedLabel) throw new Error("Saved search label is required");
 
     const existing = this.savedSearches.find((s) => s.label === trimmedLabel);
-    const selected = this.savedSearches.find((s) => s.id === this.selectedSavedSearchId);
     const filterProps = this.getSearchProps();
     let res: Awaited<ReturnType<typeof rpc.createSavedSearch | typeof rpc.updateSavedSearch>>;
 
-    if (selected)
-      res = await rpc.updateSavedSearch({
-        args: { id: selected.id, updates: { filterProps, label: trimmedLabel } },
-      });
-    else if (existing)
+    if (existing)
       res = await rpc.updateSavedSearch({
         args: { id: existing.id, updates: { filterProps } },
       });
@@ -697,9 +692,9 @@ export class _FileSearch extends Model({
     if (!res.success) throw new Error(res.error);
 
     await this.loadSavedSearches();
-    this.setSelectedSavedSearchId(selected?.id ?? existing?.id ?? res.data.id);
+    this.setSelectedSavedSearchId(existing?.id ?? res.data.id);
     this.setIsSaveModalOpen(false);
-    toast.success(selected || existing ? "Saved search updated" : "Saved search created");
+    toast.success(existing ? "Saved search updated" : "Saved search created");
 
     return res.data;
   });
@@ -1400,22 +1395,17 @@ export class _FileCollectionSearch extends Model({
     return res.data.items;
   });
 
+  /** Saves the filters under the label: over the saved search with it, or as a new one. */
   @modelFlow
   saveSavedSearch = asyncAction(async (label: string) => {
     const trimmedLabel = label.trim();
-
     if (!trimmedLabel) throw new Error("Saved search label is required");
 
     const existing = this.savedSearches.find((s) => s.label === trimmedLabel);
-    const selected = this.savedSearches.find((s) => s.id === this.selectedSavedSearchId);
     const filterProps = this.getSearchProps();
     let res: Awaited<ReturnType<typeof rpc.createSavedSearch | typeof rpc.updateSavedSearch>>;
 
-    if (selected)
-      res = await rpc.updateSavedSearch({
-        args: { id: selected.id, updates: { filterProps, label: trimmedLabel } },
-      });
-    else if (existing)
+    if (existing)
       res = await rpc.updateSavedSearch({
         args: { id: existing.id, updates: { filterProps } },
       });
@@ -1432,9 +1422,9 @@ export class _FileCollectionSearch extends Model({
     if (!res.success) throw new Error(res.error);
 
     await this.loadSavedSearches();
-    this.setSelectedSavedSearchId(selected?.id ?? existing?.id ?? res.data.id);
+    this.setSelectedSavedSearchId(existing?.id ?? res.data.id);
     this.setIsSaveModalOpen(false);
-    toast.success(selected || existing ? "Saved search updated" : "Saved search created");
+    toast.success(existing ? "Saved search updated" : "Saved search created");
 
     return res.data;
   });
@@ -1983,22 +1973,17 @@ export class _FileImportBatchSearch extends Model({
     return res.data.items;
   });
 
+  /** Saves the filters under the label: over the saved search with it, or as a new one. */
   @modelFlow
   saveSavedSearch = asyncAction(async (label: string) => {
     const trimmedLabel = label.trim();
-
     if (!trimmedLabel) throw new Error("Saved search label is required");
 
     const existing = this.savedSearches.find((s) => s.label === trimmedLabel);
-    const selected = this.savedSearches.find((s) => s.id === this.selectedSavedSearchId);
     const filterProps = this.getSearchProps();
     let res: Awaited<ReturnType<typeof rpc.createSavedSearch | typeof rpc.updateSavedSearch>>;
 
-    if (selected)
-      res = await rpc.updateSavedSearch({
-        args: { id: selected.id, updates: { filterProps, label: trimmedLabel } },
-      });
-    else if (existing)
+    if (existing)
       res = await rpc.updateSavedSearch({
         args: { id: existing.id, updates: { filterProps } },
       });
@@ -2015,9 +2000,9 @@ export class _FileImportBatchSearch extends Model({
     if (!res.success) throw new Error(res.error);
 
     await this.loadSavedSearches();
-    this.setSelectedSavedSearchId(selected?.id ?? existing?.id ?? res.data.id);
+    this.setSelectedSavedSearchId(existing?.id ?? res.data.id);
     this.setIsSaveModalOpen(false);
-    toast.success(selected || existing ? "Saved search updated" : "Saved search created");
+    toast.success(existing ? "Saved search updated" : "Saved search created");
 
     return res.data;
   });
@@ -2569,22 +2554,17 @@ export class _FileTransformSearch extends Model({
     return res.data.items;
   });
 
+  /** Saves the filters under the label: over the saved search with it, or as a new one. */
   @modelFlow
   saveSavedSearch = asyncAction(async (label: string) => {
     const trimmedLabel = label.trim();
-
     if (!trimmedLabel) throw new Error("Saved search label is required");
 
     const existing = this.savedSearches.find((s) => s.label === trimmedLabel);
-    const selected = this.savedSearches.find((s) => s.id === this.selectedSavedSearchId);
     const filterProps = this.getSearchProps();
     let res: Awaited<ReturnType<typeof rpc.createSavedSearch | typeof rpc.updateSavedSearch>>;
 
-    if (selected)
-      res = await rpc.updateSavedSearch({
-        args: { id: selected.id, updates: { filterProps, label: trimmedLabel } },
-      });
-    else if (existing)
+    if (existing)
       res = await rpc.updateSavedSearch({
         args: { id: existing.id, updates: { filterProps } },
       });
@@ -2601,9 +2581,9 @@ export class _FileTransformSearch extends Model({
     if (!res.success) throw new Error(res.error);
 
     await this.loadSavedSearches();
-    this.setSelectedSavedSearchId(selected?.id ?? existing?.id ?? res.data.id);
+    this.setSelectedSavedSearchId(existing?.id ?? res.data.id);
     this.setIsSaveModalOpen(false);
-    toast.success(selected || existing ? "Saved search updated" : "Saved search created");
+    toast.success(existing ? "Saved search updated" : "Saved search created");
 
     return res.data;
   });
@@ -3192,22 +3172,17 @@ export class _MediaProgramSearch extends Model({
     return res.data.items;
   });
 
+  /** Saves the filters under the label: over the saved search with it, or as a new one. */
   @modelFlow
   saveSavedSearch = asyncAction(async (label: string) => {
     const trimmedLabel = label.trim();
-
     if (!trimmedLabel) throw new Error("Saved search label is required");
 
     const existing = this.savedSearches.find((s) => s.label === trimmedLabel);
-    const selected = this.savedSearches.find((s) => s.id === this.selectedSavedSearchId);
     const filterProps = this.getSearchProps();
     let res: Awaited<ReturnType<typeof rpc.createSavedSearch | typeof rpc.updateSavedSearch>>;
 
-    if (selected)
-      res = await rpc.updateSavedSearch({
-        args: { id: selected.id, updates: { filterProps, label: trimmedLabel } },
-      });
-    else if (existing)
+    if (existing)
       res = await rpc.updateSavedSearch({
         args: { id: existing.id, updates: { filterProps } },
       });
@@ -3224,9 +3199,9 @@ export class _MediaProgramSearch extends Model({
     if (!res.success) throw new Error(res.error);
 
     await this.loadSavedSearches();
-    this.setSelectedSavedSearchId(selected?.id ?? existing?.id ?? res.data.id);
+    this.setSelectedSavedSearchId(existing?.id ?? res.data.id);
     this.setIsSaveModalOpen(false);
-    toast.success(selected || existing ? "Saved search updated" : "Saved search created");
+    toast.success(existing ? "Saved search updated" : "Saved search created");
 
     return res.data;
   });
@@ -3797,22 +3772,17 @@ export class _MusicAlbumSearch extends Model({
     return res.data.items;
   });
 
+  /** Saves the filters under the label: over the saved search with it, or as a new one. */
   @modelFlow
   saveSavedSearch = asyncAction(async (label: string) => {
     const trimmedLabel = label.trim();
-
     if (!trimmedLabel) throw new Error("Saved search label is required");
 
     const existing = this.savedSearches.find((s) => s.label === trimmedLabel);
-    const selected = this.savedSearches.find((s) => s.id === this.selectedSavedSearchId);
     const filterProps = this.getSearchProps();
     let res: Awaited<ReturnType<typeof rpc.createSavedSearch | typeof rpc.updateSavedSearch>>;
 
-    if (selected)
-      res = await rpc.updateSavedSearch({
-        args: { id: selected.id, updates: { filterProps, label: trimmedLabel } },
-      });
-    else if (existing)
+    if (existing)
       res = await rpc.updateSavedSearch({
         args: { id: existing.id, updates: { filterProps } },
       });
@@ -3829,9 +3799,9 @@ export class _MusicAlbumSearch extends Model({
     if (!res.success) throw new Error(res.error);
 
     await this.loadSavedSearches();
-    this.setSelectedSavedSearchId(selected?.id ?? existing?.id ?? res.data.id);
+    this.setSelectedSavedSearchId(existing?.id ?? res.data.id);
     this.setIsSaveModalOpen(false);
-    toast.success(selected || existing ? "Saved search updated" : "Saved search created");
+    toast.success(existing ? "Saved search updated" : "Saved search created");
 
     return res.data;
   });
@@ -4385,22 +4355,17 @@ export class _MusicArtistSearch extends Model({
     return res.data.items;
   });
 
+  /** Saves the filters under the label: over the saved search with it, or as a new one. */
   @modelFlow
   saveSavedSearch = asyncAction(async (label: string) => {
     const trimmedLabel = label.trim();
-
     if (!trimmedLabel) throw new Error("Saved search label is required");
 
     const existing = this.savedSearches.find((s) => s.label === trimmedLabel);
-    const selected = this.savedSearches.find((s) => s.id === this.selectedSavedSearchId);
     const filterProps = this.getSearchProps();
     let res: Awaited<ReturnType<typeof rpc.createSavedSearch | typeof rpc.updateSavedSearch>>;
 
-    if (selected)
-      res = await rpc.updateSavedSearch({
-        args: { id: selected.id, updates: { filterProps, label: trimmedLabel } },
-      });
-    else if (existing)
+    if (existing)
       res = await rpc.updateSavedSearch({
         args: { id: existing.id, updates: { filterProps } },
       });
@@ -4417,9 +4382,9 @@ export class _MusicArtistSearch extends Model({
     if (!res.success) throw new Error(res.error);
 
     await this.loadSavedSearches();
-    this.setSelectedSavedSearchId(selected?.id ?? existing?.id ?? res.data.id);
+    this.setSelectedSavedSearchId(existing?.id ?? res.data.id);
     this.setIsSaveModalOpen(false);
-    toast.success(selected || existing ? "Saved search updated" : "Saved search created");
+    toast.success(existing ? "Saved search updated" : "Saved search created");
 
     return res.data;
   });
@@ -4948,22 +4913,17 @@ export class _MusicPlaylistSearch extends Model({
     return res.data.items;
   });
 
+  /** Saves the filters under the label: over the saved search with it, or as a new one. */
   @modelFlow
   saveSavedSearch = asyncAction(async (label: string) => {
     const trimmedLabel = label.trim();
-
     if (!trimmedLabel) throw new Error("Saved search label is required");
 
     const existing = this.savedSearches.find((s) => s.label === trimmedLabel);
-    const selected = this.savedSearches.find((s) => s.id === this.selectedSavedSearchId);
     const filterProps = this.getSearchProps();
     let res: Awaited<ReturnType<typeof rpc.createSavedSearch | typeof rpc.updateSavedSearch>>;
 
-    if (selected)
-      res = await rpc.updateSavedSearch({
-        args: { id: selected.id, updates: { filterProps, label: trimmedLabel } },
-      });
-    else if (existing)
+    if (existing)
       res = await rpc.updateSavedSearch({
         args: { id: existing.id, updates: { filterProps } },
       });
@@ -4980,9 +4940,9 @@ export class _MusicPlaylistSearch extends Model({
     if (!res.success) throw new Error(res.error);
 
     await this.loadSavedSearches();
-    this.setSelectedSavedSearchId(selected?.id ?? existing?.id ?? res.data.id);
+    this.setSelectedSavedSearchId(existing?.id ?? res.data.id);
     this.setIsSaveModalOpen(false);
-    toast.success(selected || existing ? "Saved search updated" : "Saved search created");
+    toast.success(existing ? "Saved search updated" : "Saved search created");
 
     return res.data;
   });
@@ -5476,22 +5436,17 @@ export class _SavedImportConfigSearch extends Model({
     return res.data.items;
   });
 
+  /** Saves the filters under the label: over the saved search with it, or as a new one. */
   @modelFlow
   saveSavedSearch = asyncAction(async (label: string) => {
     const trimmedLabel = label.trim();
-
     if (!trimmedLabel) throw new Error("Saved search label is required");
 
     const existing = this.savedSearches.find((s) => s.label === trimmedLabel);
-    const selected = this.savedSearches.find((s) => s.id === this.selectedSavedSearchId);
     const filterProps = this.getSearchProps();
     let res: Awaited<ReturnType<typeof rpc.createSavedSearch | typeof rpc.updateSavedSearch>>;
 
-    if (selected)
-      res = await rpc.updateSavedSearch({
-        args: { id: selected.id, updates: { filterProps, label: trimmedLabel } },
-      });
-    else if (existing)
+    if (existing)
       res = await rpc.updateSavedSearch({
         args: { id: existing.id, updates: { filterProps } },
       });
@@ -5508,9 +5463,9 @@ export class _SavedImportConfigSearch extends Model({
     if (!res.success) throw new Error(res.error);
 
     await this.loadSavedSearches();
-    this.setSelectedSavedSearchId(selected?.id ?? existing?.id ?? res.data.id);
+    this.setSelectedSavedSearchId(existing?.id ?? res.data.id);
     this.setIsSaveModalOpen(false);
-    toast.success(selected || existing ? "Saved search updated" : "Saved search created");
+    toast.success(existing ? "Saved search updated" : "Saved search created");
 
     return res.data;
   });
@@ -6083,22 +6038,17 @@ export class _TagSearch extends Model({
     return res.data.items;
   });
 
+  /** Saves the filters under the label: over the saved search with it, or as a new one. */
   @modelFlow
   saveSavedSearch = asyncAction(async (label: string) => {
     const trimmedLabel = label.trim();
-
     if (!trimmedLabel) throw new Error("Saved search label is required");
 
     const existing = this.savedSearches.find((s) => s.label === trimmedLabel);
-    const selected = this.savedSearches.find((s) => s.id === this.selectedSavedSearchId);
     const filterProps = this.getSearchProps();
     let res: Awaited<ReturnType<typeof rpc.createSavedSearch | typeof rpc.updateSavedSearch>>;
 
-    if (selected)
-      res = await rpc.updateSavedSearch({
-        args: { id: selected.id, updates: { filterProps, label: trimmedLabel } },
-      });
-    else if (existing)
+    if (existing)
       res = await rpc.updateSavedSearch({
         args: { id: existing.id, updates: { filterProps } },
       });
@@ -6115,9 +6065,9 @@ export class _TagSearch extends Model({
     if (!res.success) throw new Error(res.error);
 
     await this.loadSavedSearches();
-    this.setSelectedSavedSearchId(selected?.id ?? existing?.id ?? res.data.id);
+    this.setSelectedSavedSearchId(existing?.id ?? res.data.id);
     this.setIsSaveModalOpen(false);
-    toast.success(selected || existing ? "Saved search updated" : "Saved search created");
+    toast.success(existing ? "Saved search updated" : "Saved search created");
 
     return res.data;
   });
@@ -6404,6 +6354,7 @@ export class _File extends Model({
   audioBitrate: prop<number>(null),
   audioCodec: prop<string>(null),
   bitrate: prop<number>(null),
+  bookmarks: prop<Array<{ id: string; time: number }>>(null),
   captionTranslations: prop<
     Array<{
       language: string;
@@ -6844,6 +6795,7 @@ export class _MediaProgram extends Model({
   fileCount: prop<number>(0),
   genreIds: prop<string[]>(() => []),
   id: prop<string>(),
+  isKeptApart: prop<boolean>(null),
   isMetaPending: prop<boolean>(null),
   isRewatching: prop<boolean>(false),
   language: prop<string>(null),
@@ -6852,6 +6804,7 @@ export class _MediaProgram extends Model({
   meta: prop<import("medior/utils/common/media-programs").MediaProgramMeta>(null),
   missingMarks: prop<import("medior/utils/common/media-programs").MediaProgramMissingMarks>(null),
   name: prop<string>(),
+  otherSourceFolderKeys: prop<string[]>(null),
   posterFileId: prop<string>(null),
   rating: prop<number>(0),
   ratingIsManual: prop<boolean>(null),

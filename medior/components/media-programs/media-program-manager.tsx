@@ -27,7 +27,7 @@ import {
 } from "medior/components";
 import { useStores } from "medior/store";
 import { colors, toast } from "medior/utils/client";
-import { MEDIA_PROGRAM_WATCH_STATUSES, MediaProgramWatchStatus } from "medior/utils/common";
+import { Fmt, MEDIA_PROGRAM_WATCH_STATUSES, MediaProgramWatchStatus } from "medior/utils/common";
 
 /** Browses the media programs, or ranks them with the header's Rankings toggle. */
 export const MediaProgramManager = Comp(() => {
@@ -164,6 +164,8 @@ const ProgramsView = Comp(() => {
   const stores = useStores();
   const store = stores.mediaProgram.manager;
 
+  const [isMergeOpen, setIsMergeOpen] = useState(false);
+
   const cardsRef = useRef<HTMLDivElement>(null);
 
   const handleKeyPress = useMediaProgramHotkeys({
@@ -173,6 +175,7 @@ const ProgramsView = Comp(() => {
   });
 
   const hasSelection = store.search.selectedIds.length > 0;
+  const canMerge = store.search.selectedIds.length > 1;
   const page = store.search.page;
   const pageCount = store.search.pageCount;
 
@@ -204,6 +207,17 @@ const ProgramsView = Comp(() => {
     if (!res.success) toast.error(res.error);
   };
 
+  /** The most complete program keeps its details and takes in the others' seasons and marks. */
+  const handleMerge = async () => {
+    const res = await stores.mediaProgram.mergeMediaPrograms([...store.search.selectedIds]);
+    if (!res.success) toast.error(res.error);
+    else toast.success("Media programs merged");
+
+    return res.success;
+  };
+
+  const handleMergeConfirm = () => setIsMergeOpen(true);
+
   const handlePageChange = async (page: number) => {
     const res = await store.search.loadFiltered({ page });
     if (!res.success) toast.error(res.error);
@@ -223,93 +237,113 @@ const ProgramsView = Comp(() => {
   };
 
   return (
-    <Card
-      flex={1}
-      height="100%"
-      overflow="hidden"
-      padding={{ all: 0 }}
-      bgColor={colors.background}
-      headerProps={SEARCH_HEADER_PROPS}
-      header={
-        <UniformList row flex={1} justify="space-between">
-          <View row align="center" spacing="0.5rem">
-            <MediaProgramFilterMenu store={store.search} />
+    <>
+      <Card
+        flex={1}
+        height="100%"
+        overflow="hidden"
+        padding={{ all: 0 }}
+        bgColor={colors.background}
+        headerProps={SEARCH_HEADER_PROPS}
+        header={
+          <UniformList row flex={1} justify="space-between">
+            <View row align="center" spacing="0.5rem">
+              <MediaProgramFilterMenu store={store.search} />
 
-            <MediaProgramRankingsToggle />
+              <MediaProgramRankingsToggle />
 
-            {hasSelection && <Chip label={`${store.search.selectedIds.length} Selected`} />}
-          </View>
+              {hasSelection && <Chip label={`${store.search.selectedIds.length} Selected`} />}
+            </View>
 
-          <View row justify="center" align="center">
-            <Text preset="title">{"Media Programs"}</Text>
-          </View>
+            <View row justify="center" align="center">
+              <Text preset="title">{"Media Programs"}</Text>
+            </View>
 
-          <View row justify="flex-end">
-            <MultiActionButton
-              name="Delete"
-              tooltip="Delete"
-              iconProps={{ color: hasSelection ? colors.custom.red : colors.custom.grey }}
-              onClick={handleDelete}
-              disabled={!hasSelection}
-            />
+            <View row justify="flex-end">
+              <MultiActionButton
+                name="Merge"
+                tooltip="Merge Selected Programs"
+                iconProps={{ color: canMerge ? colors.custom.blue : colors.custom.grey }}
+                onClick={handleMergeConfirm}
+                disabled={!canMerge}
+              />
 
-            <MultiActionButton
-              name="Refresh"
-              tooltip="Refresh Metadata"
-              onClick={handleRefreshMeta}
-              disabled={!hasSelection}
-            />
+              <MultiActionButton
+                name="Delete"
+                tooltip="Delete"
+                iconProps={{ color: hasSelection ? colors.custom.red : colors.custom.grey }}
+                onClick={handleDelete}
+                disabled={!hasSelection}
+              />
 
-            <MenuButton
-              icon="Visibility"
-              tooltip="Set Watch Status"
-              tooltipProps={{ placement: "bottom" }}
-              disabled={!hasSelection}
-            >
-              {(onClose) =>
-                MEDIA_PROGRAM_WATCH_STATUSES.map(({ label, value }) => (
-                  <ListItem
-                    key={value}
-                    text={label}
-                    icon="Circle"
-                    iconProps={{ color: getWatchStatusMeta(value, false).bgColor }}
-                    onClick={() => {
-                      onClose();
-                      handleWatchStatus(value);
-                    }}
-                  />
-                ))
-              }
-            </MenuButton>
+              <MultiActionButton
+                name="Refresh"
+                tooltip="Refresh Metadata"
+                onClick={handleRefreshMeta}
+                disabled={!hasSelection}
+              />
 
-            <SelectionButtons itemLabel="programs" store={store.search} toast={toast} />
-          </View>
-        </UniformList>
-      }
-    >
-      <View flex={1} position="relative" overflow="hidden">
-        <SearchLoadingOverlay store={store.search} />
+              <MenuButton
+                icon="Visibility"
+                tooltip="Set Watch Status"
+                tooltipProps={{ placement: "bottom" }}
+                disabled={!hasSelection}
+              >
+                {(onClose) =>
+                  MEDIA_PROGRAM_WATCH_STATUSES.map(({ label, value }) => (
+                    <ListItem
+                      key={value}
+                      text={label}
+                      icon="Circle"
+                      iconProps={{ color: getWatchStatusMeta(value, false).bgColor }}
+                      onClick={() => {
+                        onClose();
+                        handleWatchStatus(value);
+                      }}
+                    />
+                  ))
+                }
+              </MenuButton>
 
-        <CardGrid
-          ref={cardsRef}
-          cards={store.search.results.map((program) => (
-            <MediaProgramCard key={program.id} program={program} />
-          ))}
-          cardsProps={{ onKeyDown: handleKeyPress, tabIndex: 1 }}
-          maxCards={8}
-          noResultsText="No media programs found"
-          height="100%"
+              <SelectionButtons itemLabel="programs" store={store.search} toast={toast} />
+            </View>
+          </UniformList>
+        }
+      >
+        <View flex={1} position="relative" overflow="hidden">
+          <SearchLoadingOverlay store={store.search} />
+
+          <CardGrid
+            ref={cardsRef}
+            cards={store.search.results.map((program) => (
+              <MediaProgramCard key={program.id} program={program} />
+            ))}
+            cardsProps={{ onKeyDown: handleKeyPress, tabIndex: 1 }}
+            maxCards={8}
+            noResultsText="No media programs found"
+            height="100%"
+          />
+        </View>
+
+        <Pagination
+          inline
+          count={pageCount}
+          page={page}
+          onChange={handlePageChange}
+          isLoading={store.search.isPageCountLoading && !store.search.isLoading}
+          onFullLoad={handleFullPageLoad}
         />
-      </View>
+      </Card>
 
-      <Pagination
-        inline
-        count={pageCount}
-        page={page}
-        onChange={handlePageChange}
-        isLoading={store.search.isPageCountLoading && !store.search.isLoading}
-        onFullLoad={handleFullPageLoad}
-      />
-    </Card>
+      {isMergeOpen && (
+        <ConfirmModal
+          headerText="Merge Programs"
+          subText={`Merge ${Fmt.commas(store.search.selectedIds.length)} programs into the most complete one? Their seasons, episodes, watch marks, tags, and genres are combined, and the others are deleted.`}
+          confirmText="Merge"
+          setVisible={setIsMergeOpen}
+          onConfirm={handleMerge}
+        />
+      )}
+    </>
   );
 });

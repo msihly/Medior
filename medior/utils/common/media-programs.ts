@@ -72,8 +72,12 @@ export interface MediaProgramEpisodeMeta {
  * Existing programs only receive the details edited in the Import Editor.
  */
 export interface MediaProgramImport extends Partial<MediaProgramDetails> {
+  /** The Import Editor chose a new program, which joins none named alike. */
+  isNew?: boolean;
   /** The season's episodes are marked watched as they're added. */
   isWatched: boolean;
+  /** The existing program the Import Editor matched by name or that was picked for the folder. */
+  programId?: string;
   seasonLabel: string;
   seasonNumber: number | null;
   sourceFolderPath: string;
@@ -160,11 +164,23 @@ export interface MediaProgramMetaResult {
   year: number | null;
 }
 
+/** An existing program the Import Editor offers for a folder's seasons to join. */
+export interface MediaProgramOption extends MediaProgramDetails {
+  id: string;
+}
+
 /** A program detected by the Import Editor, edited before its seasons are imported. */
 export interface MediaProgramPlan {
+  /** The existing program the seasons join: the folder's, or one named alike or picked. */
   existingId?: string;
   fileCount: number;
   folderPath: string;
+  /** The folder already belongs to the existing program, so no other can be picked for it. */
+  isFolderMatch?: boolean;
+  /** New was chosen in the Program column, so no program named alike is joined. */
+  isNew?: boolean;
+  /** A program, or New, was chosen in the Program column, which a rescan keeps. */
+  isPicked?: boolean;
   language: string;
   medium: string;
   name: string;
@@ -215,6 +231,11 @@ export interface MediaProgramSeason {
   id: string;
   label: string;
   meta: MediaProgramSeasonMeta | null;
+  /**
+   * The season's own metadata entry, such as a movie grouped with others under one program, which
+   * it takes its metadata from in place of the program's.
+   */
+  metaMatch: MediaProgramMetaMatch | null;
   /** The season's number from its label, matching it to the metadata source's seasons. */
   number: number | null;
   /** The average of its rated episodes unless rated by hand. */
@@ -223,10 +244,14 @@ export interface MediaProgramSeason {
 }
 
 /** A season as the editor sends it, which keeps its saved metadata; new seasons have no ID yet. */
-export type MediaProgramSeasonInput = Omit<MediaProgramSeason, "id" | "meta"> & { id?: string };
+export type MediaProgramSeasonInput = Omit<MediaProgramSeason, "id" | "meta" | "metaMatch"> & {
+  id?: string;
+};
 
 /** A season's details from the metadata source. */
 export interface MediaProgramSeasonMeta {
+  /** The details of the season's own match, which the editor shows while the season is chosen. */
+  details?: Omit<MediaProgramMeta, "seasons">;
   /** Every episode the source lists; those numbered past the season's files are missing. */
   episodes: MediaProgramEpisodeMeta[];
   posterPath: string | null;
@@ -446,6 +471,35 @@ export const parseEpisodeNumber = (fileName: string) => {
   return null;
 };
 
+/**
+ * The episode numbers the files' names give, run on across the seasons the names give, so a set
+ * named S01 to S05 in one season numbers on, such as S02E01 becoming 52 when S01 ends at 51. Each
+ * season runs to the highest episode its names give. Specials, and names without a season, keep
+ * the numbers they give.
+ */
+const getNamedEpisodeNumbers = (fileNames: string[]) => {
+  const episodes = fileNames.map(parseEpisodeNumber);
+  const seasons = fileNames.map(parseFileSeasonNumber);
+  const lastEpisodes = new Map<number, number>();
+  const offsets = new Map<number, number>();
+
+  seasons.forEach((season, index) => {
+    if (season > 0 && episodes[index] !== null)
+      lastEpisodes.set(season, Math.max(lastEpisodes.get(season) ?? 0, episodes[index]));
+  });
+
+  let offset = 0;
+
+  for (const season of [...lastEpisodes.keys()].sort((a, b) => a - b)) {
+    offsets.set(season, offset);
+    offset += lastEpisodes.get(season);
+  }
+
+  return episodes.map((episode, index) =>
+    episode === null ? null : episode + (offsets.get(seasons[index]) ?? 0),
+  );
+};
+
 /** The highest episode number the files' names give, or null when none gives one. */
 export const getLastEpisodeNumber = (fileNames: string[]) => {
   const numbers = fileNames.map(parseEpisodeNumber).filter(Number.isFinite);
@@ -614,7 +668,8 @@ const toSeasonEpisodes = (episodes: { fileId: string; number: number | null }[])
 
 /**
  * Adds files to a season at the numbers their names give, such as 16 to 18 into a season of 1 to
- * 10, when each gives a different number no episode has. Otherwise they follow its last episode.
+ * 10, or run on across the seasons the names give, when each gives a different number no episode
+ * has. Otherwise they follow its last episode.
  */
 export const addSeasonEpisodes = (
   season: SeasonEpisodes,
@@ -624,10 +679,10 @@ export const addSeasonEpisodes = (
   const fileIds = season.fileIds.map(String);
   const existingIds = new Set(fileIds);
   const takenNumbers = new Set(numbers);
+  const addedFiles = files.filter((file) => !existingIds.has(file.id));
+  const addedNumbers = getNamedEpisodeNumbers(addedFiles.map((file) => file.name));
 
-  const added = files
-    .filter((file) => !existingIds.has(file.id))
-    .map((file) => ({ fileId: file.id, number: parseEpisodeNumber(file.name) }));
+  const added = addedFiles.map((file, index) => ({ fileId: file.id, number: addedNumbers[index] }));
 
   const isNumbered =
     added.every(({ number }) => number !== null && !takenNumbers.has(number)) &&
@@ -639,6 +694,26 @@ export const addSeasonEpisodes = (
   ];
 
   return toSeasonEpisodes(isNumbered ? episodes.sort((a, b) => a.number - b.number) : episodes);
+};
+
+/**
+ * Adds another season's episodes to a season at the numbers they have there, in number order with
+ * the season's own first at a number both have. Episodes the season already has keep their numbers.
+ */
+export const mergeSeasonEpisodes = (season: SeasonEpisodes, other: SeasonEpisodes) => {
+  const numbers = getSeasonEpisodeNumbers(season);
+  const otherNumbers = getSeasonEpisodeNumbers(other);
+  const fileIds = season.fileIds.map(String);
+  const existingIds = new Set(fileIds);
+
+  return toSeasonEpisodes(
+    [
+      ...fileIds.map((fileId, index) => ({ fileId, number: numbers[index] })),
+      ...other.fileIds
+        .map((fileId, index) => ({ fileId: String(fileId), number: otherNumbers[index] }))
+        .filter(({ fileId }) => !existingIds.has(fileId)),
+    ].sort((a, b) => a.number - b.number),
+  );
 };
 
 /**
@@ -758,26 +833,29 @@ export const numberSeasonEpisodes = (
 
 /**
  * Numbers episodes by the numbers their names give less the offset, such as 13 to 24 becoming 1 to
- * 12 for a second season named in a run across seasons. Those whose names give the same number
+ * 12 for a second season named in a run across seasons. Names giving several seasons number on
+ * across them, such as S02E01 after S01's last episode. Those whose names give the same number
  * share it, and those whose names give none go last.
  */
 export const numberSeasonEpisodesFromNames = (
   season: SeasonEpisodes,
   fileNames: Map<string, string>,
   offset: number,
-) =>
-  placeSeasonEpisodes(
+) => {
+  const fileIds = season.fileIds.map(String).filter((fileId) => fileNames.has(fileId));
+  const numbers = getNamedEpisodeNumbers(fileIds.map((fileId) => fileNames.get(fileId)));
+
+  return placeSeasonEpisodes(
     season,
-    season.fileIds
-      .map(String)
-      .filter((fileId) => fileNames.has(fileId))
-      .map((fileId) => {
-        const number = parseEpisodeNumber(fileNames.get(fileId)) - offset;
+    fileIds
+      .map((fileId, index) => {
+        const number = numbers[index] - offset;
 
         return { fileId, number: number > 0 ? number : null };
       })
       .sort((a, b) => (a.number ?? Infinity) - (b.number ?? Infinity)),
   );
+};
 
 /**
  * Moves each episode of the source seasons whose file name gives a season, such as S02E05, into

@@ -1,6 +1,6 @@
 import { shell } from "@electron/remote";
 import autoBind from "auto-bind";
-import { computed } from "mobx";
+import { computed, reaction } from "mobx";
 import {
   getRootStore,
   Model,
@@ -8,12 +8,14 @@ import {
   modelAction,
   ModelCreationData,
   modelFlow,
+  objectToMapTransform,
   prop,
 } from "mobx-keystone";
 import { SortMenuProps } from "medior/components";
 import { FileSearch, HomeView, RootStore, TagOption } from "medior/store";
 import { asyncAction, derefMobx, openCarouselWindow } from "medior/utils/client";
 import {
+  addSeasonEpisodes,
   chunkArray,
   countMissingEpisodes,
   getMediaProgramMetaSeasonNumbers,
@@ -36,9 +38,11 @@ import {
   numberSeasonEpisodes,
   numberSeasonEpisodesFromNames,
   parseProgramSeasonNumber,
+  sortEpisodeNames,
   splitSeasonsByFileNames,
 } from "medior/utils/common";
 import { getConfig, rpc } from "medior/utils/server";
+import type { FileContinuePoint } from "medior/utils/server/pot-player";
 import { MediaProgram } from ".";
 
 /** Episodes without files take part in selection under IDs no file has. */
@@ -80,6 +84,10 @@ export class MediaProgramEditorStore extends Model({
   /** A season the metadata source lists without files, shown while no season of the program is. */
   activeMissingSeasonNumber: prop<number>(null).withSetter(),
   activeSeasonId: prop<string>(null).withSetter(),
+  /** Each episode's continue point, by file ID. */
+  continuePoints: prop<Record<string, FileContinuePoint>>(() => ({}))
+    .withTransform(objectToMapTransform<FileContinuePoint>())
+    .withSetter(),
   /** How episodes are labeled, as EP ## or with their season as S##E##. */
   episodeLabels: prop<MediaProgramEpisodeLabels>(
     () => getConfig().mediaPrograms.episodes.labels,
@@ -88,6 +96,8 @@ export class MediaProgramEditorStore extends Model({
   episodeSort: prop<SortMenuProps["value"]>(
     () => getConfig().mediaPrograms.episodes.sort,
   ).withSetter(),
+  /** The library search that finds files to add to the active season. */
+  fileSearch: prop<FileSearch>(() => new FileSearch({})),
   /** The Genres modal's edits, kept here so tag merges and deletions reach them. */
   genres: prop<TagOption[]>(() => []).withSetter(),
   /** The view the editor opened over, where it waits while another view shows. */
@@ -102,9 +112,33 @@ export class MediaProgramEditorStore extends Model({
   /** Seasons chosen with Ctrl or Shift, which act together with the active season. */
   selectedSeasonIds: prop<string[]>(() => []).withSetter(),
 }) {
+  /** Each continue point load, so a slower earlier one never replaces a later one. */
+  private continuePointsRevision = 0;
   /** Each episode load, so a slower one for an earlier season or sort never replaces a later one. */
   private episodesRevision = 0;
   private loadRevision = 0;
+
+  /**
+   * Continue points load with the program's episodes, and again on returning to Medior, since
+   * PotPlayer saves bookmarks while it's in the background.
+   */
+  onAttachedToRootStore() {
+    const handleFocus = () => {
+      if (this.program) this.reloadContinuePoints();
+    };
+
+    const disposeEpisodes = reaction(
+      () => this.episodeIds,
+      () => this.reloadContinuePoints(),
+    );
+
+    window.addEventListener("focus", handleFocus);
+
+    return () => {
+      disposeEpisodes();
+      window.removeEventListener("focus", handleFocus);
+    };
+  }
 
   onInit() {
     autoBind(this);
@@ -116,6 +150,7 @@ export class MediaProgramEditorStore extends Model({
     this.loadRevision++;
     this.isLoading = false;
     this.search.cancelLoad();
+    this.fileSearch.cancelLoad();
   }
 
   /** Chooses a season the program has no files for, as Ctrl or Shift chooses any season. */
@@ -222,6 +257,7 @@ export class MediaProgramEditorStore extends Model({
     }
 
     this.search.reset();
+    this.fileSearch.reset();
   }
 
   /** Selects or deselects episodes with or without files by their selection IDs. */
@@ -247,6 +283,33 @@ export class MediaProgramEditorStore extends Model({
   }
 
   /* ------------------------------ ASYNC ACTIONS ----------------------------- */
+  /**
+   * Adds files from the library to the active season at the numbers their names give, or else after
+   * its last episode in name order, moving those in the program's other seasons.
+   */
+  @modelFlow
+  addEpisodes = asyncAction(async (fileIds: string[]) => {
+    if (!this.activeSeason) throw new Error("No season selected");
+
+    const fileNames = await listFileNames(fileIds);
+    const addedIds = new Set(fileIds);
+    const files = sortEpisodeNames(
+      fileIds.map((id) => ({ id, name: fileNames.get(id) ?? "" })),
+      (file) => file.name,
+    );
+
+    const res = await this.saveSeasons(
+      this.seasons.map((season) =>
+        season.id === this.activeSeasonId
+          ? { ...toSeasonInput(season), ...addSeasonEpisodes(season, files) }
+          : { ...toSeasonInput(season), fileIds: season.fileIds.filter((id) => !addedIds.has(id)) },
+      ),
+    );
+    if (!res.success) throw new Error(res.error);
+
+    this.fileSearch.removeFiles(fileIds);
+  });
+
   /** Adds an empty season and shows it. */
   @modelFlow
   addSeason = asyncAction(async (label: string) => {
@@ -346,6 +409,36 @@ export class MediaProgramEditorStore extends Model({
       }
     },
   );
+
+  /** Loads the program's episodes' continue points, from their latest PotPlayer bookmarks. */
+  @modelFlow
+  loadContinuePoints = asyncAction(async () => {
+    const revision = ++this.continuePointsRevision;
+    // With Continue Watching off in Settings, no bookmarks are read.
+    const fileIds = getConfig().mediaPrograms.continueWatching ? this.episodeIds : [];
+
+    if (!fileIds.length) this.setContinuePoints(new Map());
+    else {
+      const res = await rpc.listFileContinuePoints({ fileIds: [...fileIds] });
+      if (!res.success) throw new Error(res.error);
+
+      if (revision === this.continuePointsRevision)
+        this.setContinuePoints(new Map(res.data.map((point) => [point.fileId, point])));
+    }
+  });
+
+  /**
+   * Searches the library for files to add to the active season by the search's filters, leaving out
+   * those already in it, which resetting the filters would otherwise bring back.
+   */
+  @modelFlow
+  loadFileSearch = asyncAction(async () => {
+    this.fileSearch.setExcludedFileIds([...(this.activeSeason?.fileIds ?? [])]);
+    this.fileSearch.setPageCount(1);
+
+    const res = await this.fileSearch.loadFiltered({ noCache: true, page: 1 });
+    if (!res.success) throw new Error(res.error);
+  });
 
   @modelFlow
   loadProgram = asyncAction(async (id: string) => {
@@ -524,14 +617,12 @@ export class MediaProgramEditorStore extends Model({
     },
   );
 
-  /** Opens the carousel on every episode in order, starting from the given or next episode. */
+  /** Opens the carousel on every episode in order, starting from the given episode. */
   @modelFlow
-  play = asyncAction(async (fileId?: string) => {
+  play = asyncAction(async (fileId: string) => {
     const episodeIds = this.episodeIds;
-    const activeId = fileId ?? this.nextEpisodeId;
-    if (!activeId) throw new Error("This program has no episodes.");
 
-    const res = await rpc.listFile({ args: { filter: { id: activeId } } });
+    const res = await rpc.listFile({ args: { filter: { id: fileId } } });
     if (!res.success) throw new Error(res.error);
 
     const file = res.data.items[0];
@@ -552,6 +643,12 @@ export class MediaProgramEditorStore extends Model({
     );
     if (!res.success) throw new Error(res.error);
   });
+
+  /** Continue points load in the background, where failing only leaves the cards without them. */
+  async reloadContinuePoints() {
+    const res = await this.loadContinuePoints();
+    if (!res.success) console.error("Failed to load continue points:", res.error);
+  }
 
   /** Loads the program as saved, such as after its season updates were missed. */
   @modelFlow
@@ -1014,6 +1111,15 @@ export class MediaProgramEditorStore extends Model({
     return new Set(
       [this.activeSeasonId, ...this.selectedSeasonIds].filter((id) => seasonIds.has(id)),
     );
+  }
+
+  /**
+   * The metadata the header and About show: the shown season's own match, such as a movie grouped
+   * with others, or else the program's.
+   */
+  @computed
+  get shownMeta() {
+    return this.activeSeason?.meta?.details ?? this.program?.meta ?? null;
   }
 
   /** The card of the season shown, with or without files. */

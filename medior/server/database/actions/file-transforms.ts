@@ -65,6 +65,7 @@ import {
 } from "medior/utils/server/config";
 import { isGeneratedMediaUnreadable } from "medior/utils/server/files";
 import { hashMediaFile, recoverMediaOutput, syncMediaFile } from "medior/utils/server/media-output";
+import { copyPotPlayerBookmarks, getPotPlayerBookmarkPath } from "medior/utils/server/pot-player";
 import { getMediaInfo, MediaInfo, reencode, remux, spliceVideo } from "medior/utils/server/videos";
 
 const getIsImageTransform = (transform: models.FileTransformSchema) =>
@@ -1577,8 +1578,19 @@ const finishTransformCleanup = async (id: string) => {
 
           checkBackgroundExecution();
 
+          // PotPlayer bookmarks keep their places through re-encodes and remuxes, so they leave
+          // with the original once copied. A splice's no longer fit, and leave with it regardless.
+          const isBookmarkRemovable =
+            transform.type === "splice" ||
+            (await copyPotPlayerBookmarks(transform.beforePath, file.path));
+
           const diskRes = await deleteFile(transform.beforePath, file.path);
           if (!diskRes.success) throw new Error(diskRes.error);
+
+          if (isBookmarkRemovable) {
+            const bookmarkRes = await deleteFile(getPotPlayerBookmarkPath(transform.beforePath));
+            if (!bookmarkRes.success) throw new Error(bookmarkRes.error);
+          }
         }
       }
 
@@ -1672,8 +1684,8 @@ const replaceTransformOutput = async (args: { id: string }, outputInfo?: MediaIn
       ...(transform.type !== "remux"
         ? { captionTranslations: [], hasTranscript: false, transcription: null }
         : {}),
-      // A spliced replacement no longer matches the original's timelines.
-      ...(transform.type === "splice" ? { timestamps: [] } : {}),
+      // A spliced replacement no longer matches the original's bookmarks and timelines.
+      ...(transform.type === "splice" ? { bookmarks: [], timestamps: [] } : {}),
       hash: transform.afterHash,
       path: transform.afterPath,
     };

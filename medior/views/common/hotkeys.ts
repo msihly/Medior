@@ -92,7 +92,11 @@ export const useHotkeys = ({ embedded = false, rootRef, videoRef, view }: UseHot
         const isSeekForward30 = matchesHotkey(event, carouselHotkeys.seekForward30Seconds);
 
         if (matchesHotkey(event, carouselHotkeys.playPause)) store.toggleIsPlaying();
-        else if (isPreviousFrame || isNextFrame)
+        else if (matchesHotkey(event, carouselHotkeys.addBookmark)) {
+          const res = await store.addBookmark();
+          if (!res.success) toast.error(res.error);
+          else toaster.toast(`Bookmark: ${Fmt.duration(res.data)}`);
+        } else if (isPreviousFrame || isNextFrame)
           await seekVideoByHotkey(isPreviousFrame, { frameRate: 1, pause: true, seconds: 1 });
         else if (isSeekBackward3 || isSeekForward3)
           await seekVideoByHotkey(isSeekBackward3, { seconds: 3 });

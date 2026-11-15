@@ -62,7 +62,7 @@ export const ImportManager = Comp(() => {
     if (!res.success) toast.error(res.error);
     else
       toast.success(
-        `Requeued ${Fmt.commas(res.data.requeuedCount)} stored files and deleted ${Fmt.commas(res.data.deletedCount)} records. Resume importing to process them.`,
+        `Requeued ${Fmt.commas(res.data.requeuedCount)} stored files and deleted ${Fmt.commas(res.data.deletedCount)} records.${store.isPaused ? " Resume importing to process them." : ""}`,
       );
 
     return res.success;

@@ -21,10 +21,12 @@ import {
   getMediaProgramMetaKind,
   getMediaProgramMetaSeasonNumbers,
   getMediaProgramMetaSourceOrder,
+  getSeasonEpisodeNumbers,
   makeIsMissingSeasonNumber,
   MediaProgramMeta,
   MediaProgramMetaMatch,
   MediaProgramMetaSource,
+  MediaProgramSeason,
   MediaProgramSeasonMeta,
   sleep,
 } from "medior/utils/common";
@@ -39,7 +41,7 @@ import {
   downloadMediaProgramImage,
   fetchMediaProgramSource,
   searchMediaProgramSource,
-  SourceEpisode,
+  SourceProgram,
   SourceSeason,
 } from "medior/utils/server/media-program-sources";
 import { runConcurrent, workSignal } from "medior/utils/server/work-signal";
@@ -61,15 +63,23 @@ const metaQueue = new Map<string, { canSearch: boolean }>();
 
 let metaQueueRun: Promise<void> = null;
 
+/** A season's details from a source, with its own match when it has one. */
+interface SeasonSource extends SourceSeason {
+  /** The season's own match, whose details show while the season is chosen. */
+  ownSource: SourceProgram | null;
+}
+
 /* -------------------------------------------------------------------------- */
 /*                              HELPER FUNCTIONS                              */
 /* -------------------------------------------------------------------------- */
 /**
- * Downloads the match's details and images, then saves them to the program and its matching
- * seasons, keeping every episode and season the source lists so the missing ones show. A load or
- * clear started meanwhile discards this one.
+ * Downloads the program match's details and images, and those of the seasons matched apart from it,
+ * then saves them to the program and its seasons, keeping every episode and season the program's
+ * source lists so the missing ones show. Other seasons take the program source's season at their
+ * number, and a program without a match of its own has none. A load or clear started meanwhile
+ * discards this one.
  */
-const applyMediaProgramMeta = async (id: string, match: MediaProgramMetaMatch) => {
+const applyMediaProgramMeta = async (id: string, match: MediaProgramMetaMatch | null) => {
   const generation = startMetaGeneration(id);
 
   const program = await models.MediaProgramModel.findById(id).select({ seasons: 1 }).lean();
@@ -78,7 +88,15 @@ const applyMediaProgramMeta = async (id: string, match: MediaProgramMetaMatch) =
   const seasons = readMediaProgramSeasons(program.seasons);
   const seasonNumbers = getMediaProgramMetaSeasonNumbers(seasons);
   const isMissingSeason = makeIsMissingSeasonNumber(seasons);
-  const source = await fetchMediaProgramSource(match);
+  const source = match ? await fetchMediaProgramSource(match) : null;
+  const ownSources = new Map<string, SourceProgram>();
+
+  // Seasons sharing a match load it once.
+  for (const { metaMatch } of seasons) {
+    const key = metaMatch && getMetaMatchKey(metaMatch);
+
+    if (key && !ownSources.has(key)) ownSources.set(key, await fetchMediaProgramSource(metaMatch));
+  }
 
   const storage = await getAvailableFileStorage(IMAGE_STORAGE_BYTES);
   if (!storage.success) throw new Error(storage.error);
@@ -86,30 +104,34 @@ const applyMediaProgramMeta = async (id: string, match: MediaProgramMetaMatch) =
   // Each download has its own folder, so open windows never show a replaced image from their cache.
   const folderPath = path.join(storage.data.location, IMAGE_FOLDER, id, randomUUID());
   const imageUrls = new Map([
-    ["banner", source.bannerUrl],
-    ["poster", source.posterUrl],
+    ["banner", source?.bannerUrl],
+    ["poster", source?.posterUrl],
   ]);
-  const seasonSources = new Map<
-    string,
-    { episodes: SourceEpisode[]; name: string; season: SourceSeason }
-  >();
+  const seasonSources = new Map<string, SeasonSource & { name: string }>();
 
   for (const [index, season] of seasons.entries()) {
-    const sourceSeason = source.seasons.get(seasonNumbers[index]);
-    if (!sourceSeason) continue;
+    const ownSource = season.metaMatch && ownSources.get(getMetaMatchKey(season.metaMatch));
+    const programSeason = source?.seasons.get(seasonNumbers[index]);
+    const seasonSource: SeasonSource = ownSource
+      ? getOwnSeasonSource(season, ownSource)
+      : programSeason
+        ? { ...programSeason, ownSource: null }
+        : null;
+    if (!seasonSource) continue;
 
     const name = `season-${index + 1}`;
 
-    seasonSources.set(season.id, { episodes: sourceSeason.episodes, name, season: sourceSeason });
-    imageUrls.set(name, sourceSeason.posterUrl);
+    seasonSources.set(season.id, { ...seasonSource, name });
+    imageUrls.set(name, seasonSource.posterUrl);
+    imageUrls.set(`${name}-banner`, seasonSource.ownSource?.bannerUrl);
 
     // Episodes without files show their stills as well.
-    for (const episode of sourceSeason.episodes)
+    for (const episode of seasonSource.episodes)
       imageUrls.set(`${name}-episode-${episode.number}`, episode.stillUrl);
   }
 
   // The seasons the program has none of, and their episodes, show theirs too.
-  for (const [number, season] of source.seasons) {
+  for (const [number, season] of source?.seasons ?? []) {
     if (isMissingSeason(number)) {
       imageUrls.set(`missing-season-${number}`, season.posterUrl);
 
@@ -133,7 +155,7 @@ const applyMediaProgramMeta = async (id: string, match: MediaProgramMetaMatch) =
       },
     );
 
-    const meta: MediaProgramMeta = {
+    const meta: MediaProgramMeta = source && {
       ...source.details,
       bannerPath: imagePaths.get("banner") ?? null,
       posterPath: imagePaths.get("poster") ?? null,
@@ -152,42 +174,62 @@ const applyMediaProgramMeta = async (id: string, match: MediaProgramMetaMatch) =
     };
 
     const seasonMetas = new Map<string, MediaProgramSeasonMeta>(
-      [...seasonSources].map(([seasonId, { episodes, name, season }]) => [
-        seasonId,
-        {
-          episodes: episodes.map((episode) => ({
-            airDate: episode.airDate,
-            number: episode.number,
-            stillPath: imagePaths.get(`${name}-episode-${episode.number}`) ?? null,
-            title: episode.title,
-          })),
-          posterPath: imagePaths.get(name) ?? null,
-          startDate: season.startDate,
-          title: season.title,
-        },
-      ]),
+      [...seasonSources].map(([seasonId, { episodes, name, ownSource, startDate, title }]) => {
+        const posterPath = imagePaths.get(name) ?? null;
+
+        return [
+          seasonId,
+          {
+            ...(ownSource
+              ? {
+                  details: {
+                    ...ownSource.details,
+                    bannerPath: imagePaths.get(`${name}-banner`) ?? null,
+                    posterPath,
+                  },
+                }
+              : {}),
+            episodes: episodes.map((episode) => ({
+              airDate: episode.airDate,
+              number: episode.number,
+              stillPath: imagePaths.get(`${name}-episode-${episode.number}`) ?? null,
+              title: episode.title,
+            })),
+            posterPath,
+            startDate,
+            title,
+          },
+        ];
+      }),
     );
 
     replaced = await withMetadataMutation(async () => {
       if (generation !== metaGenerations.get(id)) return null;
 
       const current = await models.MediaProgramModel.findById(id)
-        .select({ meta: 1, seasons: 1, year: 1 })
+        .select({ language: 1, medium: 1, meta: 1, seasons: 1, type: 1, year: 1 })
         .lean();
 
       if (!current) return null;
 
       // Source dates start with the year, which a program without one takes as when it started airing.
-      const startYear = meta.startDate ? Number(meta.startDate.slice(0, 4)) : null;
+      const startYear = meta?.startDate ? Number(meta.startDate.slice(0, 4)) : null;
 
-      // Seasons added during the download get their metadata on the next refresh.
+      // Seasons added during the download get their metadata on the next refresh. Details the
+      // program lacks come from its source, named as in the default lists in Settings. A program
+      // whose seasons alone are matched goes on waiting for a match by name if it was.
       const updates = {
-        isMetaPending: false,
+        ...(source ? { isMetaPending: false } : {}),
         meta,
         seasons: readMediaProgramSeasons(current.seasons).map((season) => ({
           ...season,
           meta: seasonMetas.get(season.id) ?? null,
         })),
+        ...(!current.language && source?.language ? { language: source.language } : {}),
+        ...(!current.medium && source
+          ? { medium: source.isAnimated ? "Animated" : "Live-Action" }
+          : {}),
+        ...(!current.type && meta ? { type: meta.isMovie ? "Movie" : "Show" } : {}),
         ...(!current.year && startYear ? { year: startYear } : {}),
       };
 
@@ -213,7 +255,48 @@ const applyMediaProgramMeta = async (id: string, match: MediaProgramMetaMatch) =
   if (!replaced || !imagePaths.size) await removeDownload(folderPath);
 };
 
-/** Programs with unfinished import batches while the importer runs. */
+/**
+ * Clears a program's metadata, keeping that of the seasons matched apart from it, along with the
+ * download their images are in. A load still downloading is discarded rather than restoring what
+ * was cleared.
+ */
+const clearMediaProgramMeta = async (id: string) => {
+  startMetaGeneration(id);
+
+  const { cleared, updates } = await withMetadataMutation(async () => {
+    const current = await models.MediaProgramModel.findById(id)
+      .select({ meta: 1, seasons: 1 })
+      .lean();
+
+    if (!current) throw new Error("Media program not found");
+
+    const updates = {
+      isMetaPending: false,
+      meta: null,
+      seasons: readMediaProgramSeasons(current.seasons).map((season) => ({
+        ...season,
+        meta: season.metaMatch ? season.meta : null,
+      })),
+    };
+
+    await models.MediaProgramModel.updateOne(
+      { _id: id },
+      { $set: updates },
+      metadataWriteOptions(),
+    );
+
+    socket.emitVolatile("onMediaProgramUpdated", { id, updates });
+
+    return { cleared: current, updates };
+  });
+
+  await removeMediaProgramImages([cleared], [updates]);
+};
+
+/**
+ * Programs with unfinished import batches while the importer runs: by their folders, or as the
+ * program the Import Editor matched or picked for a batch.
+ */
 const getImportingProgramIds = async () => {
   const status = await actions.getImporterStatus(null);
   if (!status.success || !status.data.isImporting) return new Set<string>();
@@ -222,18 +305,67 @@ const getImportingProgramIds = async () => {
     isCompleted: false,
     "mediaProgram.sourceFolderPath": { $type: "string" },
   })
-    .select({ "mediaProgram.sourceFolderPath": 1 })
+    .select({ "mediaProgram.programId": 1, "mediaProgram.sourceFolderPath": 1 })
     .lean();
 
-  const programs = await models.MediaProgramModel.find({
-    sourceFolderKey: {
-      $in: batches.map((batch) => normalizeSourceFolderPath(batch.mediaProgram.sourceFolderPath)),
-    },
-  })
+  const programs = await models.MediaProgramModel.find(
+    actions.getMediaProgramFolderFilter(
+      batches.map((batch) => normalizeSourceFolderPath(batch.mediaProgram.sourceFolderPath)),
+    ),
+  )
     .select({ _id: 1 })
     .lean();
 
-  return new Set(programs.map(({ _id }) => String(_id)));
+  return new Set([
+    ...programs.map(({ _id }) => String(_id)),
+    ...batches.map((batch) => batch.mediaProgram.programId).filter(Boolean),
+  ]);
+};
+
+/** A match's key, so seasons sharing one load it once. */
+const getMetaMatchKey = ({ isMovie, source, sourceId }: MediaProgramMetaMatch) =>
+  `${source}:${isMovie ? "movie" : "series"}:${sourceId}`;
+
+/** The match a program's saved metadata came from. */
+const getProgramMetaMatch = ({
+  isMovie,
+  source,
+  sourceId,
+}: MediaProgramMeta): MediaProgramMetaMatch => ({ isMovie, source, sourceId });
+
+/**
+ * A season's details from its own match: a movie as its only episode, numbered like the season's
+ * first file, or a series' season at the season's number, or else the series' first season.
+ */
+const getOwnSeasonSource = (season: MediaProgramSeason, source: SourceProgram): SeasonSource => {
+  const { details } = source;
+
+  if (details.isMovie)
+    return {
+      episodes: [
+        {
+          airDate: details.startDate,
+          number: getSeasonEpisodeNumbers(season)[0] ?? 1,
+          stillUrl: source.bannerUrl,
+          title: details.title,
+        },
+      ],
+      ownSource: source,
+      posterUrl: source.posterUrl,
+      startDate: details.startDate,
+      title: details.title,
+    };
+  else {
+    const sourceSeason = source.seasons.get(season.number ?? 1);
+
+    return {
+      episodes: sourceSeason?.episodes ?? [],
+      ownSource: source,
+      posterUrl: sourceSeason?.posterUrl ?? source.posterUrl,
+      startDate: sourceSeason?.startDate ?? details.startDate,
+      title: sourceSeason?.title ?? details.title,
+    };
+  }
 };
 
 /**
@@ -268,28 +400,30 @@ const findMediaProgramMatch = async (
 
 /**
  * Refreshes a program's metadata from its source, or matches it by name when allowed or when an
- * import left a match waiting. A failed match keeps waiting, to be tried again on the next start.
+ * import left a match waiting, along with the seasons matched apart from it. A failed match keeps
+ * waiting, to be tried again on the next start.
  */
 const loadMediaProgramMeta = async (id: string, canSearch: boolean) => {
   const program = await models.MediaProgramModel.findById(id)
     .select({ isMetaPending: 1, meta: 1, name: 1, seasons: 1, type: 1, year: 1 })
     .lean();
+  if (!program) return;
 
-  if (!program || (!program.meta && !canSearch && !program.isMetaPending)) return;
+  const seasons = readMediaProgramSeasons(program.seasons);
+  const canMatch = canSearch || program.isMetaPending;
+  const hasSeasonMatches = seasons.some((season) => season.metaMatch);
+
+  if (!program.meta && !canMatch && !hasSeasonMatches) return;
 
   const match: MediaProgramMetaMatch = program.meta
-    ? {
-        isMovie: program.meta.isMovie,
-        source: program.meta.source,
-        sourceId: program.meta.sourceId,
-      }
-    : await findMediaProgramMatch({
-        ...program,
-        seasons: readMediaProgramSeasons(program.seasons),
-      });
+    ? getProgramMetaMatch(program.meta)
+    : canMatch
+      ? await findMediaProgramMatch({ ...program, seasons })
+      : null;
 
-  if (match) await applyMediaProgramMeta(id, match);
-  else {
+  if (match || hasSeasonMatches) await applyMediaProgramMeta(id, match);
+
+  if (!match && canMatch) {
     fileLog(`No metadata found for media program "${program.name}"`);
 
     await withMetadataMutation(() =>
@@ -433,31 +567,35 @@ export const searchMediaProgramMeta = makeAction(
   }) => (query.trim() ? searchMediaProgramSource(source, query.trim(), year) : []),
 );
 
-/** Saves the chosen match's metadata to the program, or clears its metadata without one. */
+/**
+ * Saves the chosen match's metadata to the program, or clears its metadata without one. Given a
+ * season, the match is the season's own, which it shows in place of the program's, and clearing it
+ * returns the season to the program's.
+ */
 export const setMediaProgramMeta = makeAction(
-  async ({ id, match }: { id: string; match: MediaProgramMetaMatch | null }) => {
-    // A queued match by name would replace the choice made here, so it no longer runs.
-    metaQueue.delete(id);
-
-    if (match) await applyMediaProgramMeta(id, match);
-    else {
-      // A load still downloading is discarded rather than restoring what was cleared.
-      startMetaGeneration(id);
-
-      const cleared = await withMetadataMutation(async () => {
+  async ({
+    id,
+    match,
+    seasonId,
+  }: {
+    id: string;
+    match: MediaProgramMetaMatch | null;
+    seasonId?: string;
+  }) => {
+    if (seasonId) {
+      const program = await withMetadataMutation(async () => {
         const current = await models.MediaProgramModel.findById(id)
           .select({ meta: 1, seasons: 1 })
           .lean();
-
         if (!current) throw new Error("Media program not found");
 
+        const seasons = readMediaProgramSeasons(current.seasons);
+        if (!seasons.some((season) => season.id === seasonId)) throw new Error("Season not found");
+
         const updates = {
-          isMetaPending: false,
-          meta: null,
-          seasons: readMediaProgramSeasons(current.seasons).map((season) => ({
-            ...season,
-            meta: null,
-          })),
+          seasons: seasons.map((season) =>
+            season.id === seasonId ? { ...season, metaMatch: match } : season,
+          ),
         };
 
         await models.MediaProgramModel.updateOne(
@@ -471,7 +609,14 @@ export const setMediaProgramMeta = makeAction(
         return current;
       });
 
-      await removeMediaProgramImages([cleared]);
+      // The program's metadata reloads with the season's, as both download together.
+      await applyMediaProgramMeta(id, program.meta && getProgramMetaMatch(program.meta));
+    } else {
+      // A queued match by name would replace the choice made here, so it no longer runs.
+      metaQueue.delete(id);
+
+      if (match) await applyMediaProgramMeta(id, match);
+      else await clearMediaProgramMeta(id);
     }
 
     return leanModelToJson<models.MediaProgramSchema>(

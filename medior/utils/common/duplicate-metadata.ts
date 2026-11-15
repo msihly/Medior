@@ -3,6 +3,7 @@ import { hasTranscription, normalizeTimestampPairs } from "./media-metadata";
 
 type DuplicateMetadata = Pick<
   FileSchema,
+  | "bookmarks"
   | "captionTranslations"
   | "diffusionParams"
   | "nameTranslations"
@@ -29,8 +30,13 @@ export const mergeDuplicateMetadata = (original: DuplicateMetadata, match: Dupli
     ({ name }) => name === originalName,
   );
   const matchNameLanguages = new Set(matchNameTranslations.map(({ language }) => language));
+  const matchBookmarkTimes = new Set((match.bookmarks ?? []).map(({ time }) => time));
 
   return {
+    bookmarks: [
+      ...(match.bookmarks ?? []),
+      ...(original.bookmarks ?? []).filter(({ time }) => !matchBookmarkTimes.has(time)),
+    ].sort((a, b) => a.time - b.time),
     // Subtitle translations stay with the kept media; transcript ones follow the kept transcript.
     captionTranslations: [
       ...(match.captionTranslations ?? []).filter(

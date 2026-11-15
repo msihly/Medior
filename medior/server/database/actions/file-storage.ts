@@ -9,6 +9,7 @@ import {
   FileCleanup,
   FileOperationModel,
   finishFileOperation,
+  getBookmarkMediaPathKeys,
 } from "medior/server/database/file-operations";
 import { mediaPathKey } from "medior/server/database/media-paths";
 import { withMetadataMutation } from "medior/server/database/metadata-mutations";
@@ -16,6 +17,7 @@ import { makeRepairReporter } from "medior/server/database/repair-progress";
 import { chunkArray, CONSTANTS, Fmt, getSubtitleFilePaths } from "medior/utils/common";
 import { getConfig, getIsActiveScratchPath, makeAction } from "medior/utils/server";
 import { hashMediaFile } from "medior/utils/server/media-output";
+import { getPotPlayerBookmarkPath } from "medior/utils/server/pot-player";
 import { runConcurrent } from "medior/utils/server/work-signal";
 
 type StorageRecord = Pick<models.FileSchema, "hash" | "path" | "thumb"> & { _id: unknown };
@@ -38,12 +40,14 @@ const getOwnedStoragePaths = async (paths: string[]) => {
   const subtitleKeys = paths
     .filter((filePath) => path.extname(filePath).toLowerCase() === ".sub")
     .map((filePath) => mediaPathKey(extendFileName(filePath, "idx")));
+  // PotPlayer bookmark files belong to whatever owns the video beside them.
+  const mediaKeys = [...keys, ...paths.flatMap(getBookmarkMediaPathKeys)];
 
   // Transforms, unfinished imports, and pending cleanups own their outputs as the library does.
   const [files, transforms, operations] = await Promise.all([
     models.FileModel.find({
       $or: [
-        { pathKey: { $in: keys, $type: "string" } },
+        { pathKey: { $in: mediaKeys, $type: "string" } },
         { "subtitles.pathKey": { $in: [...keys, ...subtitleKeys], $type: "string" } },
         { thumbPathKey: { $in: keys, $type: "string" } },
       ],
@@ -52,8 +56,8 @@ const getOwnedStoragePaths = async (paths: string[]) => {
       .lean(),
     models.FileTransformModel.find({
       $or: [
-        { afterPathKey: { $in: keys, $type: "string" } },
-        { beforePathKey: { $in: keys, $type: "string" }, cleanupPending: true },
+        { afterPathKey: { $in: mediaKeys, $type: "string" } },
+        { beforePathKey: { $in: mediaKeys, $type: "string" }, cleanupPending: true },
         { outputTempPathKey: { $in: keys, $type: "string" } },
       ],
     })
@@ -63,7 +67,7 @@ const getOwnedStoragePaths = async (paths: string[]) => {
       $or: [
         { "cleanup.pathKey": { $in: keys }, state: "COMMITTED" },
         { contentPathKey: { $in: keys, $type: "string" }, state: "PREPARED" },
-        { outputPathKey: { $in: keys, $type: "string" }, state: "PREPARED" },
+        { outputPathKey: { $in: mediaKeys, $type: "string" }, state: "PREPARED" },
         { tempPathKey: { $in: keys, $type: "string" } },
         { thumbPathKey: { $in: keys, $type: "string" }, state: "PREPARED" },
       ],
@@ -93,6 +97,7 @@ const getOwnedStoragePaths = async (paths: string[]) => {
       ]),
     ]
       .filter(Boolean)
+      .flatMap((ownedPath) => [ownedPath, getPotPlayerBookmarkPath(ownedPath)])
       .map(mediaPathKey),
   );
 };

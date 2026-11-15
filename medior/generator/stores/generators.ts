@@ -694,22 +694,17 @@ export const createSearchStore = (def: ModelSearchStore) => {
     });`;
 
   const makeSaveSavedSearchAction = () =>
-    `@modelFlow
+    `/** Saves the filters under the label: over the saved search with it, or as a new one. */
+    @modelFlow
     saveSavedSearch = asyncAction(async (label: string) => {
       const trimmedLabel = label.trim();
-
       if (!trimmedLabel) throw new Error("Saved search label is required");
 
       const existing = this.savedSearches.find((s) => s.label === trimmedLabel);
-      const selected = this.savedSearches.find((s) => s.id === this.selectedSavedSearchId);
       const filterProps = this.getSearchProps();
       let res: Awaited<ReturnType<typeof rpc.createSavedSearch | typeof rpc.updateSavedSearch>>;
 
-      if (selected)
-        res = await rpc.updateSavedSearch({
-          args: { id: selected.id, updates: { filterProps, label: trimmedLabel } },
-        });
-      else if (existing)
+      if (existing)
         res = await rpc.updateSavedSearch({
           args: { id: existing.id, updates: { filterProps } },
         });
@@ -726,9 +721,9 @@ export const createSearchStore = (def: ModelSearchStore) => {
       if (!res.success) throw new Error(res.error);
 
       await this.loadSavedSearches();
-      this.setSelectedSavedSearchId(selected?.id ?? existing?.id ?? res.data.id);
+      this.setSelectedSavedSearchId(existing?.id ?? res.data.id);
       this.setIsSaveModalOpen(false);
-      toast.success(selected || existing ? "Saved search updated" : "Saved search created");
+      toast.success(existing ? "Saved search updated" : "Saved search created");
 
       return res.data;
     });`;

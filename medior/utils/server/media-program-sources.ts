@@ -17,11 +17,20 @@ import { runConcurrent } from "medior/utils/server/work-signal";
 
 const ANILIST_ABBREVIATIONS = ["ONA", "OVA", "TV"];
 
+/** The languages of AniList's countries of origin, which it gives instead of a language. */
+const ANILIST_COUNTRY_LANGUAGES: Record<string, string> = {
+  CN: "Chinese",
+  JP: "Japanese",
+  KR: "Korean",
+  TW: "Chinese",
+};
+
 const ANILIST_MEDIA_QUERY = `query ($id: Int) {
   Media(id: $id, type: ANIME) {
     airingSchedule(perPage: 50) { nodes { airingAt episode } }
     averageScore
     bannerImage
+    countryOfOrigin
     coverImage { extraLarge large }
     description(asHtml: false)
     endDate { day month year }
@@ -55,6 +64,9 @@ const ANILIST_SEARCH_QUERY = `query ($search: String) {
 const ANILIST_SEASON_FORMATS = ["ONA", "TV", "TV_SHORT"];
 
 const ANILIST_URL = "https://graphql.anilist.co";
+
+/** Genres that make a program animated, compared without case. */
+const ANIMATED_GENRES = ["animation", "anime"];
 
 const IMAGE_EXTS: Record<string, string> = {
   "image/avif": "avif",
@@ -105,6 +117,7 @@ interface AniListMedia {
   airingSchedule: { nodes: { airingAt: number; episode: number }[] };
   averageScore: number | null;
   bannerImage: string | null;
+  countryOfOrigin: string | null;
   coverImage: { extraLarge: string | null; large: string | null };
   description: string | null;
   endDate: AniListDate;
@@ -139,6 +152,7 @@ interface TmdbMovie extends TmdbScored {
   backdrop_path: string | null;
   genres: { name: string }[];
   id: number;
+  original_language: string | null;
   overview: string | null;
   poster_path: string | null;
   production_companies: { name: string }[];
@@ -180,6 +194,7 @@ interface TmdbShow extends TmdbScored {
   name: string;
   networks: { name: string }[];
   number_of_episodes: number | null;
+  original_language: string | null;
   overview: string | null;
   poster_path: string | null;
   seasons: { season_number: number }[];
@@ -220,6 +235,8 @@ interface TvdbRecord {
   id: number;
   image: string | null;
   name: string;
+  /** A three-letter code, such as kor. */
+  originalLanguage: string | null;
   slug: string;
   status: { name: string | null } | null;
   translations: {
@@ -292,6 +309,8 @@ interface TvMazeShow {
   genres: string[];
   id: number;
   image: TvMazeImage | null;
+  /** The language's English name, such as Korean. */
+  language: string | null;
   name: string;
   network: { name: string } | null;
   premiered: string | null;
@@ -321,6 +340,10 @@ export interface SourceEpisode {
 export interface SourceProgram {
   bannerUrl: string | null;
   details: Omit<MediaProgramMeta, "bannerPath" | "posterPath" | "seasons">;
+  /** Listed as animation or anime. */
+  isAnimated: boolean;
+  /** The English name of its original language, when the source gives one. */
+  language: string | null;
   posterUrl: string | null;
   /** Seasons by their number, with specials as season 0. */
   seasons: Map<number, SourceSeason>;
@@ -380,6 +403,21 @@ const getApiKey = (source: "tmdb" | "tvdb") => {
   const key = getConfig().mediaPrograms.apiKeys[source].trim();
   if (!key) throw new Error(`Set up ${label} under Metadata Sources in Media Programs settings`);
   return key;
+};
+
+const getIsAnimated = (genres: string[]) =>
+  genres.some((genre) => ANIMATED_GENRES.includes(genre.toLowerCase()));
+
+/** The English name of a language code, such as Korean for ko or kor, when it has one. */
+const getLanguageName = (code: string | null) => {
+  if (!code) return null;
+
+  try {
+    return new Intl.DisplayNames(["en"], { fallback: "none", type: "language" }).of(code) ?? null;
+  } catch {
+    // Codes that aren't valid language tags name no language.
+    return null;
+  }
 };
 
 /** TMDB gives image paths, which it serves at any of its sizes. */
@@ -580,6 +618,9 @@ const fetchAniListProgram = async (id: number): Promise<SourceProgram> => {
       title: getAniListTitle(first),
       url: first.siteUrl,
     },
+    // AniList only lists anime.
+    isAnimated: true,
+    language: ANILIST_COUNTRY_LANGUAGES[first.countryOfOrigin] ?? null,
     posterUrl: first.coverImage.extraLarge ?? first.coverImage.large,
     seasons: new Map(
       chain.map((media, index) => [
@@ -654,6 +695,8 @@ const fetchTmdbMovie = async (id: number): Promise<SourceProgram> => {
       title: movie.title,
       url: `${TMDB_SITE_URL}/movie/${movie.id}`,
     },
+    isAnimated: getIsAnimated(movie.genres.map(({ name }) => name)),
+    language: getLanguageName(movie.original_language),
     posterUrl: getTmdbImageUrl(movie.poster_path),
     seasons: new Map(),
   };
@@ -688,6 +731,8 @@ const fetchTmdbShow = async (id: number): Promise<SourceProgram> => {
       title: show.name,
       url: `${TMDB_SITE_URL}/tv/${show.id}`,
     },
+    isAnimated: getIsAnimated(show.genres.map(({ name }) => name)),
+    language: getLanguageName(show.original_language),
     posterUrl: getTmdbImageUrl(show.poster_path),
     seasons: new Map(
       show.seasons.map(({ season_number }, index) => [season_number, seasons[index]]),
@@ -739,6 +784,8 @@ const fetchTvdbMovie = async (id: number): Promise<SourceProgram> => {
       title: getTvdbTranslation(movie.translations?.nameTranslations)?.name || movie.name,
       url: `${TVDB_SITE_URL}/movies/${movie.slug}`,
     },
+    isAnimated: getIsAnimated((movie.genres ?? []).map(({ name }) => name)),
+    language: getLanguageName(movie.originalLanguage),
     posterUrl: movie.image || null,
     seasons: new Map(),
   };
@@ -786,6 +833,8 @@ const fetchTvdbSeries = async (id: number): Promise<SourceProgram> => {
       title: getTvdbTranslation(series.translations?.nameTranslations)?.name || series.name,
       url: `${TVDB_SITE_URL}/series/${series.slug}`,
     },
+    isAnimated: getIsAnimated((series.genres ?? []).map(({ name }) => name)),
+    language: getLanguageName(series.originalLanguage),
     posterUrl: series.image || null,
     seasons: new Map<number, SourceSeason>(
       seasonNumbers.map((number) => {
@@ -878,6 +927,8 @@ const fetchTvMazeProgram = async (id: number): Promise<SourceProgram> => {
       title: show.name,
       url: show.url,
     },
+    isAnimated: show.type === "Animation" || getIsAnimated(show.genres),
+    language: show.language || null,
     posterUrl: getTvMazeImageUrl(show.image),
     seasons,
   };

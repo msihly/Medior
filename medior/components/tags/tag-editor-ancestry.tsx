@@ -227,11 +227,13 @@ export const TagEditorAncestry = Comp(({ onTagClick, store }: TagEditorAncestryP
       width="100%"
       height="100%"
     >
+      {/* Inset like the rows of the lists beside it, so top-level tags clear the border. */}
       <View
         column
         flex={1}
         minHeight={0}
         overflow="hidden"
+        padding={{ left: "0.3rem" }}
         bgColor={colors.input}
         borderRadiuses={{ bottom: "0.3rem" }}
         borders={{ all: `1px dotted ${colors.custom.grey}` }}
@@ -241,7 +243,14 @@ export const TagEditorAncestry = Comp(({ onTagClick, store }: TagEditorAncestryP
           rowCount={rows.length}
           rowHeight={IMPORT_TAG_ROW_HEIGHT}
           rowKey={getAncestryRowKey}
-          rowProps={{ collapsed, onTagClick, onToggle: toggle, onWidth: measureRow, rows, rowWidth }}
+          rowProps={{
+            collapsed,
+            onTagClick,
+            onToggle: toggle,
+            onWidth: measureRow,
+            rows,
+            rowWidth,
+          }}
         />
       </View>
     </HeaderWrapper>

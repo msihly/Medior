@@ -28,6 +28,7 @@ import {
   ImportMusicPreview,
   makeSeasonTitle,
   MediaProgramImport,
+  MediaProgramOption,
   MediaProgramPlan,
   mergeTagDefinitions,
   parseFileMusic,
@@ -228,6 +229,37 @@ export class ImportEditorStore extends Model({
 
       if (tagsToUpsert && imp.tagsToUpsert?.length) imp.tagsToUpsert = null;
     });
+  }
+
+  /**
+   * Imports the program's seasons into the picked existing program, whose saved details replace the
+   * scanned ones until edited, or into a new one, apart from any named alike, when none is picked.
+   */
+  @modelAction
+  pickMediaProgram(folderPath: string, program: MediaProgramOption | null) {
+    const plan = this.getMediaProgram(folderPath);
+    if (!plan) return;
+
+    if (program)
+      Object.assign(plan, {
+        existingId: program.id,
+        isNew: false,
+        isPicked: true,
+        language: program.language ?? plan.language,
+        medium: program.medium ?? plan.medium,
+        name: program.name,
+        saved: {
+          language: program.language,
+          medium: program.medium,
+          name: program.name,
+          type: program.type,
+          year: program.year,
+        },
+        type: program.type ?? plan.type,
+        year: program.year ?? plan.year,
+      });
+    else
+      Object.assign(plan, { existingId: undefined, isNew: true, isPicked: true, saved: undefined });
   }
 
   @modelAction

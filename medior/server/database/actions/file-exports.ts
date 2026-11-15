@@ -12,6 +12,8 @@ import { getForeignFileLock, lockFiles, unlockFiles } from "medior/server/databa
 import {
   assertMediaPathIndexesReady,
   assertMediaPathsAvailable,
+  describeMutableFileCleanup,
+  FileCleanup,
   FileOperation,
   FileOperationModel,
   finishFileOperation,
@@ -36,6 +38,7 @@ import {
 } from "medior/utils/server";
 import { copyMediaFile, hashMediaFile, syncMediaFile } from "medior/utils/server/media-output";
 import { moveFileNoReplace } from "medior/utils/server/move-file";
+import { copyPotPlayerBookmarks, getPotPlayerBookmarkPath } from "medior/utils/server/pot-player";
 import { workSignal } from "medior/utils/server/work-signal";
 
 type ExportFile = Pick<
@@ -356,22 +359,36 @@ const settleMoveBack = async (operation: FileOperation, isPlaced = false) => {
     (await checkFileExists(storedPath)) &&
     !(await getIsSameFile(storedPath, targetPath));
 
+  // PotPlayer bookmarks follow the file back, leaving storage once there. They change as they're
+  // watched, so cleanup only checks that their copy still exists.
+  const bookmarkCleanup =
+    isMovedBack && (await copyPotPlayerBookmarks(storedPath, targetPath))
+      ? await describeMutableFileCleanup(
+          getPotPlayerBookmarkPath(storedPath),
+          getPotPlayerBookmarkPath(targetPath),
+        )
+      : null;
+
+  const cleanup: FileCleanup[] = [
+    ...(hasStoredCopy
+      ? [
+          {
+            ...makeFileCleanup(hash, storedPath, file.size),
+            retainedHash: hash,
+            retainedPath: targetPath,
+          },
+        ]
+      : []),
+    ...(bookmarkCleanup ? [bookmarkCleanup] : []),
+  ];
+
   let isCleanupKept = false;
 
-  if (hasStoredCopy) {
+  if (cleanup.length) {
     const committed = await FileOperationModel.updateOne(
       filter,
       {
-        $set: {
-          cleanup: [
-            {
-              ...makeFileCleanup(hash, storedPath, file.size),
-              retainedHash: hash,
-              retainedPath: targetPath,
-            },
-          ],
-          state: "COMMITTED",
-        },
+        $set: { cleanup, state: "COMMITTED" },
         $unset: { outputPath: 1, tempPath: 1 },
       },
       metadataWriteOptions(),
@@ -502,9 +519,10 @@ export const startFileCopy = makeAction(
 
 /**
  * Moves stored files back to their original paths, where they stay in the library as linked files
- * with their thumbnails and subtitles left in storage. The same file already at its original path,
- * such as one restored by hand, takes the stored copy's place. Files whose original folder isn't
- * linked, or whose original path holds another file, are left out.
+ * with their thumbnails and subtitles left in storage, and their PotPlayer bookmarks beside them.
+ * The same file already at its original path, such as one restored by hand, takes the stored copy's
+ * place. Files whose original folder isn't linked, or whose original path holds another file, are
+ * left out.
  */
 export const startFileMoveBack = makeAction(async ({ fileIds }: { fileIds: string[] }) => {
   const uniqueIds = [...new Set(fileIds)];

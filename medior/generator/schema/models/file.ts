@@ -12,6 +12,14 @@ model.addIndex({ bitrate: 1, _id: 1 });
 model.addProp("bitrate", "number", { sort: { icon: "DataThresholding", label: "Bitrate" } });
 
 /**
+ * Bookmarks set in Medior's video player, at seconds into the video. PotPlayer's are kept in its
+ * own files beside the video, and only those continue a watch.
+ */
+model.addProp("bookmarks", "Array<{ id: string; time: number }>", {
+  schemaType: "[{ _id: false, id: String, time: Number }]",
+});
+
+/**
  * Translated cues of the transcript ("transcript"), a companion subtitle file ("subtitle:<path
  * key>"), or a text subtitle stream ("stream:<index>"), one per source and language. `text` joins
  * the cues for the Transcription filter.

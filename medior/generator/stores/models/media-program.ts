@@ -20,20 +20,21 @@ model.addNumRangeProp("year");
 model.addTagOptsProp("genreIds", "genreIdsWithAncestors", { label: "Genre", name: "genres" });
 model.addTagOptsProp("tagIds", "tagIdsWithAncestors");
 
-// Unchecked values are excluded, like the file filter's, so programs without one still match.
+// Unchecked values are excluded. The empty value is the None option, which excludes programs
+// missing the detail or left blank.
 model.addProp("excludedLanguages", "string[]", "() => []", {
   objPath: ["language", "$nin"],
-  objValue: "args.excludedLanguages",
+  objValue: 'args.excludedLanguages.flatMap((value) => (value ? [value] : [null, ""]))',
 });
 
 model.addProp("excludedMediums", "string[]", "() => []", {
   objPath: ["medium", "$nin"],
-  objValue: "args.excludedMediums",
+  objValue: 'args.excludedMediums.flatMap((value) => (value ? [value] : [null, ""]))',
 });
 
 model.addProp("excludedTypes", "string[]", "() => []", {
   objPath: ["type", "$nin"],
-  objValue: "args.excludedTypes",
+  objValue: 'args.excludedTypes.flatMap((value) => (value ? [value] : [null, ""]))',
 });
 
 model.addProp("excludedWatchStatuses", "string[]", "() => []", {

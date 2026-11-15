@@ -12,14 +12,16 @@ export const MediaProgramModals = Comp(() => {
   const stores = useStores();
   const store = stores.mediaProgram;
 
-  const handleMetaMatchClose = () => store.setMetaMatchProgramId(null);
-
   return (
     <>
       {store.editor.isOpen && <MediaProgramEditor />}
 
       {store.metaMatchProgram && (
-        <MediaProgramMetaModal program={store.metaMatchProgram} onClose={handleMetaMatchClose} />
+        <MediaProgramMetaModal
+          program={store.metaMatchProgram}
+          season={store.metaMatchSeason}
+          onClose={store.closeMetaMatch}
+        />
       )}
 
       {store.isConfirmDeleteOpen && <DeleteMediaProgramModal />}

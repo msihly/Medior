@@ -8,6 +8,8 @@ import {
   MenuButton,
   Slider,
   Text,
+  VideoBookmark,
+  VideoBookmarks,
   VideoChapters,
   VideoWaveform,
   View,
@@ -31,6 +33,7 @@ export const VideoControls = Comp(() => {
   const [toaster] = useState(() => new Toaster());
 
   const activeFile = store.getActiveFile();
+  const bookmarks = activeFile?.bookmarks ?? [];
   const hasAudio = Boolean(activeFile?.audioCodec) && activeFile.audioCodec !== "None";
   const hasTranscript = Boolean(activeFile?.transcription?.segments?.length);
   const hasCaptions = hasTranscript || store.subtitleTracks.length > 0;
@@ -50,12 +53,22 @@ export const VideoControls = Comp(() => {
 
   const goToPrevFrame = () => goToFrame(Math.max(store.curFrame - 1, 1));
 
-  const handleChapterSeek = (chapter: VideoChapter) => {
-    const frame = Math.max(1, round(chapter.start * activeFile.playbackFrameRate, 0));
+  const handleAddBookmark = async (onClose: () => void) => {
+    onClose();
 
-    setCurFrame(frame);
-    seekVideoPlayer(frame);
+    const res = await store.addBookmark();
+    if (!res.success) toast.error(res.error);
+    else toaster.toast(`Bookmark: ${Fmt.duration(res.data)}`);
   };
+
+  const handleBookmarkSeek = (bookmark: VideoBookmark) => seekToTime(bookmark.time);
+
+  const handleBookmarkSelect = (bookmark: VideoBookmark, onClose: () => void) => {
+    onClose();
+    seekToTime(bookmark.time);
+  };
+
+  const handleChapterSeek = (chapter: VideoChapter) => seekToTime(chapter.start);
 
   const handleFindSimilarAudio = () =>
     stores.file.similarity.openAudio({
@@ -127,6 +140,13 @@ export const VideoControls = Comp(() => {
     );
   };
 
+  const handleRemoveBookmark = async (id: string, onClose: () => void) => {
+    onClose();
+
+    const res = await store.removeBookmark(id);
+    if (!res.success) toast.error(res.error);
+  };
+
   const handleSubtitleTrack = async (id: string, onClose: () => void) => {
     onClose();
 
@@ -153,6 +173,13 @@ export const VideoControls = Comp(() => {
         seekTime: Fmt.frameToSec(frame, activeFile.playbackFrameRate),
       });
     else seekToFraction(videoContext?.current, frame / activeFile.totalFrames);
+  };
+
+  const seekToTime = (time: number) => {
+    const frame = Math.max(1, round(time * activeFile.playbackFrameRate, 0));
+
+    setCurFrame(frame);
+    seekVideoPlayer(frame);
   };
 
   const setCurFrame = (frame: number) => store.setCurFrame(frame, activeFile.playbackFrameRate);
@@ -225,6 +252,40 @@ export const VideoControls = Comp(() => {
         />
       </View>
 
+      <MenuButton
+        icon="Bookmarks"
+        color={bookmarks.length ? colors.custom.yellow : colors.custom.lightGrey}
+        tooltip="Bookmarks"
+        anchorOrigin={{ horizontal: "left", vertical: "top" }}
+        transformOrigin={{ horizontal: "left", vertical: "bottom" }}
+      >
+        {(onClose) => [
+          <ListItem
+            key="add"
+            text={`Add Bookmark at ${Fmt.duration(store.curTime)}`}
+            icon="BookmarkAdd"
+            onClick={() => handleAddBookmark(onClose)}
+          />,
+
+          ...bookmarks.map((bookmark) => (
+            <ListItem
+              key={bookmark.id}
+              text={Fmt.duration(bookmark.time)}
+              icon="Bookmark"
+              iconProps={{ color: colors.custom.yellow }}
+              onClick={() => handleBookmarkSelect(bookmark, onClose)}
+            >
+              <ListItem
+                text="Remove"
+                icon="Delete"
+                color={colors.custom.red}
+                onClick={() => handleRemoveBookmark(bookmark.id, onClose)}
+              />
+            </ListItem>
+          )),
+        ]}
+      </MenuButton>
+
       <View column flex={1} height="100%" justify="center" className={css.progressControl}>
         {store.isWaveformVisible && (
           <VideoWaveform
@@ -259,6 +320,14 @@ export const VideoControls = Comp(() => {
             chapters={store.chapters}
             duration={activeFile.duration}
             onSeek={handleChapterSeek}
+          />
+        )}
+
+        {bookmarks.length > 0 && (
+          <VideoBookmarks
+            bookmarks={bookmarks}
+            duration={activeFile.duration}
+            onSeek={handleBookmarkSeek}
           />
         )}
       </View>

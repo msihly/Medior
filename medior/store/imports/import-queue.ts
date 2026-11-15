@@ -43,7 +43,7 @@ import {
   TagRegExMatcher,
   VideoExt,
 } from "medior/utils/common";
-import { getConfig, getIsVideo, rpc } from "medior/utils/server";
+import { getConfig, getIsLinkedPath, getIsStoragePath, getIsVideo, rpc } from "medior/utils/server";
 import { getImportTagIndex } from "./import-tag-index";
 
 const DEBUG = false;
@@ -873,8 +873,10 @@ export const useImportEditor = (store: ImportEditorStore) => {
 
     return {
       ...getMediaProgramChanges(plan),
+      isNew: plan.isNew,
       // Season folders hold the episodes seen; loose ones in the program folder are next to watch.
       isWatched: plan.watchStatus !== "unwatched" && folder.folderName !== plan.folderPath,
+      programId: plan.existingId,
       seasonLabel,
       seasonNumber,
       sourceFolderPath: plan.folderPath,
@@ -1252,7 +1254,13 @@ export const useImportEditor = (store: ImportEditorStore) => {
     }
 
     if (plans.size) {
-      const res = await rpc.listMediaProgramsBySourceFolders({ folderPaths: [...plans.keys()] });
+      const res = await rpc.listMediaProgramsBySourceFolders({
+        folders: [...plans.values()].map(({ folderPath, name, year }) => ({
+          folderPath,
+          name,
+          year,
+        })),
+      });
       if (!res.success) throw new Error(res.error);
 
       await cache.current.checkpoint();
@@ -1260,9 +1268,12 @@ export const useImportEditor = (store: ImportEditorStore) => {
       for (const program of res.data) {
         const plan = plans.get(program.folderPath);
 
-        if (program.lastSeason) addSeason(program.folderPath, program.lastSeason);
+        // Loose episodes continue only the seasons of the program the folder belongs to.
+        if (program.isFolderMatch && program.lastSeason)
+          addSeason(program.folderPath, program.lastSeason);
 
         plan.existingId = program.id;
+        plan.isFolderMatch = program.isFolderMatch;
         plan.language = program.language ?? plan.language;
         plan.medium = program.medium ?? plan.medium;
         plan.name = program.name;
@@ -1341,6 +1352,15 @@ export const useImportEditor = (store: ImportEditorStore) => {
         plan.type = edited.type;
         plan.watchStatus = edited.watchStatus;
         plan.year = edited.year;
+
+        // A program or New picked for a folder no program has stays picked.
+        if (edited.isPicked && !plan.isFolderMatch)
+          Object.assign(plan, {
+            existingId: edited.existingId,
+            isNew: edited.isNew,
+            isPicked: true,
+            saved: edited.saved && derefMobx(edited.saved),
+          });
       }
     }
 
@@ -1351,20 +1371,27 @@ export const useImportEditor = (store: ImportEditorStore) => {
   const matchSubtitles = async (folders: Map<string, FlatFolder>) => {
     if (store.options.subtitleMode === "none") return;
 
-    const subtitlePaths = makeSubtitlePathMap(store.filePaths.values());
+    const { subtitleFolders, withSubtitleTags } = getConfig().imports;
+    const videoImports = [...folders.values()].flatMap((folder) =>
+      folder.imports.filter((imp) => getIsVideo(imp.extension)),
+    );
+    const subtitlePaths = makeSubtitlePathMap(
+      store.filePaths.values(),
+      videoImports.map((imp) => imp.path),
+      { folderNames: subtitleFolders, withTags: withSubtitleTags },
+    );
 
     if (!subtitlePaths.size) return;
 
-    for (const folder of folders.values()) {
-      for (const imp of folder.imports) {
-        await cache.current.checkpoint();
+    for (const imp of videoImports) {
+      await cache.current.checkpoint();
 
-        const subtitles = getIsVideo(imp.extension)
-          ? matchSubtitleFiles(subtitlePaths, imp.path)
-          : [];
+      // Media kept in place, in a linked folder or file storage, keeps the subtitles beside it, as
+      // imports can't copy or embed them there.
+      const subtitles = matchSubtitleFiles(subtitlePaths, imp.path);
+      const isInPlace = getIsLinkedPath(imp.path) || getIsStoragePath(imp.path);
 
-        if (subtitles.length) imp.subtitles = subtitles;
-      }
+      if (subtitles.length && !isInPlace) imp.subtitles = subtitles;
     }
   };
 

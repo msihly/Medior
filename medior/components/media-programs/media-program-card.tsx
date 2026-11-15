@@ -2,8 +2,10 @@ import {
   Comp,
   ContextMenu,
   FileBase,
+  getContinueMenuItem,
   getWatchStatusMeta,
   Icon,
+  MediaProgramContinueBar,
   View,
   WatchStatusChip,
 } from "medior/components";
@@ -30,7 +32,10 @@ export interface MediaProgramCardProps {
   search?: MediaProgramSearch;
 }
 
-/** A program laid out like a file card, with its name, details, and genres in the footer. */
+/**
+ * A program laid out like a file card, with its name, details, and genres in the footer, and how far
+ * into its episode its continue point is.
+ */
 export const MediaProgramCard = Comp(({ program, rank, search }: MediaProgramCardProps) => {
   const stores = useStores();
   const store = stores.mediaProgram;
@@ -38,6 +43,7 @@ export const MediaProgramCard = Comp(({ program, rank, search }: MediaProgramCar
   const programSearch = search ?? store.manager.search;
   const posterPath = program.meta?.posterPath;
   const poster = programSearch.files.get(program.posterFileId);
+  const continuePoint = programSearch.getContinuePoint(program);
   const hasGenres = program.genres.length > 0;
 
   const handleClick = async (event: React.MouseEvent) => {
@@ -82,6 +88,7 @@ export const MediaProgramCard = Comp(({ program, rank, search }: MediaProgramCar
     <ContextMenu
       id={program.id}
       menuItems={[
+        getContinueMenuItem(continuePoint, program.episodeIds),
         { icon: "Edit", label: "Open", onClick: handleOpen },
         {
           icon: "Visibility",
@@ -162,6 +169,8 @@ export const MediaProgramCard = Comp(({ program, rank, search }: MediaProgramCar
             {hasGenres && <FileBase.Tags compact tags={program.genres} />}
           </View>
         </FileBase.Footer>
+
+        {continuePoint && <MediaProgramContinueBar continuePoint={continuePoint} />}
       </FileBase.Container>
     </ContextMenu>
   );

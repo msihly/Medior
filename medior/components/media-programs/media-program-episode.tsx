@@ -1,6 +1,13 @@
 import { useEffect, useState } from "react";
 import { checkFileExists } from "trabecula/utils/server";
-import { Comp, FileBase, MediaProgramMissingChip, View } from "medior/components";
+import {
+  Comp,
+  FileBase,
+  getContinueMenuItem,
+  MediaProgramContinueBar,
+  MediaProgramMissingChip,
+  View,
+} from "medior/components";
 import { File, useStores } from "medior/store";
 import { colors, makeClasses, toast } from "medior/utils/client";
 import { formatMediaProgramDate } from "medior/utils/common";
@@ -21,9 +28,11 @@ export interface MediaProgramEpisodeProps {
 
 /**
  * An episode with its still, title, and air date from the metadata source when it has them, marked
- * missing when its file is no longer on disk. Hovering a still plays the file's own frames when it
- * has them, which shows when a file sits at another episode's number. Files sharing a number are conflicts, and a
- * file at a number the source doesn't list is unmatched.
+ * missing when its file is no longer on disk and archived when its file is. Hovering a still plays
+ * the file's own frames when it has them, which shows when a file sits at another episode's number.
+ * Files sharing a number are conflicts, and a file at a number the source doesn't list is
+ * unmatched. An unwatched episode with a PotPlayer bookmark shows how far in its latest one is,
+ * and continues from there.
  */
 export const MediaProgramEpisode = Comp(({ episodeNumber, file }: MediaProgramEpisodeProps) => {
   const stores = useStores();
@@ -47,6 +56,8 @@ export const MediaProgramEpisode = Comp(({ episodeNumber, file }: MediaProgramEp
   }, [file.path]);
 
   const isWatched = store.program?.watchedIdSet.has(file.id);
+  // An episode watched since its last bookmark has nothing to continue.
+  const continuePoint = isWatched ? null : store.continuePoints.get(file.id);
   // Hovering only cycles from a still to frames, since cycling between two images flickers.
   const isAnimated = file.thumb?.frameHeight > 0 && file.thumb?.frameWidth > 0;
   const meta = store.getEpisodeMeta(file.id);
@@ -57,11 +68,13 @@ export const MediaProgramEpisode = Comp(({ episodeNumber, file }: MediaProgramEp
   const footerOffset = subtitle ? "2.6rem" : "1.5rem";
   const statusChip = isMissing
     ? null
-    : store.conflictNumbers.has(episodeNumber)
-      ? { bgColor: colors.custom.orange, label: "Conflict" }
-      : store.getIsUnmatched(file.id)
-        ? { bgColor: colors.custom.blueGrey, label: "Unmatched" }
-        : null;
+    : file.isArchived
+      ? { bgColor: colors.custom.brown, label: "Archived" }
+      : store.conflictNumbers.has(episodeNumber)
+        ? { bgColor: colors.custom.orange, label: "Conflict" }
+        : store.getIsUnmatched(file.id)
+          ? { bgColor: colors.custom.blueGrey, label: "Unmatched" }
+          : null;
 
   const handleClick = async (event: React.MouseEvent) => {
     const res = await store.selectFileEpisode({
@@ -94,6 +107,7 @@ export const MediaProgramEpisode = Comp(({ episodeNumber, file }: MediaProgramEp
       store={store.search}
       carouselFileIds={store.episodeIds}
       extraMenuItems={[
+        getContinueMenuItem(continuePoint, store.episodeIds),
         meta?.title
           ? { ...EPISODE_TITLE_TRANSLATION_MENU_ITEM, onClick: handleTitleTranslation }
           : null,
@@ -171,6 +185,8 @@ export const MediaProgramEpisode = Comp(({ episodeNumber, file }: MediaProgramEp
                 />
               </View>
             </FileBase.Footer>
+
+            {continuePoint && <MediaProgramContinueBar continuePoint={continuePoint} />}
           </View>
         </FileBase.Container>
       </FileBase.Tooltip>
