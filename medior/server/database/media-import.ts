@@ -4,7 +4,7 @@ import path from "path";
 import { createHash, randomUUID } from "crypto";
 import * as models from "medior/_generated/server/models";
 import { isServerStopping, serverShutdownSignal } from "trabecula/utils/process";
-import { checkFileExists, extendFileName, fileLog } from "trabecula/utils/server";
+import { checkFileExists, extendFileName, fileLog, isWithinFolder } from "trabecula/utils/server";
 import * as actions from "medior/server/database/actions";
 import { checkBackgroundExecution } from "medior/server/database/background-execution";
 import {
@@ -44,6 +44,7 @@ import {
   getIsStorageScratchPath,
   getIsVideo,
   getNtfsFileIdentity,
+  getPrevDeletedFolder,
   getScratchFolder,
   leanModelToJson,
   socket,
@@ -72,7 +73,10 @@ export interface MediaImportInput {
   musicOptions?: MusicImportOptions | null;
   originalName: string;
   originalPath: string;
-  /** Batch root, within which folders emptied by deleting this source are removed. */
+  /**
+   * Batch root, within which folders emptied by deleting this source are removed, and where it's set
+   * aside when previously deleted.
+   */
   rootFolderPath?: string;
   sidecar?: FileImportSidecar;
   size: number;
@@ -221,6 +225,27 @@ const findImportDuplicate = async (hash: string, sourceHash: string) => {
       .select("-tagIdsWithAncestors")
       .lean())
   );
+};
+
+/**
+ * The path in the folder under the file's name, or with " (2)" and up when it, or a file named after
+ * it, is already there.
+ */
+const getFreeFilePath = async (
+  folderPath: string,
+  filePath: string,
+  getNamedAfter: (targetPath: string) => string[] = () => [],
+) => {
+  const { ext, name } = path.parse(filePath);
+
+  for (let count = 1; ; count++) {
+    const targetPath = path.join(folderPath, `${name}${count > 1 ? ` (${count})` : ""}${ext}`);
+    const isTaken = await Promise.all(
+      [targetPath, ...getNamedAfter(targetPath)].map(checkFileExists),
+    );
+
+    if (!isTaken.some(Boolean)) return targetPath;
+  }
 };
 
 export const getImportOperationId = (args: Pick<MediaImportInput, "batchId" | "originalPath">) =>
@@ -397,6 +422,67 @@ const restoreMovedSource = async ({ outputHash, outputPath, sourcePath }: FileOp
 
   await fs.mkdir(path.dirname(sourcePath), { recursive: true });
   await moveFileNoReplace(outputPath, sourcePath);
+};
+
+/**
+ * Moves a previously deleted source into the folder for them set in Settings, in its import's root
+ * under the subfolders it was in below it, with its subtitles and the sidecar, diffusion parameters,
+ * and PotPlayer bookmarks named after it, which keep matching any new name it takes. They move first,
+ * so a source a failed move leaves behind is found again when its import is retried. Files already
+ * set aside stay where they are when their folder is imported again.
+ */
+const setAsidePrevDeleted = async (args: MediaImportInput, subtitlePaths: string[]) => {
+  const prevDeletedFolder = getPrevDeletedFolder();
+  const sourceFolderPath = path.dirname(args.originalPath);
+  if (sourceFolderPath.split(path.sep).includes(prevDeletedFolder)) return;
+
+  // Sources imported without a root, or from outside it, are set aside beside themselves instead.
+  const rootFolderPath =
+    args.rootFolderPath && isWithinFolder(args.rootFolderPath, args.originalPath)
+      ? args.rootFolderPath
+      : sourceFolderPath;
+
+  const getFolderPath = (filePath: string) =>
+    path.join(
+      rootFolderPath,
+      prevDeletedFolder,
+      isWithinFolder(rootFolderPath, filePath)
+        ? path.relative(rootFolderPath, path.dirname(filePath))
+        : "",
+    );
+
+  const getNamedAfter = (mediaPath: string) => [
+    extendFileName(mediaPath, "json"),
+    ...(args.diffusionParams ? [extendFileName(mediaPath, "txt")] : []),
+    getPotPlayerBookmarkPath(mediaPath),
+  ];
+
+  // Subtitles keep their own subfolders, such as Subs, so they still match the video beside them.
+  for (const subtitlePath of subtitlePaths) {
+    if (await checkFileExists(subtitlePath)) {
+      const subtitleFolderPath = getFolderPath(subtitlePath);
+
+      await fs.mkdir(subtitleFolderPath, { recursive: true });
+      await moveFileNoReplace(
+        subtitlePath,
+        await getFreeFilePath(subtitleFolderPath, subtitlePath),
+      );
+    }
+  }
+
+  const folderPath = getFolderPath(args.originalPath);
+
+  await fs.mkdir(folderPath, { recursive: true });
+
+  const targetPath = await getFreeFilePath(folderPath, args.originalPath, getNamedAfter);
+  const targetsNamedAfter = getNamedAfter(targetPath);
+
+  for (const [index, filePath] of getNamedAfter(args.originalPath).entries()) {
+    if (await checkFileExists(filePath))
+      await moveFileNoReplace(filePath, targetsNamedAfter[index]);
+  }
+
+  await moveFileNoReplace(args.originalPath, targetPath);
 };
 
 /**
@@ -1142,7 +1228,20 @@ export const importMedia = async (args: MediaImportInput, operationId?: string) 
 
     reportProgress("Saving file and tag metadata.");
 
-    return await commitMediaImport(args, operation, importResult, recordTiming);
+    const result = await commitMediaImport(args, operation, importResult, recordTiming);
+
+    // Ignore Prev. Deleted sets those files aside once their import is saved. Media kept in place,
+    // in file storage or a linked folder, stays where it is.
+    if (args.ignorePrevDeleted && result.status === "DELETED" && !isInPlace) {
+      reportProgress("Setting aside previously deleted file.");
+      await setAsidePrevDeleted(
+        args,
+        getSubtitleFilePaths([...subtitles.embedded, ...subtitles.kept]),
+      );
+      recordTiming("set aside");
+    }
+
+    return result;
   } catch (error) {
     // A moved source goes back, so a failed import doesn't leave it hidden in storage. A paused
     // import can't move it back, and its saved intent lets the retry continue or an abandon undo it.

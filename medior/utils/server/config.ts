@@ -10,6 +10,7 @@ import {
   AudioExt,
   CONSTANTS,
   DEFAULT_HOTKEYS,
+  Fmt,
   handleErrors,
   Hotkeys,
   ImageExt,
@@ -354,6 +355,8 @@ export interface Config {
     mediaProgramLanguage: string;
     mediaProgramMedium: string;
     mediaProgramType: string;
+    /** Imports that ignore previously deleted files move them into a folder of this name in their root. */
+    prevDeletedFolder: string;
     /** Folders whose subtitles belong to the videos beside them, or in a folder named after one. */
     subtitleFolders: string[];
     subtitleMode: SubtitleMode;
@@ -627,6 +630,7 @@ export const DEFAULT_CONFIG: Config = {
     mediaProgramLanguage: null,
     mediaProgramMedium: null,
     mediaProgramType: null,
+    prevDeletedFolder: "_PREV DELETED",
     subtitleFolders: ["Sub", "Subs", "Subtitle", "Subtitles"],
     subtitleMode: "keep",
     useSavedConfigs: true,
@@ -783,6 +787,14 @@ export const getAvailableFileStorage = (bytesNeeded: number) =>
 /** Returns the configured scratch folder, or the given storage-side folder when none is set. */
 export const getScratchFolder = (storageFolder: string) =>
   getConfig().db.fileStorage.scratchPath || storageFolder;
+
+/**
+ * The name of the folder previously deleted files are set aside in, kept to one folder by replacing
+ * characters Windows refuses in a name, or the default when left blank.
+ */
+export const getPrevDeletedFolder = () =>
+  Fmt.sanitizeWinPath(getConfig().imports.prevDeletedFolder ?? "", true) ||
+  DEFAULT_CONFIG.imports.prevDeletedFolder;
 
 /** Scratch output that may still be in use: the scratch folder, or storage's own scratch without one. */
 export const getIsActiveScratchPath = (filePath: string) => {

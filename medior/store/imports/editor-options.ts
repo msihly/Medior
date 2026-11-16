@@ -41,14 +41,6 @@ export class ImportEditorOptions extends Model({
 
   /* ---------------------------- STANDARD ACTIONS ---------------------------- */
   @modelAction
-  applySavedConfig(config: Partial<ReturnType<this["toSavedConfig"]>>) {
-    // Subtitles follow the Settings default, though older saved configs still record a mode.
-    Object.entries(config).forEach(([key, value]) => {
-      if (key in this && key !== "subtitleMode") this[key] = value;
-    });
-  }
-
-  @modelAction
   reset() {
     const config = getConfig();
 

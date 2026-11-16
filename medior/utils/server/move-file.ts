@@ -1,4 +1,5 @@
 import path from "path";
+import { getKernel32, INVALID_HANDLE_VALUE, OPEN_EXISTING } from "medior/utils/server/kernel32";
 
 const DELETE = 0x00010000;
 const ERROR_ALREADY_EXISTS = 183;
@@ -12,8 +13,6 @@ const FILE_FLAG_OPEN_REPARSE_POINT = 0x00200000;
 const GENERIC_READ = 0x80000000;
 const GENERIC_WRITE = 0x40000000;
 const INVALID_FILE_ATTRIBUTES = 0xffffffff;
-const INVALID_HANDLE_VALUE = -1;
-const OPEN_EXISTING = 3;
 
 /** Without MOVEFILE_REPLACE_EXISTING or MOVEFILE_COPY_ALLOWED, a move never replaces or copies. */
 const MOVEFILE_NO_REPLACE = 0;
@@ -27,45 +26,6 @@ const ORDINARY_ATTRIBUTES = 0x20 | 0x80 | 0x2000 | 0x800 | 0x200;
 
 /** Without FILE_SHARE_* flags, the open fails while any other handle to the file is open. */
 const SHARE_NONE = 0;
-
-let kernel32: ReturnType<typeof loadKernel32> = null;
-
-/** Koffi keeps each call's last Win32 error for the next call through Koffi to read. */
-const loadKernel32 = () => {
-  // Packaged apps reach node_modules via NODE_PATH, which require follows and import() doesn't.
-  const { load }: typeof import("koffi") = require("koffi");
-  const lib = load("kernel32.dll");
-
-  return {
-    closeHandle: lib.func("int __stdcall CloseHandle(intptr_t handle)") as (
-      handle: number,
-    ) => number,
-    createFile: lib.func(
-      "intptr_t __stdcall CreateFileW(str16 name, uint32_t access, uint32_t share, void *security, uint32_t disposition, uint32_t flags, void *template)",
-    ) as (
-      name: string,
-      access: number,
-      share: number,
-      security: null,
-      disposition: number,
-      flags: number,
-      template: null,
-    ) => number,
-    flushFileBuffers: lib.func("int __stdcall FlushFileBuffers(intptr_t handle)") as (
-      handle: number,
-    ) => number,
-    getFileAttributes: lib.func("uint32_t __stdcall GetFileAttributesW(str16 name)") as (
-      name: string,
-    ) => number,
-    getLastError: lib.func("uint32_t __stdcall GetLastError()") as () => number,
-    moveFileEx: lib.func(
-      "int __stdcall MoveFileExW(str16 existing, str16 updated, uint32_t flags)",
-    ) as (existing: string, updated: string, flags: number) => number,
-    setFileAttributes: lib.func(
-      "int __stdcall SetFileAttributesW(str16 name, uint32_t attributes)",
-    ) as (name: string, attributes: number) => number,
-  };
-};
 
 /** Errors carry the codes `fs` would give: EEXIST, ENOENT, or EXDEV for another drive. */
 const makeWin32Error = (message: string, code: number) => {
@@ -88,9 +48,7 @@ const toWin32Path = (filePath: string) => path.toNamespacedPath(path.resolve(fil
  * does.
  */
 export const moveFileNoReplace = async (sourcePath: string, destinationPath: string) => {
-  kernel32 ??= loadKernel32();
-
-  const { getLastError, moveFileEx } = kernel32;
+  const { getLastError, moveFileEx } = getKernel32();
 
   if (!moveFileEx(toWin32Path(sourcePath), toWin32Path(destinationPath), MOVEFILE_NO_REPLACE))
     throw makeWin32Error(`Failed to move ${sourcePath} to ${destinationPath}`, getLastError());
@@ -104,8 +62,6 @@ export const moveFileNoReplace = async (sourcePath: string, destinationPath: str
  * write them. A file that fails any of these stays in place with its flag restored.
  */
 export const moveOrdinaryFileNoReplace = async (sourcePath: string, destinationPath: string) => {
-  kernel32 ??= loadKernel32();
-
   const {
     closeHandle,
     createFile,
@@ -113,7 +69,7 @@ export const moveOrdinaryFileNoReplace = async (sourcePath: string, destinationP
     getFileAttributes,
     getLastError,
     setFileAttributes,
-  } = kernel32;
+  } = getKernel32();
 
   const source = toWin32Path(sourcePath);
 

@@ -11,7 +11,6 @@ import {
   dirToFilePaths,
   fileLog,
   makePerfLog,
-  md5File,
   removeEmptyFolders,
 } from "trabecula/utils/server";
 import { promisify } from "util";
@@ -94,6 +93,7 @@ import {
   sortByStoredNtfsIdentity,
   vectorRpc,
 } from "medior/utils/server";
+import { hashMediaFiles } from "medior/utils/server/media-output";
 import { getPotPlayerBookmarkPath } from "medior/utils/server/pot-player";
 import { getMediaInfo, getVideoInfo } from "medior/utils/server/videos";
 import { workSignal } from "medior/utils/server/work-signal";
@@ -563,14 +563,11 @@ export const deleteFilesExternal = makeAction(
       let deletedCount = 0;
 
       for (const chunk of chunks) {
-        const fileHashes: string[] = [];
+        const fileHashes = await hashMediaFiles(chunk);
         const fileSizes: number[] = [];
 
         // The recorded size lets cleanup confirm each file without reading it a second time.
-        for (const filePath of chunk) {
-          fileHashes.push(await md5File(filePath));
-          fileSizes.push((await fs.stat(filePath)).size);
-        }
+        for (const filePath of chunk) fileSizes.push((await fs.stat(filePath)).size);
 
         fileLog(`[DFE] Hashed ${fileHashes.length} file hashes.`);
 

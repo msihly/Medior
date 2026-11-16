@@ -1081,6 +1081,15 @@ export const SettingsModal = Comp(() => {
                   </Settings.Field>
                 </Settings.Group>
 
+                <Settings.Group title="Previously Deleted">
+                  <Settings.Field
+                    label="Folder"
+                    description="With Ignore Prev. Deleted on, imports move previously deleted files into a folder of this name in their root folder, under the subfolders they were in. Scans leave it out unless it's the folder scanned. Blank uses _PREV DELETED."
+                  >
+                    <Settings.Input configKey="imports.prevDeletedFolder" width="16rem" />
+                  </Settings.Field>
+                </Settings.Group>
+
                 <Settings.Group title="Diffusion Tag Labels">
                   <Settings.Field label="Diffusion">
                     <Settings.Input configKey="imports.labelDiff" width="16rem" />
