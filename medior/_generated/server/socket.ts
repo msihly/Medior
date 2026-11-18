@@ -116,6 +116,14 @@ export interface SocketEmitEvents {
   onImportBatchCompleted: (args: { id: string }, options?: SocketEventOptions) => void;
   onImportBatchLoaded: (args: { id: string }, options?: SocketEventOptions) => void;
   onImporterStatusUpdated: (options?: SocketEventOptions) => void;
+  onJobTranscriptUpdated: (
+    args: {
+      id: string;
+      segments: Array<{ end: number; start: number; text: string }>;
+      start: number;
+    },
+    options?: SocketEventOptions,
+  ) => void;
   onJobUpdated: (args: Types.JobState, options?: SocketEventOptions) => void;
   onMediaProgramCreated: (args: models.MediaProgramSchema, options?: SocketEventOptions) => void;
   onMediaProgramDeleted: (args: { ids: string[] }, options?: SocketEventOptions) => void;
@@ -270,6 +278,7 @@ export const socketEvents: SocketEmitEvent[] = [
   "onImportBatchCompleted",
   "onImportBatchLoaded",
   "onImporterStatusUpdated",
+  "onJobTranscriptUpdated",
   "onJobUpdated",
   "onNotificationsRead",
   "onReencodeCandidateProgress",

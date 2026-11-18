@@ -1,11 +1,11 @@
 import autoBind from "auto-bind";
 import { BackgroundOperationSchema, NotificationSchema } from "medior/_generated/server";
-import { reaction } from "mobx";
+import { observable, reaction } from "mobx";
 import { getRootStore, Model, model, modelAction, modelFlow, prop } from "mobx-keystone";
 import type { JobState, JobType } from "medior/server/database";
 import { RootStore, SettingsStore, TagOption, VideoTransformRequest } from "medior/store";
 import { asyncAction, derefMobx } from "medior/utils/client";
-import { isDeepEqual } from "medior/utils/common";
+import { isDeepEqual, SubtitleSegment, TranscriptUpdate } from "medior/utils/common";
 import { getConfig, rpc } from "medior/utils/server";
 
 /** The views the drawer switches between, each staying open with its state once opened. */
@@ -39,6 +39,7 @@ const makeLostJob = (id: string): JobState => ({
   isRunning: false,
   isStopping: false,
   item: "",
+  itemTime: null,
   label: "",
   message: "",
   processed: 0,
@@ -94,6 +95,8 @@ export class HomeStore extends Model({
   private finishedJobs = new Map<string, JobState>();
   private followedJobIds = new Set<string>();
   private jobFollowers = new Map<string, (job: JobState) => void>();
+  /** Running jobs' transcripts of their current item, kept apart from the store's snapshots since each segment replaces them. */
+  private jobTranscripts = observable.map<string, SubtitleSegment[]>({}, { deep: false });
   private jobWaiters = new Map<string, ((job: JobState) => void)[]>();
   private notificationRevision = 0;
 
@@ -117,6 +120,11 @@ export class HomeStore extends Model({
       notification,
       ...this.notifications.filter(({ id }) => id !== notification.id),
     ]).slice(0, 250);
+  }
+
+  @modelAction
+  private clearJobTranscript(id: string) {
+    this.jobTranscripts.delete(id);
   }
 
   /**
@@ -152,6 +160,7 @@ export class HomeStore extends Model({
       const waiters = this.jobWaiters.get(job.id) ?? [];
 
       this.setJobs(this.jobs.filter(({ id }) => id !== job.id));
+      this.clearJobTranscript(job.id);
       this.jobFollowers.delete(job.id);
       this.jobWaiters.delete(job.id);
       this.finishedJobs.set(job.id, job);
@@ -168,6 +177,15 @@ export class HomeStore extends Model({
 
       for (const resolve of waiters) resolve(job);
     }
+  }
+
+  /** Applies a running job's transcript change, replacing its segments from `start` on. */
+  @modelAction
+  updateJobTranscript({ id, segments, start }: TranscriptUpdate & { id: string }) {
+    this.jobTranscripts.set(id, [
+      ...(this.jobTranscripts.get(id) ?? []).slice(0, start),
+      ...segments,
+    ]);
   }
 
   /** Resolves with the job's final state, at once when it already ended. */
@@ -369,6 +387,10 @@ export class HomeStore extends Model({
 
   getJobById(id: string) {
     return this.jobs.find((job) => job.id === id);
+  }
+
+  getJobTranscript(id: string) {
+    return this.jobTranscripts.get(id);
   }
 
   get hasRunningBackgroundOperations() {

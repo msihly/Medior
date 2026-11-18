@@ -3,10 +3,10 @@ import path from "path";
 import { execFile, spawn } from "child_process";
 import os from "os";
 import { checkFileExists } from "trabecula/utils/server";
-import { Fmt, round } from "medior/utils/common";
+import { Fmt, round, SubtitleSegment, TranscriptUpdate } from "medior/utils/common";
 import { getAudioSimilarityModel, getConfig } from "medior/utils/server/config";
 import { getFfmpegPath, getFfprobePath } from "medior/utils/server/ffmpeg";
-import { runNativeTask, stopNativeTask } from "medior/utils/server/native-task";
+import { moveNativeWorkers, runNativeTask, stopNativeTask } from "medior/utils/server/native-task";
 import { workSignal } from "medior/utils/server/work-signal";
 
 /** The name of errors for audio too corrupted to decode, past ffmpeg's decode error limit. */
@@ -116,7 +116,26 @@ interface DecodeOptions {
   signal?: AbortSignal;
 }
 
-type ProgressReporter = (message: string, progress?: number) => void;
+/** Where a transcription is in the file, in seconds, with the change to its transcript whenever it adds or settles segments. */
+interface TranscriptionProgress {
+  duration: number;
+  position: number;
+  transcriptUpdate?: TranscriptUpdate;
+}
+
+/** A transcription worker's place in the file, in seconds, with the segment it just closed, if any. */
+interface TranscriptionWorkerProgress {
+  duration: number;
+  position: number;
+  segment?: SubtitleSegment;
+}
+
+/** Progress, with where a transcription is whenever it reports its place in the file. */
+type ProgressReporter = (
+  message: string,
+  progress?: number,
+  transcription?: TranscriptionProgress,
+) => void;
 
 const transcriptionModelOwners = new Map<string, AbortSignal>();
 
@@ -124,11 +143,17 @@ export const retainTranscriptionModel = (ownerId: string, signal = workSignal.ge
   transcriptionModelOwners.set(ownerId, signal);
 };
 
+/** Unloads the owner's model, unless another operation still transcribing takes it over instead of loading it again. */
 export const releaseTranscriptionModel = async (ownerId: string) => {
   if (!transcriptionModelOwners.has(ownerId)) return;
 
-  stopNativeTask("transcription", transcriptionModelOwners.get(ownerId));
+  const signal = transcriptionModelOwners.get(ownerId);
   transcriptionModelOwners.delete(ownerId);
+
+  const nextSignal = [...transcriptionModelOwners.values()].find((other) => !other?.aborted);
+
+  if (nextSignal) moveNativeWorkers("transcription", signal, nextSignal);
+  else stopNativeTask("transcription", signal);
 };
 
 /** Copies ffmpeg's little-endian floats as is, so it assumes a little-endian machine. */
@@ -766,16 +791,61 @@ export const analyzeDecodedAudio = async (
       const readEnd = Math.min(sampleCount, end + contextSamples);
       const samples = await audio.read(readStart, readEnd);
 
+      /** A segment timed in the window's samples, timed in the file, or nothing when its middle lies in the context around the window. */
+      const toFileSegment = (segment: SubtitleSegment) => {
+        const segmentStart = segment.start + readStart / AUDIO_SAMPLE_RATE;
+        const segmentEnd = segment.end + readStart / AUDIO_SAMPLE_RATE;
+        const midpoint = (segmentStart + segmentEnd) / 2;
+
+        return midpoint >= start / AUDIO_SAMPLE_RATE && midpoint < end / AUDIO_SAMPLE_RATE
+          ? {
+              end: Math.min(sampleCount / AUDIO_SAMPLE_RATE, segmentEnd),
+              start: Math.max(0, segmentStart),
+              text: segment.text,
+            }
+          : null;
+      };
+
+      // The window's segments follow the finished windows' as the model closes them, until the window's merged result replaces them from the same index.
+      const firstIndex = segments.length;
+      let lastMessage = "";
+      let streamedCount = 0;
+
       const transcriptionStart = Date.now();
-      const transcription = await runNativeTask<AudioAnalysis["transcription"]>(
+      const transcription = await runNativeTask<
+        AudioAnalysis["transcription"],
+        TranscriptionWorkerProgress
+      >(
         "transcription",
-        { config: config.transcription, samples },
+        {
+          config: config.transcription,
+          fileSpan: {
+            duration: sampleCount / AUDIO_SAMPLE_RATE,
+            end: end / AUDIO_SAMPLE_RATE,
+            start: start / AUDIO_SAMPLE_RATE,
+          },
+          samples,
+        },
         signal,
-        (message, progress) =>
+        // Transcription reports its place in the whole file, while model downloads report their own percent.
+        (message, progress, worker) => {
+          const fileSegment = worker?.segment ? toFileSegment(worker.segment) : null;
+          if (fileSegment) streamedCount++;
+
+          lastMessage = message;
+
           onProgress?.(
             message,
-            Math.min(100, ((start + ((end - start) * (progress ?? 0)) / 100) / sampleCount) * 100),
-          ),
+            progress,
+            worker && {
+              duration: worker.duration,
+              position: worker.position,
+              transcriptUpdate: fileSegment
+                ? { segments: [fileSegment], start: firstIndex + streamedCount - 1 }
+                : undefined,
+            },
+          );
+        },
       );
 
       analysis.inferenceMs += Date.now() - transcriptionStart;
@@ -791,18 +861,13 @@ export const analyzeDecodedAudio = async (
               },
             ];
 
-      for (const segment of windowSegments) {
-        const segmentStart = segment.start + readStart / AUDIO_SAMPLE_RATE;
-        const segmentEnd = segment.end + readStart / AUDIO_SAMPLE_RATE;
-        const midpoint = (segmentStart + segmentEnd) / 2;
+      segments.push(...windowSegments.map(toFileSegment).filter(Boolean));
 
-        if (midpoint >= start / AUDIO_SAMPLE_RATE && midpoint < end / AUDIO_SAMPLE_RATE)
-          segments.push({
-            end: Math.min(sampleCount / AUDIO_SAMPLE_RATE, segmentEnd),
-            start: Math.max(0, segmentStart),
-            text: segment.text,
-          });
-      }
+      onProgress?.(lastMessage, (end / sampleCount) * 100, {
+        duration: sampleCount / AUDIO_SAMPLE_RATE,
+        position: end / AUDIO_SAMPLE_RATE,
+        transcriptUpdate: { segments: segments.slice(firstIndex), start: firstIndex },
+      });
     }
 
     analysis.transcription = {

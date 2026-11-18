@@ -1,5 +1,5 @@
 import type { JobState } from "medior/server/database";
-import { Button, Comp, Text, View } from "medior/components";
+import { Button, Chip, Comp, Text, View } from "medior/components";
 import { useStores } from "medior/store";
 import { colors, toast } from "medior/utils/client";
 import { Fmt } from "medior/utils/common";
@@ -17,7 +17,7 @@ export const JobProgress = Comp(({ embedded, job, onMinimize, onRestore }: JobPr
     <View column align="center" spacing="0.5rem">
       {!embedded && <Text preset="title">{job.label}</Text>}
 
-      <Text>{`${Fmt.commas(job.processed)} of ${Fmt.commas(job.total)}`}</Text>
+      <Chip label={Fmt.commas(job.processed)} denominator={Fmt.commas(job.total)} />
 
       {!!job.item && (
         <Text textAlign="center" whiteSpace="normal" overflowWrap="anywhere">

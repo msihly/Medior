@@ -41,6 +41,7 @@ import {
   addToJob,
   findJob,
   isJobStopping,
+  Job,
   startJob,
   waitForJob,
 } from "medior/server/database/jobs";
@@ -64,10 +65,12 @@ import {
   FileSidecarCollection,
   FileSidecarField,
   Fmt,
+  formatSrt,
   getSubtitleFilePaths,
   hasTranscription,
 } from "medior/utils/common";
 import {
+  analyzeAudio,
   analyzeDecodedAudio,
   assertAudioSimilarityModel,
   AUDIO_DECODE_ERROR,
@@ -745,6 +748,29 @@ export const editFileTags = makeAction(
   ({ addedTagIds = [], batchId, fileIds, removedTagIds = [], withSub = true }) => {
     if (withSub)
       socket.emitVolatile("onFileTagsUpdated", { addedTagIds, batchId, fileIds, removedTagIds });
+  },
+);
+
+/**
+ * Writes a file's transcript as an SRT subtitle to the path chosen for it.
+ * A transcript without timed segments becomes one cue spanning the file.
+ */
+export const exportFileTranscript = makeAction(
+  async ({ fileId, outputPath }: { fileId: string; outputPath: string }) => {
+    const file = await models.FileModel.findById(fileId)
+      .select({ duration: 1, transcription: 1 })
+      .lean();
+    if (!file) throw new Error("The file was not found.");
+    if (!hasTranscription(file.transcription)) throw new Error("The file has no transcript.");
+
+    await fs.writeFile(
+      outputPath,
+      formatSrt(
+        file.transcription.segments?.length
+          ? file.transcription.segments
+          : [{ end: file.duration, start: 0, text: file.transcription.text }],
+      ),
+    );
   },
 );
 
@@ -1953,6 +1979,87 @@ const fileThumbnailRepairPromises = new Map<
 /** Each running refresh's files, which later refreshes add to. */
 const fileRefreshQueues = new Map<string, string[]>();
 
+/** Each running transcription's waiting files, which later transcriptions add to. */
+const fileTranscriptionQueues = new Map<string, string[]>();
+
+/**
+ * Puts waiting files in disk order by their thumbnails' stored NTFS identity, which reads nothing from the drive.
+ * Files added while the order loads stay after the rest.
+ */
+const sortQueueByDisk = async (queue: string[]) => {
+  const files = new Map(
+    (
+      await models.FileModel.find({ _id: { $in: objectIds(queue) } })
+        .select({ _id: 1, "thumb.ntfsFileId": 1, "thumb.ntfsVolumeId": 1 })
+        .lean()
+    ).map((file) => [String(file._id), file]),
+  );
+
+  // Files without a stored identity keep their place in the queue, which the records' order would lose.
+  const order = new Map(
+    sortByStoredNtfsIdentity(
+      queue.filter((fileId) => files.has(fileId)),
+      (fileId) => getThumbNtfsIdentity(files.get(fileId)),
+    ).map((fileId, index) => [fileId, index]),
+  );
+
+  queue.sort((a, b) => (order.get(a) ?? order.size) - (order.get(b) ?? order.size));
+};
+
+/**
+ * Transcribes a file's audio whatever Settings says about transcribing imports and refreshes.
+ * A new transcript replaces the old one and the translations made from it.
+ * Resolves to whether any speech was found.
+ */
+const transcribeFile = async (job: Job, fileId: string) => {
+  const file = await models.FileModel.findById(fileId)
+    .select({ audioCodec: 1, captionTranslations: 1, originalName: 1, path: 1 })
+    .lean();
+  if (!file) throw new Error("The file was not found.");
+  if (!file.audioCodec || file.audioCodec === "None") throw new Error("The file has no audio.");
+
+  job.report({
+    item: file.originalName,
+    itemTime: null,
+    message: "Starting transcription.",
+    stepProgress: null,
+  });
+  job.reportTranscript({ segments: [], start: 0 });
+
+  const { transcription } = await analyzeAudio(
+    file.path,
+    (message, progress, transcriptionProgress) => {
+      job.report({
+        itemTime: transcriptionProgress
+          ? { duration: transcriptionProgress.duration, position: transcriptionProgress.position }
+          : null,
+        message,
+        stepProgress: progress ?? null,
+      });
+
+      if (transcriptionProgress?.transcriptUpdate)
+        job.reportTranscript(transcriptionProgress.transcriptUpdate);
+    },
+    job.signal,
+    { withPeakVolume: false, withTranscription: true, withWaveform: false },
+  );
+
+  const res = await actions.updateFile({
+    args: {
+      id: fileId,
+      updates: {
+        captionTranslations: (file.captionTranslations ?? []).filter(
+          (translation) => translation.source !== "transcript",
+        ),
+        transcription,
+      },
+    },
+  });
+  if (!res.success) throw new Error(res.error);
+
+  return hasTranscription(transcription);
+};
+
 const repairFileThumbnailMetadata = registerMetadataWork(
   "repairFileThumbnail",
   async ({ fileId, onlyIfMissing = false }: { fileId: string; onlyIfMissing?: boolean }) => {
@@ -2438,6 +2545,81 @@ export const startFileRefresh = makeAction(async ({ fileIds }: { fileIds: string
         }
       },
       type: "refreshFiles",
+    });
+});
+
+/**
+ * Transcribes files' audio on the server, one file at a time in disk order, whatever Settings says about transcribing imports and refreshes.
+ * Files sent while a transcription runs join it, so the model stays loaded.
+ */
+export const startFileTranscription = makeAction(async ({ fileIds }: { fileIds: string[] }) => {
+  const uniqueIds = [...new Set(fileIds)];
+  let runningId = findJob("transcribeFiles");
+
+  // A stopping transcription still holds its files, so a new one starts once it has ended.
+  if (runningId && isJobStopping(runningId)) {
+    await waitForJob(runningId);
+    runningId = findJob("transcribeFiles");
+  }
+
+  const runningQueue = fileTranscriptionQueues.get(runningId);
+
+  if (runningQueue) {
+    // Only files still waiting are skipped; ones transcribed already, or transcribing now, run again.
+    const queuedIds = new Set(runningQueue);
+    const addedIds = uniqueIds.filter((fileId) => !queuedIds.has(fileId));
+
+    addToJob(runningId, addedIds);
+    runningQueue.push(...addedIds);
+    await sortQueueByDisk(runningQueue);
+
+    return runningId;
+  } else
+    return startJob({
+      fileIds: uniqueIds,
+      label: "File Transcription",
+      run: async (job) => {
+        const modelOwnerId = `file-transcription:${job.id}`;
+        const queue = [...uniqueIds];
+        let transcribedCount = 0;
+
+        fileTranscriptionQueues.set(job.id, queue);
+        retainTranscriptionModel(modelOwnerId, job.signal);
+
+        try {
+          await sortQueueByDisk(queue);
+
+          // The queue holds only waiting files, which later transcriptions add to.
+          while (queue.length) {
+            const fileId = queue.shift();
+
+            job.signal.throwIfAborted();
+
+            try {
+              if (await transcribeFile(job, fileId)) transcribedCount++;
+              else job.addFailure("No speech was found.");
+            } catch (error) {
+              job.signal.throwIfAborted();
+              job.addFailure(error.message);
+            }
+
+            // A file queued again during its transcription stays locked for the next one.
+            job.complete(queue.includes(fileId) ? [] : [fileId], 1);
+          }
+        } finally {
+          fileTranscriptionQueues.delete(job.id);
+          await releaseTranscriptionModel(modelOwnerId);
+        }
+
+        job.report({
+          message:
+            transcribedCount === 1
+              ? "Transcribed 1 file."
+              : `Transcribed ${Fmt.commas(transcribedCount)} files.`,
+          stepProgress: null,
+        });
+      },
+      type: "transcribeFiles",
     });
 });
 

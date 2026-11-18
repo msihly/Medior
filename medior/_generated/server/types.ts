@@ -450,6 +450,9 @@ export type DetectFacesOutput = ReturnType<typeof db.detectFaces>;
 export type EditFileTagsInput = Parameters<typeof db.editFileTags>[0];
 export type EditFileTagsOutput = ReturnType<typeof db.editFileTags>;
 
+export type ExportFileTranscriptInput = Parameters<typeof db.exportFileTranscript>[0];
+export type ExportFileTranscriptOutput = ReturnType<typeof db.exportFileTranscript>;
+
 export type GetDeletedFileInput = Parameters<typeof db.getDeletedFile>[0];
 export type GetDeletedFileOutput = ReturnType<typeof db.getDeletedFile>;
 
@@ -527,6 +530,9 @@ export type StartFileDeletionOutput = ReturnType<typeof db.startFileDeletion>;
 
 export type StartFileRefreshInput = Parameters<typeof db.startFileRefresh>[0];
 export type StartFileRefreshOutput = ReturnType<typeof db.startFileRefresh>;
+
+export type StartFileTranscriptionInput = Parameters<typeof db.startFileTranscription>[0];
+export type StartFileTranscriptionOutput = ReturnType<typeof db.startFileTranscription>;
 
 export type StartFileUnarchiveInput = Parameters<typeof db.startFileUnarchive>[0];
 export type StartFileUnarchiveOutput = ReturnType<typeof db.startFileUnarchive>;

@@ -33,6 +33,10 @@ export const CUSTOM_EVENTS: {
   { args: "{ id: string }", name: "onImportBatchCompleted" },
   { args: "{ id: string }", name: "onImportBatchLoaded" },
   { name: "onImporterStatusUpdated" },
+  {
+    args: "{ id: string; segments: Array<{ end: number; start: number; text: string }>; start: number }",
+    name: "onJobTranscriptUpdated",
+  },
   { args: "Types.JobState", name: "onJobUpdated" },
   { args: "{ ids: string[] }", name: "onNotificationsRead" },
   {

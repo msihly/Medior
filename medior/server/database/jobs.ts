@@ -1,5 +1,6 @@
 import { randomUUID } from "crypto";
 import { serverShutdownSignal } from "trabecula/utils/process";
+import type { TranscriptUpdate } from "medior/utils/common";
 import { socket } from "medior/utils/server";
 import { FileLockOwner, lockFiles, runAsLockOwner, unlockFiles } from "./file-locks";
 
@@ -11,6 +12,7 @@ export type JobType =
   | "moveFilesBack"
   | "refreshFiles"
   | "regenerateTagRegEx"
+  | "transcribeFiles"
   | "translateEpisodeTitles"
   | "translateFiles"
   | "unarchiveFiles";
@@ -24,6 +26,8 @@ export interface JobState {
   isStopping: boolean;
   /** What the job is working on, such as the file being refreshed. */
   item: string;
+  /** How far the current item's work is through its media, in seconds, while it goes through it in time. */
+  itemTime: { duration: number; position: number } | null;
   label: string;
   message: string;
   processed: number;
@@ -43,7 +47,11 @@ export interface Job {
   /** Counts finished work and releases its files. */
   complete: (fileIds: string[], count?: number) => void;
   id: string;
-  report: (updates: Partial<Pick<JobState, "item" | "message" | "stepProgress">>) => void;
+  report: (
+    updates: Partial<Pick<JobState, "item" | "itemTime" | "message" | "stepProgress">>,
+  ) => void;
+  /** Sends the change to the current item's transcript at once, apart from the job's state, so only the change travels. */
+  reportTranscript: (update: TranscriptUpdate) => void;
   signal: AbortSignal;
 }
 
@@ -131,6 +139,7 @@ export const startJob = ({
       isRunning: true,
       isStopping: false,
       item: "",
+      itemTime: null,
       label,
       message: "",
       processed: 0,
@@ -161,6 +170,7 @@ export const startJob = ({
       Object.assign(job.state, updates);
       emitJob(job);
     },
+    reportTranscript: (update) => socket.emit("onJobTranscriptUpdated", { id, ...update }),
     signal: job.controller.signal,
   };
 

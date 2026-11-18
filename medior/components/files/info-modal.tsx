@@ -17,12 +17,13 @@ import {
   View,
 } from "medior/components";
 import { File, useStores } from "medior/store";
-import { colors, useCancellableLoad } from "medior/utils/client";
+import { colors, toast, useCancellableLoad } from "medior/utils/client";
 import {
   Fmt,
   formatCaptionSegments,
   getCaptionTranslation,
   getNameTranslation,
+  hasTranscription,
   round,
 } from "medior/utils/common";
 import { rpc } from "medior/utils/server";
@@ -52,14 +53,19 @@ export const InfoModal = Comp(() => {
     store.setIsInfoModalOpen(false);
   };
 
-  /** The refresh runs as a server job, so the file is read again once the job is done with it. */
+  const handleExportTranscript = async () => {
+    const res = await store.exportTranscript(file);
+    if (!res.success) toast.error(res.error);
+  };
+
   const handleRefresh = async () => {
     const res = await store.refreshFiles({ ids: [file.id] });
-    if (!res.data) return;
+    await reloadOnRelease(res.data);
+  };
 
-    await store.waitForFileRelease(file.id, res.data);
-
-    if (store.isInfoModalOpen) await loadFile();
+  const handleTranscribe = async () => {
+    const res = await store.transcribeFiles({ ids: [file.id] });
+    await reloadOnRelease(res.data);
   };
 
   const handleTranslate = () =>
@@ -92,6 +98,15 @@ export const InfoModal = Comp(() => {
   const openFileLocation = () => shell.showItemInFolder(file.path);
 
   const openThumbLocation = () => shell.showItemInFolder(file.thumb.path);
+
+  /** Refreshes and transcriptions run as server jobs, so the file is read again once its job is done with it. */
+  const reloadOnRelease = async (jobId: string) => {
+    if (!jobId) return;
+
+    await store.waitForFileRelease(file.id, jobId);
+
+    if (store.isInfoModalOpen) await loadFile();
+  };
 
   return (
     <Modal.Container width="100%" maxWidth="50rem" onClose={handleClose}>
@@ -289,6 +304,22 @@ export const InfoModal = Comp(() => {
           icon="Refresh"
           onClick={handleRefresh}
           disabled={!file}
+          colorOnHover={colors.custom.blue}
+        />
+
+        <Button
+          text="Transcribe"
+          icon="Transcribe"
+          onClick={handleTranscribe}
+          disabled={!file?.audioCodec || file.audioCodec === "None"}
+          colorOnHover={colors.custom.blue}
+        />
+
+        <Button
+          text="Export Transcript"
+          icon="Subtitles"
+          onClick={handleExportTranscript}
+          disabled={!hasTranscription(file?.transcription)}
           colorOnHover={colors.custom.blue}
         />
 

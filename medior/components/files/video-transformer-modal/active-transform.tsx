@@ -25,6 +25,14 @@ export const ActiveTransform = Comp(({ onCompare }: { onCompare: () => void }) =
 
   const canReplace =
     store.activeTransform?.status === "COMPLETE" || store.activeTransform?.status === "COMPRESSED";
+  const canFinalize =
+    !store.isLoading &&
+    !store.isTransforming &&
+    !store.isUpdating &&
+    !!store.activeTransform?.afterPath &&
+    (store.activeTransform.type === "splice"
+      ? store.activeTransform.status === "COMPLETE"
+      : canReplace);
   // Paused workers finish their in-flight files before the transformer stops.
   const isPausing = store.isPaused && store.isQueueTransforming;
 
@@ -179,8 +187,12 @@ export const ActiveTransform = Comp(({ onCompare }: { onCompare: () => void }) =
                   }
                   icon={store.isPaused || !store.isQueueTransforming ? "PlayArrow" : "Pause"}
                   onClick={handleTogglePaused}
+                  // A finished output is applied with Replace or Save Copy, so Run waits until it is.
                   disabled={
-                    isPausing || store.isUpdating || (store.isLoading && !store.isQueueTransforming)
+                    isPausing ||
+                    store.isUpdating ||
+                    (store.isLoading && !store.isQueueTransforming) ||
+                    (canFinalize && !store.isPaused)
                   }
                   color={
                     store.isPaused
@@ -209,15 +221,7 @@ export const ActiveTransform = Comp(({ onCompare }: { onCompare: () => void }) =
                   text={store.activeTransform.isSpliceCopy ? "Save Copy" : "Replace"}
                   icon={store.activeTransform.isSpliceCopy ? "Save" : "Refresh"}
                   onClick={handleFinalize}
-                  disabled={
-                    store.isLoading ||
-                    store.isTransforming ||
-                    store.isUpdating ||
-                    !store.activeTransform.afterPath ||
-                    (store.activeTransform.type === "splice"
-                      ? store.activeTransform.status !== "COMPLETE"
-                      : !canReplace)
-                  }
+                  disabled={!canFinalize}
                   color={colors.custom.green}
                 />
               </View>

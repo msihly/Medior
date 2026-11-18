@@ -1,4 +1,4 @@
-import { Button, Comp, Icon, Modal, ProgressBar, Text } from "medior/components";
+import { Button, Comp, Icon, JobProgress, Modal, Text } from "medior/components";
 import { useStores } from "medior/store";
 import { colors, toast } from "medior/utils/client";
 
@@ -7,7 +7,6 @@ export const FileRefreshModal = Comp(() => {
   const store = stores.file;
 
   const job = store.refreshJob;
-  const currentFileNumber = job ? Math.min(job.processed + 1, job.total) : 0;
 
   const handleCancel = async () => {
     if (!job) store.setIsRefreshOpen(false);
@@ -33,22 +32,7 @@ export const FileRefreshModal = Comp(() => {
       <Modal.Content align="center" justify="center" spacing="1rem">
         <Icon name="Refresh" color={colors.custom.lightBlue} size="5rem" />
 
-        <Text preset="title">{`File ${currentFileNumber} of ${job?.total ?? 0}`}</Text>
-
-        <Text textAlign="center" whiteSpace="normal">
-          {job?.item}
-        </Text>
-
-        <Text color={colors.custom.lightGrey}>{job?.message}</Text>
-
-        {job && job.stepProgress !== null && (
-          <ProgressBar
-            numerator={job.stepProgress}
-            denominator={100}
-            viewProps={{ width: "100%" }}
-            withText
-          />
-        )}
+        {job && <JobProgress job={job} embedded />}
       </Modal.Content>
 
       <Modal.Footer>

@@ -56,12 +56,32 @@ export interface SubtitleSource {
   path: string;
 }
 
+/** Segments that replace a transcript from index `start` on, as a transcription adds or settles them. */
+export interface TranscriptUpdate {
+  segments: SubtitleSegment[];
+  start: number;
+}
+
 const decodeCueEntities = (text: string) =>
   text
     .replace(/&lt;/g, "<")
     .replace(/&gt;/g, ">")
     .replace(/&nbsp;/g, " ")
     .replace(/&amp;/g, "&");
+
+/** A cue time as SRT writes it, such as `01:02:03,456`. */
+const formatSrtCueTime = (seconds: number) => {
+  const ms = Math.max(0, Math.round(seconds * 1000));
+  const time = [
+    Math.floor(ms / 3_600_000),
+    Math.floor(ms / 60_000) % 60,
+    Math.floor(ms / 1000) % 60,
+  ]
+    .map((part) => String(part).padStart(2, "0"))
+    .join(":");
+
+  return `${time},${String(ms % 1000).padStart(3, "0")}`;
+};
 
 const parseCueTime = (value: string) =>
   value
@@ -70,6 +90,16 @@ const parseCueTime = (value: string) =>
     .split(":")
     .map(Number)
     .reduce((total, part) => total * 60 + part, 0);
+
+/** Timed cues as an SRT subtitle file, numbered from 1 and leaving out cues without text. */
+export const formatSrt = (segments: SubtitleSegment[]) =>
+  `${segments
+    .filter(({ text }) => text.trim())
+    .map(
+      ({ end, start, text }, index) =>
+        `${index + 1}\n${formatSrtCueTime(start)} --> ${formatSrtCueTime(end)}\n${text.trim()}`,
+    )
+    .join("\n\n")}\n`;
 
 export const getIsSubtitle = (filePath: string) =>
   SUBTITLE_EXTS.includes(path.extname(filePath).slice(1).toLowerCase());

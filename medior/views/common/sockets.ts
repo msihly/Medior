@@ -410,6 +410,8 @@ export const useSockets = ({ enabled = true, view }: UseSocketsProps) => {
 
     makeSocket("onFileLocksUpdated", stores.file.updateFileLocks);
 
+    makeSocket("onJobTranscriptUpdated", stores.home.updateJobTranscript);
+
     makeSocket("onJobUpdated", stores.home.updateJob);
 
     makeSocket("onFilesArchived", ({ fileIds }) => {

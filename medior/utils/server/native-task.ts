@@ -15,6 +15,8 @@ const cancellationWorkers = new WeakMap<
 >();
 const idleTimeouts = new WeakMap<ChildProcess, ReturnType<typeof setTimeout>>();
 const outputHandlers = new WeakMap<ChildProcess, (line: string) => void>();
+/** Workers whose loaded model serves every operation alike, so one operation takes over another's idle worker instead of loading the model again. */
+const sharedWorkers = new Set<string>(["transcription"]);
 // LanceDB's Node API has no index build progress; its logger, configured at load, is the source.
 const workerEnv: Partial<Record<keyof typeof workerLimits, NodeJS.ProcessEnv>> = {
   "search-index": {
@@ -44,6 +46,8 @@ const workerLimits = {
 };
 const workerPools = new Map<string, Set<ChildProcess>>();
 const workers = new WeakMap<AbortSignal, Map<string, Set<ChildProcess>>>();
+/** The operation each worker belongs to. */
+const workerSignals = new WeakMap<ChildProcess, AbortSignal>();
 const workerWaiters = new Map<string, Set<() => void>>();
 
 const notifyWorkerAvailability = (name: string) => {
@@ -93,16 +97,49 @@ const registerWorkerCancellation = (signal: AbortSignal, worker: ChildProcess) =
   }
 
   registration.workers.add(worker);
-  worker.once("close", () => {
-    registration.workers.delete(worker);
-
-    if (!registration.workers.size) {
-      signal.removeEventListener("abort", registration.abort);
-      cancellationWorkers.delete(signal);
-    }
-  });
+  worker.once("close", () => unregisterWorkerCancellation(signal, worker));
 
   if (signal.aborted) worker.kill();
+};
+
+/** Stops an operation's end from killing a worker that closed or moved to another operation. */
+const unregisterWorkerCancellation = (signal: AbortSignal, worker: ChildProcess) => {
+  const registration = cancellationWorkers.get(signal);
+  if (!registration?.workers.delete(worker)) return;
+
+  if (!registration.workers.size) {
+    signal.removeEventListener("abort", registration.abort);
+    cancellationWorkers.delete(signal);
+  }
+};
+
+/** Gives a worker to an operation, which reuses it and kills it when it ends. */
+const addWorker = (name: string, worker: ChildProcess, signal: AbortSignal) => {
+  workerSignals.set(worker, signal);
+
+  if (signal !== serverShutdownSignal) registerWorkerCancellation(signal, worker);
+
+  if (!workers.has(signal)) workers.set(signal, new Map());
+
+  if (!workers.get(signal).has(name)) workers.get(signal).set(name, new Set());
+
+  workers.get(signal).get(name).add(worker);
+};
+
+/** Moves a worker, with its loaded model, from the operation holding it to another. */
+const moveWorker = (name: string, worker: ChildProcess, signal: AbortSignal) => {
+  const previous = workerSignals.get(worker);
+
+  workers.get(previous)?.get(name)?.delete(worker);
+
+  if (previous !== serverShutdownSignal) unregisterWorkerCancellation(previous, worker);
+
+  addWorker(name, worker, signal);
+};
+
+/** Hands an operation's workers of a kind, with their loaded models, to another operation. */
+export const moveNativeWorkers = (name: string, from: AbortSignal, to: AbortSignal) => {
+  for (const worker of [...(workers.get(from)?.get(name) ?? [])]) moveWorker(name, worker, to);
 };
 
 export const stopNativeTask = (
@@ -113,11 +150,11 @@ export const stopNativeTask = (
 };
 
 /** Reuse model processes within an execution, but never queue work inside a worker. */
-export const runNativeTask = async <T>(
+export const runNativeTask = async <T, Detail = never>(
   name: keyof typeof workerLimits,
   input: unknown,
   signal = workSignal.getStore() ?? serverShutdownSignal,
-  onProgress?: (message: string, progress?: number) => void,
+  onProgress?: (message: string, progress?: number, detail?: Detail) => void,
   onOutput?: (line: string) => void,
   poolLimit = workerLimits[name],
 ): Promise<T> => {
@@ -137,10 +174,17 @@ export const runNativeTask = async <T>(
     if (worker || pool.size < poolLimit) break;
 
     const available = [...pool].find((candidate) => !busyWorkers.has(candidate));
-    const pending = waitForNativeWorker(name, signal);
 
-    available?.kill();
-    await pending;
+    // A shared worker's loaded model serves this operation as it is, so it's taken over rather than replaced.
+    if (available?.connected && !available.killed && sharedWorkers.has(name)) {
+      moveWorker(name, available, signal);
+      worker = available;
+    } else {
+      const pending = waitForNativeWorker(name, signal);
+
+      available?.kill();
+      await pending;
+    }
   }
 
   if (!worker) {
@@ -184,19 +228,12 @@ export const runNativeTask = async <T>(
 
     pool.add(worker);
     registerWorkerCancellation(serverShutdownSignal, worker);
-
-    if (signal !== serverShutdownSignal) registerWorkerCancellation(signal, worker);
-
-    if (!workers.has(signal)) workers.set(signal, new Map());
-
-    if (!workers.get(signal).has(name)) workers.get(signal).set(name, new Set());
-
-    workers.get(signal).get(name).add(worker);
+    addWorker(name, worker, signal);
 
     worker.once("close", () => {
       clearTimeout(idleTimeouts.get(worker));
       pool.delete(worker);
-      workers.get(signal)?.get(name)?.delete(worker);
+      workers.get(workerSignals.get(worker))?.get(name)?.delete(worker);
       notifyWorkerAvailability(name);
     });
   }
@@ -243,13 +280,13 @@ export const runNativeTask = async <T>(
       data?: T;
       error?: string;
       id: string;
-      progress?: { message: string; percent?: number };
+      progress?: { detail?: Detail; message: string; percent?: number };
     }) => {
       if (settled || message.id !== id) return;
 
       if (message.progress) {
         try {
-          onProgress?.(message.progress.message, message.progress.percent);
+          onProgress?.(message.progress.message, message.progress.percent, message.progress.detail);
         } catch (error) {
           onError(error);
         }

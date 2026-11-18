@@ -46,6 +46,14 @@ export const MinimizedJobs = Comp(() => {
       },
     },
     regenerateTagRegEx: tagManagerView,
+    transcribeFiles: {
+      isShown: file.isTranscriptionOpen && !file.isTranscriptionMinimized,
+      jobId: file.transcriptionJobId,
+      restore: () => {
+        file.setIsTranscriptionMinimized(false);
+        file.setIsTranscriptionOpen(true);
+      },
+    },
     translateEpisodeTitles: {
       isShown: titleTranslation.isOpen && !titleTranslation.isMinimized,
       jobId: titleTranslation.jobId,

@@ -584,7 +584,7 @@ export const DEFAULT_CONFIG: Config = {
     },
     transcription: {
       enabled: false,
-      model: "onnx-community/whisper-tiny_timestamped",
+      model: "onnx-community/whisper-large-v3-turbo_timestamped",
       modelCachePath: path.resolve("ModelCache"),
       modelDownloads: false,
       quantization: "int8",

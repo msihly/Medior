@@ -1,3 +1,5 @@
+import { dialog } from "@electron/remote";
+import path from "path";
 import autoBind from "auto-bind";
 import { observable } from "mobx";
 import {
@@ -42,6 +44,8 @@ export class FileStore extends ExtendedModel(_FileStore, {
   isInfoModalOpen: prop<boolean>(false).withSetter(),
   isRefreshMinimized: prop<boolean>(false).withSetter(),
   isRefreshOpen: prop<boolean>(false).withSetter(),
+  isTranscriptionMinimized: prop<boolean>(false).withSetter(),
+  isTranscriptionOpen: prop<boolean>(false).withSetter(),
   lowerResolution: prop<LowerResolutionStore>(() => new LowerResolutionStore({})),
   /** The server job refreshing files that this window follows. */
   refreshJobId: prop<string>(null).withSetter(),
@@ -51,6 +55,8 @@ export class FileStore extends ExtendedModel(_FileStore, {
   searchTabs: prop<FileSearch[]>(() => [new FileSearch({})]),
   similarity: prop<FileSimilarityStore>(() => new FileSimilarityStore({})),
   tagsEditor: prop<FileTagsEditorStore>(() => new FileTagsEditorStore({})),
+  /** The server job transcribing files that this window follows. */
+  transcriptionJobId: prop<string>(null).withSetter(),
   translation: prop<FileTranslationStore>(() => new FileTranslationStore({})),
   /** The search the Collection Triager's carousel loads its files into while it's open. */
   triageSearch: prop<FileSearch>(null).withSetter(),
@@ -80,6 +86,12 @@ export class FileStore extends ExtendedModel(_FileStore, {
     const stores = getRootStore<RootStore>(this);
 
     stores.home.followJob(jobId, this.finishRefresh, () => this.setRefreshJobId(jobId));
+  }
+
+  private followTranscription(jobId: string) {
+    const stores = getRootStore<RootStore>(this);
+
+    stores.home.followJob(jobId, this.finishTranscription, () => this.setTranscriptionJobId(jobId));
   }
 
   /* ---------------------------- STANDARD ACTIONS ---------------------------- */
@@ -358,6 +370,23 @@ export class FileStore extends ExtendedModel(_FileStore, {
     },
   );
 
+  /** Asks where to save the file's transcript as an SRT subtitle, named after the file by default, then writes it there. */
+  @modelFlow
+  exportTranscript = asyncAction(
+    async (file: Pick<db.FileSchema, "id" | "originalName" | "path">) => {
+      const { filePath } = await dialog.showSaveDialog({
+        defaultPath: `${file.originalName || path.parse(file.path).name}.srt`,
+        filters: [{ extensions: ["srt"], name: "SubRip Subtitles" }],
+      });
+      if (!filePath) return;
+
+      const res = await rpc.exportFileTranscript({ fileId: file.id, outputPath: filePath });
+      if (!res.success) throw new Error(res.error);
+
+      toast.success(`Saved ${path.basename(filePath)}`);
+    },
+  );
+
   @modelFlow
   loadArchivedFileIds = asyncAction(async () => {
     const res = await rpc.listAllArchivedFileIds();
@@ -440,6 +469,30 @@ export class FileStore extends ExtendedModel(_FileStore, {
     else {
       console.error("Error updating rating:", res.error);
       toast.error("Error updating rating");
+    }
+  });
+
+  /**
+   * Starts transcribing files on the server, shown in the Transcribe Files modal, or adds them to the transcription already running.
+   * Returns the transcription's job ID, or nothing when it couldn't start.
+   */
+  @modelFlow
+  transcribeFiles = asyncAction(async (args: { ids: string[] }) => {
+    if (!args.ids.length) return null;
+
+    try {
+      const res = await rpc.startFileTranscription({ fileIds: args.ids });
+      if (!res.success) throw new Error(res.error);
+
+      this.setIsTranscriptionMinimized(false);
+      this.setIsTranscriptionOpen(true);
+      this.followTranscription(res.data);
+
+      return res.data;
+    } catch (error) {
+      toast.error(error);
+
+      return null;
     }
   });
 
@@ -548,6 +601,17 @@ export class FileStore extends ExtendedModel(_FileStore, {
     else toast.success(`Refreshed ${Fmt.commas(refreshedCount)} files.`);
   });
 
+  /** Transcribed files were updated in place as each finished, so only the result is reported. */
+  @modelFlow
+  private finishTranscription = asyncAction(async (job: db.JobState) => {
+    if (this.transcriptionJobId === job.id) this.setTranscriptionJobId(null);
+
+    this.setIsTranscriptionMinimized(false);
+    this.setIsTranscriptionOpen(false);
+
+    toastJobResult(job);
+  });
+
   /* --------------------------------- DYNAMIC GETTERS -------------------------------- */
   get actionJob() {
     return getRootStore<RootStore>(this).home.getJobById(this.actionJobId);
@@ -581,6 +645,10 @@ export class FileStore extends ExtendedModel(_FileStore, {
   /** The search of the tab the Files view shows. */
   get shownSearch() {
     return this.searchTabs[this.searchIndex];
+  }
+
+  get transcriptionJob() {
+    return getRootStore<RootStore>(this).home.getJobById(this.transcriptionJobId);
   }
 
   getById(id: string) {
