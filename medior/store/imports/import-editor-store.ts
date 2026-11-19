@@ -31,6 +31,7 @@ import {
   MediaProgramOption,
   MediaProgramPlan,
   mergeTagDefinitions,
+  normalizeComfyJson,
   parseFileMusic,
   PromiseQueue,
   sleep,
@@ -44,6 +45,11 @@ import {
   rpc,
   sortByStoredNtfsIdentity,
 } from "medior/utils/server";
+import {
+  COMFY_METADATA_EXTS,
+  ComfyMetadata,
+  readComfyMetadata,
+} from "medior/utils/server/comfy-metadata";
 import { getCommonSourceFolder } from "medior/utils/server/source-folders";
 import { ImportEditorOptions } from "./editor-options";
 import { FileImport } from "./file-import";
@@ -64,13 +70,16 @@ const STAT_BATCH_SIZE = 128;
 
 const isString = (value: unknown): value is string => typeof value === "string";
 
+const isComfyJson = (value: unknown) => isString(value) && normalizeComfyJson(value) !== null;
+
 const isObjectId = (value: unknown) => isString(value) && /^[0-9a-f]{24}$/i.test(value);
 
 /** Sidecars may come from other tools, so values of unexpected shapes are dropped. */
 const SIDECAR_VALIDATORS: Record<FileImportSidecarField, (value: any) => boolean> = {
   collections: Array.isArray,
+  comfyPrompt: isComfyJson,
+  comfyWorkflow: isComfyJson,
   dateCreated: (value) => isString(value) && dayjs(value).isValid(),
-  diffusionParams: isString,
   isArchived: (value) => typeof value === "boolean",
   originalName: isString,
   rating: (value) => Number.isInteger(value) && value >= 0 && value <= 9,
@@ -89,6 +98,36 @@ const getValidCollections = (collections: any[]): FileSidecarCollection[] =>
     .map(({ id, index }) => ({ id, index }));
 
 const getValidIds = (ids: unknown): string[] => (Array.isArray(ids) ? ids.filter(isObjectId) : []);
+
+/** A valid sidecar field's value as imports store it, with ComfyUI JSON normalized as files' own is. */
+const getSidecarValue = (sidecar: Sidecar, field: FileImportSidecarField) => {
+  if (field === "collections") return getValidCollections(sidecar.collections);
+  else if (field === "comfyPrompt" || field === "comfyWorkflow")
+    return normalizeComfyJson(sidecar[field]);
+  else return sidecar[field];
+};
+
+/** The paths in the stored NTFS order of their files, so a hard drive reading them doesn't seek between them; null once cancelled. */
+const getDiskOrderedPaths = async (paths: string[], isCancelled: () => boolean) => {
+  const identities = new Map<string, Partial<NtfsFileIdentity>>();
+
+  for (const batch of chunkArray(paths, STAT_BATCH_SIZE)) {
+    if (isCancelled()) return null;
+
+    await Promise.all(
+      batch.map(async (filePath) => {
+        try {
+          identities.set(filePath, await getNtfsFileIdentity(filePath));
+        } catch {
+          // A file that can't be found is read last, where the read reports why.
+          identities.set(filePath, {});
+        }
+      }),
+    );
+  }
+
+  return sortByStoredNtfsIdentity(paths, (filePath) => identities.get(filePath));
+};
 
 @model("medior/ImportEditorStore")
 export class ImportEditorStore extends Model({
@@ -127,6 +166,8 @@ export class ImportEditorStore extends Model({
   allFlatFolderHierarchy = new Map<string, FlatFolder>();
   /** Tags read by earlier scans while the editor is open, so rescans only read new files. */
   audioTags = new Map<string, AudioFileTags>();
+  /** ComfyUI metadata read by earlier scans while the editor is open, so rescans only read new files. */
+  comfyMetadata = new Map<string, ComfyMetadata>();
   filePaths = new Map<string, string>();
   imports: ModelCreationData<FileImport>[] = [];
 
@@ -146,6 +187,7 @@ export class ImportEditorStore extends Model({
         this.options.ignoreMusicAlbumTags,
         this.options.useSavedConfigs,
         this.options.withDelimiters,
+        this.options.withDiffusionLoras,
         this.options.withDiffusionModel,
         this.options.withDiffusionParams,
         this.options.withDiffusionRegExMaps,
@@ -180,16 +222,23 @@ export class ImportEditorStore extends Model({
 
     if (fields.length)
       imp.sidecar = Object.fromEntries(
-        fields.map((field) => [
-          field,
-          field === "collections" ? getValidCollections(sidecar.collections) : sidecar[field],
-        ]),
+        fields.map((field) => [field, getSidecarValue(sidecar, field)]),
       ) as FileImportSidecar;
   }
 
   @modelAction
   private addTagsToImport(imp: ModelCreationData<FileImport>, tagsToUpsert: TagToUpsert[]) {
     imp.tagsToUpsert = mergeTagDefinitions([...(imp.tagsToUpsert ?? []), ...tagsToUpsert]);
+  }
+
+  @modelAction
+  private setComfyMetadata(imports: ModelCreationData<FileImport>[]) {
+    for (const imp of imports) {
+      const metadata = this.comfyMetadata.get(imp.path);
+
+      imp.comfyPrompt = metadata?.prompt ?? null;
+      imp.comfyWorkflow = metadata?.workflow ?? null;
+    }
   }
 
   @modelAction
@@ -215,15 +264,23 @@ export class ImportEditorStore extends Model({
   }
 
   @modelAction
+  cacheComfyMetadata(filePath: string, metadata: ComfyMetadata) {
+    this.comfyMetadata.set(filePath, metadata);
+  }
+
+  @modelAction
   cancelInit() {
     this.ingestCancelToken++;
     this.setIsOpen(false);
   }
 
   @modelAction
-  clearValues({ diffusionParams = false, tagIds = false, tagsToUpsert = false } = {}) {
+  clearValues({ comfyMetadata = false, tagIds = false, tagsToUpsert = false } = {}) {
     this.imports.forEach((imp) => {
-      if (diffusionParams && imp.diffusionParams?.length) imp.diffusionParams = null;
+      if (comfyMetadata && (imp.comfyPrompt?.length || imp.comfyWorkflow?.length)) {
+        imp.comfyPrompt = null;
+        imp.comfyWorkflow = null;
+      }
 
       if (tagIds && imp.tagIds?.length) imp.tagIds = null;
 
@@ -278,6 +335,7 @@ export class ImportEditorStore extends Model({
   reset() {
     this.allFlatFolderHierarchy = new Map();
     this.audioTags = new Map();
+    this.comfyMetadata = new Map();
     this.fileIds = [];
     this.filePaths = new Map();
     this.flatTagsToUpsert = [];
@@ -415,53 +473,55 @@ export class ImportEditorStore extends Model({
   }
 
   /* ------------------------------ ASYNC ACTIONS ----------------------------- */
+  /**
+   * Reads the prompt and workflow ComfyUI saved into each new file that can hold them, one after another in disk order, so a hard drive doesn't seek between them.
+   * Files earlier scans read keep what they held, and re-imported files keep the metadata they have.
+   */
   @modelFlow
-  loadDiffusionParams = asyncAction(async () => {
+  loadComfyMetadata = asyncAction(async () => {
     const cancelToken = this.ingestCancelToken;
 
     const isCancelled = () => !this.isOpen || this.ingestCancelToken !== cancelToken;
 
-    const queue = new PromiseQueue({ concurrency: 4 });
+    const imports = this.imports.filter(
+      (imp) => !imp.fileId && COMFY_METADATA_EXTS.has(imp.extension),
+    );
+    const unreadPaths = [...new Set(imports.map((imp) => imp.path))].filter(
+      (filePath) => !this.comfyMetadata.has(filePath),
+    );
 
-    this.setInitProgressStatus("Reading diffusion parameters");
-    this.setInitProgressTotal(this.imports.length);
+    if (unreadPaths.length) {
+      this.setInitProgressStatus("Reading ComfyUI metadata");
+      this.setInitProgressCompleted(0);
+      this.setInitProgressTotal(unreadPaths.length);
 
-    for (let idx = 0; idx < this.imports.length; idx++) {
-      if (isCancelled()) return;
+      const orderedPaths = await getDiskOrderedPaths(unreadPaths, isCancelled);
+      if (!orderedPaths) return;
 
-      if (idx % 128 === 0) {
-        await queue.resolve();
-
+      for (let idx = 0; idx < orderedPaths.length; idx++) {
         if (isCancelled()) return;
 
-        this.setInitProgressCompleted(idx);
-        await sleep(0);
-      }
+        const filePath = orderedPaths[idx];
 
-      const imp = this.imports[idx];
-
-      if (imp.extension !== "jpg") continue;
-
-      const paramFileName = path.resolve(extendFileName(imp.path, "txt"));
-
-      if (!this.filePaths.has(paramFileName)) continue;
-
-      queue.add(async () => {
+        // A file that can't be read is read again by the next scan.
         try {
-          if (isCancelled()) return;
+          const { prompt, workflow } = await readComfyMetadata(filePath);
 
-          const params = await fs.readFile(paramFileName, { encoding: "utf8" });
-
-          if (isCancelled()) return;
-
-          if (params !== imp.diffusionParams) imp.diffusionParams = params;
+          this.cacheComfyMetadata(filePath, {
+            prompt: prompt && normalizeComfyJson(prompt),
+            workflow: workflow && normalizeComfyJson(workflow),
+          });
         } catch (err) {
-          console.error("Error reading diffusion params:", err);
+          console.error(`Error reading ComfyUI metadata from ${filePath}:`, err);
         }
-      });
+
+        this.setInitProgressCompleted(idx + 1);
+      }
     }
 
-    await queue.resolve();
+    if (isCancelled()) return;
+
+    this.setComfyMetadata(imports);
   });
 
   /**
@@ -526,9 +586,8 @@ export class ImportEditorStore extends Model({
   });
 
   /**
-   * Previews the music each new audio file's import would read with the Music options, reading the
-   * files no earlier scan read one after another in disk order, so a hard drive doesn't seek between
-   * them. Nothing is read with Music off, and re-imported files keep the music they have.
+   * Previews the music each new audio file's import would read with the Music options, reading the files no earlier scan read one after another in disk order, so a hard drive doesn't seek between them.
+   * Nothing is read with Music off, and re-imported files keep the music they have.
    */
   @modelFlow
   loadMusicPreviews = asyncAction(async (imports: ModelCreationData<FileImport>[]) => {
@@ -545,31 +604,14 @@ export class ImportEditorStore extends Model({
     );
 
     if (unreadPaths.length) {
-      const identities = new Map<string, Partial<NtfsFileIdentity>>();
       let completed = 0;
 
       this.setInitProgressStatus("Reading music tags");
       this.setInitProgressCompleted(0);
       this.setInitProgressTotal(unreadPaths.length);
 
-      for (const paths of chunkArray(unreadPaths, STAT_BATCH_SIZE)) {
-        if (isCancelled()) return;
-
-        await Promise.all(
-          paths.map(async (filePath) => {
-            try {
-              identities.set(filePath, await getNtfsFileIdentity(filePath));
-            } catch {
-              // A file that can't be found is read last, where the read reports why.
-              identities.set(filePath, {});
-            }
-          }),
-        );
-      }
-
-      const orderedPaths = sortByStoredNtfsIdentity(unreadPaths, (filePath) =>
-        identities.get(filePath),
-      );
+      const orderedPaths = await getDiskOrderedPaths(unreadPaths, isCancelled);
+      if (!orderedPaths) return;
 
       for (const paths of chunkArray(orderedPaths, AUDIO_TAG_BATCH_SIZE)) {
         if (isCancelled()) return;

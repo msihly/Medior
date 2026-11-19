@@ -122,7 +122,7 @@ export const resolveAncestorFilter = async (
 
           if ((operator === "$eq" || operator === "$ne") && Array.isArray(operand))
             throw new Error(
-              "Use $all or $in for inherited tag arrays; equality requires a single tag",
+              "Use $all or $in for inherited tag arrays. Equality requires a single tag.",
             );
 
           const ids = Array.isArray(operand) ? operand : [operand];

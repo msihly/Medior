@@ -39,7 +39,7 @@ export const FileFilterMenu = Comp((props: FileFilterMenuProps) => {
 
   const toggleArchiveOpen = () => store.setIsArchived(!store.isArchived);
 
-  const toggleHasDiffParams = () => store.setHasDiffParams(!store.hasDiffParams);
+  const toggleHasComfyMeta = () => store.setHasComfyMeta(!store.hasComfyMeta);
 
   const toggleHasTimeline = () => store.setHasTimeline(!store.hasTimeline);
 
@@ -105,9 +105,9 @@ export const FileFilterMenu = Comp((props: FileFilterMenuProps) => {
             )}
 
             <Checkbox
-              label="Diffusion"
-              checked={store.hasDiffParams}
-              setChecked={toggleHasDiffParams}
+              label="ComfyUI"
+              checked={store.hasComfyMeta}
+              setChecked={toggleHasComfyMeta}
               flex="none"
             />
 
@@ -244,13 +244,13 @@ export const FileFilterMenu = Comp((props: FileFilterMenuProps) => {
           <Input
             header={
               <FilterHeader
-                label="Diffusion Params"
-                mode={store.diffusionParamsMode}
-                setMode={store.setDiffusionParamsMode}
+                label="ComfyUI Prompt"
+                mode={store.comfyPromptMode}
+                setMode={store.setComfyPromptMode}
               />
             }
-            value={store.diffusionParams}
-            setValue={store.setDiffusionParams}
+            value={store.comfyPrompt}
+            setValue={store.setComfyPrompt}
           />
         </Card>
 

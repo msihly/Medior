@@ -4,8 +4,8 @@ const FRAME_HEADER_SIZE = 10;
 const TAG_HEADER_SIZE = 10;
 
 /**
- * The POPM rating byte written for each Medior rating, by half stars: ½★ is 1 through 4½★ is 9,
- * and 5★ is 9 too. Other bytes read as the closest of these.
+ * The POPM rating byte written for each Medior rating, by half stars: ½★ is 1 through 4½★ is 9, and 5★ is 9 too.
+ * Other bytes read as the closest of these.
  */
 const POPM_RATINGS: [byte: number, rating: number][] = [
   [1, 2],
@@ -20,6 +20,14 @@ const POPM_RATINGS: [byte: number, rating: number][] = [
   [255, 9],
 ];
 
+/** Text encodings a TXXX frame's first byte names, with the terminator that ends its description. */
+const TEXT_ENCODINGS: Record<number, { encoding: BufferEncoding; terminator: Buffer }> = {
+  0: { encoding: "latin1", terminator: Buffer.from([0]) },
+  1: { encoding: "utf16le", terminator: Buffer.from([0, 0]) },
+  2: { encoding: "utf16le", terminator: Buffer.from([0, 0]) },
+  3: { encoding: "utf8", terminator: Buffer.from([0]) },
+};
+
 /** ID3v2.3 frame flags that put bytes ahead of a frame's content, or leave it unreadable. */
 const V3_COMPRESSED = 0x80;
 const V3_ENCRYPTED = 0x40;
@@ -33,8 +41,7 @@ const V4_UNSYNCHRONISED = 0x02;
 const V4_LENGTH_INDICATED = 0x01;
 
 /**
- * An ID3v2.4 frame's size: seven bits per byte as the standard writes it, or a plain number as some
- * taggers wrote it when one of its bytes has its top bit set, which a seven-bit size never does.
+ * An ID3v2.4 frame's size: seven bits per byte as the standard writes it, or a plain number as some taggers wrote it when one of its bytes has its top bit set, which a seven-bit size never does.
  * Plain sizes without such a byte still read as seven-bit ones.
  */
 const readFrameSize = (buffer: Buffer, offset: number) =>
@@ -64,34 +71,58 @@ const resynchronise = (buffer: Buffer) => {
 };
 
 /**
- * A POPM frame's rating byte, which follows the player email's terminating null. A play counter may
- * follow the rating.
+ * A POPM frame's rating byte, which follows the player email's terminating null.
+ * A play counter may follow the rating.
  */
 const readPopularimeterRating = (content: Buffer) => {
   const emailEnd = content.indexOf(0);
   return emailEnd < 0 || emailEnd + 1 >= content.length ? null : content[emailEnd + 1];
 };
 
+/** Decodes ID3 text: encoding 1 is UTF-16 in the byte order its byte-order mark gives, little-endian without one, and encoding 2 is big-endian UTF-16 without a mark. */
+const decodeText = (bytes: Buffer, encodingByte: number) => {
+  const byteOrderMark = encodingByte === 1 ? bytes.toString("hex", 0, 2) : "";
+  const body = byteOrderMark === "feff" || byteOrderMark === "fffe" ? bytes.subarray(2) : bytes;
+  // Swapping byte pairs needs an even length, which a damaged frame may lack.
+  const text =
+    encodingByte === 2 || byteOrderMark === "feff"
+      ? Buffer.from(body.subarray(0, body.length & ~1)).swap16()
+      : body;
+
+  return text.toString(TEXT_ENCODINGS[encodingByte].encoding).replace(/\0+$/, "");
+};
+
+/** Where a TXXX frame's description ends, at a terminator aligned to the encoding's unit size. */
+const findTerminator = (content: Buffer, terminator: Buffer) => {
+  for (let index = 1; index + terminator.length <= content.length; index += terminator.length)
+    if (content.subarray(index, index + terminator.length).equals(terminator)) return index;
+
+  return -1;
+};
+
 /**
- * The first rating byte an ID3v2.3 or ID3v2.4 tag at the start of a file holds in a POPM frame,
- * whichever player wrote it. Only frame headers and POPM frames are read, so cover art and other
- * large frames are skipped over. Null when the file has no such rating.
+ * Hands the content of each frame with this ID in an ID3v2.3 or ID3v2.4 tag at the start of a file to the reader, until it returns true.
+ * Only frame headers and those frames are read, so cover art and other large frames are skipped over.
  */
-const readPopularimeterByte = async (filePath: string) => {
+const readId3Frames = async (
+  filePath: string,
+  frameId: string,
+  readFrame: (content: Buffer) => boolean,
+) => {
   const file = await fs.open(filePath, "r");
 
   try {
     const header = Buffer.alloc(TAG_HEADER_SIZE);
     const { bytesRead } = await file.read(header, 0, TAG_HEADER_SIZE, 0);
 
-    if (bytesRead < TAG_HEADER_SIZE || header.toString("latin1", 0, 3) !== "ID3") return null;
+    if (bytesRead < TAG_HEADER_SIZE || header.toString("latin1", 0, 3) !== "ID3") return;
 
     const version = header[3];
     const tagFlags = header[5];
     // A damaged tag's size can run past the file, which bounds what's read.
     const tagSize = Math.min(readSyncSafe(header, 6), (await file.stat()).size - TAG_HEADER_SIZE);
 
-    if (version !== 3 && version !== 4) return null;
+    if (version !== 3 && version !== 4) return;
 
     // An unsynchronised tag can only be read whole, so a frame's bytes line up with its header.
     const isTagUnsynchronised = (tagFlags & 0x80) !== 0;
@@ -120,7 +151,7 @@ const readPopularimeterByte = async (filePath: string) => {
     // The extended header's size counts itself in ID3v2.4, but not in ID3v2.3.
     if (tagFlags & 0x40) {
       const extended = await read(0, 4);
-      if (extended.length < 4) return null;
+      if (extended.length < 4) return;
 
       offset = version === 4 ? readSyncSafe(extended, 0) : extended.readUInt32BE(0) + 4;
     }
@@ -138,7 +169,7 @@ const readPopularimeterByte = async (filePath: string) => {
       // A frame running past the tag means the tag is damaged from there on.
       if (offset + FRAME_HEADER_SIZE + size > tagLength) break;
 
-      if (id === "POPM") {
+      if (id === frameId) {
         const isUnreadable =
           version === 4
             ? (flags & (V4_COMPRESSED | V4_ENCRYPTED)) !== 0
@@ -156,26 +187,34 @@ const readPopularimeterByte = async (filePath: string) => {
 
         if (!isUnreadable) {
           const content = (await read(offset + FRAME_HEADER_SIZE, size)).subarray(skippedCount);
-          const rating = readPopularimeterRating(
-            isFrameUnsynchronised ? resynchronise(content) : content,
-          );
 
-          if (rating) return rating;
+          if (readFrame(isFrameUnsynchronised ? resynchronise(content) : content)) return;
         }
       }
 
       offset += FRAME_HEADER_SIZE + size;
     }
-
-    return null;
   } finally {
     await file.close();
   }
 };
 
+/** The first rating byte an ID3 tag at the start of a file holds in a POPM frame, whichever player wrote it, or null when it has none. */
+const readPopularimeterByte = async (filePath: string) => {
+  let rating: number = null;
+
+  await readId3Frames(filePath, "POPM", (content) => {
+    rating = readPopularimeterRating(content);
+
+    return !!rating;
+  });
+
+  return rating;
+};
+
 /**
- * The rating a player saved in an ID3 tag at the start of a file, such as an MP3's, as Medior's
- * rating. Unknown bytes, as players with their own scales write, read as the closest known one.
+ * The rating a player saved in an ID3 tag at the start of a file, such as an MP3's, as Medior's rating.
+ * Unknown bytes, as players with their own scales write, read as the closest known one.
  * Null when the tag has none.
  */
 export const readId3Rating = async (filePath: string) => {
@@ -185,4 +224,25 @@ export const readId3Rating = async (filePath: string) => {
   return POPM_RATINGS.reduce((closest, entry) =>
     Math.abs(entry[0] - byte) < Math.abs(closest[0] - byte) ? entry : closest,
   )[1];
+};
+
+/** The values of the TXXX frames in an ID3 tag at the start of a file, by their descriptions. */
+export const readId3UserTexts = async (filePath: string) => {
+  const texts = new Map<string, string>();
+
+  await readId3Frames(filePath, "TXXX", (content) => {
+    const encodingByte = content[0];
+    const terminator = TEXT_ENCODINGS[encodingByte]?.terminator;
+    const descriptionEnd = terminator ? findTerminator(content, terminator) : -1;
+
+    if (descriptionEnd > 0)
+      texts.set(
+        decodeText(content.subarray(1, descriptionEnd), encodingByte),
+        decodeText(content.subarray(descriptionEnd + terminator.length), encodingByte),
+      );
+
+    return false;
+  });
+
+  return texts;
 };

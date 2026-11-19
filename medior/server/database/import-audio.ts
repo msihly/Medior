@@ -121,7 +121,7 @@ const processImportedAudio = async () => {
           );
 
           if (!result.matchedCount)
-            throw new Error("File changed during audio analysis; retry analysis");
+            throw new Error("File changed during audio analysis. Retry the analysis.");
 
           socket.emitVolatile("onFilesUpdated", { fileIds: [fileId], updates });
         }

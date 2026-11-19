@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { TagSchema } from "medior/_generated/server";
 import { ModelCreationData } from "mobx-keystone";
 import type { ImportStatus } from "medior/server/database";
@@ -7,19 +7,18 @@ import {
   Chip,
   Comp,
   Detail,
-  Divider,
+  DiffusionDetails,
   Icon,
   IMPORT_STATUSES,
   TagRow,
   Text,
   Tooltip,
   TooltipWrapper,
-  UniformList,
   View,
 } from "medior/components";
 import { FileImport } from "medior/store";
 import { colors, CssColor, makeClasses, openCarouselWindow, toast } from "medior/utils/client";
-import { CONSTANTS, Fmt, parseDiffParams } from "medior/utils/common";
+import { CONSTANTS, Fmt, hasComfyMetadata } from "medior/utils/common";
 import { rpc } from "medior/utils/server";
 import { IMPORT_CHIP_STYLE, TooltipChip } from "./tooltip-chip";
 
@@ -39,12 +38,6 @@ export const ImportListItem = Comp(
 
     const [isOpening, setIsOpening] = useState(false);
     const [tags, setTags] = useState<TagSchema[]>([]);
-
-    const parsedParams = useMemo(() => {
-      if (!fileImport.diffusionParams) return null;
-
-      return parseDiffParams(fileImport.diffusionParams);
-    }, [fileImport.diffusionParams]);
 
     const statusMeta = IMPORT_STATUSES[fileImport.status as ImportStatus];
     const music = fileImport.musicPreview?.music;
@@ -150,82 +143,9 @@ export const ImportListItem = Comp(
             </TooltipChip>
           )}
 
-          {fileImport.diffusionParams?.length > 0 && (
-            <TooltipChip icon="Notes" label="Parsed Params">
-              <View column>
-                <Detail label="Positive Prompt" value={parsedParams?.prompt} />
-
-                <Detail label="Negative Prompt" value={parsedParams?.negPrompt} />
-
-                <UniformList row>
-                  <Detail label="Model" value={parsedParams?.model} flex="300%" />
-
-                  <Detail label="Model Hash" value={parsedParams?.modelHash} />
-
-                  <Detail label="VAE" value={parsedParams?.vae} />
-
-                  <Detail label="VAE Hash" value={parsedParams?.vaeHash} />
-                </UniformList>
-
-                <UniformList row>
-                  <Detail label="Width" value={parsedParams?.width} />
-
-                  <Detail label="Height" value={parsedParams?.height} />
-
-                  <Detail label="Seed" value={parsedParams?.seed} />
-
-                  <Detail label="Subseed" value={parsedParams?.subseed} />
-
-                  <Detail label="Subseed Strength" value={parsedParams?.subseedStrength} />
-                </UniformList>
-
-                <UniformList row>
-                  <Detail label="Steps" value={parsedParams?.steps} />
-
-                  <Detail label="Sampler" value={parsedParams?.sampler} flex="200%" />
-
-                  <Detail label="CFG Scale" value={parsedParams?.cfgScale} />
-
-                  <Detail label="Clip Skip" value={parsedParams?.clipSkip} />
-                </UniformList>
-
-                <UniformList row>
-                  <Detail label="Upscaled?" value={parsedParams?.isUpscaled ? "Yes" : "No"} />
-
-                  <Detail label="Face Restoration" value={parsedParams?.faceRestoration} />
-
-                  <Detail
-                    label="ADetailer?"
-                    value={parsedParams?.aDetailer?.enabled ? "Yes" : "No"}
-                  />
-                </UniformList>
-
-                <UniformList row>
-                  <Detail label="Hires Scale" value={parsedParams?.hiresScale} />
-
-                  <Detail label="Hires Upscaler" value={parsedParams?.hiresUpscaler} flex="150%" />
-
-                  <Detail
-                    label="Hires Denoising Strength"
-                    value={parsedParams?.hiresDenoisingStrength}
-                  />
-
-                  <Detail label="Hires Steps" value={parsedParams?.hiresSteps} />
-                </UniformList>
-
-                <Divider className={css.divider} flexItem={false} />
-
-                <Text
-                  color={colors.custom.blue}
-                  fontWeight={600}
-                  fontSize="1.3em"
-                  textAlign="center"
-                >
-                  {"Raw Params"}
-                </Text>
-
-                <Text>{fileImport.diffusionParams}</Text>
-              </View>
+          {hasComfyMetadata(fileImport) && (
+            <TooltipChip icon="Notes" label="ComfyUI">
+              <DiffusionDetails comfyPrompt={fileImport.comfyPrompt} />
             </TooltipChip>
           )}
 
@@ -274,7 +194,4 @@ export const ImportListItem = Comp(
 
 const useClasses = makeClasses({
   chip: IMPORT_CHIP_STYLE,
-  divider: {
-    margin: "0.5rem 0",
-  },
 });

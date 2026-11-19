@@ -514,7 +514,7 @@ export class VideoTransformerStore extends Model({
         const mergeRes = await rpc.mergeFileTransformDuplicate({ id });
         if (!mergeRes.success) throw new Error(mergeRes.error);
 
-        toast.success("Duplicate merged; original archived");
+        toast.success("Merged the duplicate and archived the original");
       } else toast.success("Media replaced");
 
       this.setFocusedTransformId(null);

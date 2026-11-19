@@ -186,7 +186,7 @@ export const repairThumbnail = async (
 
         if (isGeneratedMediaUnreadable(info))
           throw new Error(
-            "Thumbnail generation could not read the source; original thumbnails retained",
+            "Thumbnail generation could not read the source. Original thumbnails were kept.",
           );
 
         operation.outputMetadata = omitUndefined(refresh ? info : { thumb: info.thumb });
@@ -211,7 +211,7 @@ export const repairThumbnail = async (
     }
 
     if (!operation.outputMetadata?.thumb)
-      throw new Error("Prepared thumbnail metadata is missing; files retained");
+      throw new Error("Prepared thumbnail metadata is missing. Files were kept.");
 
     const identity = await getNtfsFileIdentity(operation.outputPath);
     const cleanup = [...operation.cleanup];
@@ -239,7 +239,7 @@ export const repairThumbnail = async (
       current.path !== file.path ||
       current.thumb?.path !== file.thumb?.path
     )
-      throw new Error("File changed during thumbnail repair; output retained for retry");
+      throw new Error("File changed during thumbnail repair. Output was kept for retry.");
 
     await assertMediaPathsAvailable([operation.outputPath]);
 
@@ -275,7 +275,7 @@ export const repairThumbnail = async (
     ).lean();
 
     if (!updated)
-      throw new Error("File changed during thumbnail repair; output retained for retry");
+      throw new Error("File changed during thumbnail repair. Output was kept for retry.");
 
     socket.emitVolatile("onFileUpdated", {
       id: file.id,

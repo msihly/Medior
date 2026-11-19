@@ -1,5 +1,6 @@
 export * from "./container";
 export * from "./delete-files-modal";
+export * from "./diffusion-details";
 export * from "./file-base";
 export * from "./file-card";
 export * from "./file-export-modal";

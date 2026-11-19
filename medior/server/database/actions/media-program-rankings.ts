@@ -190,7 +190,7 @@ export const renderMediaProgramRanking = makeAction(
 
     if (options.width * fullSize.height > MAX_PIXELS)
       throw new Error(
-        `A ${options.width}×${fullSize.height} image is too large; use fewer rows or a smaller width.`,
+        `A ${options.width}×${fullSize.height} image is too large. Use fewer rows or a smaller width.`,
       );
 
     const scale = outputPath ? 1 : Math.min(1, PREVIEW_WIDTH / options.width);

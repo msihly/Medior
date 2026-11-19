@@ -190,7 +190,7 @@ export const ImportFolderList = Comp(
             ) : null}
 
             {isLinked && (
-              <TooltipWrapper tooltip="In a linked folder: imports keep these files in place, and Medior never moves or deletes them.">
+              <TooltipWrapper tooltip="Linked folder. Files stay in place and Medior never moves or deletes them.">
                 <Chip label="Linked" icon="Link" className={css.chip} />
               </TooltipWrapper>
             )}

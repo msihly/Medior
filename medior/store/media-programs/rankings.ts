@@ -311,7 +311,7 @@ export class MediaProgramRankingStore extends Model({
     if (!savedSearch) throw new Error("Save the filters as a saved search to keep their order.");
     if (!this.searchedProps) throw new Error("Search before saving the order.");
     if (!this.isSavedSearchSelected)
-      throw new Error("Another saved search is selected; search again before saving its order.");
+      throw new Error("Another saved search is selected. Search again before saving its order.");
 
     this.setIsSaving(true);
 

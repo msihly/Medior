@@ -291,7 +291,7 @@ export const ImportManager = Comp(() => {
             </Card>
           </>
         ) : (
-          <CenteredText text="Import history is upgrading in the background. Check Activity for progress or Retry. You can continue browsing your library." />
+          <CenteredText text="Import history is upgrading in the background. Check Activity for progress or Retry." />
         )}
       </Modal.Content>
 

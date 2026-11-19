@@ -58,7 +58,7 @@ const SKIPS = {
   missing: "Stored file missing",
   notLinked: "Original folder not linked",
   notStored: "Not in file storage",
-  owned: "Path held by a cleanup or transform; finish it in Activity",
+  owned: "Path held by an unfinished cleanup or transform in Activity",
   pending: "Earlier move back still finishing",
   retained: "Moved, with its library update retried",
   sameFile: "Original path is the stored file",
@@ -625,5 +625,5 @@ makeBackgroundOperationRunner("move back recovery", async () => {
   }
 
   if (failedCount)
-    throw new Error(`${Fmt.commas(failedCount)} move backs couldn't finish yet; see the log.`);
+    throw new Error(`${Fmt.commas(failedCount)} move backs couldn't finish yet. See the log.`);
 });

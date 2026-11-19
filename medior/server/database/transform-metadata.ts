@@ -24,7 +24,7 @@ export const prepareTransformMetadata = async (
   let operation = await FileOperationModel.findById(`transform:${id}`).lean();
 
   if (operation && (operation.sourcePath !== args.filePath || operation.sourceHash !== args.hash))
-    throw new Error("Transform output changed; delete this transform to retire its preparation");
+    throw new Error("Transform output changed. Delete this transform to retire its preparation.");
 
   if (!operation) {
     const thumbId = `${args.hash}-${randomUUID()}`;
@@ -65,7 +65,7 @@ export const prepareTransformMetadata = async (
     });
 
     if (isGeneratedMediaUnreadable(info))
-      throw new Error("Transform output could not be read; preparation retained");
+      throw new Error("Transform output could not be read. Its preparation was kept.");
 
     operation.outputHash = await hashMediaFile(operation.tempPath);
     operation.outputMetadata = omitUndefined(info);

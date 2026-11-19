@@ -76,7 +76,7 @@ const cancelExecutions = async (active: BackgroundExecution[]) => {
 
   for (const execution of pending) {
     execution.cancelled = true;
-    execution.controller.abort(new Error("Background work interrupted; pending work retained."));
+    execution.controller.abort(new Error("Background work interrupted. Pending work was kept."));
   }
 
   const sessions = pending.flatMap((execution) => execution.session?.id ?? []);

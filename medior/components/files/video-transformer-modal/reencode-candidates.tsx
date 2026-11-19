@@ -156,7 +156,7 @@ export const ReencodeCandidates = Comp(() => {
 
             <Text color={colors.custom.lightGrey} fontSize="0.8em" whiteSpace="normal">
               {
-                "Skips corrupted, previously re-encoded, and excluded-tag files. Largest images and highest-bitrate GIFs and videos go first, 1,000 images or 100 GIFs and videos at a time. Checked types are saved and refill the queue whenever it runs out."
+                "Skips corrupted, previously re-encoded, and excluded-tag files. Largest images and highest-bitrate GIFs and videos go first. Checked types are saved and refill the queue when it runs out."
               }
             </Text>
           </Modal.Content>

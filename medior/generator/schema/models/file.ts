@@ -41,6 +41,12 @@ model.addProp(
 model.addIndex({ collectionIds: 1 }, { unique: false });
 model.addProp("collectionIds", "FileCollection.id[]", { defaultValue: "[]", required: true });
 
+/** The API prompt ComfyUI saved into the file, as JSON with non-ASCII characters unescaped. */
+model.addProp("comfyPrompt", "string");
+
+/** The workflow ComfyUI saved into the file, kept since re-encoding strips the file's metadata. */
+model.addProp("comfyWorkflow", "string");
+
 model.addIndex({ dateImported: 1, _id: 1 });
 model.addProp("dateImported", "string", {
   required: true,
@@ -53,7 +59,8 @@ model.addProp("dateModified", "string", {
   sort: { icon: "DateRange", label: "Date Modified" },
 });
 
-model.addProp("diffusionParams", "string");
+/** Automatic1111 parameters from older imports, kept only to leave diffusion output out of duplicate scans. */
+model.addProp("diffusionParams", "string", { excludeFromStore: true });
 
 model.addIndex({ duration: 1, _id: 1 });
 model.addProp("duration", "number", { sort: { icon: "HourglassBottom", label: "Duration" } });

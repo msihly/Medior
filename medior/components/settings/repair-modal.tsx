@@ -282,7 +282,7 @@ export const RepairModal = Comp(() => {
 
       if (progress.status === "complete") {
         store.log(
-          `Similarity repair complete: ${formatProgress(progress)}. Generated ${progress.indexedCount.toLocaleString()} vectors; ${progress.skippedFreshCount.toLocaleString()} already current; ${progress.errorCount.toLocaleString()} failed.`,
+          `Similarity repair complete: ${formatProgress(progress)}. Generated ${progress.indexedCount.toLocaleString()} vectors, ${progress.skippedFreshCount.toLocaleString()} already current, ${progress.errorCount.toLocaleString()} failed.`,
           progress.errorCount ? colors.custom.orange : colors.custom.green,
         );
         break;
@@ -401,7 +401,7 @@ export const RepairModal = Comp(() => {
         ),
       }));
       store.log(
-        `[INFO] Removed ${Fmt.commas(removed.size)} untracked files; retained ${Fmt.commas(result.data.retainedCount)} files.`,
+        `[INFO] Removed ${Fmt.commas(removed.size)} untracked files and kept ${Fmt.commas(result.data.retainedCount)}.`,
       );
     });
 
@@ -467,7 +467,7 @@ export const RepairModal = Comp(() => {
 
       setStorageResult((previous) => ({ ...previous, fileIdsLeftInDbOnly: [] }));
       store.log(
-        `[INFO] Removed ${Fmt.commas(result.data.removedCount)} missing records; retained ${Fmt.commas(result.data.retainedCount)} records whose files are now present.`,
+        `[INFO] Removed ${Fmt.commas(result.data.removedCount)} missing records and kept ${Fmt.commas(result.data.retainedCount)} whose files are now present.`,
       );
     });
 
@@ -712,7 +712,7 @@ export const RepairModal = Comp(() => {
 
               <RepairCheckbox
                 label="Delete Exact Duplicates"
-                description="Keeps one collection with each identical file set; leaves files intact."
+                description="Removes duplicate collections, keeping one of each. Files aren't changed."
                 checked={store.collections.deleteDuplicates}
                 setChecked={store.collections.setDeleteDuplicates}
                 disabled={store.isRunning || !store.collections.enabled}
@@ -720,7 +720,7 @@ export const RepairModal = Comp(() => {
 
               <RepairCheckbox
                 label="Delete Subset Collections"
-                description="Deletes collections entirely contained in a larger collection; leaves files intact."
+                description="Deletes collections fully contained in a larger one. Files aren't changed."
                 checked={store.collections.deleteSubsets}
                 setChecked={store.collections.setDeleteSubsets}
                 disabled={store.isRunning || !store.collections.enabled}
@@ -804,7 +804,7 @@ export const RepairModal = Comp(() => {
 
               <RepairCheckbox
                 label="Rebuild Existing Indexes"
-                description="Pauses imports and transforms, then rebuilds indexes one at a time; searches using an index are slow while it rebuilds."
+                description="Pauses imports and transforms, then rebuilds indexes one at a time. Searches are slow while an index rebuilds."
                 checked={store.indexes.rebuild}
                 setChecked={store.indexes.setRebuild}
                 disabled={store.isRunning || !store.indexes.enabled}
@@ -821,7 +821,7 @@ export const RepairModal = Comp(() => {
 
             <RepairCheckbox
               label="Similarity Search Index"
-              description="Builds the indexes used to find duplicates and similar audio across the whole library, or compacts stored vectors and adds newly vectorized files to them."
+              description="Builds the duplicate and similar-audio indexes, or compacts stored vectors and adds newly vectorized files."
               checked={store.similarity.enabled}
               setChecked={store.similarity.setEnabled}
               disabled={store.isRunning}
@@ -922,7 +922,7 @@ export const RepairModal = Comp(() => {
 
               <RepairCheckbox
                 label="Store NTFS Ordering Metadata"
-                description="Repairs missing thumbnails and stores their NTFS volume and file IDs for filesystem-aware processing order."
+                description="Repairs missing thumbnails and stores their NTFS volume and file IDs."
                 checked={store.thumbnails.ntfsMetadata}
                 setChecked={store.thumbnails.setNtfsMetadata}
                 disabled={store.isRunning || !store.thumbnails.enabled}
@@ -1022,7 +1022,7 @@ export const RepairModal = Comp(() => {
       {store.isConfirmCancelOpen && (
         <ConfirmModal
           headerText="Cancel Repair"
-          subText="Are you sure you want to cancel the running repair? The current operation will be interrupted immediately."
+          subText="Cancel the running repair? The current operation is interrupted immediately."
           confirmText="Cancel"
           setVisible={store.setIsConfirmCancelOpen}
           onConfirm={handleConfirmCancel}

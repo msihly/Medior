@@ -50,7 +50,7 @@ export const isPersistenceReady = async () => {
 export const assertPersistenceReady = async () => {
   if (!(await isPersistenceReady()))
     throw new Error(
-      "Recovery storage is being consolidated in the background. Check Activity for progress or Retry. Library browsing remains available.",
+      "Recovery storage is being consolidated in the background. Check Activity for progress or Retry.",
     );
 };
 

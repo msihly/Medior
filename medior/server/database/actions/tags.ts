@@ -247,7 +247,7 @@ const processTagRegenQueue = async () => {
 
       if (operation.type === "tagMetadata" && tagIds.length)
         await actions.setBackgroundOperationStatus(operation.id, "RUNNING", {
-          message: `Scanning metadata for ${tagIds.length} tags; ${operation.processedCount} of ${operation.totalCount} completed.`,
+          message: `Scanning metadata for ${tagIds.length} tags: ${operation.processedCount} of ${operation.totalCount} completed.`,
         });
 
       // Targets stay queued until their scan results have been saved.
@@ -1459,7 +1459,8 @@ const mergeRepairTags = async (
   const current = await models.TagModel.findById(retainedId).select(projection).lean();
   const duplicate = await models.TagModel.findById(duplicateId).select(projection).lean();
 
-  if (!current || !duplicate) throw new Error("Duplicate tags changed during repair; retry repair");
+  if (!current || !duplicate)
+    throw new Error("Duplicate tags changed during repair. Retry the repair.");
 
   const label = cleanNames
     ? cleanTagName(current.label)
@@ -1470,7 +1471,7 @@ const mergeRepairTags = async (
   const names = new Set(repairTagNames(current, decodeLabels, cleanNames));
 
   if (!repairTagNames(duplicate, decodeLabels, cleanNames).some((name) => names.has(name)))
-    throw new Error("Duplicate tag labels or aliases changed during repair; retry repair");
+    throw new Error("Duplicate tag labels or aliases changed during repair. Retry the repair.");
 
   const result = await mergeTags({
     aliases: current.aliases ?? [],
@@ -1552,7 +1553,7 @@ export const repairTags = makeAction(
               if (existing) {
                 if (!mergeDuplicateLabels && !cleanNames)
                   throw new Error(
-                    "Decoded label already exists; enable duplicate label merging to repair it",
+                    "Decoded label already exists. Enable duplicate label merging to repair it.",
                   );
 
                 await mergeRepairTags(String(existing._id), String(tag._id), true);

@@ -311,7 +311,7 @@ const describeDecodeFailure = async (
 
   if (otherCount) reported.push(`${Fmt.commas(otherCount)} more messages`);
 
-  return `Could not decode ${streamId ? `audio stream ${streamId}` : "the audio"}${streamDetails}.${failedShare}${reported.length ? ` FFmpeg reported: ${reported.join("; ")}.` : ""}`;
+  return `Could not decode ${streamId ? `audio stream ${streamId}` : "the audio"}${streamDetails}.${failedShare}${reported.length ? ` FFmpeg reported: ${reported.join(" | ")}.` : ""}`;
 };
 
 /**
@@ -604,7 +604,7 @@ const embedAudioTokens = async (
     const [batchSize, chunkTokenCount, dimensions] = output.dims;
     if (batchSize !== batch.length || dimensions !== model.dimensions)
       throw new Error(
-        `Unexpected audio embedding shape ${output.dims.join("x")}; ${model.label} embeddings have ${model.dimensions} dimensions. Export the model again.`,
+        `Unexpected audio embedding shape ${output.dims.join("x")}. ${model.label} embeddings have ${model.dimensions} dimensions. Export the model again.`,
       );
 
     for (const [chunkIndex, chunk] of batch.entries()) {

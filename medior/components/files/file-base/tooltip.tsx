@@ -4,6 +4,7 @@ import {
   Comp,
   DateDetail,
   Detail,
+  DiffusionDetails,
   Icon,
   TagRow,
   Text,
@@ -13,7 +14,7 @@ import {
 } from "medior/components";
 import { File, useStores } from "medior/store";
 import { colors } from "medior/utils/client";
-import { CONSTANTS, Fmt } from "medior/utils/common";
+import { CONSTANTS, Fmt, hasComfyMetadata } from "medior/utils/common";
 
 interface TooltipProps {
   children: React.JSX.Element;
@@ -126,12 +127,12 @@ export const Tooltip = Comp(({ children, disabled, file }: TooltipProps) => {
             />
           )}
 
-          {file.diffusionParams?.length > 0 && (
+          {hasComfyMetadata(file) && (
             <Detail
-              label="Diffusion Params"
+              label="ComfyUI"
               value={
                 <Card height="10rem" overflow="hidden auto">
-                  <Text>{file.diffusionParams}</Text>
+                  <DiffusionDetails comfyPrompt={file.comfyPrompt} />
                 </Card>
               }
             />

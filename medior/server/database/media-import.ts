@@ -27,6 +27,7 @@ import {
   dayjs,
   FileImportSidecar,
   getSubtitleFilePaths,
+  hasComfyMetadata,
   hasTranscription,
   MusicImportOptions,
   normalizeTimestampPairs,
@@ -64,9 +65,10 @@ import { waitForWork, withResources, workSignal } from "medior/utils/server/work
 
 export interface MediaImportInput {
   batchId?: string;
+  comfyPrompt?: string;
+  comfyWorkflow?: string;
   dateCreated?: string;
   deleteOnImport: boolean;
-  diffusionParams?: string;
   ext: string;
   ignorePrevDeleted: boolean;
   /** How an audio file is read into Music, which leaves it out without them. */
@@ -425,11 +427,9 @@ const restoreMovedSource = async ({ outputHash, outputPath, sourcePath }: FileOp
 };
 
 /**
- * Moves a previously deleted source into the folder for them set in Settings, in its import's root
- * under the subfolders it was in below it, with its subtitles and the sidecar, diffusion parameters,
- * and PotPlayer bookmarks named after it, which keep matching any new name it takes. They move first,
- * so a source a failed move leaves behind is found again when its import is retried. Files already
- * set aside stay where they are when their folder is imported again.
+ * Moves a previously deleted source into the folder for them set in Settings, in its import's root under the subfolders it was in below it, with its subtitles and the sidecar and PotPlayer bookmarks named after it, which keep matching any new name it takes.
+ * They move first, so a source a failed move leaves behind is found again when its import is retried.
+ * Files already set aside stay where they are when their folder is imported again.
  */
 const setAsidePrevDeleted = async (args: MediaImportInput, subtitlePaths: string[]) => {
   const prevDeletedFolder = getPrevDeletedFolder();
@@ -453,7 +453,6 @@ const setAsidePrevDeleted = async (args: MediaImportInput, subtitlePaths: string
 
   const getNamedAfter = (mediaPath: string) => [
     extendFileName(mediaPath, "json"),
-    ...(args.diffusionParams ? [extendFileName(mediaPath, "txt")] : []),
     getPotPlayerBookmarkPath(mediaPath),
   ];
 
@@ -840,7 +839,7 @@ export const importMedia = async (args: MediaImportInput, operationId?: string) 
     const preparedSourceHash = operation?.sourceHash ?? operation?.outputHash;
 
     if (preparedSourceHash && preparedSourceHash !== sourceHash)
-      throw new Error("Import source changed; the prepared output has been retained");
+      throw new Error("Import source changed. The prepared output was kept.");
 
     if (!operation?.outputHash) {
       // Sources the import may move go to storage on their own drive, as a copy would need space.
@@ -954,7 +953,7 @@ export const importMedia = async (args: MediaImportInput, operationId?: string) 
       mediaPathKey(operation.outputPath) !== mediaPathKey(args.originalPath)
     ) {
       if (!operation.outputPath)
-        throw new Error("Import eligibility changed; cancel and requeue this import");
+        throw new Error("Import eligibility changed. Cancel and requeue this import.");
 
       // Sources the import deletes anyway are moved in, unless their bytes change on import.
       const isMovable = args.deleteOnImport && !operation.contentPath;
@@ -1031,7 +1030,7 @@ export const importMedia = async (args: MediaImportInput, operationId?: string) 
 
                 if ((await hashMediaFile(operation.contentPath, workSignal.getStore())) !== hash)
                   throw new Error(
-                    "Embedding subtitles produced a different file; cancel and requeue this import",
+                    "Embedding subtitles produced a different file. Cancel and requeue this import.",
                   );
               }
 
@@ -1124,7 +1123,7 @@ export const importMedia = async (args: MediaImportInput, operationId?: string) 
         : null;
 
     if (info && isGeneratedMediaUnreadable(info))
-      throw new Error("Imported media could not be read; source retained");
+      throw new Error("Imported media could not be read. The source was kept.");
 
     if (info?.thumb?.path) await syncMediaFile(info.thumb.path);
 
@@ -1170,7 +1169,6 @@ export const importMedia = async (args: MediaImportInput, operationId?: string) 
       for (const sourcePath of [
         args.originalPath,
         extendFileName(args.originalPath, "json"),
-        ...(args.diffusionParams ? [extendFileName(args.originalPath, "txt")] : []),
         // Subtitles leave once stored, embedded, attached to a duplicate, or discarded with their video.
         ...(duplicate?.subtitles?.length
           ? []
@@ -1304,17 +1302,26 @@ const attachDuplicateSubtitles = async (file: models.FileSchema, args: MediaImpo
   return { ...file, subtitles };
 };
 
-/** Fills metadata an existing file lacks from an imported sidecar without replacing existing values. */
-const mergeImportSidecar = async (file: models.FileSchema, sidecar: FileImportSidecar) => {
+/** A sidecar's ComfyUI metadata comes before the imported file's own, as its other values do. */
+const getImportComfyMetadata = (args: MediaImportInput) =>
+  hasComfyMetadata(args.sidecar) ? args.sidecar : args;
+
+/** Fills metadata an existing file lacks from its import's sidecar, and ComfyUI metadata from the sidecar or else the imported file, without replacing existing values. */
+const mergeImportMetadata = async (file: models.FileSchema, args: MediaImportInput) => {
+  const { sidecar } = args;
+  const comfyMetadata = getImportComfyMetadata(args);
   const updates: Partial<models.FileSchema> = {
-    ...(!file.diffusionParams && sidecar.diffusionParams
-      ? { diffusionParams: sidecar.diffusionParams }
+    ...(!hasComfyMetadata(file) && hasComfyMetadata(comfyMetadata)
+      ? {
+          comfyPrompt: comfyMetadata.comfyPrompt ?? null,
+          comfyWorkflow: comfyMetadata.comfyWorkflow ?? null,
+        }
       : {}),
-    ...(!file.originalName && sidecar.originalName ? { originalName: sidecar.originalName } : {}),
-    ...(!file.timestamps?.length && sidecar.timestamps?.length
+    ...(!file.originalName && sidecar?.originalName ? { originalName: sidecar.originalName } : {}),
+    ...(!file.timestamps?.length && sidecar?.timestamps?.length
       ? { timestamps: sidecar.timestamps }
       : {}),
-    ...(!hasTranscription(file.transcription) && hasTranscription(sidecar.transcription)
+    ...(!hasTranscription(file.transcription) && hasTranscription(sidecar?.transcription)
       ? { transcription: sidecar.transcription }
       : {}),
   };
@@ -1324,7 +1331,7 @@ const mergeImportSidecar = async (file: models.FileSchema, sidecar: FileImportSi
     if (!updated.success) throw new Error(updated.error);
   }
 
-  if (!file.rating && sidecar.rating) {
+  if (!file.rating && sidecar?.rating) {
     const rated = await actions.setFileRating({ fileIds: [file.id], rating: sidecar.rating });
     if (!rated.success) throw new Error(rated.error);
   }
@@ -1352,13 +1359,16 @@ const commitMediaImport = async (
   let isSubtitleAttached = false;
 
   if (!file && !ignored) {
-    if (!info) throw new Error("Duplicate changed during import; source retained for retry");
+    if (!info) throw new Error("Duplicate changed during import. The source was kept for retry.");
+
+    const comfyMetadata = getImportComfyMetadata(args);
 
     const imported = await actions.importFile({
       ...info,
+      comfyPrompt: comfyMetadata.comfyPrompt,
+      comfyWorkflow: comfyMetadata.comfyWorkflow,
       dateCreated: args.sidecar?.dateCreated ?? args.dateCreated ?? dayjs().toISOString(),
       dateImported: dayjs().toISOString(),
-      diffusionParams: args.sidecar?.diffusionParams ?? args.diffusionParams,
       hasTranscript: info.hasTranscript || hasTranscription(args.sidecar?.transcription),
       isArchived: args.sidecar?.isArchived,
       originalHash: hash,
@@ -1399,7 +1409,7 @@ const commitMediaImport = async (
       await actions.queueTagMetadataRegen(file.tagIds, file.tagIdsWithAncestors);
     }
 
-    if (args.sidecar) await mergeImportSidecar(file, args.sidecar);
+    await mergeImportMetadata(file, args);
 
     if (status === "DUPLICATE" && !file.subtitles?.length) {
       const attached = await attachDuplicateSubtitles(file, args);

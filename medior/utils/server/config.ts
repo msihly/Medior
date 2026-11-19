@@ -346,6 +346,7 @@ export interface Config {
     ignoreMusicAlbumTags: boolean;
     ignorePrevDeleted: boolean;
     labelDiff: string;
+    labelDiffLora: string;
     labelDiffModel: string;
     labelDiffOriginal: string;
     labelDiffUpscaled: string;
@@ -362,6 +363,7 @@ export interface Config {
     subtitleMode: SubtitleMode;
     useSavedConfigs: boolean;
     withDelimiters: boolean;
+    withDiffLoras: boolean;
     withDiffModel: boolean;
     withDiffParams: boolean;
     withDiffRegEx: boolean;
@@ -618,6 +620,7 @@ export const DEFAULT_CONFIG: Config = {
     ignoreMusicAlbumTags: false,
     ignorePrevDeleted: true,
     labelDiff: "Diffusion",
+    labelDiffLora: "Diffusion LoRA",
     labelDiffModel: "Diffusion Model",
     labelDiffOriginal: "Diff: Original",
     labelDiffUpscaled: "Diff: Upscaled",
@@ -635,6 +638,7 @@ export const DEFAULT_CONFIG: Config = {
     subtitleMode: "keep",
     useSavedConfigs: true,
     withDelimiters: true,
+    withDiffLoras: true,
     withDiffModel: true,
     withDiffParams: false,
     withDiffRegEx: true,

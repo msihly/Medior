@@ -1,7 +1,7 @@
 import { Comp, FileBase, Icon, Text, View } from "medior/components";
 import { File, useStores } from "medior/store";
 import { colors } from "medior/utils/client";
-import { CONSTANTS, VideoCodec } from "medior/utils/common";
+import { CONSTANTS, hasComfyMetadata, VideoCodec } from "medior/utils/common";
 import { ChipProps } from "./chip";
 
 interface ExtAndIconsProps extends Omit<ChipProps, "label"> {
@@ -30,9 +30,7 @@ export const ExtAndIcons = Comp(({ file, ...props }: ExtAndIconsProps) => {
 
           {file.isCorrupted && <Icon name="Warning" size="1em" color={colors.custom.orange} />}
 
-          {file.diffusionParams?.length > 0 && (
-            <Icon name="Notes" size="1em" color={colors.custom.blue} />
-          )}
+          {hasComfyMetadata(file) && <Icon name="Notes" size="1em" color={colors.custom.blue} />}
 
           {file.timestamps?.length > 0 && (
             <Icon name="Timeline" size="1em" color={colors.palette.teal[500]} />

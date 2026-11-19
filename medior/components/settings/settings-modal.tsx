@@ -330,7 +330,7 @@ export const SettingsModal = Comp(() => {
 
               <Settings.Group
                 title="Linked Folders"
-                description="Files imported from these folders stay where they are, under their own names, for other apps such as music players. Medior never moves, renames, or deletes them or their empty folders, keeps their thumbnails in file storage, and ignores Delete on Import for them. Removing a folder lets Medior manage the files imported from it like any others."
+                description="Files imported from these folders stay in place, and Medior never moves, renames, or deletes them or their folders. Removing a folder lets Medior manage its files."
                 rightNode={
                   <Button
                     text="Add Folder"
@@ -441,7 +441,7 @@ export const SettingsModal = Comp(() => {
 
                   <Settings.Field
                     label="Layer"
-                    description="Final groups sounds by type; Middle may keep finer acoustic detail."
+                    description="Final groups sounds by type. Middle may keep finer acoustic detail."
                   >
                     <Settings.Dropdown
                       configKey="file.similarity.audio.layer"
@@ -1002,7 +1002,7 @@ export const SettingsModal = Comp(() => {
 
                     <Settings.Checkbox
                       {...INGESTER_CHECKBOX_PROPS}
-                      label="Diffusion Params"
+                      label="ComfyUI"
                       configKey="imports.withDiffParams"
                     />
 
@@ -1015,6 +1015,13 @@ export const SettingsModal = Comp(() => {
                       />
 
                       <View column margins={{ left: "1rem" }}>
+                        <Settings.Checkbox
+                          {...INGESTER_CHECKBOX_PROPS}
+                          label="LoRAs"
+                          configKey="imports.withDiffLoras"
+                          disabled={isDiffusionTagsOff}
+                        />
+
                         <Settings.Checkbox
                           {...INGESTER_CHECKBOX_PROPS}
                           label="Model"
@@ -1075,7 +1082,7 @@ export const SettingsModal = Comp(() => {
                 <Settings.Group title="PotPlayer Bookmarks">
                   <Settings.Field
                     label="Import"
-                    description="Copies the .pbf file PotPlayer saves beside a video to its stored copy, removing it from the source with the video when Delete on Import is on."
+                    description="Copies a video's PotPlayer .pbf file to its stored copy. Delete on Import also removes it from the source."
                   >
                     <Settings.Checkbox configKey="imports.withPotPlayerBookmarks" width="auto" />
                   </Settings.Field>
@@ -1084,7 +1091,7 @@ export const SettingsModal = Comp(() => {
                 <Settings.Group title="Previously Deleted">
                   <Settings.Field
                     label="Folder"
-                    description="With Ignore Prev. Deleted on, imports move previously deleted files into a folder of this name in their root folder, under the subfolders they were in. Scans leave it out unless it's the folder scanned. Blank uses _PREV DELETED."
+                    description="With Ignore Prev. Deleted on, previously deleted files are moved into a folder of this name in their root folder, which scans skip. Blank uses _PREV DELETED."
                   >
                     <Settings.Input configKey="imports.prevDeletedFolder" width="16rem" />
                   </Settings.Field>
@@ -1093,6 +1100,10 @@ export const SettingsModal = Comp(() => {
                 <Settings.Group title="Diffusion Tag Labels">
                   <Settings.Field label="Diffusion">
                     <Settings.Input configKey="imports.labelDiff" width="16rem" />
+                  </Settings.Field>
+
+                  <Settings.Field label="LoRA">
+                    <Settings.Input configKey="imports.labelDiffLora" width="16rem" />
                   </Settings.Field>
 
                   <Settings.Field label="Model">
@@ -1178,7 +1189,7 @@ export const SettingsModal = Comp(() => {
 
               <Settings.Group
                 title="Continue Watching"
-                description="Program and episode cards continue from the latest PotPlayer bookmark of an unwatched episode, read from the .pbf files PotPlayer saves beside videos. Continue starts there with the video player's seek arguments, set under Files."
+                description="Program and episode cards continue from the latest PotPlayer bookmark of an unwatched episode. Continue uses the seek arguments set under Files."
               >
                 <Settings.Field label="PotPlayer Bookmarks">
                   <Settings.Checkbox configKey="mediaPrograms.continueWatching" width="auto" />
@@ -1327,7 +1338,7 @@ export const SettingsModal = Comp(() => {
               <Settings.Group title="Player">
                 <Settings.Field
                   label="Cover Art Colors"
-                  description="Colors the player bar, the music view's header and tracks, and the compact player's title bar and queue with the dominant colors of the playing track's cover art."
+                  description="Colors the player bar, music view, and compact player with the dominant colors of the playing track's cover art."
                 >
                   <Settings.Checkbox configKey="music.coverColors" width="auto" />
                 </Settings.Field>

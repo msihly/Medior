@@ -1731,7 +1731,7 @@ export class VectorSimilarityService {
           this.updateJobProgress(job, {
             message:
               job.reportedErrorCount === 5
-                ? `${message} Further per-file errors are counted in progress; individual messages are suppressed.`
+                ? `${message} Further per-file errors are counted, not shown.`
                 : message,
           });
         }

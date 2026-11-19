@@ -51,7 +51,7 @@ export const makeFileCleanup = (hash: string, path: string, size?: number): File
 
 class FileCleanupPausedError extends Error {
   constructor() {
-    super("File cleanup paused; remaining work retained.");
+    super("File cleanup paused. Remaining work was kept.");
     this.name = "FileCleanupPausedError";
   }
 }
@@ -200,7 +200,7 @@ export const areMediaPathIndexesReady = async () => {
 export const assertMediaPathIndexesReady = async () => {
   if (!(await areMediaPathIndexesReady()))
     throw new Error(
-      "Media path indexing is incomplete and runs automatically. If its Activity entry is cancelled or failed, click Retry. Browsing remains available.",
+      "Media path indexing is incomplete and runs automatically. If its Activity entry is cancelled or failed, click Retry.",
     );
 };
 
@@ -639,7 +639,7 @@ const cleanFileOperation = async (
             file.retainedHash &&
             (await hashCleanupFile(file.retainedPath, canContinue)) !== file.retainedHash
           )
-            throw new Error("Retained file checksum changed; cleanup deferred");
+            throw new Error("The kept file's checksum changed. Cleanup deferred.");
 
           checkCleanupCancelled(canContinue);
 

@@ -59,6 +59,8 @@ import {
 export type CreateFileFilterPipelineInput = {
   bitrate?: { logOp: LogicalOp | ""; value: number };
   bitrateMode?: "optional" | "required";
+  comfyPrompt?: string;
+  comfyPromptMode?: "optional" | "required";
   dateCreatedEnd?: string;
   dateCreatedMode?: "optional" | "required";
   dateCreatedStart?: string;
@@ -68,8 +70,6 @@ export type CreateFileFilterPipelineInput = {
   dateModifiedEnd?: string;
   dateModifiedMode?: "optional" | "required";
   dateModifiedStart?: string;
-  diffusionParams?: string;
-  diffusionParamsMode?: "optional" | "required";
   duration?: { logOp: LogicalOp | ""; value: number };
   durationMode?: "optional" | "required";
   excludedDescTagIds?: string[];
@@ -77,7 +77,7 @@ export type CreateFileFilterPipelineInput = {
   excludedTagIds?: string[];
   frameRate?: { logOp: LogicalOp | ""; value: number };
   frameRateMode?: "optional" | "required";
-  hasDiffParams?: boolean;
+  hasComfyMeta?: boolean;
   hasMusic?: boolean;
   hasTimeline?: boolean;
   heightMode?: "optional" | "required";
@@ -127,12 +127,20 @@ export const createFileFilterPipeline = async (args: CreateFileFilterPipelineInp
   if (args.excludedFileIds != null && !isDeepEqual(args.excludedFileIds, []))
     setObj($match, ["_id", "$nin"], objectIds(args.excludedFileIds));
 
-  if (args.hasDiffParams != null && !isDeepEqual(args.hasDiffParams, false))
+  if (args.hasComfyMeta != null && !isDeepEqual(args.hasComfyMeta, false))
     ($match.$and ??= []).push(
       setObj(
         {},
-        ["$expr", "$and"],
-        [{ $eq: [{ $type: "$diffusionParams" }, "string"] }, { $ne: ["$diffusionParams", ""] }],
+        ["$expr", "$or"],
+        [
+          { $and: [{ $eq: [{ $type: "$comfyPrompt" }, "string"] }, { $ne: ["$comfyPrompt", ""] }] },
+          {
+            $and: [
+              { $eq: [{ $type: "$comfyWorkflow" }, "string"] },
+              { $ne: ["$comfyWorkflow", ""] },
+            ],
+          },
+        ],
       ),
     );
 
@@ -243,6 +251,19 @@ export const createFileFilterPipeline = async (args: CreateFileFilterPipelineInp
   {
     const filter: QueryFilter<models.FileSchema> = {};
 
+    if (args.comfyPrompt != null && args.comfyPrompt !== "" && !isDeepEqual(args.comfyPrompt, null))
+      addRegexSearchFilter(filter, ["comfyPrompt", "$regex"], args.comfyPrompt);
+
+    if (Object.keys(filter).length) {
+      const operator = args.comfyPromptMode === "optional" ? "$or" : "$and";
+
+      ($match[operator] ??= []).push(filter);
+    }
+  }
+
+  {
+    const filter: QueryFilter<models.FileSchema> = {};
+
     if (
       args.dateCreatedEnd != null &&
       args.dateCreatedEnd !== "" &&
@@ -307,23 +328,6 @@ export const createFileFilterPipeline = async (args: CreateFileFilterPipelineInp
 
     if (Object.keys(filter).length) {
       const operator = args.dateModifiedMode === "optional" ? "$or" : "$and";
-
-      ($match[operator] ??= []).push(filter);
-    }
-  }
-
-  {
-    const filter: QueryFilter<models.FileSchema> = {};
-
-    if (
-      args.diffusionParams != null &&
-      args.diffusionParams !== "" &&
-      !isDeepEqual(args.diffusionParams, null)
-    )
-      addRegexSearchFilter(filter, ["diffusionParams", "$regex"], args.diffusionParams);
-
-    if (Object.keys(filter).length) {
-      const operator = args.diffusionParamsMode === "optional" ? "$or" : "$and";
 
       ($match[operator] ??= []).push(filter);
     }

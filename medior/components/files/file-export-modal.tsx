@@ -24,8 +24,9 @@ const DESTINATION_OPTIONS: { label: string; value: FileCopyDestination }[] = [
 
 const FIELD_LABELS: Record<FileSidecarField, string> = {
   collections: "Collections",
+  comfyPrompt: "ComfyUI Prompt",
+  comfyWorkflow: "ComfyUI Workflow",
   dateCreated: "Date Created",
-  diffusionParams: "Diffusion Params",
   isArchived: "Archived",
   originalName: "Original Name",
   rating: "Rating",

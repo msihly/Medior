@@ -262,7 +262,7 @@ export const ImportOptions = Comp(({ scan, store }: ImportOptionsProps) => {
 
       <Checkbox
         {...checkboxProps}
-        label="Diffusion Params"
+        label="ComfyUI"
         checked={store.options.withDiffusionParams}
         setChecked={store.options.setWithDiffusionParams}
       />
@@ -277,6 +277,18 @@ export const ImportOptions = Comp(({ scan, store }: ImportOptionsProps) => {
         />
 
         <View column margins={{ left: "1rem" }}>
+          <Checkbox
+            {...checkboxProps}
+            label="LoRAs"
+            checked={store.options.withDiffusionLoras}
+            setChecked={store.options.setWithDiffusionLoras}
+            disabled={
+              checkboxProps.disabled ||
+              !store.options.withDiffusionParams ||
+              !store.options.withDiffusionTags
+            }
+          />
+
           <Checkbox
             {...checkboxProps}
             label="Model"

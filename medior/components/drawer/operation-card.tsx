@@ -62,7 +62,7 @@ export const OperationCard = Comp(({ operation }: { operation: BackgroundOperati
       {operation.type === "mediaPathIndex" && operation.status !== "COMPLETE" && (
         <Text fontSize="0.8em" whiteSpace="normal">
           {
-            "Thumbnail repairs wait for indexing and resume automatically when it finishes. If indexing fails or is cancelled, retry this operation."
+            "Thumbnail repairs wait for indexing and resume automatically. Retry this operation if indexing fails or is cancelled."
           }
         </Text>
       )}

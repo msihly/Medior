@@ -20,6 +20,7 @@ export class ImportEditorOptions extends Model({
   subtitleMode: prop<SubtitleMode>("none").withSetter(),
   useSavedConfigs: prop<boolean>(true).withSetter(),
   withDelimiters: prop<boolean>(false).withSetter(),
+  withDiffusionLoras: prop<boolean>(false).withSetter(),
   withDiffusionModel: prop<boolean>(false).withSetter(),
   withDiffusionParams: prop<boolean>(false).withSetter(),
   withDiffusionRegExMaps: prop<boolean>(false).withSetter(),
@@ -56,6 +57,7 @@ export class ImportEditorOptions extends Model({
     this.setSubtitleMode(config.imports.subtitleMode);
     this.setUseSavedConfigs(config.imports.useSavedConfigs);
     this.setWithDelimiters(config.imports.withDelimiters);
+    this.setWithDiffusionLoras(config.imports.withDiffLoras);
     this.setWithDiffusionModel(config.imports.withDiffModel);
     this.setWithDiffusionParams(config.imports.withDiffParams);
     this.setWithDiffusionRegExMaps(config.imports.withDiffRegEx);
@@ -124,6 +126,7 @@ export class ImportEditorOptions extends Model({
       mediaProgramMedium: this.mediaProgramMedium,
       mediaProgramType: this.mediaProgramType,
       withDelimiters: this.withDelimiters,
+      withDiffusionLoras: this.withDiffusionLoras,
       withDiffusionModel: this.withDiffusionModel,
       withDiffusionParams: this.withDiffusionParams,
       withDiffusionRegExMaps: this.withDiffusionRegExMaps,

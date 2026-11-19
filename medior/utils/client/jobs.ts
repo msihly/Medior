@@ -10,7 +10,7 @@ export const toastJobResult = (job: JobState) => {
   const isCutShort = job.isStopping || job.processed < job.total;
   const leftOut = job.failures
     .map(({ count, message }) => `${Fmt.commas(count)} · ${message}`)
-    .join("; ");
+    .join(" | ");
   const summary = isCutShort
     ? `${job.label} stopped after ${Fmt.commas(job.processed)} / ${Fmt.commas(job.total)}: ${job.message}`
     : job.message;

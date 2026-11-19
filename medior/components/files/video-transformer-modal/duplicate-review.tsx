@@ -73,7 +73,7 @@ export const DuplicateReview = Comp(({ transform }: { transform: FileTransform }
       closeReview();
       await store.loadQueue({ noCache: true, withFullCount: true });
       await store.loadQueueCount();
-      toast.success("Metadata and collections merged; original archived.");
+      toast.success("Merged metadata and collections, then archived the original");
     } catch (error) {
       toast.error(error.message);
     } finally {
@@ -105,7 +105,7 @@ export const DuplicateReview = Comp(({ transform }: { transform: FileTransform }
           <Modal.Content>
             <Text>
               {
-                "The re-encoded output matched an existing file's recorded MD5. The original was retained."
+                "The re-encoded output matched an existing file's recorded MD5. The original was kept."
               }
             </Text>
 

@@ -85,7 +85,7 @@ export const rebuildIndexes = makeAction(
 
                 if (waitSeconds === 0)
                   report(
-                    `An index build is already running for ${collectionName}; waiting for it to finish.`,
+                    `An index build is already running for ${collectionName}. Waiting for it to finish.`,
                     "progress",
                   );
                 else if (waitSeconds % 30 === 0)

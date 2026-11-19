@@ -11,7 +11,9 @@ import { derefMobx, toast } from "medior/utils/client";
 import {
   chunkArray,
   dayjs,
+  DiffusionParams,
   Fmt,
+  getComfyModelName,
   getIsMediaProgramRoot,
   getLastEpisodeNumber,
   getMediaProgramChanges,
@@ -26,7 +28,7 @@ import {
   MediaProgramPlan,
   mergeTagDefinitions,
   naturalCompare,
-  parseDiffParams,
+  parseDiffusionParams,
   parseEpisodeNumber,
   parseFileSeasonNumber,
   parseMediaProgramName,
@@ -347,10 +349,7 @@ const makeImportPathFilter = () => {
     const ext = path.extname(filePath).slice(1).toLowerCase();
 
     return (
-      validExts.has(ext as ImageExt | VideoExt) ||
-      ext === "json" ||
-      ext === "txt" ||
-      SUBTITLE_EXTS.includes(ext)
+      validExts.has(ext as ImageExt | VideoExt) || ext === "json" || SUBTITLE_EXTS.includes(ext)
     );
   };
 };
@@ -994,32 +993,53 @@ export const useImportEditor = (store: ImportEditorStore) => {
   const fileToTagsAndDiffParams = async () => {
     const { perfLog } = makePerfLog("[ImportEditor.fileToTagsAndDiffParams]");
 
-    if (!store.options.withDiffusionParams && !store.options.withSidecar) {
-      store.clearValues({ diffusionParams: true, tagIds: true, tagsToUpsert: true });
-
-      if (DEBUG) perfLog("Cleared diffParams and tags");
-    } else if (store.options.withDiffusionParams) {
-      const res = await store.loadDiffusionParams();
+    if (store.options.withDiffusionParams) {
+      const res = await store.loadComfyMetadata();
       if (!res.success) throw new Error(res.error);
 
-      if (DEBUG) perfLog("Loaded diffusion params");
+      if (DEBUG) perfLog("Loaded ComfyUI metadata");
+    } else {
+      // Metadata an earlier scan read is left out with ComfyUI off, while tags read from sidecars stay with Sidecar on.
+      store.clearValues({
+        comfyMetadata: true,
+        tagIds: !store.options.withSidecar,
+        tagsToUpsert: !store.options.withSidecar,
+      });
+
+      if (DEBUG) perfLog("Cleared ComfyUI metadata");
     }
 
-    const { diffMetaTagsToEdit, originalTag, upscaledTag } = await upsertDiffMetaTags();
+    // Prompts are parsed once each, and only for tags: those preloaded here and those their files get below.
+    const diffusionParams = new Map<ModelCreationData<FileImport>, DiffusionParams>();
+
+    if (store.options.withDiffusionTags) {
+      for (const imp of store.imports) {
+        await cache.current.checkpoint();
+
+        const params = imp.comfyPrompt ? parseDiffusionParams(imp.comfyPrompt) : null;
+
+        if (params) diffusionParams.set(imp, params);
+      }
+    }
+
+    const { diffMetaTagsToEdit, originalTag, upscaledTag } = await upsertDiffMetaTags(
+      diffusionParams.size > 0,
+    );
 
     if (DEBUG) perfLog("Upserted diffusion meta tags");
 
     const tagsToUpsert: TagToUpsert[] = [];
-    const hasImportsWithDiff = store.imports.some((imp) => imp.diffusionParams?.length);
 
-    if (hasImportsWithDiff && store.options.withDiffusionModel) {
+    if (
+      diffusionParams.size &&
+      (store.options.withDiffusionLoras || store.options.withDiffusionModel)
+    ) {
       const labels = new Set<string>();
 
-      for (const imp of store.imports) {
-        await cache.current.checkpoint();
+      for (const params of diffusionParams.values()) {
+        const { loras, models } = getDiffusionTagLabels(params);
 
-        if (imp.diffusionParams)
-          labels.add(`Diff Model: ${parseDiffParams(imp.diffusionParams).model}`);
+        for (const label of [...loras, ...models]) labels.add(label);
       }
 
       await cache.current.preloadTagsByLabels([...labels]);
@@ -1047,10 +1067,10 @@ export const useImportEditor = (store: ImportEditorStore) => {
         if (DEBUG) perfLog(`Parsed tag ids from file name via regEx`);
       }
 
-      if (store.options.withDiffusionTags && imp.diffusionParams?.length) {
+      if (diffusionParams.has(imp)) {
         const { diffFileTagIds, diffFileTagsToUpsert } = await parseDiffTags({
-          diffusionParams: imp.diffusionParams,
           originalTagId: originalTag?.id,
+          params: diffusionParams.get(imp),
           upscaledTagId: upscaledTag?.id,
         });
 
@@ -1115,6 +1135,16 @@ export const useImportEditor = (store: ImportEditorStore) => {
       if (idx % STAT_BATCH_SIZE === 0) store.setInitProgressCompleted(idx);
     }
   };
+
+  /** The labels of the LoRA and model tags a file's diffusion params give with the options on. */
+  const getDiffusionTagLabels = (params: DiffusionParams) => ({
+    loras: store.options.withDiffusionLoras
+      ? [...new Set(params.loras.map((lora) => `Diff LoRA: ${getComfyModelName(lora.name)}`))]
+      : [],
+    models: store.options.withDiffusionModel
+      ? [...new Set(params.models.map((model) => `Diff Model: ${getComfyModelName(model)}`))]
+      : [],
+  });
 
   const getIdsFromTags = async (tags: TagToUpsert[] = [], tagIds: string[] = []) => {
     const resolvedIds = new Set(tagIds);
@@ -1407,12 +1437,12 @@ export const useImportEditor = (store: ImportEditorStore) => {
   };
 
   const parseDiffTags = async ({
-    diffusionParams,
     originalTagId,
+    params,
     upscaledTagId,
   }: {
-    diffusionParams: string;
     originalTagId: string;
+    params: DiffusionParams;
     upscaledTagId: string;
   }) => {
     const { perfLog, perfLogTotal } = makePerfLog("[ImportEditor.parseDiffTags]");
@@ -1420,33 +1450,29 @@ export const useImportEditor = (store: ImportEditorStore) => {
     const diffFileTagIds: string[] = [];
     const diffFileTagsToUpsert: TagToUpsert[] = [];
 
-    const parsedParams = parseDiffParams(diffusionParams);
+    if (store.options.withDiffusionRegExMaps && params.positivePrompt) {
+      diffFileTagIds.push(...(await cache.current.getTagIdsByRegEx(params.positivePrompt)));
 
-    if (DEBUG) perfLog(`Parsed diffusion params`);
-
-    if (store.options.withDiffusionRegExMaps) {
-      diffFileTagIds.push(...(await cache.current.getTagIdsByRegEx(parsedParams.prompt)));
-
-      if (DEBUG) perfLog(`Parsed tag ids from diffusion params via regEx`);
+      if (DEBUG) perfLog(`Parsed tag ids from diffusion prompt via regEx`);
     }
 
-    if (store.options.withDiffusionModel) {
-      const modelTagLabel = `Diff Model: ${parsedParams.model}`;
-      const modelTag = await cache.current.getTagByLabel(modelTagLabel);
+    const { loras, models } = getDiffusionTagLabels(params);
 
-      if (modelTag) diffFileTagIds.push(modelTag.id);
-      else
-        diffFileTagsToUpsert.push({
-          aliases: [`Model Hash: ${parsedParams.modelHash}`],
-          label: modelTagLabel,
-          parentLabels: [config.imports.labelDiffModel],
-          withRegEx: true,
-        });
+    for (const [labels, parentLabel] of [
+      [loras, config.imports.labelDiffLora],
+      [models, config.imports.labelDiffModel],
+    ] as const) {
+      for (const label of labels) {
+        const tag = await cache.current.getTagByLabel(label);
 
-      if (DEBUG) perfLog(`Parsed model tag from diffusion params`);
+        if (tag) diffFileTagIds.push(tag.id);
+        else diffFileTagsToUpsert.push({ label, parentLabels: [parentLabel], withRegEx: true });
+      }
     }
 
-    const upscaledTypeTagId = parsedParams.isUpscaled ? upscaledTagId : originalTagId;
+    if (DEBUG) perfLog(`Parsed LoRA and model tags from diffusion params`);
+
+    const upscaledTypeTagId = params.isUpscaled ? upscaledTagId : originalTagId;
 
     if (upscaledTypeTagId && !diffFileTagIds.includes(upscaledTypeTagId))
       diffFileTagIds.push(upscaledTypeTagId);
@@ -1573,7 +1599,7 @@ export const useImportEditor = (store: ImportEditorStore) => {
     return tags;
   };
 
-  const upsertDiffMetaTags = async () => {
+  const upsertDiffMetaTags = async (hasImportsWithDiff: boolean) => {
     const diffMetaTagsToEdit: TagToUpsert[] = [];
     let originalTag: TagToUpsert;
     let upscaledTag: TagToUpsert;
@@ -1599,11 +1625,15 @@ export const useImportEditor = (store: ImportEditorStore) => {
         };
       };
 
-      const hasImportsWithDiff = store.imports.some((imp) => imp.diffusionParams?.length);
-
       if (hasImportsWithDiff) {
         diffMetaTagsToEdit.push(await upsertTag(config.imports.labelDiff));
-        diffMetaTagsToEdit.push(await upsertTag(config.imports.labelDiffModel, true));
+
+        if (store.options.withDiffusionLoras)
+          diffMetaTagsToEdit.push(await upsertTag(config.imports.labelDiffLora, true));
+
+        if (store.options.withDiffusionModel)
+          diffMetaTagsToEdit.push(await upsertTag(config.imports.labelDiffModel, true));
+
         originalTag = await upsertTag(config.imports.labelDiffOriginal, true);
         upscaledTag = await upsertTag(config.imports.labelDiffUpscaled, true);
         diffMetaTagsToEdit.push(originalTag, upscaledTag);

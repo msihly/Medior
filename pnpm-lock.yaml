@@ -63,8 +63,8 @@ dependencies:
     specifier: ^4.8.4
     version: 4.8.4
   trabecula:
-    specifier: github:msihly/trabecula#78e45dd42adca22eb51667f8ec1ff6be0c6bd242
-    version: github.com/msihly/trabecula/78e45dd42adca22eb51667f8ec1ff6be0c6bd242(@huggingface/transformers@4.3.2)(@types/react-dom@19.3.0)(@types/react@19.3.0)(electron@45.2.1)(mongodb-memory-server@11.3.0)(mongoose@9.11.4)(socket.io-client@4.8.4)(socket.io@4.8.4)
+    specifier: github:msihly/trabecula#a13067185b3ce5a9a49ab0339764fd30e7f65ba6
+    version: github.com/msihly/trabecula/a13067185b3ce5a9a49ab0339764fd30e7f65ba6(@huggingface/transformers@4.3.2)(@types/react-dom@19.3.0)(@types/react@19.3.0)(electron@45.2.1)(mongodb-memory-server@11.3.0)(mongoose@9.11.4)(socket.io-client@4.8.4)(socket.io@4.8.4)
   wavesurfer.js:
     specifier: ^8.0.5
     version: 8.0.5
@@ -6960,9 +6960,9 @@ packages:
     engines: {node: '>=10'}
     dev: true
 
-  github.com/msihly/trabecula/78e45dd42adca22eb51667f8ec1ff6be0c6bd242(@huggingface/transformers@4.3.2)(@types/react-dom@19.3.0)(@types/react@19.3.0)(electron@45.2.1)(mongodb-memory-server@11.3.0)(mongoose@9.11.4)(socket.io-client@4.8.4)(socket.io@4.8.4):
-    resolution: {tarball: https://codeload.github.com/msihly/trabecula/tar.gz/78e45dd42adca22eb51667f8ec1ff6be0c6bd242}
-    id: github.com/msihly/trabecula/78e45dd42adca22eb51667f8ec1ff6be0c6bd242
+  github.com/msihly/trabecula/a13067185b3ce5a9a49ab0339764fd30e7f65ba6(@huggingface/transformers@4.3.2)(@types/react-dom@19.3.0)(@types/react@19.3.0)(electron@45.2.1)(mongodb-memory-server@11.3.0)(mongoose@9.11.4)(socket.io-client@4.8.4)(socket.io@4.8.4):
+    resolution: {tarball: https://codeload.github.com/msihly/trabecula/tar.gz/a13067185b3ce5a9a49ab0339764fd30e7f65ba6}
+    id: github.com/msihly/trabecula/a13067185b3ce5a9a49ab0339764fd30e7f65ba6
     name: trabecula
     version: 1.1.1
     peerDependencies:

@@ -193,7 +193,7 @@ export const runMetadataWork = async (operation: BackgroundOperationSchema) => {
           $set: {
             dateModified: dayjs().toISOString(),
             error: error?.message ?? String(error),
-            message: "Completed changes were retained. Retry continues this saved request.",
+            message: "Completed changes were kept. Retry continues this saved request.",
             status: "ERROR",
           },
         },

@@ -19,7 +19,7 @@
 * Portable offline database with support for distributed file storages
 * Hierarchical (parent / child) tagging system with aliases and regular expressions
 * Drag-and-drop to import entire file structures
-    * Tag parsing and generation from folders, file names, and AI diffusion parameters
+    * Tag parsing and generation from folders, file names, and ComfyUI workflows saved in generated media
     * Thumbnail generation with hoverable animations
     * Deduplication and blacklist of previously deleted files
     * File collections from folders

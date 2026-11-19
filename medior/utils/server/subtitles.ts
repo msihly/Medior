@@ -98,7 +98,7 @@ export const muxSubtitles = async ({
   if (outputStreams.length < inputStreams.length + subtitles.length) {
     await fs.rm(partialPath, { force: true });
 
-    throw new Error("Embedding subtitles dropped a track; the source was retained");
+    throw new Error("Embedding subtitles dropped a track. The source was kept.");
   }
 
   // Only finished output takes the final name, so a killed ffmpeg never leaves it truncated.

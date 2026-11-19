@@ -156,7 +156,7 @@ export const runImportEntryMigrationQueue = async () => {
 
         if (Date.now() - lastProgressAt >= 5000) {
           await report(
-            `${completedBatches.toLocaleString()} batches upgraded this run; current batch ${checkpoint.offset.toLocaleString()} / ${page.total.toLocaleString()} entries. Library browsing remains available.`,
+            `${completedBatches.toLocaleString()} batches upgraded this run. Current batch ${checkpoint.offset.toLocaleString()} / ${page.total.toLocaleString()} entries.`,
           );
           lastProgressAt = Date.now();
         }

@@ -1,10 +1,13 @@
 import type { FileSchema } from "medior/_generated/server/models";
+import { hasComfyMetadata } from "./diffusion";
 import { hasTranscription, normalizeTimestampPairs } from "./media-metadata";
 
 type DuplicateMetadata = Pick<
   FileSchema,
   | "bookmarks"
   | "captionTranslations"
+  | "comfyPrompt"
+  | "comfyWorkflow"
   | "diffusionParams"
   | "nameTranslations"
   | "originalName"
@@ -31,6 +34,7 @@ export const mergeDuplicateMetadata = (original: DuplicateMetadata, match: Dupli
   );
   const matchNameLanguages = new Set(matchNameTranslations.map(({ language }) => language));
   const matchBookmarkTimes = new Set((match.bookmarks ?? []).map(({ time }) => time));
+  const comfyMetadata = hasComfyMetadata(match) ? match : original;
 
   return {
     bookmarks: [
@@ -46,6 +50,9 @@ export const mergeDuplicateMetadata = (original: DuplicateMetadata, match: Dupli
         ? (original.captionTranslations ?? []).filter(({ source }) => source === "transcript")
         : []),
     ],
+    comfyPrompt: comfyMetadata.comfyPrompt,
+    comfyWorkflow: comfyMetadata.comfyWorkflow,
+    // Automatic1111 parameters mark the kept file as diffusion output, which duplicate scans leave out.
     diffusionParams: match.diffusionParams || original.diffusionParams,
     hasTranscript:
       hasTranscription(match.transcription) || hasTranscription(original.transcription),

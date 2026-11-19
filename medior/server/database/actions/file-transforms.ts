@@ -311,7 +311,7 @@ const recordDuplicateTransform = async (
         ?.completedAt ?? dayjs().toISOString(),
     duplicateFileId: duplicate._id.toString(),
     duplicatePath: duplicate.path,
-    errorMsg: "Output matches an existing file. Original retained.",
+    errorMsg: "Output matches an existing file. Original kept.",
     isCompleted: true,
     progressPercent: 100,
     status: "DUPLICATE" as const,
@@ -914,7 +914,7 @@ export const deleteFileTransforms = makeAction(
             failures.length ? "ERROR" : targetIds.length ? operation.status : "CANCELLED",
             {
               error: failures.length ? `${failures.length} duplicates still need attention.` : null,
-              message: "Failed transform records removed; media files retained.",
+              message: "Removed failed transform records. Media files were kept.",
               targetIds,
               totalCount:
                 operation.processedCount +
@@ -1165,7 +1165,7 @@ const assertNoOtherUnfinishedTransforms = async (
     })
   )
     throw new Error(
-      "The original file has another unfinished transform; remove it from the queue before merging",
+      "The original file has another unfinished transform. Remove it from the queue before merging.",
     );
 };
 
@@ -1257,7 +1257,7 @@ const mergeDuplicateTransform = async (
         );
 
       if (match.isArchived)
-        throw new Error("The matched file is archived; unarchive it before merging");
+        throw new Error("The matched file is archived. Unarchive it before merging.");
 
       if (original.hash !== transform.beforeHash || original.path !== transform.beforePath)
         throw new Error("The original file has changed since this transform was created");
@@ -1491,7 +1491,7 @@ const retainTransformRecoveryFailure = async (id: string, error: Error) => {
   if (error.message === "Original file not found") {
     const updates = {
       errorMsg:
-        "The original file record no longer exists. The rendered output has been retained; this transform cannot replace the missing record.",
+        "The original file record no longer exists. The rendered output was kept, but it can't replace the missing record.",
       finalizationPending: false,
       status: "ERROR" as const,
     };
@@ -1545,7 +1545,7 @@ const finishTransformCleanup = async (id: string) => {
       );
     } else {
       if (transform.status !== "REPLACED")
-        throw new Error("Unexpected cleanup state; files retained");
+        throw new Error("Unexpected cleanup state. Files were kept.");
 
       if (!mediaPathPattern(transform.beforePath).test(transform.afterPath)) {
         let originalExists = false;
@@ -1568,13 +1568,13 @@ const finishTransformCleanup = async (id: string) => {
             .lean();
 
           if (!file?.path || !file.hash)
-            throw new Error("Replacement metadata missing; original retained");
+            throw new Error("Replacement metadata missing. The original was kept.");
 
           // A later replacement may already have superseded this transform's output.
           await syncMediaFile(file.path, file.hash);
 
           if ((await hashMediaFile(transform.beforePath)) !== transform.beforeHash)
-            throw new Error("Original checksum changed; original retained");
+            throw new Error("Original checksum changed. The original was kept.");
 
           checkBackgroundExecution();
 
@@ -1621,7 +1621,7 @@ const assertTransformPreservesAnimation = async (
     !info.isAnimated &&
     (await getMediaInfo(transform.beforePath, signal)).isAnimated
   )
-    throw new Error("Re-encoding lost the animation; the original file has been retained.");
+    throw new Error("Re-encoding lost the animation. The original file was kept.");
 };
 
 const replaceTransformOutput = async (args: { id: string }, outputInfo?: MediaInfo) => {
@@ -1641,7 +1641,7 @@ const replaceTransformOutput = async (args: { id: string }, outputInfo?: MediaIn
   else {
     // Queued replacements run outside any request, so locks are checked here as well.
     const lock = getForeignFileLock(String(transform.fileId));
-    if (lock) throw new Error(`The original is locked by ${lock}; replace it once that finishes.`);
+    if (lock) throw new Error(`The original is locked by ${lock}. Replace it once that finishes.`);
 
     const source = await models.FileModel.findById(transform.fileId)
       .select({ hash: 1, path: 1, thumb: 1 })
@@ -1653,7 +1653,7 @@ const replaceTransformOutput = async (args: { id: string }, outputInfo?: MediaIn
       source.hash !== transform.afterHash &&
       (await hashMediaFile(transform.beforePath)) !== transform.beforeHash
     )
-      throw new Error("Original checksum changed; replacement cancelled");
+      throw new Error("Original checksum changed. Replacement cancelled.");
 
     const info = outputInfo ?? (await getMediaInfo(transform.afterPath));
 

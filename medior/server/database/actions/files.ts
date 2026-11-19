@@ -172,7 +172,7 @@ const processFileTagAncestorRegenQueue = async () => {
 
       await actions.setBackgroundOperationStatus(operation.id, "COMPLETE", {
         message:
-          "Inherited tags now use the current hierarchy; stored ancestor rewrites are no longer required.",
+          "Inherited tags now use the current hierarchy. Stored ancestor rewrites are no longer required.",
         processedCount: operation.totalCount,
         targetIds: [],
       });
@@ -395,7 +395,7 @@ export const deleteFiles = makeAction(
                 getSubtitleFilePaths(file.subtitles).join() ||
               current.thumb?.path !== file.thumb?.path)
           )
-            throw new Error("File changed while preparing deletion; retry deletion");
+            throw new Error("File changed while preparing deletion. Retry the deletion.");
 
           for (const id of file.tagIdsWithAncestors) tagIds.add(String(id));
         }
@@ -437,7 +437,7 @@ export const deleteFiles = makeAction(
 
         if (await models.FileModel.exists({ _id: { $in: fileIds } }))
           throw new Error(
-            "A file changed during deletion. Its current media and record were retained.",
+            "A file changed during deletion. Its current media and record were kept.",
           );
 
         await actions.regenMediaProgramsByFileIds(fileIds);
@@ -1018,7 +1018,7 @@ export const repairVideoCodecs = makeAction(async ({ repairId }: { repairId: str
         processedCount++;
         unlock([String(file._id)]);
         progress(
-          `Codec inspection: ${Fmt.commas(processedCount)} / ${Fmt.commas(candidates.length)} videos; ${Fmt.commas(corruptedCount)} marked corrupted.`,
+          `Codec inspection: ${Fmt.commas(processedCount)} / ${Fmt.commas(candidates.length)} videos, ${Fmt.commas(corruptedCount)} marked corrupted.`,
         );
       }
     }
@@ -1280,7 +1280,7 @@ export const repairPreviousHashes = makeAction(async ({ repairId }: { repairId: 
         unlock(writtenIds.splice(0));
         updatedCount += result.modifiedCount;
         progress(
-          `Previous checksums: checked ${Fmt.commas(checkedCount)} replaced transforms; updated ${Fmt.commas(updatedCount)} files.`,
+          `Previous checksums: checked ${Fmt.commas(checkedCount)} replaced transforms, updated ${Fmt.commas(updatedCount)} files.`,
         );
       }
     };
@@ -1619,23 +1619,23 @@ export const repairMissingAudioAnalysis = makeAction(
           : "";
 
         const ffmpegReads = ffmpegReadCount
-          ? `; ${Fmt.commas(ffmpegReadCount)} large or high-bitrate videos read by ffmpeg itself`
+          ? `, ${Fmt.commas(ffmpegReadCount)} large or high-bitrate videos read by ffmpeg`
           : "";
 
         const corrupted = corruptedCount
-          ? `; ${Fmt.commas(corruptedCount)} videos with undecodable audio marked`
+          ? `, ${Fmt.commas(corruptedCount)} videos with undecodable audio marked`
           : "";
 
         const skipped = skippedCount
-          ? `; ${Fmt.commas(skippedCount)} unreadable videos skipped`
+          ? `, ${Fmt.commas(skippedCount)} unreadable videos skipped`
           : "";
 
         const average = completedCount
-          ? `, averaging ${formatAverage(Date.now() - startedAt)} each: ${driveReads}extraction ${formatAverage(totals.extractMs)}, inference ${formatAverage(totals.inferenceMs)}, vector writes ${formatAverage(totals.writeMs)} (waited on ${formatAverage(totals.writeWaitMs)}); ${(totals.audioSeconds / completedCount).toFixed(1)}s of audio per video, the longest ${longestAudioSeconds.toFixed(1)}s${ffmpegReads}${corrupted}${skipped}`
+          ? `, averaging ${formatAverage(Date.now() - startedAt)} each: ${driveReads}extraction ${formatAverage(totals.extractMs)}, inference ${formatAverage(totals.inferenceMs)}, vector writes ${formatAverage(totals.writeMs)} (waited on ${formatAverage(totals.writeWaitMs)}), ${(totals.audioSeconds / completedCount).toFixed(1)}s of audio per video, the longest ${longestAudioSeconds.toFixed(1)}s${ffmpegReads}${corrupted}${skipped}`
           : "";
 
         progress(
-          `Audio analysis: video ${Fmt.commas(processedCount)} / ${Fmt.commas(fileCount)}; ${Fmt.commas(completedCount)} completed${average}. ${step}`,
+          `Audio analysis: video ${Fmt.commas(processedCount)} / ${Fmt.commas(fileCount)}, ${Fmt.commas(completedCount)} completed${average}. ${step}`,
         );
       };
 
@@ -1802,7 +1802,7 @@ export const repairMissingAudioAnalysis = makeAction(
           );
 
           if (!updateRes.matchedCount)
-            throw new Error("File changed during audio analysis; retry repair");
+            throw new Error("File changed during audio analysis. Retry the repair.");
 
           socket.emitVolatile("onFileUpdated", { id: file._id.toString(), updates });
         }
@@ -2244,7 +2244,7 @@ export const repairThumbnailNtfsMetadata = makeAction(
         unlock(files.map((file) => String(file._id)));
 
         report(
-          `Inspected ${inspectedCount} / ${totalCount} thumbnails; stored ${storedCount} NTFS identities and could not inspect ${failedCount}.`,
+          `Inspected ${inspectedCount} / ${totalCount} thumbnails, stored ${storedCount} NTFS identities, ${failedCount} failed.`,
           "progress",
         );
       }
@@ -2253,7 +2253,7 @@ export const repairThumbnailNtfsMetadata = makeAction(
 
       if (failedCount)
         throw new Error(
-          `${failedCount} thumbnail identities could not be inspected; successful repairs were retained.`,
+          `${failedCount} thumbnail identities could not be inspected. Successful repairs were kept.`,
         );
 
       report(
@@ -2755,7 +2755,7 @@ class ThumbRepairer {
 
         if (invalidThumbnailCount % 25 === 0)
           this.progressLog(
-            `Processed ${invalidThumbnailCount} files with missing thumbnails so far; regenerated ${regeneratedThumbnailCount}, restored ${restoredThumbnailRecordCount}, and failed ${this.errorCount}.`,
+            `Processed ${invalidThumbnailCount} files with missing thumbnails so far: ${regeneratedThumbnailCount} regenerated, ${restoredThumbnailRecordCount} restored, ${this.errorCount} failed.`,
           );
       }
 
@@ -2763,7 +2763,7 @@ class ThumbRepairer {
       this.unlock(files.map((file) => file.id));
       files = [];
       this.progressLog(
-        `Scanned ${scannedCount} / ${totalFileCount} files. Found ${invalidThumbnailCount} missing thumbnail files; regenerated ${regeneratedThumbnailCount} and restored ${restoredThumbnailRecordCount} database records.`,
+        `Scanned ${scannedCount} / ${totalFileCount} files. Found ${invalidThumbnailCount} missing thumbnail files, regenerated ${regeneratedThumbnailCount} and restored ${restoredThumbnailRecordCount} database records.`,
       );
     };
 

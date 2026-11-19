@@ -5,7 +5,6 @@ import { Model, model, modelAction, modelFlow, prop } from "mobx-keystone";
 import type { ImportStatus } from "medior/server/database";
 import { asyncAction, toast } from "medior/utils/client";
 import {
-  IMPORT_UPLOAD_BYTES,
   IMPORT_UPLOAD_COUNT,
   ImportBatchInput,
   ImportBatchOptions,
@@ -348,7 +347,6 @@ export class ImportManager extends Model({
       const id = new ObjectId().toHexString();
       let count = 0;
       let entries: ImportEntryInput[] = [];
-      let size = 2;
 
       const retryUploadRequest = async <T>(send: () => Promise<T>) => {
         try {
@@ -369,7 +367,6 @@ export class ImportManager extends Model({
 
           count = result.data.count;
           entries = [];
-          size = 2;
           onProgress?.(count);
           await sleep(0);
         }
@@ -384,9 +381,12 @@ export class ImportManager extends Model({
         for await (const entry of imports) {
           if (isCancelled?.()) throw new Error("Import upload cancelled");
 
-          const input: ImportEntryInput = {
+          if (entries.length >= IMPORT_UPLOAD_COUNT) await flush();
+
+          entries.push({
+            comfyPrompt: entry.comfyPrompt,
+            comfyWorkflow: entry.comfyWorkflow,
             dateCreated: entry.dateCreated,
-            diffusionParams: entry.diffusionParams,
             extension: entry.extension,
             name: entry.name,
             path: entry.path,
@@ -394,17 +394,7 @@ export class ImportManager extends Model({
             size: entry.size,
             subtitles: entry.subtitles,
             tagIds: [...new Set(entry.tagIds ?? [])],
-          };
-          const bytes = Buffer.byteLength(JSON.stringify(input), "utf8");
-
-          if (bytes + 2 > IMPORT_UPLOAD_BYTES)
-            throw new Error(`Import metadata is too large: ${entry.path}`);
-
-          if (entries.length >= IMPORT_UPLOAD_COUNT || size + bytes + 1 > IMPORT_UPLOAD_BYTES)
-            await flush();
-
-          size += bytes + (entries.length ? 1 : 0);
-          entries.push(input);
+          });
         }
 
         await flush();
@@ -427,7 +417,7 @@ export class ImportManager extends Model({
           batch = await rpc.getImportBatch({ id });
         } catch {
           throw new Error(
-            `${error.message}. Could not confirm upload ${id}; check Import Manager before retrying.`,
+            `${error.message}. Could not confirm upload ${id}. Check Import Manager before retrying.`,
           );
         }
 

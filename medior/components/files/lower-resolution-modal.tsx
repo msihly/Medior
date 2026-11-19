@@ -63,7 +63,7 @@ export const LowerResolutionModal = Comp(() => {
     },
     idle: {
       description:
-        "Images and videos are compared using their visual similarity index. Lower the minimum similarity to include looser variants. Nothing is archived until you review it.",
+        "Lower the minimum similarity to include looser variants. Nothing is archived until you review it.",
       title: "Find files that look the same",
     },
     paused: {
@@ -205,7 +205,7 @@ export const LowerResolutionModal = Comp(() => {
                     icon="DoNotDisturb"
                     onClick={store.dismissSelected}
                     disabled={isBusy || !store.selectedCount}
-                    tooltip="Mark the selected files as not duplicates of their group's best-quality file, such as confirmed variations. They leave their groups and stay apart in later searches until either file changes."
+                    tooltip="Mark the selected files as not duplicates of their group's best-quality file. They leave their groups and stay apart in later searches until either file changes."
                   />
 
                   <Divider orientation="vertical" />

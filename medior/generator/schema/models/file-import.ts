@@ -12,9 +12,11 @@ model.addIndex({ batchId: 1, status: 1, index: 1 });
 model.addIndex({ batchId: 1, path: 1 }, { unique: false });
 model.addProp("batchId", "FileImportBatch.id");
 
-model.addProp("dateCreated", "string", { required: true });
+model.addProp("comfyPrompt", "string");
 
-model.addProp("diffusionParams", "string");
+model.addProp("comfyWorkflow", "string");
+
+model.addProp("dateCreated", "string", { required: true });
 
 model.addProp("errorMsg", "string");
 

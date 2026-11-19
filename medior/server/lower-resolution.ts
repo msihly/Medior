@@ -104,10 +104,7 @@ interface DuplicateScan {
   groupPaused?: boolean;
   /** Searched files with matches that have been grouped. */
   grouped: number;
-  /**
-   * How the groups were built. Groups from an older version, which raised the similarity of files
-   * created close together or kept the largest file, are built again.
-   */
+  /** How the groups were built; groups built by another version are built again. */
   groupVersion: number;
   /** Searched files with at least one match. */
   matched: number;
@@ -238,17 +235,8 @@ const DuplicateDismissalModel = registerPersistenceModel<DuplicateDismissal>(
 
 const BATCH_SIZE = 512;
 const GROUP_BATCH_SIZE = 512;
-/**
- * Raised whenever groups are built differently: 2 scores visual similarity alone and keeps the
- * best quality by watermark and JPEG compression before file size; 3 releases files below the
- * threshold against the keeper and ranks compression only within all-JPEG groups; 4 marks files
- * that differ from the keeper in framing, colour, or content as variations; 5 keeps the video
- * with the most detail by resolution and bitrate together; 6 weights that bitrate by codec; 7
- * compares variations at a finer scale, marking small recoloured areas such as changed clothing;
- * 8 marks smaller changes and records how much of each file differs from the keeper; 9 matches
- * tones first and marks any edited area, letting exposure shifts and watermarks through.
- */
-const GROUP_VERSION = 9;
+/** Raised whenever groups are built differently, so scans grouped by another version are grouped again. */
+const GROUP_VERSION = 10;
 /** Files created nearby that each group lists at most. */
 const NEARBY_PAGE_SIZE = 50;
 /** Queries started past the oldest unstored one, bounding the results held until it finishes. */
@@ -267,6 +255,23 @@ const tasks = new Map<string, ScanTask>();
 
 const isEligible = (file: { isArchived?: boolean; isCorrupted?: boolean }) =>
   !file.isArchived && !file.isCorrupted;
+
+/**
+ * The files among these that diffusion generated, by the ComfyUI metadata or Automatic1111 parameters they were imported with.
+ * Their seeds and upscales differ only slightly but are each kept, so they're never searched or grouped as duplicates.
+ */
+const findDiffusionIds = async (fileIds: string[]) => {
+  const files = await FileModel.find({
+    $or: ["comfyPrompt", "comfyWorkflow", "diffusionParams"].map((field) => ({
+      [field]: { $ne: "", $type: "string" },
+    })),
+    _id: { $in: fileIds },
+  })
+    .select({ _id: 1 })
+    .lean();
+
+  return new Set(files.map((file) => String(file._id)));
+};
 
 /** Matches sort by their searched file's ID, the order the search stores them in. */
 const getMatchId = (scanId: string, fileId: string) => `${scanId}:match:${fileId}`;
@@ -497,7 +502,7 @@ const formGroups = async (scanId: string, task: GroupTask, docs: ScanMatch[]) =>
   const fileIds = [
     ...new Set(docs.flatMap((doc) => [doc.fileId, ...doc.matches.map((match) => match.id)])),
   ];
-  const [files, filteredFiles] = await Promise.all([
+  const [files, filteredFiles, diffusionIds] = await Promise.all([
     FileModel.find({ _id: { $in: fileIds } })
       .select(fileProjection)
       .lean(),
@@ -506,8 +511,13 @@ const formGroups = async (scanId: string, task: GroupTask, docs: ScanMatch[]) =>
           .select({ _id: 1 })
           .lean()
       : null,
+    findDiffusionIds(fileIds),
   ]);
-  const byId = new Map(files.filter(isEligible).map((file) => [String(file._id), file]));
+  const byId = new Map(
+    files
+      .filter((file) => isEligible(file) && !diffusionIds.has(String(file._id)))
+      .map((file) => [String(file._id), file]),
+  );
   const filteredIds = filteredFiles && new Set(filteredFiles.map((file) => String(file._id)));
   const groups: Pick<ScanGroup, "_id" | "files" | "scanId">[] = [];
 
@@ -777,8 +787,9 @@ const makeChunkReader = (task: ScanTask) => {
 const searchChunk = async (task: ScanTask, files: SearchFile[]): Promise<SearchedChunk> => {
   const { scan } = task;
 
+  const diffusionIds = await findDiffusionIds(files.map((file) => String(file._id)));
   const sources = files
-    .filter(isEligible)
+    .filter((file) => isEligible(file) && !diffusionIds.has(String(file._id)))
     .map((file) => ({ fileId: String(file._id), hash: file.hash }));
   const hashes = new Map(sources.map((file) => [file.fileId, file.hash]));
   const results = sources.length

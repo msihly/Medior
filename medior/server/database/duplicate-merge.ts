@@ -11,15 +11,16 @@ type DuplicateFile = Parameters<typeof mergeDuplicateMetadata>[0] &
   Pick<models.FileSchema, "hasTranscript"> & { _id: MongoTypes.ObjectId };
 
 /**
- * Moves a duplicate's tags, higher rating, diffusion parameters, name, bookmarks, timestamps,
- * transcript, translations, collection entries, media program episodes, and playlist places onto
- * the file that replaces it. Archiving the duplicate is left to the caller.
+ * Moves a duplicate's tags, higher rating, ComfyUI prompt and workflow, Automatic1111 parameters, name, bookmarks, timestamps, transcript, translations, collection entries, media program episodes, and playlist places onto the file that replaces it.
+ * Archiving the duplicate is left to the caller.
  */
 export const mergeDuplicateFile = async (original: DuplicateFile, match: DuplicateFile) => {
   const metadata = mergeDuplicateMetadata(original, match);
   const updates = {
     bookmarks: metadata.bookmarks,
     captionTranslations: metadata.captionTranslations,
+    comfyPrompt: metadata.comfyPrompt,
+    comfyWorkflow: metadata.comfyWorkflow,
     diffusionParams: metadata.diffusionParams,
     hasTranscript: metadata.hasTranscript,
     nameTranslations: metadata.nameTranslations,
@@ -28,9 +29,8 @@ export const mergeDuplicateFile = async (original: DuplicateFile, match: Duplica
     transcription: metadata.transcription,
   };
 
-  // Metadata, tags, and ratings the match already has would only rewrite it, and tags and ratings
-  // would also queue metadata regeneration for nothing. Lists it lacks, such as translations on
-  // files from before them, count as empty.
+  // Metadata, tags, and ratings the match already has would only rewrite it, and tags and ratings would also queue metadata regeneration for nothing.
+  // Lists it lacks, such as translations on files from before them, count as empty.
   if (
     Object.entries(updates).some(
       ([key, value]) => !isDeepEqual(Array.isArray(value) ? (match[key] ?? []) : match[key], value),

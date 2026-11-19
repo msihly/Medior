@@ -26,7 +26,7 @@ export const areImportEntriesReady = async () => {
 export const assertImportEntriesReady = async () => {
   if (!(await areImportEntriesReady()))
     throw new Error(
-      "Import history is upgrading in the background. This action will be available when it finishes. Check Activity for progress or Retry; library browsing remains available.",
+      "Import history is upgrading in the background. This action will be available when it finishes. Check Activity for progress or Retry.",
     );
 };
 

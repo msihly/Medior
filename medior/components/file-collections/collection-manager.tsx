@@ -437,7 +437,7 @@ export const FileCollectionManager = Comp(() => {
             icon="LiveTv"
             onClick={handleCopySeasons}
             disabled={!hasSelectedCollectionIds}
-            tooltip="Copies each collection's files into a new season; the collections are kept"
+            tooltip="Copies each collection's files into a new season. Collections are kept."
             color={colors.custom.blue}
           />
         )}

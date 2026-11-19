@@ -157,6 +157,8 @@ export interface FileSchema {
     text: string;
   }>;
   collectionIds: string[];
+  comfyPrompt?: string;
+  comfyWorkflow?: string;
   dateCreated: string;
   dateImported: string;
   dateModified: string;
@@ -237,6 +239,8 @@ const FileSchema = new Schema<FileSchema>({
     },
   ],
   collectionIds: [{ type: Schema.Types.ObjectId, ref: "FileCollection" }],
+  comfyPrompt: String,
+  comfyWorkflow: String,
   dateImported: String,
   dateModified: String,
   diffusionParams: String,
@@ -425,8 +429,9 @@ export const FileCollectionModel = model<FileCollectionSchema>(
 
 export interface FileImportSchema {
   batchId?: string;
+  comfyPrompt?: string;
+  comfyWorkflow?: string;
   dateCreated: string;
-  diffusionParams?: string;
   errorMsg?: string;
   extension: string;
   fileId?: string;
@@ -439,8 +444,9 @@ export interface FileImportSchema {
   sidecar?: Partial<
     Pick<
       FileSchema,
+      | "comfyPrompt"
+      | "comfyWorkflow"
       | "dateCreated"
-      | "diffusionParams"
       | "isArchived"
       | "originalName"
       | "rating"
@@ -464,8 +470,9 @@ export interface FileImportSchema {
 const FileImportSchema = new Schema<FileImportSchema>({
   id: String,
   batchId: Schema.Types.ObjectId,
+  comfyPrompt: String,
+  comfyWorkflow: String,
   dateCreated: String,
-  diffusionParams: String,
   errorMsg: String,
   extension: String,
   fileId: Schema.Types.ObjectId,

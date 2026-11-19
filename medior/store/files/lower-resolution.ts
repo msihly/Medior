@@ -390,7 +390,7 @@ export class LowerResolutionStore extends Model({
       );
 
       toast.info(
-        `Archived ${Fmt.commas(job.processed - failedCount)} duplicates${failedCount ? `; ${Fmt.commas(failedCount)} need attention` : ""}`,
+        `Archived ${Fmt.commas(job.processed - failedCount)} duplicates${failedCount ? `, ${Fmt.commas(failedCount)} need attention` : ""}`,
       );
     }
 

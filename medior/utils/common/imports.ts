@@ -5,13 +5,13 @@ import type {
 } from "medior/_generated/server/models";
 
 export const IMPORT_PAGE_SIZE = 100;
-export const IMPORT_UPLOAD_BYTES = 4 * 1024 * 1024;
 export const IMPORT_UPLOAD_COUNT = 1000;
 
 export const FILE_SIDECAR_FIELDS = [
   "collections",
+  "comfyPrompt",
+  "comfyWorkflow",
   "dateCreated",
-  "diffusionParams",
   "isArchived",
   "originalName",
   "rating",
@@ -37,8 +37,9 @@ export type FileSidecarCollection = FileImportSidecar["collections"][number];
 
 export type ImportEntryInput = Pick<
   FileImportSchema,
+  | "comfyPrompt"
+  | "comfyWorkflow"
   | "dateCreated"
-  | "diffusionParams"
   | "extension"
   | "name"
   | "path"

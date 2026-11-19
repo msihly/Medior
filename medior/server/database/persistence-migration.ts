@@ -199,7 +199,7 @@ const consolidatePersistence = async (retry: boolean) => {
       for (const document of records) {
         if (!isDeepStrictEqual(document, byId.get(EJSON.stringify(document._id))))
           throw new Error(
-            `Recovery record verification failed in ${sourceName}; its source collection was retained.`,
+            `Recovery record verification failed in ${sourceName}. Its source collection was kept.`,
           );
       }
 

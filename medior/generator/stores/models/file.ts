@@ -37,10 +37,10 @@ model.addLogOpProp("rating");
 
 model.addTagOptsProp("tagIds", "tagIdsWithAncestors");
 
-model.addProp("diffusionParams", "string", "null", {
-  filterGroup: "diffusionParams",
-  objPath: ["diffusionParams", "$regex"],
-  objValue: "args.diffusionParams",
+model.addProp("comfyPrompt", "string", "null", {
+  filterGroup: "comfyPrompt",
+  objPath: ["comfyPrompt", "$regex"],
+  objValue: "args.comfyPrompt",
 });
 
 model.addProp("excludedFileIds", "string[]", "() => []", {
@@ -48,11 +48,12 @@ model.addProp("excludedFileIds", "string[]", "() => []", {
   objValue: "objectIds(args.excludedFileIds)",
 });
 
-model.addProp("hasDiffParams", "boolean", "false", {
-  objPath: ["$expr", "$and"],
+/** Files ComfyUI saved a prompt or workflow into. */
+model.addProp("hasComfyMeta", "boolean", "false", {
+  objPath: ["$expr", "$or"],
   objValue: `[
-      { $eq: [{ $type: '$diffusionParams' }, 'string'] },
-      { $ne: ['$diffusionParams', ''] }
+      { $and: [{ $eq: [{ $type: '$comfyPrompt' }, 'string'] }, { $ne: ['$comfyPrompt', ''] }] },
+      { $and: [{ $eq: [{ $type: '$comfyWorkflow' }, 'string'] }, { $ne: ['$comfyWorkflow', ''] }] }
     ]`,
 });
 

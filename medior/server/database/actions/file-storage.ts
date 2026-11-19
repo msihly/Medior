@@ -262,7 +262,7 @@ export const removeMissingStorageRecords = makeAction(
 
         unlock(batch);
         report(
-          `Removed ${Fmt.commas(removedCount)} missing records; retained ${Fmt.commas(retainedCount)} records whose files are now present.`,
+          `Removed ${Fmt.commas(removedCount)} missing records and kept ${Fmt.commas(retainedCount)} whose files are now present.`,
           "progress",
         );
       }
@@ -317,7 +317,7 @@ export const scanFileStorage = makeAction(async ({ repairId }: { repairId: strin
         const rate = Math.round((inspected * 1000) / Math.max(1, Date.now() - scanStartedAt));
 
         progress(
-          `Storage scan: checked ${inspected.toLocaleString()} records at ${rate.toLocaleString()} records/s; ${candidates.length.toLocaleString()} need recovery.`,
+          `Storage scan: checked ${inspected.toLocaleString()} records at ${rate.toLocaleString()} records/s, ${candidates.length.toLocaleString()} need recovery.`,
         );
       };
 
@@ -350,7 +350,7 @@ export const scanFileStorage = makeAction(async ({ repairId }: { repairId: strin
         }
 
         progress(
-          `Storage scan: checking ${files.length.toLocaleString()} records across ${groupedPaths.size.toLocaleString()} folders; ${inspected.toLocaleString()} records already checked.`,
+          `Storage scan: checking ${files.length.toLocaleString()} records across ${groupedPaths.size.toLocaleString()} folders, ${inspected.toLocaleString()} already checked.`,
         );
 
         await runConcurrent(
@@ -658,7 +658,7 @@ export const scanFileStorage = makeAction(async ({ repairId }: { repairId: strin
 
         if (index % 250 === 0)
           progress(
-            `Storage scan: resolved ${(index + 1).toLocaleString()} / ${candidates.length.toLocaleString()} candidates; recovered ${recoveredFiles.toLocaleString()} media paths and ${recoveredThumbs.toLocaleString()} thumbnail paths.`,
+            `Storage scan: resolved ${(index + 1).toLocaleString()} / ${candidates.length.toLocaleString()} candidates, recovered ${recoveredFiles.toLocaleString()} media paths and ${recoveredThumbs.toLocaleString()} thumbnail paths.`,
           );
       }
 
@@ -671,7 +671,7 @@ export const scanFileStorage = makeAction(async ({ repairId }: { repairId: strin
 
       if (fileIdsLeftInDbOnly.length || unresolvedThumbs)
         report(
-          "Unresolved paths were retained. Review missing records and untracked files in the Storage Reconciliation results below. Thumbnail repair can regenerate missing thumbnails from available originals.",
+          "Unresolved paths were kept. Review missing records and untracked files in the Storage Reconciliation results below, and use Regenerate Missing Thumbnails for missing thumbnails.",
         );
 
       return {

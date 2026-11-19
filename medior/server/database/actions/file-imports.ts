@@ -42,7 +42,6 @@ import {
   dayjs,
   Fmt,
   IMPORT_PAGE_SIZE,
-  IMPORT_UPLOAD_BYTES,
   IMPORT_UPLOAD_COUNT,
   ImportBatchOptions,
   ImportEntryInput,
@@ -427,8 +426,9 @@ export const appendImportBatchEntries = makeAction(
       throw new Error("Invalid import upload chunk");
 
     const imports = args.imports.map((entry) => ({
+      comfyPrompt: entry.comfyPrompt,
+      comfyWorkflow: entry.comfyWorkflow,
       dateCreated: entry.dateCreated,
-      diffusionParams: entry.diffusionParams,
       extension: entry.extension,
       name: entry.name,
       path: entry.path,
@@ -437,10 +437,6 @@ export const appendImportBatchEntries = makeAction(
       subtitles: entry.subtitles?.map(({ path }) => ({ path })),
       tagIds: [...new Set(entry.tagIds ?? [])],
     }));
-    const payload = JSON.stringify(imports);
-
-    if (Buffer.byteLength(payload, "utf8") > IMPORT_UPLOAD_BYTES)
-      throw new Error("Import upload chunk exceeds the size limit");
 
     for (const entry of imports) {
       if (
@@ -453,7 +449,7 @@ export const appendImportBatchEntries = makeAction(
         throw new Error("Invalid file in import upload");
     }
 
-    const hash = createHash("sha256").update(payload).digest("hex");
+    const hash = createHash("sha256").update(JSON.stringify(imports)).digest("hex");
 
     return runImportTransaction(async () => {
       const batch = await models.FileImportBatchModel.findById(args.id).lean();
@@ -1015,7 +1011,7 @@ export const reprocessStoredImports = makeAction(
               },
               {
                 $set: {
-                  errorMsg: "Its file was removed as a redundant stored copy; reprocess to retry.",
+                  errorMsg: "Its file was removed as a redundant stored copy. Reprocess to retry.",
                   fileId: null,
                   status: "ERROR",
                 },
@@ -1216,9 +1212,10 @@ export const runImportBatch = makeAction(async (args: { id: string }) => {
                 (file) =>
                   importBatchFile({
                     batchId: id,
+                    comfyPrompt: file.comfyPrompt,
+                    comfyWorkflow: file.comfyWorkflow,
                     dateCreated: file.dateCreated,
                     deleteOnImport: batch.deleteOnImport,
-                    diffusionParams: file.diffusionParams,
                     ext: file.extension,
                     ignorePrevDeleted: batch.ignorePrevDeleted,
                     musicOptions: batch.music ?? null,

@@ -118,7 +118,7 @@ export class MediaProgramStore extends Model({
       const matched = await rpc.matchMediaProgramsMeta({ ids });
       if (!matched.success) throw new Error(matched.error);
 
-      toast.success("Media program metadata refreshed; public details load in the background");
+      toast.success("Media program metadata refreshed. Public details load in the background.");
     }
   });
 

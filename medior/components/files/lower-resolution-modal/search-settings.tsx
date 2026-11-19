@@ -65,7 +65,7 @@ export const SearchSettings = Comp(() => {
           header="Block"
           labelTextProps={{
             tooltip:
-              "Size of the areas changes are measured in. Smaller areas catch smaller edits, such as a hat.",
+              "Size of the areas changes are measured in. Smaller areas catch smaller edits.",
           }}
           options={BLOCK_SIZE_OPTIONS}
           value={String(store.variationBlockSize)}
@@ -79,7 +79,7 @@ export const SearchSettings = Comp(() => {
           header="Threshold"
           labelTextProps={{
             tooltip:
-              "How far an area's brightness must change, out of 255, to mark a variation. Lower values catch subtler edits.",
+              "Brightness change, out of 255, that marks a variation. Lower values catch subtler edits.",
           }}
           value={store.variationThreshold}
           setValue={store.setVariationThreshold}

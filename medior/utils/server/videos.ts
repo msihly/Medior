@@ -489,7 +489,7 @@ export const getMediaInfo = async (
             : metadata.format;
 
     if ((metadata.pages ?? 1) > 1 && isAnimated && !(videoInfo.duration > 0))
-      throw new Error("Animated image timing could not be read; refusing to flatten its frames.");
+      throw new Error("Animated image timing could not be read. Its frames were not flattened.");
 
     if (isAnimated || videoInfo?.isAnimated) info = { ...videoInfo, ext, isAnimated: true };
     else

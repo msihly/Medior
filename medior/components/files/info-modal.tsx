@@ -7,6 +7,7 @@ import {
   Comp,
   DateDetail,
   Detail,
+  DiffusionDetails,
   Icon,
   IdButton,
   LoadingOverlay,
@@ -23,6 +24,7 @@ import {
   formatCaptionSegments,
   getCaptionTranslation,
   getNameTranslation,
+  hasComfyMetadata,
   hasTranscription,
   round,
 } from "medior/utils/common";
@@ -284,12 +286,12 @@ export const InfoModal = Comp(() => {
           />
         )}
 
-        {file?.diffusionParams?.length > 0 && (
+        {hasComfyMetadata(file) && (
           <Detail
-            label="Diffusion Params"
+            label="ComfyUI"
             value={
               <Card>
-                <Text>{file.diffusionParams}</Text>
+                <DiffusionDetails comfyPrompt={file.comfyPrompt} />
               </Card>
             }
           />

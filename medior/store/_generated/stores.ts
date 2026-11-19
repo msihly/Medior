@@ -38,6 +38,8 @@ export class _FileSearch extends Model({
   bitrateMode: prop<"optional" | "required">("required").withSetter(),
   cachedFilterProps: prop<object | null>(null).withSetter(),
   carouselFileIds: prop<string[]>(() => []).withSetter(),
+  comfyPrompt: prop<string>(null).withSetter(),
+  comfyPromptMode: prop<"optional" | "required">("required").withSetter(),
   dateCreatedEnd: prop<string>("").withSetter(),
   dateCreatedMode: prop<"optional" | "required">("required").withSetter(),
   dateCreatedStart: prop<string>("").withSetter(),
@@ -47,8 +49,6 @@ export class _FileSearch extends Model({
   dateModifiedEnd: prop<string>("").withSetter(),
   dateModifiedMode: prop<"optional" | "required">("required").withSetter(),
   dateModifiedStart: prop<string>("").withSetter(),
-  diffusionParams: prop<string>(null).withSetter(),
-  diffusionParamsMode: prop<"optional" | "required">("required").withSetter(),
   duration: prop<{ logOp: LogicalOp | ""; value: number }>(() => ({ logOp: "", value: 0 })),
   durationMode: prop<"optional" | "required">("required").withSetter(),
   excludedFileIds: prop<string[]>(() => []).withSetter(),
@@ -56,7 +56,7 @@ export class _FileSearch extends Model({
   frameRate: prop<{ logOp: LogicalOp | ""; value: number }>(() => ({ logOp: "", value: 0 })),
   frameRateMode: prop<"optional" | "required">("required").withSetter(),
   hasChanges: prop<boolean>(false).withSetter(),
-  hasDiffParams: prop<boolean>(false).withSetter(),
+  hasComfyMeta: prop<boolean>(false).withSetter(),
   hasMusic: prop<boolean>(false).withSetter(),
   hasTimeline: prop<boolean>(false).withSetter(),
   heightMode: prop<"optional" | "required">("required").withSetter(),
@@ -290,6 +290,8 @@ export class _FileSearch extends Model({
     this.bitrateMode = "required";
     this.cachedFilterProps = null;
     this.carouselFileIds = [];
+    this.comfyPrompt = null;
+    this.comfyPromptMode = "required";
     this.dateCreatedEnd = "";
     this.dateCreatedMode = "required";
     this.dateCreatedStart = "";
@@ -299,8 +301,6 @@ export class _FileSearch extends Model({
     this.dateModifiedEnd = "";
     this.dateModifiedMode = "required";
     this.dateModifiedStart = "";
-    this.diffusionParams = null;
-    this.diffusionParamsMode = "required";
     this.duration = { logOp: "", value: 0 };
     this.durationMode = "required";
     this.excludedFileIds = [];
@@ -308,7 +308,7 @@ export class _FileSearch extends Model({
     this.frameRate = { logOp: "", value: 0 };
     this.frameRateMode = "required";
     this.hasChanges = false;
-    this.hasDiffParams = false;
+    this.hasComfyMeta = false;
     this.hasMusic = false;
     this.hasTimeline = false;
     this.heightMode = "required";
@@ -704,17 +704,17 @@ export class _FileSearch extends Model({
   get numOfFilters() {
     return (
       (!isDeepEqual(this.bitrate, { logOp: "", value: 0 }) ? 1 : 0) +
+      (!isDeepEqual(this.comfyPrompt, null) ? 1 : 0) +
       (!isDeepEqual(this.dateCreatedEnd, "") ? 1 : 0) +
       (!isDeepEqual(this.dateCreatedStart, "") ? 1 : 0) +
       (!isDeepEqual(this.dateImportedEnd, "") ? 1 : 0) +
       (!isDeepEqual(this.dateImportedStart, "") ? 1 : 0) +
       (!isDeepEqual(this.dateModifiedEnd, "") ? 1 : 0) +
       (!isDeepEqual(this.dateModifiedStart, "") ? 1 : 0) +
-      (!isDeepEqual(this.diffusionParams, null) ? 1 : 0) +
       (!isDeepEqual(this.duration, { logOp: "", value: 0 }) ? 1 : 0) +
       (!isDeepEqual(this.excludedFileIds, []) ? 1 : 0) +
       (!isDeepEqual(this.frameRate, { logOp: "", value: 0 }) ? 1 : 0) +
-      (!isDeepEqual(this.hasDiffParams, false) ? 1 : 0) +
+      (!isDeepEqual(this.hasComfyMeta, false) ? 1 : 0) +
       (!isDeepEqual(this.hasMusic, false) ? 1 : 0) +
       (!isDeepEqual(this.hasTimeline, false) ? 1 : 0) +
       (!isDeepEqual(this.ids, []) ? 1 : 0) +
@@ -803,6 +803,8 @@ export class _FileSearch extends Model({
     return {
       bitrate: this.bitrate,
       bitrateMode: this.bitrateMode,
+      comfyPrompt: this.comfyPrompt,
+      comfyPromptMode: this.comfyPromptMode,
       dateCreatedEnd: this.dateCreatedEnd,
       dateCreatedMode: this.dateCreatedMode,
       dateCreatedStart: this.dateCreatedStart,
@@ -812,14 +814,12 @@ export class _FileSearch extends Model({
       dateModifiedEnd: this.dateModifiedEnd,
       dateModifiedMode: this.dateModifiedMode,
       dateModifiedStart: this.dateModifiedStart,
-      diffusionParams: this.diffusionParams,
-      diffusionParamsMode: this.diffusionParamsMode,
       duration: this.duration,
       durationMode: this.durationMode,
       excludedFileIds: this.excludedFileIds,
       frameRate: this.frameRate,
       frameRateMode: this.frameRateMode,
-      hasDiffParams: this.hasDiffParams,
+      hasComfyMeta: this.hasComfyMeta,
       hasMusic: this.hasMusic,
       hasTimeline: this.hasTimeline,
       heightMode: this.heightMode,
@@ -874,6 +874,8 @@ export class _FileSearch extends Model({
     return derefMobx({
       bitrate: this.bitrate,
       bitrateMode: this.bitrateMode,
+      comfyPrompt: this.comfyPrompt,
+      comfyPromptMode: this.comfyPromptMode,
       dateCreatedEnd: this.dateCreatedEnd,
       dateCreatedMode: this.dateCreatedMode,
       dateCreatedStart: this.dateCreatedStart,
@@ -883,14 +885,12 @@ export class _FileSearch extends Model({
       dateModifiedEnd: this.dateModifiedEnd,
       dateModifiedMode: this.dateModifiedMode,
       dateModifiedStart: this.dateModifiedStart,
-      diffusionParams: this.diffusionParams,
-      diffusionParamsMode: this.diffusionParamsMode,
       duration: this.duration,
       durationMode: this.durationMode,
       excludedFileIds: this.excludedFileIds,
       frameRate: this.frameRate,
       frameRateMode: this.frameRateMode,
-      hasDiffParams: this.hasDiffParams,
+      hasComfyMeta: this.hasComfyMeta,
       hasMusic: this.hasMusic,
       hasTimeline: this.hasTimeline,
       heightMode: this.heightMode,
@@ -6364,10 +6364,11 @@ export class _File extends Model({
     }>
   >(null),
   collectionIds: prop<string[]>(() => []),
+  comfyPrompt: prop<string>(null),
+  comfyWorkflow: prop<string>(null),
   dateCreated: prop<string>(() => dayjs().toISOString()),
   dateImported: prop<string>(),
   dateModified: prop<string>(),
-  diffusionParams: prop<string>(null),
   duration: prop<number>(null),
   ext: prop<string>(),
   frameRate: prop<number>(null),
@@ -6552,8 +6553,9 @@ export class _FileCollectionStore extends Model({ isLoading: prop<boolean>(false
 @model("medior/_FileImport")
 export class _FileImport extends Model({
   batchId: prop<string>(null),
+  comfyPrompt: prop<string>(null),
+  comfyWorkflow: prop<string>(null),
   dateCreated: prop<string>(),
-  diffusionParams: prop<string>(null),
   errorMsg: prop<string>(null),
   extension: prop<string>(),
   fileId: prop<string>(null),
